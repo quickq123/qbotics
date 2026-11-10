@@ -54,6 +54,15 @@ public final class Computer {
     /** If set, printed text goes here as it is produced instead of being buffered for takeOutput(). */
     public Consumer<String> outputSink;
 
+    /** Where Python's input() gets a line from. */
+    public interface LineReader {
+        /** Waits for a line to be entered. Returns null if the wait was interrupted (Ctrl+C). */
+        String readLine() throws InterruptedException;
+    }
+
+    /** Null means this computer has nowhere to ask: input() raises EOFError. */
+    public LineReader lineReader;
+
     /** Backward jumps a program may execute before the host gets control again. */
     public int sliceBudget = 20_000;
     public long slicesUsed;
@@ -267,6 +276,30 @@ public final class Computer {
                         }
                         fsResult = new byte[0];
                         return null;
+                    }),
+            new HostFunction("host", "read_line", FunctionType.of(List.of(I32, I32), List.of(I32)),
+                    (inst, args) -> {
+                        LineReader reader = lineReader;
+                        if (reader == null) {
+                            return new long[] {-2};
+                        }
+                        String line;
+                        releaseCpu(); // waiting for a person can take a while
+                        try {
+                            line = reader.readLine();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            line = null;
+                        } finally {
+                            acquireCpu();
+                        }
+                        if (line == null) {
+                            return new long[] {-1};
+                        }
+                        byte[] bytes = line.getBytes(StandardCharsets.UTF_8);
+                        int length = Math.min(bytes.length, (int) args[1]);
+                        instance.memory().write((int) args[0], java.util.Arrays.copyOf(bytes, length));
+                        return new long[] {length};
                     }),
             new HostFunction("host", "wait", FunctionType.of(List.of(I32, I32, I32, I32), List.of(I32)),
                     (inst, args) -> new long[] {

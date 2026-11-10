@@ -33,17 +33,18 @@ public final class QboticsGameTests {
     private static final BlockPos POS = new BlockPos(1, 1, 1);
 
     /** Test name -> test body. Each runs in the "qbotics:empty" structure. */
-    public static final Map<String, Consumer<GameTestHelper>> ALL = Map.of(
-            "cable_recipes", QboticsGameTests::cableRecipes,
-            "cable_connects", QboticsGameTests::cableConnects,
-            "computer_repl", QboticsGameTests::computerRepl,
-            "computer_interrupt", QboticsGameTests::computerInterrupt,
-            "computer_recipe", QboticsGameTests::computerRecipe,
-            "computer_break", QboticsGameTests::computerBreak,
-            "computer_files", QboticsGameTests::computerFiles,
-            "computer_shell", QboticsGameTests::computerShell,
-            "computer_scratchpad", QboticsGameTests::computerScratchpad,
-            "payload_codecs", QboticsGameTests::payloadCodecs);
+    public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
+            Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
+            Map.entry("cable_connects", QboticsGameTests::cableConnects),
+            Map.entry("computer_repl", QboticsGameTests::computerRepl),
+            Map.entry("computer_interrupt", QboticsGameTests::computerInterrupt),
+            Map.entry("computer_recipe", QboticsGameTests::computerRecipe),
+            Map.entry("computer_break", QboticsGameTests::computerBreak),
+            Map.entry("computer_files", QboticsGameTests::computerFiles),
+            Map.entry("computer_shell", QboticsGameTests::computerShell),
+            Map.entry("computer_scratchpad", QboticsGameTests::computerScratchpad),
+            Map.entry("computer_input", QboticsGameTests::computerInput),
+            Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
 
     private QboticsGameTests() {
     }
@@ -54,8 +55,12 @@ public final class QboticsGameTests {
         return ComputerManager.get(helper.getLevel().getServer()).getOrStart(block);
     }
 
+    /** Everything on the terminal, including what has scrolled off the top. */
     private static String screen(ServerComputer computer) {
-        return String.join("\n", computer.terminal().snapshot().lines());
+        Terminal.State state = computer.terminal().full();
+        List<String> all = new ArrayList<>(state.scrolled());
+        all.addAll(state.lines());
+        return String.join("\n", all);
     }
 
     private static void assertScreen(GameTestHelper helper, ServerComputer computer, String... expected) {
@@ -82,8 +87,9 @@ public final class QboticsGameTests {
         for (String line : List.of("python", "while True:", "    pass", "")) {
             computer.submitLine(line);
         }
-        helper.runAfterDelay(10, computer::interrupt);
-        helper.runAfterDelay(12, () -> computer.submitLine("print('still', 'alive')"));
+        // Well after the loop has started, even with other tests competing for the two CPU permits.
+        helper.runAfterDelay(60, computer::interrupt);
+        helper.runAfterDelay(65, () -> computer.submitLine("print('still', 'alive')"));
         helper.succeedWhen(() -> assertScreen(helper, computer, "program stopped by the computer", "still alive\n>>>"));
     }
 
@@ -217,17 +223,42 @@ public final class QboticsGameTests {
         });
     }
 
+    /** input() takes the next line typed at the terminal; Ctrl+C gets a waiting program out of it. */
+    private static void computerInput(GameTestHelper helper) {
+        ServerComputer computer = placeAndStart(helper);
+        for (String line : List.of("python", "name = input('Name? ')", "Ada", "print('hi', name)", "input('again? ')")) {
+            computer.submitLine(line);
+        }
+        helper.runAfterDelay(40, computer::interrupt);
+        helper.runAfterDelay(45, () -> computer.submitLine("print('after', len(name))"));
+        // A scratchpad run has no terminal: input() there is an error, not a hang.
+        helper.runAfterDelay(50, () -> computer.submitScratch(UUID.randomUUID(), 1, "input('never asked')"));
+        helper.runAfterDelay(55, () -> computer.submitLine("print('still here')"));
+        helper.succeedWhen(() -> assertScreen(helper, computer,
+                "Name? Ada\n>>> print('hi', name)\nhi Ada\n", "again?\n", "KeyboardInterrupt", "after 3\n", "still here\n>>>"));
+    }
+
     /** Both packets survive being written to and read from a buffer. */
     private static void payloadCodecs(GameTestHelper helper) {
         Terminal terminal = new Terminal();
-        terminal.write(">>> print('hi')\nhi\n>>> ");
-        TerminalStatePayload state = TerminalStatePayload.of(UUID.randomUUID(), true, terminal.snapshot());
+        for (int i = 0; i < 40; i++) {
+            terminal.write("line " + i + "\n");
+        }
+        terminal.write(">>> ");
+        // 40 lines and a prompt on a 14-row screen: 27 lines have scrolled off.
+        Terminal.State first = terminal.takeUpdate();
+        terminal.write("one more\n");
+        Terminal.State second = terminal.takeUpdate();
+        helper.assertTrue(first.scrolled().size() == 27 && first.scrolledStart() == 0 && first.scrolled().get(26).equals("line 26")
+                && second.scrolled().equals(List.of("line 27")) && second.scrolledStart() == 27
+                && terminal.full().scrolled().size() == 28, "scroll-back should be handed out once, in order: " + second);
+
+        TerminalStatePayload state = new TerminalStatePayload(UUID.randomUUID(), true, terminal.full());
         ByteBuf buffer = Unpooled.buffer();
         TerminalStatePayload.STREAM_CODEC.encode(buffer, state);
         TerminalStatePayload stateBack = TerminalStatePayload.STREAM_CODEC.decode(buffer);
         helper.assertTrue(state.deviceId().equals(stateBack.deviceId()) && stateBack.open()
-                && new ArrayList<>(state.lines()).equals(new ArrayList<>(stateBack.lines()))
-                && stateBack.cursorX() == 4 && stateBack.cursorY() == 2, "terminal state changed in transit: " + stateBack);
+                && state.state().equals(stateBack.state()), "terminal state changed in transit: " + stateBack);
 
         TerminalInputPayload input = new TerminalInputPayload(UUID.randomUUID(), TerminalInputPayload.LINE, "print('héllo')");
         buffer.clear();

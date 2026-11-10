@@ -77,6 +77,30 @@ public final class IdePreviewTool {
         }
         big.shot("5-terminal-focused");
 
+        // Find and replace, autocomplete, and a terminal that has been scrolled back and made taller.
+        Scene tools = new Scene(960, 540, 2);
+        tools.view.openFile("/miner.py");
+        tools.frame();
+        tools.key(72, 2);                                  // Ctrl+H: find and replace
+        for (char c : "layer".toCharArray()) {
+            tools.view.charTyped(c);
+        }
+        tools.key(InputConstants.KEY_RETURN, 0);           // on to the next match
+        tools.shot("8-find-and-replace");
+        tools.key(InputConstants.KEY_ESCAPE, 0);
+
+        tools.click(400, 300, IdeView.LEFT_BUTTON);        // an empty line near the end of main()
+        tools.key(InputConstants.KEY_END, 0);
+        tools.key(InputConstants.KEY_RETURN, 0);
+        for (char c : "miner.".toCharArray()) {
+            tools.view.charTyped(c);
+        }
+        tools.view.mouseClicked(500, 367, IdeView.LEFT_BUTTON, false, false);   // grab the terminal's top edge...
+        tools.view.mouseDragged(500, 300, IdeView.LEFT_BUTTON);                 // ...and pull it up
+        tools.view.mouseReleased();
+        tools.view.mouseScrolled(500, 400, 0, 4, false);   // wheel up over the terminal
+        tools.shot("9-autocomplete-and-scrollback");
+
         // A small window (854x480, Minecraft's default size): one screen pixel per font pixel.
         Scene small = new Scene(854, 480, 1);
         small.view.openFile("/miner.py");
@@ -112,9 +136,9 @@ public final class IdePreviewTool {
             if (backend.hasFiles) {
                 sampleTerminal(session);
             } else {
-                session.terminalLines = List.of("Qbotics computer. Type help for a list of commands.", "/ $");
-                session.terminalCursorX = 4;
-                session.terminalCursorY = 1;
+                qbotics.computer.Terminal terminal = new qbotics.computer.Terminal();
+                terminal.write("Qbotics computer. Type help for a list of commands.\n/ $ ");
+                session.applyTerminal(terminal.full());
             }
             this.view = new IdeView(session, backend, this);
         }
@@ -163,9 +187,14 @@ public final class IdePreviewTool {
         }
     }
 
+    /** A real terminal with more output than fits, so there is scroll-back to look at. */
     private static void sampleTerminal(IdeSession session) {
-        session.terminalLines = List.of(
-                "Qbotics computer. Type help for a list of commands.",
+        qbotics.computer.Terminal terminal = new qbotics.computer.Terminal();
+        terminal.write("Qbotics computer. Type help for a list of commands.\n/ $ run count.py\n");
+        for (int i = 1; i <= 30; i++) {
+            terminal.write("counting " + i + "\n");
+        }
+        terminal.write(String.join("\n",
                 "/ $ ls",
                 "data/",
                 "lib/",
@@ -178,9 +207,8 @@ public final class IdePreviewTool {
                 "Traceback (most recent call last):",
                 "  File \"/miner.py\", line 18, in dig_layer",
                 "ValueError: out of torches",
-                "/ $");
-        session.terminalCursorX = 4;
-        session.terminalCursorY = 13;
+                "/ $ "));
+        session.applyTerminal(terminal.full());
     }
 
     /** Draws into an image, using Minecraft's font bitmap for text. */

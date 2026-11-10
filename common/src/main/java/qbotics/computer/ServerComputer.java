@@ -68,6 +68,8 @@ public final class ServerComputer {
     private volatile Computer vm;
     private volatile boolean running;
     private volatile boolean shutDown;
+    /** True while a program is blocked in input(), waiting for a line. */
+    private volatile boolean waitingForInput;
     /** The shell's current folder. */
     private String cwd = "/";
     /** True once the prompt for the next job is on screen, so it isn't printed twice. */
@@ -123,9 +125,10 @@ public final class ServerComputer {
     /** Ctrl+C: stop the running program, or cancel what is being typed. */
     public void interrupt() {
         Computer current = vm;
-        if (running && current != null) {
+        if (running && current != null && !waitingForInput) {
             current.stop = Computer.StopMode.POLITE;
         } else {
+            // At a prompt, or a program waiting in input(): the waiting side is told directly.
             jobs.offer(new Interrupt());
         }
     }
@@ -149,6 +152,7 @@ public final class ServerComputer {
                     call -> CompletableFuture.completedFuture("error:no world calls yet"), drive);
             computer.cpu = cpu;
             computer.outputSink = terminal::write;
+            computer.lineReader = this::readInputLine;
             vm = computer;
             terminal.clear();
             terminal.write("Qbotics computer. Type help for a list of commands.\n");
@@ -245,6 +249,30 @@ public final class ServerComputer {
         }
     }
 
+    /** Python's input(): the next line typed at the terminal, or null for Ctrl+C. */
+    private String readInputLine() throws InterruptedException {
+        waitingForInput = true;
+        try {
+            while (true) {
+                switch (jobs.take()) {
+                    case Line line -> {
+                        terminal.write(line.text() + "\n");
+                        return line.text();
+                    }
+                    case Interrupt ignored -> {
+                        terminal.write("\n");
+                        return null;
+                    }
+                    case Scratch scratch -> listener.scratchResult(deviceId, scratch.player(), scratch.runId(), false,
+                            "The program in the terminal is waiting for you to type something there.\n");
+                    case RunFile ignored -> terminal.write("\n(a program is already running and waiting for input)\n");
+                }
+            }
+        } finally {
+            waitingForInput = false;
+        }
+    }
+
     private void runGuarded(Computer computer, Runnable body) {
         running = true;
         try {
@@ -278,6 +306,7 @@ public final class ServerComputer {
     private void runScratch(Computer computer, Scratch scratch) {
         StringBuilder output = new StringBuilder();
         boolean[] ok = {false};
+        computer.lineReader = null; // the scratchpad has no terminal to ask
         computer.outputSink = text -> {
             if (output.length() < MAX_SCRATCH_OUTPUT) {
                 output.append(text, 0, Math.min(text.length(), MAX_SCRATCH_OUTPUT - output.length()));
@@ -287,6 +316,7 @@ public final class ServerComputer {
             runGuarded(computer, () -> ok[0] = computer.exec(scratch.code()));
         } finally {
             computer.outputSink = terminal::write;
+            computer.lineReader = this::readInputLine;
         }
         listener.scratchResult(deviceId, scratch.player(), scratch.runId(), ok[0], output.toString());
     }

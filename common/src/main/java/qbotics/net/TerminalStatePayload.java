@@ -12,26 +12,43 @@ import qbotics.Qbotics;
 import qbotics.computer.Terminal;
 
 /**
- * Server to client: the whole screen of one computer.
+ * Server to client: one computer's terminal. The whole screen is sent each time; scroll-back
+ * is sent only as the lines that are new, which the client adds to what it already has.
  *
- * @param open true when the player just right-clicked the computer, so the client should
- *             show the terminal; false for an update to a terminal that is already showing
+ * @param open  true when the player just right-clicked the computer, so the client should
+ *              show its screen; false for an update to a screen that is already showing
+ * @param state the screen and the new scroll-back lines
  */
-public record TerminalStatePayload(UUID deviceId, boolean open, List<String> lines, int cursorX, int cursorY)
-        implements CustomPacketPayload {
+public record TerminalStatePayload(UUID deviceId, boolean open, Terminal.State state) implements CustomPacketPayload {
     public static final Type<TerminalStatePayload> TYPE = new Type<>(Qbotics.id("terminal_state"));
 
-    public static final StreamCodec<ByteBuf, TerminalStatePayload> STREAM_CODEC = StreamCodec.composite(
-            UUIDUtil.STREAM_CODEC, TerminalStatePayload::deviceId,
-            ByteBufCodecs.BOOL, TerminalStatePayload::open,
-            ByteBufCodecs.collection(ArrayList::new, ByteBufCodecs.stringUtf8(Terminal.COLS), Terminal.ROWS), TerminalStatePayload::lines,
-            ByteBufCodecs.VAR_INT, TerminalStatePayload::cursorX,
-            ByteBufCodecs.VAR_INT, TerminalStatePayload::cursorY,
-            TerminalStatePayload::new);
+    private static final StreamCodec<ByteBuf, List<String>> SCROLLED =
+            ByteBufCodecs.collection(ArrayList::new, ByteBufCodecs.stringUtf8(Terminal.COLS), Terminal.MAX_SCROLLBACK);
+    private static final StreamCodec<ByteBuf, List<String>> SCREEN =
+            ByteBufCodecs.collection(ArrayList::new, ByteBufCodecs.stringUtf8(Terminal.COLS), Terminal.ROWS);
 
-    public static TerminalStatePayload of(UUID deviceId, boolean open, Terminal.Snapshot snapshot) {
-        return new TerminalStatePayload(deviceId, open, snapshot.lines(), snapshot.cursorX(), snapshot.cursorY());
-    }
+    public static final StreamCodec<ByteBuf, TerminalStatePayload> STREAM_CODEC = StreamCodec.of(
+            (buffer, payload) -> {
+                Terminal.State state = payload.state();
+                UUIDUtil.STREAM_CODEC.encode(buffer, payload.deviceId());
+                buffer.writeBoolean(payload.open());
+                ByteBufCodecs.VAR_INT.encode(buffer, state.epoch());
+                ByteBufCodecs.VAR_LONG.encode(buffer, state.scrolledStart());
+                SCROLLED.encode(buffer, state.scrolled());
+                SCREEN.encode(buffer, state.lines());
+                ByteBufCodecs.VAR_INT.encode(buffer, state.cursorX());
+                ByteBufCodecs.VAR_INT.encode(buffer, state.cursorY());
+            },
+            buffer -> new TerminalStatePayload(
+                    UUIDUtil.STREAM_CODEC.decode(buffer),
+                    buffer.readBoolean(),
+                    new Terminal.State(
+                            ByteBufCodecs.VAR_INT.decode(buffer),
+                            ByteBufCodecs.VAR_LONG.decode(buffer),
+                            SCROLLED.decode(buffer),
+                            SCREEN.decode(buffer),
+                            ByteBufCodecs.VAR_INT.decode(buffer),
+                            ByteBufCodecs.VAR_INT.decode(buffer))));
 
     @Override
     public Type<TerminalStatePayload> type() {

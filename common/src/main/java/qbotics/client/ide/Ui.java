@@ -17,6 +17,9 @@ abstract class Ui {
     static final int TAB_BG = 0xFF2D2D2D;
     static final int LINE_HIGHLIGHT = 0xFF2A2D2E;
     static final int SELECTION = 0xFF264F78;
+    /** Text found by the find bar, and the one match the cursor is on. */
+    static final int MATCH = 0xFF5A4A1E;
+    static final int MATCH_CURRENT = 0xFF9E6A03;
     static final int BORDER = 0xFF3C3C3C;
     static final int HOVER = 0xFF37373D;
     static final int ACTIVE_ROW = 0xFF094771;

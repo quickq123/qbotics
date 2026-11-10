@@ -242,6 +242,31 @@ public final class TextBuffer {
         typingRun = false;
     }
 
+    /** Selects part of one line, leaving the cursor at its end. */
+    public void select(int onLine, int start, int end) {
+        setCursor(onLine, start, false);
+        setCursor(onLine, end, true);
+    }
+
+    /**
+     * Replaces every match with the same text, as one undoable step. The matches must be
+     * in order, as {@link Finder#find} returns them.
+     */
+    public void replaceMatches(List<Finder.Match> matches, String replacement) {
+        if (matches.isEmpty()) {
+            return;
+        }
+        beginEdit(false);
+        String clean = replacement.replace("\r", "").replace("\n", " ").replace("\t", " ".repeat(INDENT));
+        // Back to front, so earlier matches on a line keep their positions.
+        for (int i = matches.size() - 1; i >= 0; i--) {
+            Finder.Match match = matches.get(i);
+            String text = lines.get(match.line());
+            lines.set(match.line(), text.substring(0, match.start()) + clean + text.substring(match.end()));
+        }
+        setCursorQuiet(line, Math.min(column, lines.get(line).length()));
+    }
+
     /** Selects the word at a position (for a double click). */
     public void selectWordAt(int atLine, int atColumn) {
         setCursor(atLine, atColumn, false);

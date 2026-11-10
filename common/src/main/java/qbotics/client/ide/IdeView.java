@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.input.KeyEvent;
+import qbotics.client.ide.IdeSession.FindBar;
 import qbotics.client.ide.IdeSession.Focus;
 import qbotics.client.ide.IdeSession.Node;
 import qbotics.client.ide.IdeSession.Tab;
@@ -14,6 +15,7 @@ import qbotics.client.ide.Ui.Rect;
 import qbotics.computer.ServerComputer;
 import qbotics.computer.Terminal;
 import qbotics.engine.HostFileSystem;
+import qbotics.ide.Finder;
 import qbotics.ide.Highlighter.Language;
 import qbotics.ide.JsonTools;
 import qbotics.ide.Paths;
@@ -51,6 +53,12 @@ final class IdeView {
     private static final int EXPLORER_W = 160;
     private static final int SCRATCH_W = 236;
     private static final int TERMINAL_H = HEADER_H + Terminal.ROWS * Ui.CELL_H + 6;
+    private static final int MIN_TERMINAL_H = HEADER_H + 3 * Ui.CELL_H + 6;
+
+    /** What a held-down left mouse button is doing. */
+    private enum Drag { NONE, TEXT, TERMINAL_EDGE }
+
+    private Drag drag = Drag.NONE;
 
     private final IdeSession session;
     private final IdeBackend backend;
@@ -142,7 +150,9 @@ final class IdeView {
         explorerRect = new Rect(0, bodyY, EXPLORER_W, bodyH);
         int centerX = EXPLORER_W + 1;
         int centerW = viewWidth - centerX - (session.scratchOpen ? SCRATCH_W + 1 : 0);
-        int terminalH = Math.min(TERMINAL_H, bodyH / 2);
+        // The terminal's height can be changed by dragging the line above it.
+        int wanted = session.terminalHeight > 0 ? session.terminalHeight : TERMINAL_H;
+        int terminalH = Math.clamp(wanted, Math.min(MIN_TERMINAL_H, bodyH / 2), Math.max(MIN_TERMINAL_H, bodyH - 80));
         tabsRect = new Rect(centerX, bodyY, centerW, TAB_H);
         editorRect = new Rect(centerX, bodyY + TAB_H, centerW, bodyH - TAB_H - terminalH - 1);
         terminalRect = new Rect(centerX, bodyY + bodyH - terminalH, centerW, terminalH);
@@ -172,9 +182,17 @@ final class IdeView {
         drawStatusBar(ui);
         // Thin lines between the panels.
         ui.fill(EXPLORER_W, TITLE_H, 1, viewHeight - TITLE_H - STATUS_H, Ui.BORDER);
-        ui.fill(terminalRect.x(), terminalRect.y() - 1, terminalRect.width(), 1, Ui.BORDER);
+        boolean onEdge = drag == Drag.TERMINAL_EDGE || (dialog == null && menu == null && onTerminalEdge(mouseX, mouseY));
+        ui.fill(terminalRect.x(), terminalRect.y() - 1, terminalRect.width(), onEdge ? 2 : 1, onEdge ? Ui.STATUS_BG : Ui.BORDER);
         if (session.scratchOpen) {
             ui.fill(scratchRect.x() - 1, TITLE_H, 1, viewHeight - TITLE_H - STATUS_H, Ui.BORDER);
+        }
+        // The autocomplete list goes on top of the panels around the text it belongs to.
+        Tab active = session.active();
+        if (session.focus == Focus.EDITOR && active != null && active.view != null) {
+            active.view.renderPopup(ui, viewHeight - STATUS_H);
+        } else if (session.focus == Focus.SCRATCH && session.scratchOpen) {
+            session.scratch.renderPopup(ui, viewHeight - STATUS_H);
         }
         if (menu != null) {
             drawMenu(ui);
@@ -182,6 +200,11 @@ final class IdeView {
         if (dialog != null) {
             drawDialog(ui, cursorOn);
         }
+    }
+
+    /** The line between the editor and the terminal, which can be dragged. */
+    private boolean onTerminalEdge(double x, double y) {
+        return x >= terminalRect.x() && x < terminalRect.right() && Math.abs(y - terminalRect.y()) <= 2;
     }
 
     private boolean hovered(Rect rect) {
@@ -244,7 +267,7 @@ final class IdeView {
         } else if (problem != null) {
             left = "JSON problem on line " + problem.line() + ": " + problem.error();
         } else {
-            left = "F5 Run   Ctrl+S Save   Ctrl+/ Comment   Ctrl+Plus / Ctrl+Minus Text size   Esc Close";
+            left = "F5 Run   Ctrl+S Save   Ctrl+F Find   Ctrl+H Replace   Ctrl+Space Suggest   Ctrl+/ Comment   Ctrl+Plus/Minus Text size   Esc Close";
         }
         String right = "";
         if (tab != null && tab.view != null) {
@@ -662,11 +685,200 @@ final class IdeView {
         ui.unclip();
     }
 
+    // ---- find and replace -----------------------------------------------------------
+
+    /** Finds the matches again if the text or what is being searched for has changed. */
+    private void refreshMatches(Tab tab) {
+        FindBar find = tab.find;
+        CodeView view = tab.view;
+        if (!find.open) {
+            view.matches = List.of();
+            view.currentMatch = -1;
+            return;
+        }
+        String query = find.query.toString();
+        if (find.matchedVersion != view.buffer.version() || !query.equals(find.matchedQuery) || find.matchedCase != find.caseSensitive) {
+            find.matches = Finder.find(view.buffer, query, find.caseSensitive);
+            find.matchedVersion = view.buffer.version();
+            find.matchedQuery = query;
+            find.matchedCase = find.caseSensitive;
+            find.current = Finder.firstAtOrAfter(find.matches, view.buffer.selectionStartLine(), view.buffer.selectionStartColumn());
+        }
+        view.matches = find.matches;
+        view.currentMatch = find.current;
+    }
+
+    /** Selects the current match and scrolls to it. */
+    private void showMatch(Tab tab) {
+        refreshMatches(tab);
+        if (tab.find.current >= 0) {
+            Finder.Match match = tab.find.matches.get(tab.find.current);
+            tab.view.buffer.select(match.line(), match.start(), match.end());
+            tab.view.reveal();
+        }
+    }
+
+    private void findStep(Tab tab, int direction) {
+        refreshMatches(tab);
+        if (!tab.find.matches.isEmpty()) {
+            tab.find.current = Math.floorMod(tab.find.current + direction, tab.find.matches.size());
+            showMatch(tab);
+        }
+    }
+
+    private void openFind(Tab tab, boolean withReplace) {
+        FindBar find = tab.find;
+        find.open = true;
+        find.focused = true;
+        find.replaceOpen |= withReplace;
+        find.field = 0;
+        session.focus = Focus.EDITOR;
+        tab.view.dismissPopup();
+        // Start from the selected text, as editors do.
+        String selected = tab.view.buffer.selectedText();
+        if (!selected.isEmpty() && !selected.contains("\n")) {
+            find.query.setLength(0);
+            find.query.append(selected);
+        }
+        showMatch(tab);
+    }
+
+    private void closeFind(Tab tab) {
+        tab.find.open = false;
+        tab.find.focused = false;
+    }
+
+    private void replaceCurrent(Tab tab) {
+        refreshMatches(tab);
+        FindBar find = tab.find;
+        if (find.current < 0) {
+            return;
+        }
+        Finder.Match match = find.matches.get(find.current);
+        tab.view.buffer.select(match.line(), match.start(), match.end());
+        tab.view.buffer.insert(find.replacement.toString());
+        showMatch(tab); // the text changed: this finds again and moves to the next match
+    }
+
+    private void replaceAll(Tab tab) {
+        refreshMatches(tab);
+        int count = tab.find.matches.size();
+        if (count > 0) {
+            tab.view.buffer.replaceMatches(tab.find.matches, tab.find.replacement.toString());
+            toast("Replaced " + count + (count == 1 ? " match." : " matches."), false);
+        }
+    }
+
+    private void findKey(Tab tab, KeyEvent event) {
+        FindBar find = tab.find;
+        StringBuilder field = find.field == 0 ? find.query : find.replacement;
+        int key = event.key();
+        if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
+            if (find.field == 0) {
+                findStep(tab, event.hasShiftDown() ? -1 : 1);
+            } else if (event.hasControlDown()) {
+                replaceAll(tab);
+            } else {
+                replaceCurrent(tab);
+            }
+        } else if (key == InputConstants.KEY_TAB && find.replaceOpen) {
+            find.field = 1 - find.field;
+        } else if (key == InputConstants.KEY_BACKSPACE && !field.isEmpty()) {
+            field.setLength(field.length() - 1);
+            findEdited(tab);
+        } else if (event.isPaste()) {
+            findType(tab, host.clipboard().lines().findFirst().orElse(""));
+        }
+    }
+
+    private void findType(Tab tab, String text) {
+        StringBuilder field = tab.find.field == 0 ? tab.find.query : tab.find.replacement;
+        field.append(text, 0, Math.min(text.length(), Math.max(0, 100 - field.length())));
+        findEdited(tab);
+    }
+
+    /** The search text changed: jump to the first match as it is typed. */
+    private void findEdited(Tab tab) {
+        if (tab.find.field == 0) {
+            showMatch(tab);
+        }
+    }
+
+    private void drawFindBar(Ui ui, Tab tab, boolean cursorOn) {
+        FindBar find = tab.find;
+        int width = Math.min(346, editorRect.width() - 24);
+        int rows = find.replaceOpen ? 2 : 1;
+        int height = rows * 16 + 3;
+        int x = editorRect.right() - width - 12;
+        int y = editorRect.y();
+        ui.fill(x + 2, y + 2, width, height, Ui.SHADOW);
+        ui.fill(x, y, width, height, Ui.MENU_BG);
+        ui.outline(x, y, width, height, Ui.BORDER);
+
+        boolean active = find.focused && session.focus == Focus.EDITOR && dialog == null;
+        int fieldWidth = Math.max(60, width - 190);
+        int at = x + 3;
+        at = button(ui, at, y + 2, 14, find.replaceOpen ? "v" : ">", false, true, Ui.MENU_BG, () -> find.replaceOpen = !find.replaceOpen) + 2;
+        int fieldX = at;
+        findField(ui, find, 0, fieldX, y + 2, fieldWidth, active && cursorOn, "Find");
+        at = fieldX + fieldWidth + 4;
+        String count = find.query.isEmpty() ? "" : find.matches.isEmpty() ? "No results" : (find.current + 1) + " of " + find.matches.size();
+        ui.text(count, at, y + 5, find.matches.isEmpty() ? Ui.ERROR : Ui.TEXT_DIM);
+
+        // Buttons from the right edge.
+        int right = x + width - 3;
+        right -= ui.textWidth("x") + 10;
+        button(ui, right, y + 2, 14, "x", false, true, Ui.MENU_BG, () -> closeFind(tab));
+        right -= ui.textWidth(">") + 10;
+        button(ui, right, y + 2, 14, ">", false, true, Ui.MENU_BG, () -> findStep(tab, 1));
+        right -= ui.textWidth("<") + 10;
+        button(ui, right, y + 2, 14, "<", false, true, Ui.MENU_BG, () -> findStep(tab, -1));
+        right -= ui.textWidth("Aa") + 10 + 2;
+        button(ui, right, y + 2, 14, "Aa", false, true, find.caseSensitive ? Ui.ACCENT : Ui.MENU_BG, () -> find.caseSensitive = !find.caseSensitive);
+
+        if (find.replaceOpen) {
+            findField(ui, find, 1, fieldX, y + 18, fieldWidth, active && cursorOn, "Replace with");
+            int next = button(ui, fieldX + fieldWidth + 4, y + 18, 14, "Replace", false, !find.matches.isEmpty(), Ui.BAR_BG, () -> replaceCurrent(tab));
+            button(ui, next + 3, y + 18, 14, "All", false, !find.matches.isEmpty(), Ui.BAR_BG, () -> replaceAll(tab));
+        }
+        // Clicking anywhere else on the bar gives it the keyboard instead of reaching the text beneath.
+        buttons.add(new Button(new Rect(x, y, width, height), () -> find.focused = true));
+    }
+
+    private void findField(Ui ui, FindBar find, int field, int x, int y, int width, boolean showCursor, String placeholder) {
+        boolean focused = find.focused && find.field == field;
+        StringBuilder text = field == 0 ? find.query : find.replacement;
+        ui.fill(x, y, width, 14, Ui.EDITOR_BG);
+        ui.outline(x, y, width, 14, focused ? Ui.STATUS_BG : Ui.BORDER);
+        ui.clip(x + 1, y, width - 2, 14);
+        if (text.isEmpty() && !focused) {
+            ui.text(placeholder, x + 4, y + 3, Ui.TEXT_DIM);
+        }
+        // When the text is longer than the box, show its end.
+        String shown = text.toString();
+        int offset = Math.max(0, ui.textWidth(shown) - (width - 10));
+        ui.text(shown, x + 4 - offset, y + 3, Ui.TEXT_BRIGHT);
+        if (focused && showCursor) {
+            ui.fill(x + 4 - offset + ui.textWidth(shown), y + 2, 1, 10, Ui.TEXT_BRIGHT);
+        }
+        ui.unclip();
+        buttons.add(new Button(new Rect(x, y, width, 14), () -> {
+            find.focused = true;
+            find.field = field;
+            session.focus = Focus.EDITOR;
+        }));
+    }
+
     private void drawEditor(Ui ui, boolean cursorOn) {
         Rect r = editorRect;
         Tab tab = session.active();
         if (tab != null && tab.view != null) {
-            tab.view.render(ui, r, session.focus == Focus.EDITOR && dialog == null, cursorOn);
+            refreshMatches(tab);
+            boolean typingInFind = tab.find.open && tab.find.focused;
+            tab.view.render(ui, r, session.focus == Focus.EDITOR && dialog == null && !typingInFind, cursorOn);
+            if (tab.find.open) {
+                drawFindBar(ui, tab, cursorOn);
+            }
             return;
         }
         ui.fill(r.x(), r.y(), r.width(), r.height(), Ui.EDITOR_BG);
@@ -701,27 +913,63 @@ final class IdeView {
         if (focused) {
             ui.fill(r.x() + 8, r.y() + HEADER_H - 2, ui.textWidth("TERMINAL"), 1, Ui.STATUS_BG);
         }
-        String hint = "Ctrl+C stops a program";
-        ui.text(hint, r.right() - ui.textWidth(hint) - 8, r.y() + 3, Ui.TEXT_DIM);
+        String hint = session.terminalScroll > 0 ? "Scrolled back - type or press End to return" : "Ctrl+C stops a program";
+        ui.text(hint, r.right() - ui.textWidth(hint) - 10, r.y() + 3, session.terminalScroll > 0 ? Ui.FOLDER : Ui.TEXT_DIM);
 
         int left = r.x() + 8;
         int top = r.y() + HEADER_H + 2;
-        ui.clip(r.x(), top, r.width(), r.height() - HEADER_H - 2);
-        List<String> lines = session.terminalLines;
-        for (int row = 0; row < lines.size() && row < Terminal.ROWS; row++) {
-            ui.mono(lines.get(row), left, top + row * Ui.CELL_H, Ui.TEXT);
+        int height = r.height() - HEADER_H - 4;
+        int rows = terminalRows();
+        // Everything there is to show: the scroll-back, then the screen down to its last used row.
+        List<String> scrollback = session.terminalScrollback;
+        int used = terminalUsedRows();
+        int total = scrollback.size() + used;
+        session.terminalScroll = Math.clamp(session.terminalScroll, 0, Math.max(0, total - rows));
+        int first = Math.max(0, total - rows - session.terminalScroll);
+
+        ui.clip(r.x(), top, r.width(), height);
+        for (int row = 0; row < rows && first + row < total; row++) {
+            int index = first + row;
+            String line = index < scrollback.size() ? scrollback.get(index) : session.terminalLines.get(index - scrollback.size());
+            ui.mono(line, left, top + row * Ui.CELL_H, Ui.TEXT);
         }
         // The line being typed starts at the server's cursor, just after the prompt.
-        int room = Math.max(1, Terminal.COLS - session.terminalCursorX - 1);
-        StringBuilder input = session.terminalInput;
-        String shown = input.length() <= room ? input.toString() : input.substring(input.length() - room);
-        int inputX = left + session.terminalCursorX * Ui.CELL_W;
-        int inputY = top + session.terminalCursorY * Ui.CELL_H;
-        ui.mono(shown, inputX, inputY, Ui.TEXT_BRIGHT);
-        if (focused && cursorOn) {
-            ui.fill(inputX + shown.length() * Ui.CELL_W, inputY, Ui.CELL_W - 1, Ui.CELL_H - 1, 0xC0D4D4D4);
+        int cursorRow = scrollback.size() + session.terminalCursorY - first;
+        if (cursorRow >= 0 && cursorRow < rows) {
+            int room = Math.max(1, Terminal.COLS - session.terminalCursorX - 1);
+            StringBuilder input = session.terminalInput;
+            String shown = input.length() <= room ? input.toString() : input.substring(input.length() - room);
+            int inputX = left + session.terminalCursorX * Ui.CELL_W;
+            int inputY = top + cursorRow * Ui.CELL_H;
+            ui.mono(shown, inputX, inputY, Ui.TEXT_BRIGHT);
+            if (focused && cursorOn) {
+                ui.fill(inputX + shown.length() * Ui.CELL_W, inputY, Ui.CELL_W - 1, Ui.CELL_H - 1, 0xC0D4D4D4);
+            }
         }
         ui.unclip();
+        if (total > rows) {
+            int thumb = Math.max(8, height * rows / total);
+            int thumbTop = (height - thumb) * first / (total - rows);
+            ui.fill(r.right() - 4, top + thumbTop, 3, thumb, 0x60FFFFFF);
+        }
+    }
+
+    /** How many rows of text fit in the terminal panel. */
+    private int terminalRows() {
+        return Math.max(1, (terminalRect.height() - HEADER_H - 4) / Ui.CELL_H);
+    }
+
+    /** Rows of the terminal's screen that are in use: down to the cursor or the last text. */
+    private int terminalUsedRows() {
+        List<String> lines = session.terminalLines;
+        int used = Math.min(lines.size(), session.terminalCursorY + 1);
+        for (int row = lines.size() - 1; row >= used; row--) {
+            if (!lines.get(row).isEmpty()) {
+                used = row + 1;
+                break;
+            }
+        }
+        return used;
     }
 
     private void terminalKey(KeyEvent event) {
@@ -748,6 +996,9 @@ final class IdeView {
                 }
                 case InputConstants.KEY_UP -> terminalRecall(-1);
                 case InputConstants.KEY_DOWN -> terminalRecall(1);
+                case InputConstants.KEY_PAGEUP -> session.terminalScroll += Math.max(1, terminalRows() - 1);
+                case InputConstants.KEY_PAGEDOWN -> session.terminalScroll = Math.max(0, session.terminalScroll - Math.max(1, terminalRows() - 1));
+                case InputConstants.KEY_END -> session.terminalScroll = 0;
                 default -> {
                 }
             }
@@ -755,6 +1006,7 @@ final class IdeView {
     }
 
     private void terminalAppend(String text) {
+        session.terminalScroll = 0; // typing brings the prompt back into view
         int room = TerminalInputPayload.MAX_LINE_LENGTH - session.terminalInput.length();
         session.terminalInput.append(text, 0, Math.min(room, text.length()));
     }
@@ -767,6 +1019,7 @@ final class IdeView {
             history.add(line);
         }
         session.terminalHistoryIndex = history.size();
+        session.terminalScroll = 0;
         backend.terminalInput(TerminalInputPayload.LINE, line);
     }
 
@@ -919,7 +1172,9 @@ final class IdeView {
         switch (session.focus) {
             case EDITOR -> {
                 Tab tab = session.active();
-                if (tab != null && tab.view != null) {
+                if (tab != null && tab.view != null && tab.find.open && tab.find.focused) {
+                    findType(tab, String.valueOf((char) codepoint));
+                } else if (tab != null && tab.view != null) {
                     tab.view.charTyped(codepoint);
                 }
             }
@@ -950,11 +1205,32 @@ final class IdeView {
                 return true;
             }
         }
+        Tab active = session.active();
+        boolean hasFile = active != null && active.view != null;
         if (event.isEscape()) {
+            // Escape closes the innermost thing that is open; only then the screen itself.
+            if (session.focus == Focus.EDITOR && hasFile && active.view.dismissPopup()) {
+                return true;
+            }
+            if (session.focus == Focus.SCRATCH && session.scratch.dismissPopup()) {
+                return true;
+            }
+            if (hasFile && active.find.open) {
+                closeFind(active);
+                return true;
+            }
             return false; // the session keeps everything, so closing loses nothing
         }
 
         // Shortcuts that work wherever the cursor is.
+        if (control && !event.hasAltDown() && hasFile && (key == InputConstants.KEY_F || key == KEY_H)) {
+            openFind(active, key == KEY_H);
+            return true;
+        }
+        if (key == KEY_F3 && hasFile && active.find.open) {
+            findStep(active, event.hasShiftDown() ? -1 : 1);
+            return true;
+        }
         if (control && key == InputConstants.KEY_S) {
             saveActive();
             return true;
@@ -982,9 +1258,10 @@ final class IdeView {
 
         switch (session.focus) {
             case EDITOR -> {
-                Tab tab = session.active();
-                if (tab != null && tab.view != null) {
-                    tab.view.keyPressed(event, host);
+                if (hasFile && active.find.open && active.find.focused) {
+                    findKey(active, event);
+                } else if (hasFile) {
+                    active.view.keyPressed(event, host);
                 }
             }
             case TERMINAL -> terminalKey(event);
@@ -1000,6 +1277,8 @@ final class IdeView {
     }
 
     private static final int KEY_NUMPAD_MINUS = 333;
+    private static final int KEY_H = 72;
+    private static final int KEY_F3 = 292;
     static final int LEFT_BUTTON = 0;
     static final int RIGHT_BUTTON = 1;
     static final int MIDDLE_BUTTON = 2;
@@ -1036,6 +1315,11 @@ final class IdeView {
                     return;
                 }
             }
+            if (onTerminalEdge(x, y)) {
+                drag = Drag.TERMINAL_EDGE;
+                return;
+            }
+            drag = Drag.TEXT;
         }
 
         if (explorerRect.contains(x, y)) {
@@ -1073,6 +1357,7 @@ final class IdeView {
             session.focus = Focus.EDITOR;
             Tab tab = session.active();
             if (button == LEFT_BUTTON && tab != null && tab.view != null) {
+                tab.find.focused = false; // typing goes to the text again; the find bar stays open
                 tab.view.mouseDown(x, y, shift, doubleClick);
             }
         } else if (terminalRect.contains(x, y)) {
@@ -1086,7 +1371,9 @@ final class IdeView {
     }
 
     void mouseDragged(double x, double y, int button) {
-        if (dialog == null && button == LEFT_BUTTON) {
+        if (drag == Drag.TERMINAL_EDGE) {
+            session.terminalHeight = Math.max(MIN_TERMINAL_H, viewHeight - STATUS_H - (int) y);
+        } else if (dialog == null && button == LEFT_BUTTON && drag == Drag.TEXT) {
             Tab tab = session.active();
             if (session.focus == Focus.EDITOR && tab != null && tab.view != null) {
                 tab.view.mouseDrag(x, y);
@@ -1097,6 +1384,7 @@ final class IdeView {
     }
 
     void mouseReleased() {
+        drag = Drag.NONE;
         for (Tab tab : session.tabs) {
             if (tab.view != null) {
                 tab.view.mouseUp();
@@ -1105,19 +1393,27 @@ final class IdeView {
         session.scratch.mouseUp();
     }
 
-    void mouseScrolled(double x, double y, double amount) {
+    /**
+     * The mouse wheel. amountY is positive for "wheel up"; amountX is sideways scrolling.
+     * Holding Shift turns the wheel sideways, for long lines.
+     */
+    void mouseScrolled(double x, double y, double amountX, double amountY, boolean shift) {
         if (dialog != null || explorerRect == null) {
             return;
         }
+        double vertical = shift ? 0 : amountY;
+        double horizontal = shift ? amountY : amountX;
         if (explorerRect.contains(x, y)) {
-            session.explorerScroll -= (int) Math.round(amount * ROW_H * 3);
+            session.explorerScroll -= (int) Math.round(vertical * ROW_H * 3);
         } else if (editorRect.contains(x, y)) {
             Tab tab = session.active();
             if (tab != null && tab.view != null) {
-                tab.view.scroll(amount);
+                tab.view.scroll(vertical, horizontal);
             }
+        } else if (terminalRect.contains(x, y)) {
+            session.terminalScroll = Math.max(0, session.terminalScroll + (int) Math.round(vertical * 3));
         } else if (session.scratchOpen && scratchCodeRect.contains(x, y)) {
-            session.scratch.scroll(amount);
+            session.scratch.scroll(vertical, horizontal);
         }
     }
 }

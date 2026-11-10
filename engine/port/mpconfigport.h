@@ -32,7 +32,12 @@
 #define MICROPY_READER_VFS                (1)
 #define MICROPY_ENABLE_EXTERNAL_IMPORT    (1)
 #define MICROPY_PY_SYS_STDFILES           (1)
+// MicroPython's own input() needs a character-at-a-time console. Ours (modhost.c)
+// asks the host for a whole line instead.
 #define MICROPY_PY_BUILTINS_INPUT         (0)
+extern const struct _mp_obj_fun_builtin_var_t modhost_input_obj;
+#define MICROPY_PORT_BUILTINS \
+    { MP_ROM_QSTR(MP_QSTR_input), MP_ROM_PTR(&modhost_input_obj) },
 #define MICROPY_PY_BUILTINS_EXECFILE      (1)
 #define MICROPY_PY_IO                     (1)
 #define MICROPY_PY_IO_IOBASE              (1)

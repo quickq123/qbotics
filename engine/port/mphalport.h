@@ -16,6 +16,9 @@ HOST_IMPORT("submit") int32_t host_submit(const char *ptr, uint32_t len);
 // Writes up to cap bytes of result into buf; returns the full result length,
 // or -1 on timeout.
 HOST_IMPORT("wait") int32_t host_wait(int32_t ticket, int32_t timeout_ms, char *buf, uint32_t cap);
+// Block until a line is entered at the terminal; writes it (without the line
+// break) into buf. Returns its length, -1 if interrupted, -2 if there is no terminal.
+HOST_IMPORT("read_line") int32_t host_read_line(char *buf, uint32_t cap);
 
 // File system. Runs operation `op` on `path`; `arg` is extra data (bytes to
 // write, or the new path for a rename). Returns the length of the result, or a

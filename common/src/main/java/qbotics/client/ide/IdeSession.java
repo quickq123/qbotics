@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import qbotics.computer.Terminal;
 import qbotics.ide.Highlighter.Language;
 import qbotics.ide.TextBuffer;
 
@@ -40,6 +41,26 @@ final class IdeSession {
         }
     }
 
+    /** The find and replace bar of one open file. */
+    static final class FindBar {
+        boolean open;
+        boolean replaceOpen;
+        /** True while typing goes into the bar and not into the file. */
+        boolean focused;
+        boolean caseSensitive;
+        /** Which box is being typed in: 0 = find, 1 = replace. */
+        int field;
+        final StringBuilder query = new StringBuilder();
+        final StringBuilder replacement = new StringBuilder();
+
+        // The matches, remembered until the text or the query changes.
+        List<qbotics.ide.Finder.Match> matches = List.of();
+        int current = -1;
+        long matchedVersion = -1;
+        String matchedQuery;
+        boolean matchedCase;
+    }
+
     /** One open file. */
     static final class Tab {
         String path;
@@ -47,6 +68,7 @@ final class IdeSession {
         CodeView view;
         /** Why the file couldn't be opened, or null. */
         String problem;
+        final FindBar find = new FindBar();
 
         Tab(String path) {
             this.path = path;
@@ -70,9 +92,49 @@ final class IdeSession {
     List<String> terminalLines = List.of();
     int terminalCursorX;
     int terminalCursorY;
+    /** Lines that have scrolled off the top of the terminal, oldest first. */
+    final List<String> terminalScrollback = new ArrayList<>();
+    /** The server's count of scrolled-off lines up to the end of terminalScrollback. */
+    private long terminalScrollbackEnd;
+    private int terminalEpoch = -1;
+    /** How many rows the view is scrolled up from the bottom; 0 follows new output. */
+    int terminalScroll;
+    /** Height of the terminal panel, set by dragging its top edge; 0 = the default. */
+    int terminalHeight;
     final StringBuilder terminalInput = new StringBuilder();
+    /** Commands entered earlier, recalled with the Up and Down keys. */
     final List<String> terminalHistory = new ArrayList<>();
     int terminalHistoryIndex;
+
+    private static final int MAX_CLIENT_SCROLLBACK = 2000;
+
+    /** Takes in a terminal update from the server. */
+    void applyTerminal(Terminal.State state) {
+        if (state.epoch() != terminalEpoch) {
+            // First update, or the terminal was cleared.
+            terminalEpoch = state.epoch();
+            terminalScrollback.clear();
+            terminalScrollbackEnd = state.scrolledStart();
+            terminalScroll = 0;
+        }
+        long index = state.scrolledStart();
+        for (String line : state.scrolled()) {
+            if (index >= terminalScrollbackEnd) {
+                terminalScrollback.add(line);
+                if (terminalScroll > 0) {
+                    terminalScroll++; // keep showing the same lines while more arrive below
+                }
+            }
+            index++;
+        }
+        terminalScrollbackEnd = Math.max(terminalScrollbackEnd, index);
+        if (terminalScrollback.size() > MAX_CLIENT_SCROLLBACK) {
+            terminalScrollback.subList(0, terminalScrollback.size() - MAX_CLIENT_SCROLLBACK).clear();
+        }
+        terminalLines = state.lines();
+        terminalCursorX = state.cursorX();
+        terminalCursorY = state.cursorY();
+    }
 
     // Scratchpad
     boolean scratchOpen;

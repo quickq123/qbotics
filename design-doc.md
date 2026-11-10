@@ -796,7 +796,11 @@ Right-clicking a computer opens an editor laid out like the code editors develop
 
 - **JSON:** mistakes are found as you type and explained in plain words ("Remove the comma before ]"); **Format JSON** re-indents the file.
 - **Nothing is lost by closing the screen:** tabs, unsaved edits and the scratchpad stay as they were until the game is closed.
-- **Limits for now:** files up to 30 KB can be opened and saved from the editor (larger ones still work from Python); one terminal per computer; the terminal has no scroll-back; no find/replace or autocomplete yet.
+- **Scrolling:** the mouse wheel and draggable scroll bars in the editor (Shift+wheel for long lines; Ctrl+Up/Down scrolls without moving the cursor). The terminal keeps 500 lines of scroll-back (wheel, Page Up/Down; typing returns to the prompt), and its height changes by dragging the line above it.
+- **Find and replace:** Ctrl+F and Ctrl+H open a bar at the top right of the file. Matches are highlighted and counted as you type; Enter and Shift+Enter (or F3) step through them; **Aa** matches capitals exactly; Replace changes one and All changes every match as a single undo step.
+- **Autocomplete (Python):** suggestions appear after two letters or a dot, or on Ctrl+Space. They come from the names in the file, Python's own words, and the members of modules the file imports (`time.`, `os.`, `math.`, ...). Tab accepts; Enter accepts only after the arrow keys were used to pick one, so Enter at the end of a line stays a new line. It works from the text and doesn't understand types.
+- **`input()`** works in the terminal: the program waits for a typed line. Ctrl+C gets a waiting program out; in the scratchpad, where there is nowhere to ask, it is an error rather than a hang.
+- **Limits for now:** files up to 30 KB (roughly 800–1,000 lines) can be opened and saved from the editor; larger ones still work from Python. A Basic computer's 256 KB of memory couldn't comfortably load a bigger program in any case. One terminal per computer.
 
 **The shell.** The terminal starts in a shell, as a terminal in a code editor does:
 

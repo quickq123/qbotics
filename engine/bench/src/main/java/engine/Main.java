@@ -3,6 +3,8 @@ package engine;
 import java.nio.file.Files;
 import qbotics.engine.Computer;
 import qbotics.engine.DriveFileSystem;
+import qbotics.ide.Completer;
+import qbotics.ide.Finder;
 import qbotics.ide.Highlighter;
 import qbotics.ide.JsonTools;
 import qbotics.ide.Paths;
@@ -372,6 +374,21 @@ public final class Main {
                 "open('small.txt', 'w').write('room again')",
                 "print(open('small.txt').read())"), true, "28 True True\nroom again\n");
 
+        // input(): lines come from whoever is running the computer.
+        java.util.ArrayDeque<String> typed = new java.util.ArrayDeque<>(List.of("Ada", "36"));
+        c.lineReader = typed::pollFirst;
+        expect("input() returns typed lines; Ctrl+C is KeyboardInterrupt", c, String.join("\n",
+                "name = input('Name? ')",
+                "age = int(input())",
+                "print(name, age + 1)",
+                "try:",
+                "    input('more? ')",
+                "except KeyboardInterrupt:",
+                "    print('stopped')"), true, "Name? Ada 37\nmore? stopped\n");
+        c.lineReader = null;
+        expect("input() with nowhere to ask is an EOFError", c,
+                "try:\n    input()\nexcept EOFError as e:\n    print('EOFError', e)", true, "EOFError input() needs the terminal\n");
+
         Computer none = new Computer(engine, BASIC, INSTANT);
         expect("a computer without a drive still runs", none,
                 "try:\n    open('x', 'w')\nexcept OSError as e:\n    print(e.errno)", true, "19\n");
@@ -477,6 +494,49 @@ public final class Main {
                 Paths.resolve("/lib", "../a/./b.py").equals("/a/b.py") && Paths.resolve("/", "..").equals("/")
                         && Paths.parent("/a").equals("/") && Paths.parent("/a/b").equals("/a") && Paths.name("/a/b.py").equals("b.py")
                         && Paths.isInside("/lib/x", "/lib") && !Paths.isInside("/library", "/lib") && Paths.join("/", "a").equals("/a"), "");
+
+        b = new TextBuffer("Layer one\nlayer two, layer three\nnone here");
+        var loose = Finder.find(b, "layer", false);
+        var exact = Finder.find(b, "layer", true);
+        check("find: every match, with and without matching capitals",
+                loose.size() == 3 && exact.size() == 2 && exact.get(1).equals(new Finder.Match(1, 11, 16))
+                        && Finder.firstAtOrAfter(loose, 1, 1) == 2 && Finder.firstAtOrAfter(loose, 2, 0) == 0
+                        && Finder.find(b, "", false).isEmpty(), loose.toString());
+        b.replaceMatches(loose, "level");
+        boolean replaced = b.text().equals("level one\nlevel two, level three\nnone here");
+        b.undo();
+        check("replace all is one undoable step", replaced && b.text().startsWith("Layer one\nlayer two, layer"), b.text());
+
+        String program = String.join("\n",
+                "import time",
+                "import random as rnd",
+                "class Miner:",
+                "    def __init__(self):",
+                "        self.layer = 0",
+                "        self.torches = 9",
+                "    def dig_layer(self):",
+                "        pass",
+                "miner = Miner()",
+                "# a comment mentioning mineshaft",
+                "");
+        check("autocomplete: names in the file, then Python's own",
+                complete(program, "mi").startsWith("[miner") && complete(program, "pri").equals("[print]")
+                        && complete(program, "Mi").startsWith("[Miner") && complete(program, "m").equals("nothing"), complete(program, "mi") + complete(program, "pri") + complete(program, "Mi"));
+        check("autocomplete: after a dot",
+                complete(program, "time.sl").equals("[sleep, sleep_ms]") && complete(program, "rnd.ch").equals("[choice]")
+                        && complete(program, "self.").startsWith("[layer, torches") && complete(program, "miner.dig").equals("[dig_layer]"),
+                complete(program, "self.") + " " + complete(program, "time.sl"));
+        check("autocomplete stays out of strings, comments and numbers",
+                complete(program, "x = 'mi").equals("nothing") && complete(program, "# mi").equals("nothing") && complete(program, "12").equals("nothing"),
+                String.valueOf(complete(program, "x = 'mi")));
+    }
+
+    /** What autocomplete offers when this text is typed on a new last line of the program. */
+    static String complete(String program, String typed) {
+        TextBuffer buffer = new TextBuffer(program + typed);
+        buffer.moveDocumentEnd(false);
+        var result = Completer.complete(buffer, false);
+        return result == null ? "nothing" : result.items().toString();
     }
 
     static String kinds(Highlighter.Language language, String line, int state) {

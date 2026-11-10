@@ -3,6 +3,8 @@ package qbotics.client.ide;
 import com.mojang.blaze3d.platform.InputConstants;
 import java.util.List;
 import net.minecraft.client.input.KeyEvent;
+import qbotics.ide.Completer;
+import qbotics.ide.Finder;
 import qbotics.ide.Highlighter;
 import qbotics.ide.Highlighter.Language;
 import qbotics.ide.Highlighter.Token;
@@ -14,6 +16,10 @@ import qbotics.ide.TextBuffer;
  * editor tab and for the scratchpad's code box.
  */
 final class CodeView {
+    private static final int SCROLLBAR_W = 5;
+    private static final int MAX_POPUP_ROWS = 8;
+    private static final int KEY_SPACE = 32;
+
     final TextBuffer buffer;
     final Language language;
     private final boolean lineNumbers;
@@ -23,7 +29,8 @@ final class CodeView {
     /** Where the view was last drawn; needed to turn a mouse position into a text position. */
     private Ui.Rect area = new Ui.Rect(0, 0, 0, 0);
     private int textLeft;
-    private boolean dragging;
+    private boolean draggingText;
+    private boolean draggingScrollbar;
     /** After an edit or cursor move, scroll so the cursor is on screen. */
     private boolean revealCursor = true;
 
@@ -31,6 +38,18 @@ final class CodeView {
     private long analysedVersion = -1;
     private int[] lineStartState = new int[0];
     private JsonTools.Result jsonProblem;
+    private int longestLine;
+
+    /** Places the find bar's text was found; drawn highlighted. Set by the editor screen. */
+    List<Finder.Match> matches = List.of();
+    int currentMatch = -1;
+
+    // The autocomplete list, when it is showing.
+    private Completer.Result completion;
+    private int completionIndex;
+    private int completionTop;
+    /** True once the player has moved through the list; only then does Enter pick from it. */
+    private boolean completionNavigated;
 
     CodeView(TextBuffer buffer, Language language, boolean lineNumbers) {
         this.buffer = buffer;
@@ -50,10 +69,12 @@ final class CodeView {
         }
         analysedVersion = buffer.version();
         lineStartState = new int[buffer.lineCount()];
-        if (language == Language.PYTHON) {
-            int state = Highlighter.NORMAL;
-            for (int i = 0; i < buffer.lineCount(); i++) {
-                lineStartState[i] = state;
+        longestLine = 0;
+        int state = Highlighter.NORMAL;
+        for (int i = 0; i < buffer.lineCount(); i++) {
+            lineStartState[i] = state;
+            longestLine = Math.max(longestLine, buffer.line(i).length());
+            if (language == Language.PYTHON) {
                 state = Highlighter.highlight(language, buffer.line(i), state).endState();
             }
         }
@@ -65,7 +86,16 @@ final class CodeView {
     }
 
     private int visibleColumns() {
-        return Math.max(1, (area.right() - textLeft) / Ui.CELL_W - 1);
+        return Math.max(1, (area.right() - SCROLLBAR_W - textLeft) / Ui.CELL_W - 1);
+    }
+
+    private int maxScrollLine() {
+        return Math.max(0, buffer.lineCount() - 1);
+    }
+
+    /** Scroll so the cursor (or the selection's end) can be seen. */
+    void reveal() {
+        revealCursor = true;
     }
 
     // ---- drawing -----------------------------------------------------------------
@@ -81,8 +111,8 @@ final class CodeView {
             scrollLine = Math.clamp(scrollLine, buffer.cursorLine() - visibleLines() + 1, buffer.cursorLine());
             scrollColumn = Math.clamp(scrollColumn, buffer.cursorColumn() - visibleColumns() + 1, buffer.cursorColumn());
         }
-        scrollLine = Math.clamp(scrollLine, 0, Math.max(0, buffer.lineCount() - 1));
-        scrollColumn = Math.max(0, scrollColumn);
+        scrollLine = Math.clamp(scrollLine, 0, maxScrollLine());
+        scrollColumn = Math.clamp(scrollColumn, 0, Math.max(0, longestLine - 1));
 
         ui.fill(rect.x(), rect.y(), rect.width(), rect.height(), Ui.EDITOR_BG);
         ui.clip(rect.x(), rect.y(), rect.width(), rect.height());
@@ -92,43 +122,68 @@ final class CodeView {
         for (int line = scrollLine; line < lastLine; line++) {
             int y = rect.y() + (line - scrollLine) * Ui.CELL_H;
             String text = buffer.line(line);
+            boolean currentLine = focused && line == buffer.cursorLine() && !selection;
 
-            if (focused && line == buffer.cursorLine() && !selection) {
+            if (currentLine) {
                 ui.fill(rect.x(), y, rect.width(), Ui.CELL_H, Ui.LINE_HIGHLIGHT);
+            }
+            // Text scrolled sideways must not show through the line numbers.
+            ui.clip(textLeft - 2, rect.y(), rect.right() - textLeft + 2, rect.height());
+            for (int i = 0; i < matches.size(); i++) {
+                Finder.Match match = matches.get(i);
+                if (match.line() == line) {
+                    highlight(ui, match.start(), match.end(), y, i == currentMatch ? Ui.MATCH_CURRENT : Ui.MATCH);
+                }
             }
             if (selection && line >= buffer.selectionStartLine() && line <= buffer.selectionEndLine()) {
                 int from = line == buffer.selectionStartLine() ? buffer.selectionStartColumn() : 0;
                 // A selected line break shows as one extra selected cell.
                 int to = line == buffer.selectionEndLine() ? buffer.selectionEndColumn() : text.length() + 1;
-                int x0 = Math.max(textLeft, textLeft + (from - scrollColumn) * Ui.CELL_W);
-                int x1 = textLeft + (to - scrollColumn) * Ui.CELL_W;
-                ui.fill(x0, y, x1 - x0, Ui.CELL_H, Ui.SELECTION);
+                highlight(ui, from, to, y, Ui.SELECTION);
             }
+            drawLine(ui, text, line, y);
+            ui.unclip();
             if (lineNumbers) {
                 String number = String.valueOf(line + 1);
                 boolean bad = jsonProblem != null && jsonProblem.line() == line + 1;
                 ui.mono(number, textLeft - 4 - (number.length() + 1) * Ui.CELL_W, y,
                         bad ? Ui.ERROR : line == buffer.cursorLine() ? Ui.TEXT : Ui.TEXT_DIM);
             }
-            drawLine(ui, text, line, y);
         }
 
-        if (focused && cursorOn) {
+        if (focused && cursorOn && buffer.cursorColumn() >= scrollColumn) {
             int x = textLeft + (buffer.cursorColumn() - scrollColumn) * Ui.CELL_W;
             int y = rect.y() + (buffer.cursorLine() - scrollLine) * Ui.CELL_H;
-            if (x >= textLeft) {
-                ui.fill(x - 1, y, 1, Ui.CELL_H, Ui.TEXT_BRIGHT);
-            }
+            ui.fill(x - 1, y, 1, Ui.CELL_H, Ui.TEXT_BRIGHT);
         }
         ui.unclip();
 
-        // A thin scroll bar when the text is longer than the view.
+        // Scroll bars: shown only when there is more text than fits.
         if (buffer.lineCount() > visibleLines()) {
-            int track = rect.height();
-            int thumb = Math.max(8, track * visibleLines() / buffer.lineCount());
-            int top = (track - thumb) * scrollLine / Math.max(1, buffer.lineCount() - 1);
-            ui.fill(rect.right() - 3, rect.y() + top, 3, thumb, 0x60FFFFFF);
+            Ui.Rect thumb = verticalThumb();
+            ui.fill(rect.right() - SCROLLBAR_W, rect.y(), SCROLLBAR_W, rect.height(), 0x20FFFFFF);
+            ui.fill(thumb.x(), thumb.y(), thumb.width(), thumb.height(), draggingScrollbar ? 0xA0FFFFFF : 0x60FFFFFF);
         }
+        if (longestLine > visibleColumns()) {
+            int track = rect.right() - SCROLLBAR_W - textLeft;
+            int thumb = Math.max(12, track * visibleColumns() / longestLine);
+            int left = (track - thumb) * scrollColumn / Math.max(1, longestLine - 1);
+            ui.fill(textLeft + left, rect.bottom() - 3, thumb, 3, 0x60FFFFFF);
+        }
+    }
+
+    private Ui.Rect verticalThumb() {
+        int track = area.height();
+        int thumb = Math.max(10, track * visibleLines() / (buffer.lineCount() + visibleLines() - 1));
+        int top = (track - thumb) * scrollLine / Math.max(1, maxScrollLine());
+        return new Ui.Rect(area.right() - SCROLLBAR_W, area.y() + top, SCROLLBAR_W, thumb);
+    }
+
+    /** A coloured background behind columns from..to of the line drawn at y. */
+    private void highlight(Ui ui, int from, int to, int y, int color) {
+        int x0 = textLeft + (from - scrollColumn) * Ui.CELL_W;
+        int x1 = textLeft + (to - scrollColumn) * Ui.CELL_W;
+        ui.fill(x0, y, x1 - x0, Ui.CELL_H, color);
     }
 
     private void drawLine(Ui ui, String text, int line, int y) {
@@ -174,6 +229,68 @@ final class CodeView {
         };
     }
 
+    /**
+     * Draws the autocomplete list, if it is showing. Called after everything else so the
+     * list lies on top of neighbouring panels.
+     */
+    void renderPopup(Ui ui, int screenBottom) {
+        if (completion == null) {
+            return;
+        }
+        List<String> items = completion.items();
+        int rows = Math.min(MAX_POPUP_ROWS, items.size());
+        // Keep the chosen row in view.
+        completionTop = Math.clamp(completionTop, Math.max(0, completionIndex - rows + 1), completionIndex);
+        int longest = 0;
+        for (String item : items) {
+            longest = Math.max(longest, item.length());
+        }
+        int width = longest * Ui.CELL_W + 12;
+        int height = rows * Ui.CELL_H + 4;
+        int x = textLeft + (completion.start() - scrollColumn) * Ui.CELL_W - 5;
+        int lineY = area.y() + (buffer.cursorLine() - scrollLine) * Ui.CELL_H;
+        // Below the line being typed, or above it when there is no room below.
+        int y = lineY + Ui.CELL_H + height <= screenBottom ? lineY + Ui.CELL_H : lineY - height;
+        ui.fill(x + 2, y + 2, width, height, Ui.SHADOW);
+        ui.fill(x, y, width, height, Ui.MENU_BG);
+        ui.outline(x, y, width, height, Ui.BORDER);
+        for (int row = 0; row < rows; row++) {
+            int index = completionTop + row;
+            int rowY = y + 2 + row * Ui.CELL_H;
+            if (index == completionIndex) {
+                ui.fill(x + 1, rowY, width - 2, Ui.CELL_H, Ui.ACTIVE_ROW);
+            }
+            String item = items.get(index);
+            int typed = Math.min(completion.prefix().length(), item.length());
+            ui.mono(item, 0, typed, x + 5, rowY, Ui.SYN_KEYWORD);
+            ui.mono(item, typed, item.length(), x + 5 + typed * Ui.CELL_W, rowY, Ui.TEXT);
+        }
+    }
+
+    // ---- autocomplete ------------------------------------------------------------
+
+    private void updateCompletion(boolean asked) {
+        completion = language == Language.PYTHON ? Completer.complete(buffer, asked) : null;
+        completionIndex = 0;
+        completionTop = 0;
+        completionNavigated = false;
+    }
+
+    /** Hides the autocomplete list. Returns true if it was showing. */
+    boolean dismissPopup() {
+        boolean showing = completion != null;
+        completion = null;
+        return showing;
+    }
+
+    private void acceptCompletion() {
+        String item = completion.items().get(completionIndex);
+        buffer.select(buffer.cursorLine(), completion.start(), buffer.cursorColumn());
+        buffer.insert(item);
+        completion = null;
+        revealCursor = true;
+    }
+
     // ---- mouse -------------------------------------------------------------------
 
     private int lineAt(double y) {
@@ -184,28 +301,44 @@ final class CodeView {
         return scrollColumn + (int) Math.round((x - textLeft) / Ui.CELL_W);
     }
 
+    private void scrollbarTo(double y) {
+        Ui.Rect thumb = verticalThumb();
+        double range = Math.max(1, area.height() - thumb.height());
+        double position = (y - area.y() - thumb.height() / 2.0) / range;
+        scrollLine = (int) Math.round(Math.clamp(position, 0.0, 1.0) * maxScrollLine());
+    }
+
     void mouseDown(double x, double y, boolean shift, boolean doubleClick) {
-        if (doubleClick) {
+        completion = null;
+        if (buffer.lineCount() > visibleLines() && x >= area.right() - SCROLLBAR_W - 1) {
+            draggingScrollbar = true;
+            scrollbarTo(y);
+        } else if (doubleClick) {
             buffer.selectWordAt(lineAt(y), columnAt(x));
         } else {
             buffer.setCursor(lineAt(y), columnAt(x), shift);
-            dragging = true;
+            draggingText = true;
         }
     }
 
     void mouseDrag(double x, double y) {
-        if (dragging) {
+        if (draggingScrollbar) {
+            scrollbarTo(y);
+        } else if (draggingText) {
             buffer.setCursor(lineAt(y), columnAt(x), true);
             revealCursor = true;
         }
     }
 
     void mouseUp() {
-        dragging = false;
+        draggingText = false;
+        draggingScrollbar = false;
     }
 
-    void scroll(double amount) {
-        scrollLine = Math.clamp(scrollLine - (int) Math.round(amount * 3), 0, Math.max(0, buffer.lineCount() - 1));
+    /** The mouse wheel: three lines (or six columns) a notch. The cursor stays where it is. */
+    void scroll(double vertical, double horizontal) {
+        scrollLine = Math.clamp(scrollLine - (int) Math.round(vertical * 3), 0, maxScrollLine());
+        scrollColumn = Math.clamp(scrollColumn - (int) Math.round(horizontal * 6), 0, Math.max(0, longestLine - 1));
     }
 
     // ---- keyboard ----------------------------------------------------------------
@@ -214,6 +347,7 @@ final class CodeView {
         if (codepoint >= ' ' && codepoint != 127 && Character.isBmpCodePoint(codepoint)) {
             buffer.type((char) codepoint);
             revealCursor = true;
+            updateCompletion(false);
         }
     }
 
@@ -221,7 +355,34 @@ final class CodeView {
     boolean keyPressed(KeyEvent event, IdeView.Host host) {
         boolean shift = event.hasShiftDown();
         boolean control = event.hasControlDown();
+        int key = event.key();
+
+        if (completion != null) {
+            if (key == InputConstants.KEY_DOWN || key == InputConstants.KEY_UP) {
+                int size = completion.items().size();
+                completionIndex = Math.floorMod(completionIndex + (key == InputConstants.KEY_DOWN ? 1 : -1), size);
+                completionNavigated = true;
+                return true;
+            }
+            boolean enter = key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER;
+            if (key == InputConstants.KEY_TAB || (enter && completionNavigated)) {
+                acceptCompletion();
+                return true;
+            }
+        }
+        if (control && key == KEY_SPACE) {
+            updateCompletion(true);
+            return true;
+        }
+        completion = null;
         revealCursor = true;
+
+        // Ctrl+Up and Ctrl+Down scroll without moving the cursor.
+        if (control && (key == InputConstants.KEY_UP || key == InputConstants.KEY_DOWN)) {
+            revealCursor = false;
+            scrollLine = Math.clamp(scrollLine + (key == InputConstants.KEY_UP ? -1 : 1), 0, maxScrollLine());
+            return true;
+        }
 
         if (event.isSelectAll()) {
             buffer.selectAll();
@@ -234,18 +395,18 @@ final class CodeView {
             }
         } else if (event.isPaste()) {
             buffer.insert(host.clipboard());
-        } else if (control && event.key() == InputConstants.KEY_Z) {
+        } else if (control && key == InputConstants.KEY_Z) {
             if (shift) {
                 buffer.redo();
             } else {
                 buffer.undo();
             }
-        } else if (control && event.key() == InputConstants.KEY_Y) {
+        } else if (control && key == InputConstants.KEY_Y) {
             buffer.redo();
-        } else if (control && event.key() == InputConstants.KEY_SLASH && language.commentMarker != null) {
+        } else if (control && key == InputConstants.KEY_SLASH && language.commentMarker != null) {
             buffer.toggleComment(language.commentMarker);
         } else {
-            switch (event.key()) {
+            switch (key) {
                 case InputConstants.KEY_LEFT -> {
                     if (control) {
                         buffer.moveWordLeft(shift);
@@ -279,7 +440,14 @@ final class CodeView {
                     }
                 }
                 case InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> buffer.newLine();
-                case InputConstants.KEY_BACKSPACE -> buffer.backspace();
+                case InputConstants.KEY_BACKSPACE -> {
+                    buffer.backspace();
+                    // Keep suggesting while a word is being corrected.
+                    int column = buffer.cursorColumn();
+                    if (column > 0 && Character.isLetterOrDigit(buffer.line(buffer.cursorLine()).charAt(column - 1))) {
+                        updateCompletion(false);
+                    }
+                }
                 case InputConstants.KEY_DELETE -> buffer.deleteForward();
                 case InputConstants.KEY_TAB -> {
                     if (shift) {

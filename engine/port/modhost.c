@@ -41,3 +41,21 @@ const mp_obj_module_t modhost_module = {
     .globals = (mp_obj_dict_t *)&modhost_globals,
 };
 MP_REGISTER_MODULE(MP_QSTR__host, modhost_module);
+
+// input([prompt]) -> str: Python's built-in for asking the person at the terminal.
+// Blocks until a line is entered. Ctrl+C raises KeyboardInterrupt; where there is
+// no terminal to ask (a scratchpad run) it raises EOFError, as Python does.
+static mp_obj_t modhost_input(size_t n_args, const mp_obj_t *args) {
+    if (n_args == 1) {
+        mp_obj_print_helper(&mp_plat_print, args[0], PRINT_STR);
+    }
+    int32_t n = host_read_line(result_buf, RESULT_BUF_SIZE);
+    if (n == -1) {
+        mp_raise_type(&mp_type_KeyboardInterrupt);
+    }
+    if (n < 0) {
+        mp_raise_msg(&mp_type_EOFError, MP_ERROR_TEXT("input() needs the terminal"));
+    }
+    return mp_obj_new_str(result_buf, (size_t)n);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(modhost_input_obj, 0, 1, modhost_input);

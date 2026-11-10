@@ -130,7 +130,7 @@ public class IdeScreen extends Screen implements IdeView.Host {
 
     @Override
     public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
-        view.mouseScrolled(x / scale, y / scale, scrollY);
+        view.mouseScrolled(x / scale, y / scale, scrollX, scrollY, this.minecraft.hasShiftDown());
         return true;
     }
 }

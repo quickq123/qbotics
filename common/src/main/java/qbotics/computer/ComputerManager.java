@@ -216,8 +216,7 @@ public final class ComputerManager {
         UUID deviceId = block.deviceId();
         ServerComputer computer = getOrStart(block);
         viewers.put(player.getUUID(), new Viewing(deviceId, player.level().dimension(), block.getBlockPos()));
-        computer.terminal().takeDirty();
-        Qbotics.platform().sendToPlayer(player, TerminalStatePayload.of(deviceId, true, computer.terminal().snapshot()));
+        Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(deviceId, true, computer.terminal().full()));
     }
 
     /** The player closed the screen. */
@@ -267,8 +266,8 @@ public final class ComputerManager {
         Map<UUID, TerminalStatePayload> changed = new HashMap<>();
         for (Viewing viewing : viewers.values()) {
             ServerComputer computer = computers.get(viewing.deviceId());
-            if (computer != null && !changed.containsKey(viewing.deviceId()) && computer.terminal().takeDirty()) {
-                changed.put(viewing.deviceId(), TerminalStatePayload.of(viewing.deviceId(), false, computer.terminal().snapshot()));
+            if (computer != null && !changed.containsKey(viewing.deviceId()) && computer.terminal().isDirty()) {
+                changed.put(viewing.deviceId(), new TerminalStatePayload(viewing.deviceId(), false, computer.terminal().takeUpdate()));
             }
         }
         for (Iterator<Map.Entry<UUID, Viewing>> it = viewers.entrySet().iterator(); it.hasNext(); ) {
