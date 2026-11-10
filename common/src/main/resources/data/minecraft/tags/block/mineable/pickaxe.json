@@ -2,6 +2,9 @@
   "replace": false,
   "values": [
     "qbotics:computer",
-    "qbotics:cable"
+    "qbotics:cable",
+    "qbotics:input",
+    "qbotics:output",
+    "qbotics:bus"
   ]
 }

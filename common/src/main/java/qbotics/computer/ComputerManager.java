@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,6 +25,7 @@ import qbotics.engine.Engine;
 import qbotics.engine.HostFileSystem;
 import qbotics.net.IdePayloads;
 import qbotics.net.TerminalStatePayload;
+import qbotics.network.NetworkCalls;
 
 /**
  * All running computers on one server, and which players are looking at which screen.
@@ -92,7 +94,15 @@ public final class ComputerManager {
         if (computers.values().stream().anyMatch(other -> other.driveId().equals(driveId))) {
             block.replaceDrive();
         }
-        ServerComputer computer = new ServerComputer(block.deviceId(), block.driveId(), driveFolder(block.driveId()), cpu, listener);
+        ResourceKey<Level> dimension = block.getLevel().dimension();
+        BlockPos pos = block.getBlockPos().immutable();
+        ServerComputer computer = new ServerComputer(block.deviceId(), block.driveId(), driveFolder(block.driveId()), cpu, listener,
+                call -> {
+                    // Asked on the computer's thread; answered on the server thread at the next tick.
+                    CompletableFuture<String> answer = new CompletableFuture<>();
+                    outbox.add(server -> answer.complete(NetworkCalls.handle(server, dimension, pos, call)));
+                    return answer;
+                });
         computers.put(block.deviceId(), computer);
         return computer;
     }

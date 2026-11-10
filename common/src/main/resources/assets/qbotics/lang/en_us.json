@@ -1,5 +1,10 @@
 {
   "block.qbotics.computer": "Computer",
   "block.qbotics.cable": "Cable",
+  "block.qbotics.input": "Input",
+  "block.qbotics.output": "Output",
+  "block.qbotics.bus": "Bus",
+  "container.qbotics.input": "Input  %s",
+  "message.qbotics.port": "%s, pointing at %s",
   "screen.qbotics.terminal": "Computer Terminal"
 }

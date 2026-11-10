@@ -9,6 +9,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.function.Function;
 import qbotics.Qbotics;
 import qbotics.engine.Computer;
 import qbotics.engine.DriveFileSystem;
@@ -63,6 +64,8 @@ public final class ServerComputer {
     private final BlockingQueue<Job> jobs = new LinkedBlockingQueue<>(MAX_QUEUED_JOBS);
     private final Semaphore cpu;
     private final Listener listener;
+    /** Sends a request to the game world; it is answered on the server thread (design doc §2.2). */
+    private final Function<String, CompletableFuture<String>> worldCalls;
     private final Thread thread;
 
     private volatile Computer vm;
@@ -75,7 +78,9 @@ public final class ServerComputer {
     /** True once the prompt for the next job is on screen, so it isn't printed twice. */
     private boolean promptShown;
 
-    ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu, Listener listener) {
+    ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu, Listener listener,
+            Function<String, CompletableFuture<String>> worldCalls) {
+        this.worldCalls = worldCalls;
         this.deviceId = deviceId;
         this.driveId = driveId;
         this.drive = new DriveFileSystem(driveFolder, DRIVE_QUOTA_BYTES);
@@ -149,7 +154,7 @@ public final class ServerComputer {
         try {
             terminal.write("Qbotics computer starting...\n");
             Computer computer = new Computer(ComputerManager.engine(), HEAP_BYTES,
-                    call -> CompletableFuture.completedFuture("error:no world calls yet"), drive);
+                    worldCalls, drive);
             computer.cpu = cpu;
             computer.outputSink = terminal::write;
             computer.lineReader = this::readInputLine;
@@ -329,6 +334,7 @@ public final class ServerComputer {
             "Python:  run <file.py>      run a program (python <file.py> also works)",
             "         python             the Python prompt; exit() comes back here",
             "Editor:  edit <file>        open a file in the editor",
+            "Network: devices            list the blocks cabled to this computer",
             "Other:   clear   help       Ctrl+C stops a running program",
             "");
 
@@ -369,6 +375,7 @@ public final class ServerComputer {
                         drive.call(HostFileSystem.READ, path(args, 0, name), new byte[0]));
                 case "edit" -> listener.openInEditor(deviceId, path(args, 0, name));
                 case "run" -> runFile(computer, path(args, 0, name));
+                case "devices", "ifconfig" -> runPython(computer, "import logistics\nlogistics._print_devices()");
                 case "python", "py" -> {
                     if (args.isEmpty()) {
                         repl(computer);

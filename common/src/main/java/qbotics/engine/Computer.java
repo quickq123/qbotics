@@ -49,6 +49,9 @@ public final class Computer {
     /** The result of the last file operation, waiting for the instance to fetch it. */
     private byte[] fsResult = new byte[0];
     private int nextTicket = 1;
+    private static final int MAX_WAITING_CALLS = 32;
+    /** Must not exceed RESULT_MAX_SIZE in the engine's modhost.c. */
+    private static final int MAX_RESULT_BYTES = 48 * 1024;
 
     private final StringBuilder output = new StringBuilder();
     /** If set, printed text goes here as it is produced instead of being buffered for takeOutput(). */
@@ -254,7 +257,10 @@ public final class Computer {
                     (inst, args) -> {
                         String call = readString((int) args[0], (int) args[1]);
                         int ticket = nextTicket++;
-                        tickets.put(ticket, worldCalls.apply(call));
+                        // A program can submit without ever waiting: don't let calls pile up.
+                        tickets.put(ticket, tickets.size() >= MAX_WAITING_CALLS
+                                ? CompletableFuture.completedFuture("error:too many calls are waiting for an answer")
+                                : worldCalls.apply(call));
                         return new long[] {ticket};
                     }),
             new HostFunction("host", "fs_call", FunctionType.of(List.of(I32, I32, I32, I32, I32), List.of(I32)),
@@ -333,11 +339,18 @@ public final class Computer {
                 acquireCpu();
             }
         }
-        tickets.remove(ticket);
         byte[] bytes = result.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length <= cap) {
-            instance.memory().write(bufPtr, bytes);
+        if (bytes.length > MAX_RESULT_BYTES) {
+            bytes = "error:the answer is too large for this computer".getBytes(StandardCharsets.UTF_8);
+            result = "error:the answer is too large for this computer";
         }
+        if (bytes.length > cap) {
+            // Too big for the buffer offered: the answer is kept, and the caller asks again with a bigger one.
+            tickets.put(ticket, CompletableFuture.completedFuture(result));
+            return bytes.length;
+        }
+        tickets.remove(ticket);
+        instance.memory().write(bufPtr, bytes);
         return bytes.length;
     }
 }

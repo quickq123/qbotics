@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "qbotics:block/input_top",
+    "side": "qbotics:block/input_side"
+  }
+}

@@ -452,11 +452,17 @@ asyncio.run(listen())
 
 The in-game network is modelled on a home internet connection, so learners meet real networking ideas (IP addresses, private networks, ports, a router) in a small, safe form. All addresses are **IPv4**.
 
-- **The antenna is the router/modem.** Every antenna has one **external IP address** on the server-wide radio network, the game's "internet".
-- **The cable network behind it is a private network.** When an antenna is attached to a network, every addressable block on it, and every addressable item installed in one of those blocks (for example a hard drive in a drive bay), gets:
-  - an **internal IP address**, used inside that network, and
-  - a **port** on the antenna, used from outside.
-- **No antenna, no addresses.** A cabled network without an antenna still works through its controller (§11.0), but its devices can't be addressed.
+- **Every cable network is a private network, with or without an antenna.** Each addressable block on it (computers, Inputs, Outputs, Buses, and later addressable items such as a hard drive in a drive bay) has three ways to be found:
+
+  | | Example | Who sets it | When it changes |
+  |---|---|---|---|
+  | **Name** | `furnace_bus` | The player: rename the item in an anvil before placing it, or `device.rename(...)` in code | Only when the player changes it |
+  | **Internal IP address** | `192.168.1.4` | The network, automatically, the moment the block is cabled in | Kept across restarts. Changes only if two networks are joined and both had a device on that address: the device with the lower hardware address keeps it |
+  | **Hardware (MAC) address** | `02:1A:2B:3C:4D:5E` | Fixed when the block is placed | Never, while the block stays placed. Breaking and re-placing a block gives a new one, like its device ID (§17.1) |
+
+  Programs normally use the name. The IP address is what the antenna forwards to. The hardware address is what a program holds on to internally, so a device object keeps working if its name or IP changes.
+- **No antenna is needed inside a network.** A computer talks to the blocks it is cabled to directly (§11.0). This is the real-world split: a home network without an internet connection still lets its own devices reach each other.
+- **The antenna is the router/modem.** Every antenna has one **external IP address** on the server-wide radio network, the game's "internet". Attaching one to a cable network gives each device on it a **port** on the antenna, used from outside, and becomes that network's gateway at `192.168.1.1`. Devices keep the internal addresses they already had.
 - **Reaching a device:**
 
 | From | Address to use | Example |
@@ -492,6 +498,9 @@ radio.send("100.64.0.12:1003", {"ore": 128})       # a device behind another ant
 
 - On a real network a port identifies a program on a machine, and a router forwards a port only when someone sets that up. Here every device gets exactly one forwarded port automatically.
 - There is no address lease, subnet mask or routing table to configure.
+- On a real home network the router hands out the internal addresses, so with no router devices fall back to self-assigned ones in a different range (`169.254.x.x`). Here the cable network itself hands out `192.168.1.x` addresses, so adding an antenna later changes nothing a program already uses.
+
+**Built so far (2026-11-10):** names, internal IP addresses and hardware addresses on cable networks, `network.ifconfig()`, `network.hostname()` and the shell's `devices` command. The antenna, external addresses, ports and radio are milestone 6.
 
 #### In-game HTTP and names
 
@@ -644,21 +653,31 @@ asyncio.run(main())
 
 ### 11.0 Logistics network (first-party, earlier)
 
-Blocks joined by the mod's own **cables** form a **logistics network**. Each network has one **controller**, which links the network to a computer. Any block on the network can use items from any Input on the same network.
+Blocks joined by the mod's own **cables** form a **network**. A computer on the network runs it: any computer cabled in can see and command every item block on the same network, and any block can use items from any Input on it.
 
 ```
- [Computer]──[Controller]══cable══[Input]══cable══[Output]→ furnace
-                               ║
-                               ╚══cable══[Bus]↔ chest / machine
+ [Computer]══cable══[Input]══cable══[Output]→ furnace
+                 ║
+                 ╚══cable══[Bus]↔ chest / machine
 ```
+
+> **Status (2026-11-10): the item blocks are built, not yet played.** Cables, network discovery, addresses (§9.3), the Input, Output and Bus blocks and the `logistics` Python module exist and are covered by in-game tests. Not built yet: a screen for setting filters and faces by hand, tier upgrades, throughput limits, change events (`watch()`), wireless bridging, fluids and energy.
+>
+> **Changed from the first design: there is no controller block.** The computer plugs straight into the cable. Reasons: one less block to craft and explain before a learner's first program moves an item; the network needs no stored state of its own (it is worked out from the cables, and each block remembers its own address); and limits can count the item blocks themselves. A controller can come back later if something needs a single owner per network, such as wireless bridging (§9.2), which still assumes one.
+
+**How blocks join a network**
+
+- A cable joins every network block it touches. Network blocks that touch each other are joined too, so neighbours need no cable between them.
+- An Output or Bus does **not** join through the side that points at its target. Two networks can therefore share a chest without becoming one network.
+- A network is found by walking the cables from the computer. The result is reused for up to a second, or until a cable or network block is placed or removed anywhere. Only loaded chunks are walked.
+- Cap: 4,096 cables and blocks, and 253 addressable devices, per network (to become config, §15). A network over the cap refuses every command with a message that says why.
 
 #### Blocks
 
 | Block | Role |
 |---|---|
-| **Cable** | Connects logistics blocks into one network. Cheap and passive. |
-| **Controller** | One per network. Links the network to a computer and owns the network's state. Counts against the owner's limits. |
-| **Input block** | Chest-like storage. **Every slot starts closed.** The player (in a GUI) or code sets which item each slot accepts; each slot holds **up to one stack**. Several slots can accept the **same item**, for bulk, or **different items**, for recipes. Other mods' pipes, hoppers and machines can insert through the loader's standard item API, but only into slots open for that item. |
+| **Cable** | Connects network blocks into one network. Cheap and passive. |
+| **Input block** | Chest-like storage. **Every slot starts closed.** Code sets which item each slot accepts (a GUI for this comes later; right-clicking today opens a plain nine-slot view that enforces the filters and lets the player take items out); each slot holds **up to one stack**. Several slots can accept the **same item**, for bulk, or **different items**, for recipes. Other mods' pipes, hoppers and machines can insert through the loader's standard item API, but only into slots open for that item. |
 | **Output block** | Takes items **from any Input on the network** and inserts them into the block it faces, as directed by code. |
 | **Bus** | Attached to any container: chests, furnaces, other mods' machines. **Reads** its contents, and can **extract** items into an Input or **insert** items from an Input, over the network. |
 
@@ -672,37 +691,54 @@ Blocks joined by the mod's own **cables** form a **logistics network**. Each net
 
 Many machines treat items differently depending on **which face they enter from**. A vanilla furnace takes ingredients from the top, fuel from the sides, and gives output from the bottom. So each Output and Bus has two settings:
 
-1. **Attachment side:** which side of the Output/Bus block faces the target (`FRONT`, `RIGHT`, …, relative to the block's own face, §7.1).
+1. **Attachment side:** the block **points at whatever it was placed against**. Click a furnace with a Bus in hand and the Bus attaches to that furnace. (First design: a setting on the block; placement is simpler.)
 2. **Access face:** which face of the target the transfer acts as if it came through, **relative to the Bus looking at the target**:
-   `TOP`, `BOTTOM`, `NEAR` (the face touching the Bus), `FAR` (the opposite face), `LEFT`, `RIGHT`.
+   `TOP`, `BOTTOM`, `NEAR` (the face touching the Bus, and the default), `FAR` (the opposite face), `LEFT`, `RIGHT`.
+   When the Bus is above or below its target there is no natural "top", so the faces are named as on a map: `TOP` is north, `LEFT` is west.
 
-So a Bus attached to a furnace's side can still insert into the furnace's top (input) or side (fuel) slots, without moving the Bus. In the GUI, the player picks the face by clicking a small 3D preview of the target block.
+So a Bus attached to a furnace's side can still insert into the furnace's top (input) or side (fuel) slots, without moving the Bus. Later, in the GUI, the player picks the face by clicking a small 3D preview of the target block.
 
 ```python
 from logistics import network, Face
 
-net = network()                          # the controller this computer is linked to
-smelter = net.bus("furnace_bus")         # devices are named in their GUI or found by type
-inbox = net.input("ore_input")
+net = network()                          # the cable network this computer is on
+smelter = net.bus("furnace_bus")         # by name, IP address or hardware address
+inbox = net.input()                      # no argument: the network's only Input
 
-# configure Input slots from code (also possible in the GUI)
+# open Input slots for the items they should accept
 inbox.set_slot_filter(0, "minecraft:raw_iron")
-inbox.set_slot_filter(1, "minecraft:raw_iron")
-inbox.set_slot_filter(2, "minecraft:coal")
+inbox.set_slot_filter(1, "coal")                  # "minecraft:" is assumed
+inbox.set_slot_filter(2, "minecraft:iron_ingot")
 
 smelter.insert("minecraft:raw_iron", 16, source=inbox, face=Face.TOP)   # ingredient
-smelter.insert("minecraft:coal", 2, source=inbox, face=Face.LEFT)       # fuel
-smelter.extract("minecraft:iron_ingot", 64, dest=inbox, face=Face.BOTTOM)
+smelter.insert("minecraft:coal", 2, face=Face.LEFT)                     # fuel, from any Input
+moved = smelter.extract("minecraft:iron_ingot", 64, face=Face.BOTTOM)   # up to 64; returns how many
 
-print(smelter.contents())                # reads the furnace's slots: item, count, slot
+print(smelter.contents())                # every slot of the furnace: slot, item, count
+print(net.devices())                     # [<computer 192.168.1.2 02:..>, <input ...>, <bus "furnace_bus" ...>]
 ```
+
+| Call | What it does |
+|---|---|
+| `net.devices()`, `net.inputs()`, `net.outputs()`, `net.buses()` | Lists of devices, in address order |
+| `net.device(key)`, `net.input(key)`, `net.output(key)`, `net.bus(key)` | One device by name, IP or hardware address. With no key: the only one of its kind, or an error saying how many there are |
+| `net.me` | This computer |
+| `device.name`, `.ip`, `.mac`, `.kind`, `device.rename(name)`, `device.refresh()` | Identity. The values are as they were when the device was looked up |
+| `input.contents()`, `input.count(item)`, `input.filters()`, `input.set_slot_filter(slot, item or None)` | The Input's own slots |
+| `port.insert(item, count=1, source=None, face=None)` | Output and Bus: Inputs → target. Returns how many moved |
+| `bus.extract(item, count=1, dest=None, face=None)` | Bus only: target → Inputs |
+| `bus.contents(face=None)`, `bus.count(item, face=None)` | Bus only. With no face it reads the whole container; with a face, only the slots that face gives access to |
+| `port.set_face(face)`, `port.face`, `port.target` | The default face, and the block it points at |
+
+Mistakes raise `logistics.NetworkError` with a sentence saying what is wrong, for example `No bus on this network has the name or address 'nope'.`
 
 #### Rules and performance
 
-- **Transfers run on the main thread** (§2.2) and are **all-or-nothing**: each one is tested before it's carried out, so a partial failure can't duplicate or delete items.
-- **Throughput limits:** items per transfer and transfers per tick, per network (§15).
-- **Network size cap:** cables and blocks per network. The network map is rebuilt only when cables change, and the work is spread over several ticks for large networks.
-- **Events:** buses can provide change events (`async for change in bus.watch()`), so scripts don't have to poll.
+- **Transfers run on the main thread** (§2.2). A program's call is answered on the next game tick, so one computer makes at most about 20 calls a second.
+- **A transfer moves up to the count asked for and returns how many moved.** Each step is tried out before it is carried out, so a full or unwilling destination can't duplicate or delete items. (First design said "all-or-nothing"; that made `extract(..., 64)` useless on a furnace holding 5 ingots.)
+- Items are matched by type. Stacks of one item that differ in other ways (damage, enchantments) all move, and keep their data.
+- **Throughput limits:** one call moves at most 576 items (nine stacks). Per-network transfers per tick are not limited yet (§15).
+- **Events:** buses can provide change events (`async for change in bus.watch()`), so scripts don't have to poll. Not built yet.
 
 #### Tiered upgrades
 
@@ -731,7 +767,7 @@ The same model as items, on the same cable network:
 - Qbots still need **no** energy; energy logistics are for running other mods' machines.
 - Access faces (`TOP`, `NEAR`, …) work the same for fluids and energy.
 
-Open: the network size cap, and whether one Output can feed several targets.
+Open: whether one Output can feed several targets.
 
 ### 11.1 Public peripheral API (separate small jar)
 
@@ -810,6 +846,7 @@ Right-clicking a computer opens an editor laid out like the code editors develop
 | `run file.py` (or `python file.py`) | Runs a program |
 | `python` | The Python prompt; `exit()` returns to the shell |
 | `edit file` | Opens a file in the editor |
+| `devices` (or `ifconfig`) | Lists the blocks cabled to this computer: IP address, hardware address, kind and name (§9.3) |
 | `clear`, `help` | |
 
 Ctrl+C stops a running program.
@@ -1002,9 +1039,9 @@ allow_push     = false
 max_repo_kb    = 2048
 
 [logistics]
-controllers_per_player   = 5
-max_blocks_per_network   = 256   # cables + logistics blocks
-max_items_per_transfer   = 64
+controllers_per_player   = 5     # unused while there is no controller block (§11.0)
+max_blocks_per_network   = 4096  # cables + network blocks; at most 253 of them addressable devices
+max_items_per_transfer   = 576   # nine stacks
 max_transfers_per_tick   = 8     # per network
 
 [panels]
@@ -1044,7 +1081,8 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 4 | Text monitors, then control surfaces (§10.2) | Displays foundation; cheap control panels |
 | 5 | Qbots: movement, six-side sensing and actions, filtered inventory, tool use, self chunk loading, parking, programmer-block activation of inert Qbots (§5.4) | Qbot experience |
 | 6 | Antennas (tiers, frequencies, access modes), in-game network, pseudo-DNS, in-game HTTP | Radio |
-| 7 | Logistics network: cables, controller, Input, Output, Bus with access faces, tier upgrades; wireless bridging (§9.2); drive bays (§17.6) | Inventory and machine automation |
+| 7a | Item blocks, brought forward: cable networks, internal addresses (§9.3), Input, Output, Bus with access faces, the `logistics` module. **Built 2026-11-10, not yet played** (§11.0) | A program can move items between containers |
+| 7 | Rest of the logistics network: filter and face GUI, tier upgrades, throughput limits, change events; wireless bridging (§9.2); drive bays (§17.6) | Inventory and machine automation |
 | 7b | Fluid and energy logistics (§11.0) | Full factory automation |
 | 8 | Uplink (with all §13 protections), then Git import/export (§17.5) | Real-internet access; moving code between worlds |
 | 9 | Web panels v1: engine evaluation, HTML/CSS v1 coverage, sync protocol, events | Flagship UI |
@@ -1177,6 +1215,10 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Recipes: 16 cables from 6 iron + 3 redstone (vertical or horizontal lines); computer from 7 cables, redstone and glass (§20) | Decided |
 | 2026-11-10 | The computer's screen is a code editor (explorer, tabs, terminal, Python scratchpad) drawn at the window's real resolution; the terminal starts in a shell (§12.2) | Decided |
 | 2026-11-10 | Files: plain `open(..., "w")` writes go straight to the drive, so an unclosed file keeps its data; drive ID travels with the broken computer's item | Decided |
+| 2026-11-10 | Every cable network gives its devices internal IP addresses without an antenna; each device also has a fixed hardware (MAC) address and an optional name. The antenna only adds the external address and ports (§9.3) | Built; to confirm |
+| 2026-11-10 | No controller block: the computer plugs straight into the cable (§11.0). Reverses the earlier controller decision | Built; to confirm |
+| 2026-11-10 | Transfers move up to the count asked for and return how many moved, instead of all-or-nothing (§11.0) | Built; to confirm |
+| 2026-11-10 | Outputs and Buses point at the block they were placed against; they don't join the network through that side (§11.0) | Built; to confirm |
 
 ---
 
@@ -1197,6 +1239,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
    - Which items are addressable, beyond hard drives in a drive bay?
 4. Qbot tiers: confirm basic = iron and advanced = diamond mining level (§8.4).
 5. Logistics: network size cap, whether one Output can feed several targets, slot counts and names for each tier (§11.0).
+5a. Confirm the four "Built; to confirm" rows in §18: addresses without an antenna, no controller block, up-to-count transfers, placement sets the target. Also: should the hardware address travel with the item when a block is broken and re-placed (as a real network card's would), rather than being new each time? And the names: the doc says Input and Output; "import" and "export" have also been used for them.
 6. Storage media capacities; whether a hard drive doubles as a computer's internal drive (§17.3).
 7. Pseudo-DNS: whether `names_per_player` should exist at all, or stay unlimited (§9.3).
 
@@ -1221,3 +1264,11 @@ All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G
 | **16 Cable** | `IRI` / `IRI` / `IRI` | Vertical lines: 6 iron, 3 redstone |
 | **16 Cable** | `III` / `RRR` / `III` | Horizontal lines: the same ingredients |
 | **Computer** | `CCC` / `CRC` / `CGC` | Cable in the shape of leggings, redstone in the middle. Costs 7 cables, 1 redstone, 1 glass |
+
+**Placeholders, not decided:** the item blocks need recipes to be craftable at all, so each is four cables around the vanilla block it most resembles.
+
+| Result | Pattern | Middle |
+|---|---|---|
+| **Input** | ` C ` / `CXC` / ` C ` | `X` = chest |
+| **Output** | ` C ` / `CXC` / ` C ` | `X` = dropper |
+| **Bus** | ` C ` / `CXC` / ` C ` | `X` = hopper |

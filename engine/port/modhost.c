@@ -4,6 +4,7 @@
 #include "py/mphal.h"
 
 #define RESULT_BUF_SIZE (4096)
+#define RESULT_MAX_SIZE (48 * 1024)
 static char result_buf[RESULT_BUF_SIZE];
 
 // _host.submit(call: str) -> ticket: int
@@ -22,10 +23,22 @@ static mp_obj_t modhost_wait(size_t n_args, const mp_obj_t *args) {
     if (n < 0) {
         return mp_const_none;
     }
-    if (n > RESULT_BUF_SIZE) {
+    if (n <= RESULT_BUF_SIZE) {
+        return mp_obj_new_str(result_buf, (size_t)n);
+    }
+    // Too big for the fixed buffer: the host has kept the answer, so ask again
+    // with a buffer from the Python heap (MemoryError if the heap can't hold it).
+    if (n > RESULT_MAX_SIZE) { // the host never sends more than this
         mp_raise_ValueError(MP_ERROR_TEXT("host result too large"));
     }
-    return mp_obj_new_str(result_buf, (size_t)n);
+    vstr_t vstr;
+    vstr_init_len(&vstr, (size_t)n);
+    int32_t n2 = host_wait(ticket, 0, vstr.buf, (uint32_t)n);
+    if (n2 != n) {
+        vstr_clear(&vstr);
+        mp_raise_ValueError(MP_ERROR_TEXT("host result changed"));
+    }
+    return mp_obj_new_str_from_vstr(&vstr);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(modhost_wait_obj, 1, 2, modhost_wait);
 

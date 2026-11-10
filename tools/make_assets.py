@@ -135,6 +135,11 @@ write_json("assets/qbotics/items/computer.json", {
 write_json("assets/qbotics/lang/en_us.json", {
     "block.qbotics.computer": "Computer",
     "block.qbotics.cable": "Cable",
+    "block.qbotics.input": "Input",
+    "block.qbotics.output": "Output",
+    "block.qbotics.bus": "Bus",
+    "container.qbotics.input": "Input  %s",
+    "message.qbotics.port": "%s, pointing at %s",
     "screen.qbotics.terminal": "Computer Terminal",
 })
 
@@ -271,16 +276,126 @@ write_json("data/qbotics/recipe/computer.json", shaped(
 
 # A broken computer keeps its drive (its files).
 write_json("data/qbotics/loot_table/blocks/computer.json",
-           drops_itself("qbotics:computer", copy_components=["qbotics:drive_id"]))
+           drops_itself("qbotics:computer", copy_components=["qbotics:drive_id", "minecraft:custom_name"]))
 write_json("data/qbotics/loot_table/blocks/cable.json", drops_itself("qbotics:cable"))
 
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
-    "values": ["qbotics:computer", "qbotics:cable"],
+    "values": ["qbotics:computer", "qbotics:cable", "qbotics:input", "qbotics:output", "qbotics:bus"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
-    "values": ["qbotics:cable", "qbotics:computer"],
+    "values": ["qbotics:cable", "qbotics:computer", "qbotics:input", "qbotics:output", "qbotics:bus"],
 })
+# ---- item blocks: input, output, bus (design doc §11.0) ---------------------------
+
+ARROW_IN = (110, 224, 124)
+ARROW_OUT = (240, 160, 60)
+
+
+def input_side():
+    """Nine small slots, like the block's nine filtered slots."""
+    px = case_base()
+    for gy in range(3):
+        for gx in range(3):
+            for y in range(3):
+                for x in range(3):
+                    px[3 + gy * 4 + y][3 + gx * 4 + x] = VENT if (x, y) != (1, 1) else SCREEN
+    return px
+
+
+def input_top():
+    """A hatch items drop into."""
+    px = case_base()
+    for y in range(3, 13):
+        for x in range(3, 13):
+            px[y][x] = EDGE if x in (3, 12) or y in (3, 12) else VENT
+    for i in range(5, 11):
+        px[i][i] = SCREEN_EDGE
+        px[i][15 - i] = SCREEN_EDGE
+    return px
+
+
+def port_side():
+    """Plain casing with a cable-coloured band, so the block reads as part of the network."""
+    px = case_base()
+    for x in range(1, 15):
+        px[7][x] = SHEATH_DARK
+        px[8][x] = CORE_RED if x % 4 in (1, 2) else SHEATH_DARK
+    return px
+
+
+def port_front(colours):
+    """The face that touches the target: a dark opening with coloured marks."""
+    px = case_base()
+    for y in range(3, 13):
+        for x in range(3, 13):
+            px[y][x] = EDGE if x in (3, 12) or y in (3, 12) else SCREEN
+    for (x, y), colour in colours.items():
+        px[y][x] = colour
+    return px
+
+
+# Output: one arrow pointing in to the target. Bus: arrows both ways.
+OUTPUT_MARKS = {(7, 5): ARROW_OUT, (8, 5): ARROW_OUT, (6, 6): ARROW_OUT, (9, 6): ARROW_OUT,
+                (7, 7): ARROW_OUT, (8, 7): ARROW_OUT, (7, 8): ARROW_OUT, (8, 8): ARROW_OUT,
+                (7, 9): ARROW_OUT, (8, 9): ARROW_OUT, (7, 10): ARROW_OUT, (8, 10): ARROW_OUT}
+BUS_MARKS = {(5, 5): ARROW_OUT, (6, 5): ARROW_OUT, (5, 6): ARROW_OUT, (6, 6): ARROW_OUT, (5, 7): ARROW_OUT,
+             (6, 7): ARROW_OUT, (4, 8): ARROW_OUT, (7, 8): ARROW_OUT, (5, 9): ARROW_OUT, (6, 9): ARROW_OUT,
+             (9, 6): ARROW_IN, (10, 6): ARROW_IN, (8, 7): ARROW_IN, (11, 7): ARROW_IN, (9, 8): ARROW_IN,
+             (10, 8): ARROW_IN, (9, 9): ARROW_IN, (10, 9): ARROW_IN, (9, 10): ARROW_IN, (10, 10): ARROW_IN}
+
+write_png("assets/qbotics/textures/block/input_side.png", input_side())
+write_png("assets/qbotics/textures/block/input_top.png", input_top())
+write_png("assets/qbotics/textures/block/port_side.png", port_side())
+write_png("assets/qbotics/textures/block/output_front.png", port_front(OUTPUT_MARKS))
+write_png("assets/qbotics/textures/block/bus_front.png", port_front(BUS_MARKS))
+
+write_json("assets/qbotics/models/block/input.json", {
+    "parent": "minecraft:block/cube_column",
+    "textures": {"end": "qbotics:block/input_top", "side": "qbotics:block/input_side"},
+})
+write_json("assets/qbotics/blockstates/input.json", {"variants": {"": {"model": "qbotics:block/input"}}})
+write_json("assets/qbotics/items/input.json", {
+    "model": {"type": "minecraft:model", "model": "qbotics:block/input"},
+})
+
+for port in ("output", "bus"):
+    # The model's north face is the front; the block state turns it to wherever the block points.
+    write_json("assets/qbotics/models/block/%s.json" % port, {
+        "parent": "minecraft:block/cube",
+        "textures": {
+            "particle": "qbotics:block/port_side",
+            "north": "qbotics:block/%s_front" % port,
+            "south": "qbotics:block/port_side",
+            "east": "qbotics:block/port_side",
+            "west": "qbotics:block/port_side",
+            "up": "qbotics:block/port_side",
+            "down": "qbotics:block/port_side",
+        },
+    })
+    model = {"model": "qbotics:block/%s" % port}
+    write_json("assets/qbotics/blockstates/%s.json" % port, {
+        "variants": {
+            "facing=north": model,
+            "facing=east": dict(model, y=90),
+            "facing=south": dict(model, y=180),
+            "facing=west": dict(model, y=270),
+            "facing=up": dict(model, x=270),
+            "facing=down": dict(model, x=90),
+        },
+    })
+    write_json("assets/qbotics/items/%s.json" % port, {
+        "model": {"type": "minecraft:model", "model": "qbotics:block/%s" % port},
+    })
+
+# Placeholder recipes (design doc §20): four cables around the vanilla block each one resembles.
+for name, heart in (("input", "minecraft:chest"), ("output", "minecraft:dropper"), ("bus", "minecraft:hopper")):
+    write_json("data/qbotics/recipe/%s.json" % name, shaped(
+        [" C ", "CHC", " C "], {"C": "qbotics:cable", "H": heart}, "qbotics:%s" % name))
+    # A device named in an anvil keeps its name when broken.
+    write_json("data/qbotics/loot_table/blocks/%s.json" % name,
+               drops_itself("qbotics:%s" % name, copy_components=["minecraft:custom_name"]))
+
 print("assets written")

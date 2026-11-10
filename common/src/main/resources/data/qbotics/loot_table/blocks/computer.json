@@ -16,7 +16,8 @@
             {
               "function": "minecraft:copy_components",
               "include": [
-                "qbotics:drive_id"
+                "qbotics:drive_id",
+                "minecraft:custom_name"
               ],
               "source": "block_entity"
             }

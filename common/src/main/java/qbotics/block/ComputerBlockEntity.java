@@ -5,6 +5,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponentGetter;
 import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -13,12 +15,15 @@ import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 import qbotics.QboticsContent;
 import qbotics.computer.ComputerManager;
+import qbotics.network.Addresses;
+import qbotics.network.CableNetwork;
+import qbotics.network.NetworkDevice;
 
 /**
  * The placed computer's identity. The running program does not live here: it belongs to
  * the server-wide {@link ComputerManager}, keyed by device ID (design doc §6.2).
  */
-public class ComputerBlockEntity extends BlockEntity {
+public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
     /** Identifies this placed machine. A new one is assigned on every placement (design doc §17.1). */
     private @Nullable UUID deviceId;
     /**
@@ -28,9 +33,13 @@ public class ComputerBlockEntity extends BlockEntity {
     private @Nullable UUID driveId;
     /** The player who placed it. Stored as a UUID because names can change (design doc §5.1). */
     private @Nullable UUID owner;
+    /** The name it goes by on its cable network, and the address that network gave it (design doc §9.3). */
+    private String name = "";
+    private int hostNumber;
 
     public ComputerBlockEntity(BlockPos pos, BlockState state) {
         super(QboticsContent.COMPUTER_BLOCK_ENTITY.get(), pos, state);
+        CableNetwork.changed();
     }
 
     public void onPlaced(@Nullable UUID placedBy) {
@@ -39,6 +48,7 @@ public class ComputerBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    @Override
     public UUID deviceId() {
         if (deviceId == null) {
             // Placed by something other than a player (a command, a structure).
@@ -67,6 +77,41 @@ public class ComputerBlockEntity extends BlockEntity {
     }
 
     @Override
+    public Kind kind() {
+        return Kind.COMPUTER;
+    }
+
+    @Override
+    public String deviceName() {
+        return name;
+    }
+
+    @Override
+    public void setDeviceName(String newName) {
+        name = Addresses.cleanName(newName);
+        setChanged();
+    }
+
+    @Override
+    public int hostNumber() {
+        return hostNumber;
+    }
+
+    @Override
+    public void setHostNumber(int number) {
+        if (hostNumber != number) {
+            hostNumber = number;
+            setChanged();
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        CableNetwork.changed();
+    }
+
+    @Override
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
         // The block was broken or replaced (not merely unloaded): the computer is gone.
@@ -81,6 +126,8 @@ public class ComputerBlockEntity extends BlockEntity {
         output.storeNullable("device_id", UUIDUtil.CODEC, deviceId);
         output.storeNullable("owner", UUIDUtil.CODEC, owner);
         output.storeNullable("drive_id", UUIDUtil.CODEC, driveId);
+        output.putString("name", name);
+        output.putInt("host", hostNumber);
     }
 
     // The drive ID moves between the block and its item as a data component.
@@ -89,6 +136,10 @@ public class ComputerBlockEntity extends BlockEntity {
     protected void applyImplicitComponents(DataComponentGetter components) {
         super.applyImplicitComponents(components);
         driveId = components.get(QboticsContent.DRIVE_ID.get());
+        Component custom = components.get(DataComponents.CUSTOM_NAME);
+        if (custom != null) {
+            name = Addresses.cleanName(custom.getString());
+        }
     }
 
     @Override
@@ -96,6 +147,9 @@ public class ComputerBlockEntity extends BlockEntity {
         super.collectImplicitComponents(components);
         if (driveId != null) {
             components.set(QboticsContent.DRIVE_ID.get(), driveId);
+        }
+        if (!name.isEmpty()) {
+            components.set(DataComponents.CUSTOM_NAME, Component.literal(name));
         }
     }
 
@@ -111,5 +165,7 @@ public class ComputerBlockEntity extends BlockEntity {
         deviceId = input.read("device_id", UUIDUtil.CODEC).orElse(null);
         owner = input.read("owner", UUIDUtil.CODEC).orElse(null);
         driveId = input.read("drive_id", UUIDUtil.CODEC).orElse(null);
+        name = Addresses.cleanName(input.getStringOr("name", ""));
+        hostNumber = input.getIntOr("host", 0);
     }
 }

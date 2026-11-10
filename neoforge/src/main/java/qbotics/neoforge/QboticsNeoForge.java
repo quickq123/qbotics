@@ -41,6 +41,19 @@ import qbotics.QboticsPlatform;
 import qbotics.block.CableBlock;
 import qbotics.block.ComputerBlock;
 import qbotics.block.ComputerBlockEntity;
+import qbotics.block.InputBlock;
+import qbotics.block.InputBlockEntity;
+import qbotics.block.PortBlock;
+import qbotics.block.PortBlockEntity;
+import qbotics.network.ItemPort;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.item.VanillaContainerWrapper;
 import qbotics.computer.ComputerManager;
 import qbotics.net.IdePayloads;
 import qbotics.net.TerminalInputPayload;
@@ -63,6 +76,21 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ComputerBlockEntity>> COMPUTER_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("computer", () -> new BlockEntityType<>(ComputerBlockEntity::new, COMPUTER.get()));
 
+    // The item blocks (design doc §11.0).
+    private static final DeferredBlock<InputBlock> INPUT = BLOCKS.registerBlock("input", InputBlock::new,
+            properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> INPUT_ITEM = ITEMS.registerSimpleBlockItem(INPUT);
+    private static final DeferredBlock<PortBlock> OUTPUT = BLOCKS.registerBlock("output", PortBlock::output,
+            properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> OUTPUT_ITEM = ITEMS.registerSimpleBlockItem(OUTPUT);
+    private static final DeferredBlock<PortBlock> BUS = BLOCKS.registerBlock("bus", PortBlock::bus,
+            properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> BUS_ITEM = ITEMS.registerSimpleBlockItem(BUS);
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InputBlockEntity>> INPUT_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("input", () -> new BlockEntityType<>(InputBlockEntity::new, INPUT.get()));
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, OUTPUT.get(), BUS.get()));
+
     private static final DeferredRegister.DataComponents DATA_COMPONENTS =
             DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, Qbotics.MOD_ID);
     private static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> DRIVE_ID =
@@ -74,6 +102,11 @@ public final class QboticsNeoForge {
         QboticsContent.COMPUTER_BLOCK_ENTITY = COMPUTER_BLOCK_ENTITY;
         QboticsContent.CABLE_BLOCK = CABLE;
         QboticsContent.DRIVE_ID = DRIVE_ID;
+        QboticsContent.INPUT_BLOCK = INPUT;
+        QboticsContent.OUTPUT_BLOCK = OUTPUT;
+        QboticsContent.BUS_BLOCK = BUS;
+        QboticsContent.INPUT_BLOCK_ENTITY = INPUT_BLOCK_ENTITY;
+        QboticsContent.PORT_BLOCK_ENTITY = PORT_BLOCK_ENTITY;
 
         DATA_COMPONENTS.register(modBus);
         BLOCKS.register(modBus);
@@ -81,6 +114,9 @@ public final class QboticsNeoForge {
         BLOCK_ENTITY_TYPES.register(modBus);
         modBus.addListener(QboticsNeoForge::registerPayloads);
         modBus.addListener(QboticsNeoForge::addToCreativeTabs);
+        // Hoppers and other mods' pipes see the Input block as an ordinary (filtered) inventory.
+        modBus.addListener((RegisterCapabilitiesEvent event) -> event.registerBlockEntity(
+                Capabilities.Item.BLOCK, INPUT_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input)));
         if (Boolean.getBoolean("qbotics.gameTests")) {
             registerGameTests(modBus);
         }
@@ -104,6 +140,12 @@ public final class QboticsNeoForge {
             @Override
             public void sendToServer(CustomPacketPayload payload) {
                 ClientPacketDistributor.sendToServer(payload);
+            }
+
+            @Override
+            public ItemPort itemPort(ServerLevel level, BlockPos pos, Direction side) {
+                ResourceHandler<ItemResource> handler = level.getCapability(Capabilities.Item.BLOCK, pos, side);
+                return handler == null ? null : new HandlerItemPort(handler);
             }
         });
     }
@@ -151,6 +193,9 @@ public final class QboticsNeoForge {
         if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS || event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(COMPUTER_ITEM);
             event.accept(CABLE_ITEM);
+            event.accept(INPUT_ITEM);
+            event.accept(OUTPUT_ITEM);
+            event.accept(BUS_ITEM);
         }
     }
 }
