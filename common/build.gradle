@@ -1,0 +1,16 @@
+// Loader-independent code. It is compiled here against plain Minecraft only, which
+// proves it uses no NeoForge (or Fabric) API. The loader modules compile these same
+// sources into their own jar, so this module produces no artifact of its own.
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+neoForge {
+    neoFormVersion = project.neoform_version
+}
+
+dependencies {
+    api "com.dylibso.chicory:runtime:${chicory_version}"
+    api "com.dylibso.chicory:compiler:${chicory_version}"
+}

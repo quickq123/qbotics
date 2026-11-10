@@ -1,0 +1,17 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'qbotics'
+
+// common:   everything that needs only Minecraft itself (engine, scheduler, device logic).
+// neoforge: the thin NeoForge layer. A 'fabric' module can be added beside it later.
+// engine/ holds the MicroPython -> Wasm build and its benchmark harness (a separate Gradle build).
+include 'common'
+include 'neoforge'

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "qbotics:block/computer_front",
+    "side": "qbotics:block/computer_side",
+    "top": "qbotics:block/computer_top"
+  }
+}

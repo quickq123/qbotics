@@ -1,0 +1,88 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+base {
+    archivesName = mod_id
+}
+
+// The mod jar contains the common code as well as this module's.
+sourceSets.main {
+    java.srcDir rootProject.file('common/src/main/java')
+    resources.srcDir rootProject.file('common/src/main/resources')
+    resources.srcDir 'src/generated/resources'
+}
+
+neoForge {
+    version = project.neo_version
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        // Starts a headless server, runs the tests in qbotics.test.QboticsGameTests, then exits.
+        // The exit code is the number of failed tests.
+        gameTestServer {
+            type = "gameTestServer"
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'qbotics.gameTests', 'true'
+        }
+
+        // Loads the mod without starting a world, then exits. With qbotics.selfTest set, the
+        // mod runs a Python script on the engine as it loads: a quick check that the engine
+        // works inside the real NeoForge runtime. Also the place for data generators later.
+        data {
+            clientData()
+            systemProperty 'qbotics.selfTest', 'true'
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    // Chicory (the Wasm runtime) is a plain library, not a mod: bundle it inside the mod
+    // jar (jarJar). Its compiler also needs ASM, which NeoForge already provides.
+    for (lib in ['runtime', 'wasm', 'compiler']) {
+        def notation = "com.dylibso.chicory:${lib}:${chicory_version}"
+        implementation(notation) { transitive = false }
+        jarJar(notation) { transitive = false }
+    }
+}
+
+// Fill in src/main/templates (neoforge.mods.toml) from gradle.properties.
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
