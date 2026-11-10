@@ -1,6 +1,9 @@
 package qbotics.computer;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -10,40 +13,72 @@ import qbotics.Qbotics;
 import qbotics.engine.Computer;
 import qbotics.engine.DriveFileSystem;
 import qbotics.engine.HostFileSystem;
-import qbotics.engine.Engine;
+import qbotics.engine.HostFileSystem.FsException;
+import qbotics.ide.Paths;
 
 /**
  * One running computer on the server: its Python instance, its screen, and the thread that
- * runs its REPL. It is independent of the block's chunk being loaded (design doc §6.2).
+ * runs its shell. It is independent of the block's chunk being loaded (design doc §6.2).
+ *
+ * <p>The terminal starts in a small shell (ls, cd, run, python, ...), the way a terminal in
+ * a code editor does. Everything the computer is asked to do arrives as a job on one queue
+ * and is done by the computer's own thread, one at a time.
  */
 public final class ServerComputer {
     /** Basic tier heap (design doc §3.4). */
     private static final int HEAP_BYTES = 256 * 1024;
-    private static final int MAX_QUEUED_LINES = 256;
-    private static final String STARTUP_FILE = "/startup.py";
-
     /** Design doc §15: files.drive_quota_kb. Will come from config. */
     private static final long DRIVE_QUOTA_BYTES = 1024 * 1024;
+    private static final int MAX_QUEUED_JOBS = 256;
+    private static final int MAX_CAT_BYTES = 16 * 1024;
+    public static final int MAX_SCRATCH_OUTPUT = 8000;
+    private static final String STARTUP_FILE = "/startup.py";
+
+    /** Things a computer tells the players looking at it. Called on the computer's thread. */
+    public interface Listener {
+        void scratchResult(UUID deviceId, UUID player, int runId, boolean ok, String output);
+
+        void openInEditor(UUID deviceId, String path);
+    }
+
+    private sealed interface Job {
+    }
+
+    private record Line(String text) implements Job {
+    }
+
+    private record RunFile(String path) implements Job {
+    }
+
+    private record Scratch(UUID player, int runId, String code) implements Job {
+    }
+
+    private record Interrupt() implements Job {
+    }
 
     private final UUID deviceId;
     private final UUID driveId;
     private final DriveFileSystem drive;
     private final Terminal terminal = new Terminal();
-    private final BlockingQueue<String> inputLines = new LinkedBlockingQueue<>(MAX_QUEUED_LINES);
+    private final BlockingQueue<Job> jobs = new LinkedBlockingQueue<>(MAX_QUEUED_JOBS);
     private final Semaphore cpu;
+    private final Listener listener;
     private final Thread thread;
 
     private volatile Computer vm;
     private volatile boolean running;
     private volatile boolean shutDown;
-    /** Set by Ctrl+C while the prompt is waiting for more lines of a multi-line entry. */
-    private volatile boolean discardEntry;
+    /** The shell's current folder. */
+    private String cwd = "/";
+    /** True once the prompt for the next job is on screen, so it isn't printed twice. */
+    private boolean promptShown;
 
-    ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu) {
+    ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu, Listener listener) {
         this.deviceId = deviceId;
         this.driveId = driveId;
         this.drive = new DriveFileSystem(driveFolder, DRIVE_QUOTA_BYTES);
         this.cpu = cpu;
+        this.listener = listener;
         this.thread = Computer.newThread(this::run, "qbotics-computer-" + deviceId.toString().substring(0, 8));
         this.thread.setDaemon(true);
         this.thread.start();
@@ -61,19 +96,37 @@ public final class ServerComputer {
         return terminal;
     }
 
-    /** A line the player typed and entered. Dropped if the computer is too far behind. */
-    public void submitLine(String line) {
-        inputLines.offer(line);
+    /** The computer's files. Safe to use from any thread. */
+    public HostFileSystem drive() {
+        return drive;
     }
 
-    /** Ctrl+C: stop the running program, or abandon a half-typed multi-line entry. */
+    // ---- requests from players (any thread) --------------------------------------
+
+    /** A line the player typed and entered. Dropped if the computer is too far behind. */
+    public void submitLine(String line) {
+        jobs.offer(new Line(line));
+    }
+
+    /** The editor's Run button: run a Python file, as if "run file" had been typed. */
+    public void submitRunFile(String path) {
+        jobs.offer(new RunFile(path));
+    }
+
+    /** The scratchpad's Run button. The result goes back to that player only. */
+    public void submitScratch(UUID player, int runId, String code) {
+        if (!jobs.offer(new Scratch(player, runId, code))) {
+            listener.scratchResult(deviceId, player, runId, false, "The computer is too busy. Try again in a moment.\n");
+        }
+    }
+
+    /** Ctrl+C: stop the running program, or cancel what is being typed. */
     public void interrupt() {
         Computer current = vm;
         if (running && current != null) {
             current.stop = Computer.StopMode.POLITE;
         } else {
-            discardEntry = true;
-            inputLines.offer("");
+            jobs.offer(new Interrupt());
         }
     }
 
@@ -87,6 +140,8 @@ public final class ServerComputer {
         thread.interrupt();
     }
 
+    // ---- the computer's thread ----------------------------------------------------
+
     private void run() {
         try {
             terminal.write("Qbotics computer starting...\n");
@@ -96,69 +151,337 @@ public final class ServerComputer {
             computer.outputSink = terminal::write;
             vm = computer;
             terminal.clear();
-            terminal.write("MicroPython on Qbotics. Ctrl+C stops a program.\n");
-            runStartup(computer);
-            repl(computer);
+            terminal.write("Qbotics computer. Type help for a list of commands.\n");
+            if (exists(STARTUP_FILE)) {
+                runPython(computer, "execfile(" + pyString(STARTUP_FILE) + ")");
+            }
+            shell(computer);
         } catch (InterruptedException e) {
             // Shut down while waiting for input.
         } catch (Throwable e) {
             if (!shutDown) {
                 Qbotics.LOGGER.error("Computer {} crashed", deviceId, e);
-                terminal.write("\nThis computer crashed and needs to be re-placed.\n");
+                terminal.write("\nThis computer crashed. Break it and place it again to restart it.\n");
             }
         } finally {
             vm = null;
         }
     }
 
-    /** A computer runs /startup.py, if it has one, every time it boots (design doc §1.4). */
-    private void runStartup(Computer computer) {
-        try {
-            drive.call(HostFileSystem.STAT, STARTUP_FILE, new byte[0]);
-        } catch (HostFileSystem.FsException e) {
-            return; // no startup file
+    /**
+     * Shows the prompt and waits for the next thing to do. Scratchpad runs are done here,
+     * quietly, without disturbing what is on the terminal.
+     */
+    private Job nextJob(Computer computer, String prompt) throws InterruptedException {
+        while (true) {
+            if (!promptShown) {
+                terminal.write(prompt);
+                promptShown = true;
+            }
+            Job job = jobs.take();
+            if (job instanceof Scratch scratch) {
+                runScratch(computer, scratch);
+                continue;
+            }
+            promptShown = false;
+            return job;
         }
+    }
+
+    private void shell(Computer computer) throws InterruptedException {
+        while (!shutDown) {
+            Job job = nextJob(computer, cwd + " $ ");
+            switch (job) {
+                case Line line -> {
+                    terminal.write(line.text() + "\n");
+                    command(computer, line.text());
+                }
+                case RunFile file -> {
+                    terminal.write("run " + file.path() + "\n");
+                    runFile(computer, file.path());
+                }
+                case Interrupt ignored -> terminal.write("^C\n");
+                case Scratch ignored -> throw new IllegalStateException();
+            }
+        }
+    }
+
+    /** The Python prompt, entered with the "python" command and left with exit(). */
+    private void repl(Computer computer) throws InterruptedException {
+        terminal.write("MicroPython. Type exit() to go back to the shell.\n");
+        while (!shutDown) {
+            Job job = nextJob(computer, ">>> ");
+            if (job instanceof RunFile file) {
+                terminal.write("\nrun " + file.path() + "\n");
+                runFile(computer, file.path());
+                continue;
+            }
+            if (!(job instanceof Line first)) {
+                terminal.write("\nKeyboardInterrupt\n");
+                continue;
+            }
+            terminal.write(first.text() + "\n");
+            String entry = first.text();
+            String trimmed = entry.strip();
+            if (trimmed.equals("exit()") || trimmed.equals("exit") || trimmed.equals("quit()") || trimmed.equals("quit")) {
+                return;
+            }
+            // Keep reading lines while the entry is incomplete, as the Python prompt does.
+            boolean cancelled = false;
+            while (computer.replNeedsMore(entry)) {
+                Job more = nextJob(computer, "... ");
+                if (!(more instanceof Line next)) {
+                    terminal.write("\nKeyboardInterrupt\n");
+                    cancelled = true;
+                    break;
+                }
+                terminal.write(next.text() + "\n");
+                entry = entry + "\n" + next.text();
+            }
+            if (!cancelled && !entry.isBlank()) {
+                String source = entry;
+                runGuarded(computer, () -> computer.execRepl(source));
+            }
+        }
+    }
+
+    private void runGuarded(Computer computer, Runnable body) {
         running = true;
         try {
-            computer.exec("execfile('" + STARTUP_FILE + "')");
+            body.run();
         } finally {
             running = false;
             computer.stop = shutDown ? Computer.StopMode.HARD : Computer.StopMode.NONE;
         }
     }
 
-    private void repl(Computer computer) throws InterruptedException {
-        while (!shutDown) {
-            terminal.write(">>> ");
-            String entry = readLine();
-            // Keep reading lines while the entry is incomplete, as the Python prompt does.
-            while (!discardEntry && computer.replNeedsMore(entry)) {
-                terminal.write("... ");
-                entry = entry + "\n" + readLine();
+    private void runPython(Computer computer, String source) {
+        runGuarded(computer, () -> computer.exec(source));
+    }
+
+    private void runFile(Computer computer, String path) {
+        String file = Paths.resolve(cwd, path);
+        try {
+            String kind = new String(drive.call(HostFileSystem.STAT, file, new byte[0]), StandardCharsets.UTF_8);
+            if (kind.startsWith("d")) {
+                terminal.write(file + " is a folder, not a program.\n");
+                return;
             }
-            if (discardEntry) {
-                discardEntry = false;
-                terminal.write("KeyboardInterrupt\n");
-                continue;
+        } catch (FsException e) {
+            terminal.write(describe(e, file) + "\n");
+            return;
+        }
+        // Programs see the shell's folder as their current folder.
+        runPython(computer, "import os\nos.chdir(" + pyString(cwd) + ")\nexecfile(" + pyString(file) + ")");
+    }
+
+    private void runScratch(Computer computer, Scratch scratch) {
+        StringBuilder output = new StringBuilder();
+        boolean[] ok = {false};
+        computer.outputSink = text -> {
+            if (output.length() < MAX_SCRATCH_OUTPUT) {
+                output.append(text, 0, Math.min(text.length(), MAX_SCRATCH_OUTPUT - output.length()));
             }
-            if (entry.isBlank()) {
-                continue;
+        };
+        try {
+            runGuarded(computer, () -> ok[0] = computer.exec(scratch.code()));
+        } finally {
+            computer.outputSink = terminal::write;
+        }
+        listener.scratchResult(deviceId, scratch.player(), scratch.runId(), ok[0], output.toString());
+    }
+
+    // ---- shell commands ------------------------------------------------------------
+
+    private static final String HELP = String.join("\n",
+            "Files:   ls [folder]   cd <folder>   pwd   cat <file>",
+            "         mkdir <folder>   rm [-r] <path>   mv <from> <to>   cp <from> <to>",
+            "Python:  run <file.py>      run a program (python <file.py> also works)",
+            "         python             the Python prompt; exit() comes back here",
+            "Editor:  edit <file>        open a file in the editor",
+            "Other:   clear   help       Ctrl+C stops a running program",
+            "");
+
+    private void command(Computer computer, String line) throws InterruptedException {
+        List<String> args = splitArguments(line);
+        if (args.isEmpty()) {
+            return;
+        }
+        String name = args.removeFirst();
+        try {
+            switch (name) {
+                case "help" -> terminal.write(HELP);
+                case "clear" -> terminal.clear();
+                case "pwd" -> terminal.write(cwd + "\n");
+                case "ls" -> list(args.isEmpty() ? cwd : Paths.resolve(cwd, args.getFirst()));
+                case "cd" -> changeFolder(args.isEmpty() ? "/" : Paths.resolve(cwd, args.getFirst()));
+                case "cat" -> {
+                    byte[] data = drive.call(HostFileSystem.READ, path(args, 0, name), new byte[0]);
+                    String text = new String(data, 0, Math.min(data.length, MAX_CAT_BYTES), StandardCharsets.UTF_8);
+                    terminal.write(text.endsWith("\n") || text.isEmpty() ? text : text + "\n");
+                    if (data.length > MAX_CAT_BYTES) {
+                        terminal.write("... (" + (data.length - MAX_CAT_BYTES) + " more bytes)\n");
+                    }
+                }
+                case "mkdir" -> drive.call(HostFileSystem.MKDIR, path(args, 0, name), new byte[0]);
+                case "rm" -> {
+                    boolean recursive = args.remove("-r") | args.remove("-rf");
+                    String target = path(args, 0, name);
+                    if (recursive) {
+                        deleteTree(drive, target);
+                    } else {
+                        drive.call(HostFileSystem.REMOVE, target, new byte[0]);
+                    }
+                }
+                case "mv" -> drive.call(HostFileSystem.RENAME, path(args, 0, name),
+                        intoFolder(path(args, 1, name), args.get(0)).getBytes(StandardCharsets.UTF_8));
+                case "cp" -> drive.call(HostFileSystem.WRITE, intoFolder(path(args, 1, name), args.get(0)),
+                        drive.call(HostFileSystem.READ, path(args, 0, name), new byte[0]));
+                case "edit" -> listener.openInEditor(deviceId, path(args, 0, name));
+                case "run" -> runFile(computer, path(args, 0, name));
+                case "python", "py" -> {
+                    if (args.isEmpty()) {
+                        repl(computer);
+                    } else {
+                        runFile(computer, args.getFirst());
+                    }
+                }
+                default -> terminal.write("Unknown command: " + name + ". Type help for a list.\n");
             }
-            running = true;
-            try {
-                computer.execRepl(entry);
-            } finally {
-                running = false;
-                computer.stop = shutDown ? Computer.StopMode.HARD : Computer.StopMode.NONE;
-            }
+        } catch (FsException e) {
+            terminal.write(describe(e, args.isEmpty() ? "" : args.getFirst()) + "\n");
+        } catch (UsageException e) {
+            terminal.write(e.getMessage() + "\n");
         }
     }
 
-    private String readLine() throws InterruptedException {
-        String line = inputLines.take();
-        if (!discardEntry) {
-            terminal.write(line + "\n");
+    private static final class UsageException extends RuntimeException {
+        UsageException(String message) {
+            super(message, null, false, false);
         }
-        return line;
+    }
+
+    /** The absolute path given as argument number index, or a usage message if it is missing. */
+    private String path(List<String> args, int index, String command) {
+        if (args.size() <= index) {
+            throw new UsageException("Usage: " + switch (command) {
+                case "mv", "cp" -> command + " <from> <to>";
+                case "mkdir" -> "mkdir <folder>";
+                case "rm" -> "rm [-r] <path>";
+                default -> command + " <file>";
+            });
+        }
+        return Paths.resolve(cwd, args.get(index));
+    }
+
+    /** "mv a.py lib" means "into lib" when lib is a folder. */
+    private String intoFolder(String target, String sourceArgument) {
+        return isFolder(target) ? Paths.join(target, Paths.name(Paths.resolve(cwd, sourceArgument))) : target;
+    }
+
+    private boolean exists(String path) {
+        try {
+            drive.call(HostFileSystem.STAT, path, new byte[0]);
+            return true;
+        } catch (FsException e) {
+            return false;
+        }
+    }
+
+    private boolean isFolder(String path) {
+        try {
+            return new String(drive.call(HostFileSystem.STAT, path, new byte[0]), StandardCharsets.UTF_8).startsWith("d");
+        } catch (FsException e) {
+            return false;
+        }
+    }
+
+    private void changeFolder(String folder) throws FsException {
+        if (!isFolder(folder)) {
+            throw new FsException(exists(folder) ? HostFileSystem.ENOTDIR : HostFileSystem.ENOENT);
+        }
+        cwd = folder;
+    }
+
+    private void list(String folder) throws FsException {
+        String listing = new String(drive.call(HostFileSystem.LIST, folder, new byte[0]), StandardCharsets.UTF_8);
+        if (listing.isEmpty()) {
+            terminal.write("(empty)\n");
+            return;
+        }
+        StringBuilder folders = new StringBuilder();
+        StringBuilder files = new StringBuilder();
+        for (String entry : listing.split("\n")) {
+            String[] fields = entry.split("\t");
+            if (fields[0].equals("d")) {
+                folders.append(fields[2]).append("/\n");
+            } else {
+                files.append(String.format("%-30s %7s bytes%n", fields[2], fields[1]).replace("\r", ""));
+            }
+        }
+        terminal.write(folders.toString() + files);
+    }
+
+    /** Deletes a file, or a folder with everything in it. */
+    public static void deleteTree(HostFileSystem drive, String path) throws FsException {
+        String kind = new String(drive.call(HostFileSystem.STAT, path, new byte[0]), StandardCharsets.UTF_8);
+        if (kind.startsWith("d")) {
+            String listing = new String(drive.call(HostFileSystem.LIST, path, new byte[0]), StandardCharsets.UTF_8);
+            for (String entry : listing.split("\n")) {
+                if (!entry.isEmpty()) {
+                    deleteTree(drive, Paths.join(path, entry.split("\t")[2]));
+                }
+            }
+        }
+        drive.call(HostFileSystem.REMOVE, path, new byte[0]);
+    }
+
+    /** A file error in plain words. */
+    public static String describe(FsException e, String what) {
+        String subject = what.isEmpty() ? "" : what + ": ";
+        return subject + switch (e.errno) {
+            case HostFileSystem.ENOENT -> "no such file or folder";
+            case HostFileSystem.EEXIST -> "that name is already taken";
+            case HostFileSystem.ENOTDIR -> "not a folder";
+            case HostFileSystem.EISDIR -> "that is a folder";
+            case HostFileSystem.EINVAL -> "that name isn't allowed";
+            case HostFileSystem.ENOSPC -> "the drive is full";
+            case HostFileSystem.ENOTEMPTY -> "the folder isn't empty (use rm -r to remove it and everything in it)";
+            case HostFileSystem.EACCES -> "not allowed";
+            case HostFileSystem.EFBIG -> "the file is too large";
+            default -> "failed (error " + e.errno + ")";
+        };
+    }
+
+    /** Splits a command line on spaces; "double quotes" keep spaces inside one argument. */
+    static List<String> splitArguments(String line) {
+        List<String> args = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean quoted = false;
+        boolean any = false;
+        for (char c : line.toCharArray()) {
+            if (c == '"') {
+                quoted = !quoted;
+                any = true;
+            } else if (c == ' ' && !quoted) {
+                if (any) {
+                    args.add(current.toString());
+                    current.setLength(0);
+                    any = false;
+                }
+            } else {
+                current.append(c);
+                any = true;
+            }
+        }
+        if (any) {
+            args.add(current.toString());
+        }
+        return args;
+    }
+
+    /** A Python string literal holding this text. */
+    private static String pyString(String text) {
+        return "'" + text.replace("\\", "\\\\").replace("'", "\\'") + "'";
     }
 }

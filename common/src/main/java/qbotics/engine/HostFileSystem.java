@@ -21,6 +21,7 @@ public interface HostFileSystem {
     int ENOTDIR = 20;
     int EISDIR = 21;
     int EINVAL = 22;
+    int EFBIG = 27;
     int ENOSPC = 28;
     int ENOTEMPTY = 39;
 

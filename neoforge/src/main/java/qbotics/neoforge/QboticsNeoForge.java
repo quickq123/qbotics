@@ -42,6 +42,7 @@ import qbotics.block.CableBlock;
 import qbotics.block.ComputerBlock;
 import qbotics.block.ComputerBlockEntity;
 import qbotics.computer.ComputerManager;
+import qbotics.net.IdePayloads;
 import qbotics.net.TerminalInputPayload;
 import qbotics.net.TerminalStatePayload;
 
@@ -111,6 +112,19 @@ public final class QboticsNeoForge {
         event.registrar("1")
                 // The client-side handler is registered in QboticsNeoForgeClient.
                 .playToClient(TerminalStatePayload.TYPE, TerminalStatePayload.STREAM_CODEC)
+                .playToClient(IdePayloads.FileResponse.TYPE, IdePayloads.FileResponse.STREAM_CODEC)
+                .playToClient(IdePayloads.ScratchResult.TYPE, IdePayloads.ScratchResult.STREAM_CODEC)
+                .playToClient(IdePayloads.OpenFile.TYPE, IdePayloads.OpenFile.STREAM_CODEC)
+                .playToServer(IdePayloads.FileRequest.TYPE, IdePayloads.FileRequest.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        ComputerManager.get(player.level().getServer()).onFileRequest(player, payload);
+                    }
+                })
+                .playToServer(IdePayloads.ScratchRun.TYPE, IdePayloads.ScratchRun.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        ComputerManager.get(player.level().getServer()).onScratchRun(player, payload);
+                    }
+                })
                 .playToServer(TerminalInputPayload.TYPE, TerminalInputPayload.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         payload.handle(player);

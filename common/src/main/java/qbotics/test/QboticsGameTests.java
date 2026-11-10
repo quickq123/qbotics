@@ -41,6 +41,8 @@ public final class QboticsGameTests {
             "computer_recipe", QboticsGameTests::computerRecipe,
             "computer_break", QboticsGameTests::computerBreak,
             "computer_files", QboticsGameTests::computerFiles,
+            "computer_shell", QboticsGameTests::computerShell,
+            "computer_scratchpad", QboticsGameTests::computerScratchpad,
             "payload_codecs", QboticsGameTests::payloadCodecs);
 
     private QboticsGameTests() {
@@ -66,18 +68,18 @@ public final class QboticsGameTests {
     /** Typing at the prompt: assignment, expression echo, a multi-line loop and an error. */
     private static void computerRepl(GameTestHelper helper) {
         ServerComputer computer = placeAndStart(helper);
-        for (String line : List.of("x = 6", "x * 7", "for i in range(3):", "    print('row', i * 100)", "", "1 / 0", "print('end')")) {
+        for (String line : List.of("python", "x = 6", "x * 7", "for i in range(3):", "    print('row', i * 100)", "", "1 / 0", "print('end')")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> assertScreen(helper, computer,
-                ">>> x * 7\n42\n", "...     print('row', i * 100)\n...\nrow 0\nrow 100\nrow 200\n",
+                "42\n>>> for i in range(3):\n", "...     print('row', i * 100)\n...\nrow 0\nrow 100\nrow 200\n",
                 "ZeroDivisionError: divide by zero", "\nend\n>>>"));
     }
 
     /** Ctrl+C stops an endless loop and the prompt comes back. */
     private static void computerInterrupt(GameTestHelper helper) {
         ServerComputer computer = placeAndStart(helper);
-        for (String line : List.of("while True:", "    pass", "")) {
+        for (String line : List.of("python", "while True:", "    pass", "")) {
             computer.submitLine(line);
         }
         helper.runAfterDelay(10, computer::interrupt);
@@ -157,6 +159,7 @@ public final class QboticsGameTests {
         ComputerManager manager = ComputerManager.get(helper.getLevel().getServer());
         java.nio.file.Path folder = manager.driveFolder(computer.driveId());
         for (String line : List.of(
+                "python",
                 "f = open('greet.py', 'w')",
                 "f.write('def hello(name):\\n    return \"hi \" + name\\n')",
                 "f.close()",
@@ -178,6 +181,39 @@ public final class QboticsGameTests {
                             new net.minecraft.world.phys.AABB(helper.absolutePos(POS)).inflate(3))
                     .stream().anyMatch(item -> driveId.equals(item.getItem().get(QboticsContent.DRIVE_ID.get())));
             helper.assertTrue(carried, "the dropped computer should carry drive " + driveId);
+        });
+    }
+
+    /** The shell: running a program, copying, listing, and plain-worded mistakes. */
+    private static void computerShell(GameTestHelper helper) {
+        ServerComputer computer = placeAndStart(helper);
+        for (String line : List.of(
+                "python",
+                "open('hi.py', 'w').write('print(\"hi from file\", 6 * 7)\\n')",
+                "exit()",
+                "run hi.py",
+                "mkdir lib",
+                "cp hi.py lib",
+                "cd lib",
+                "ls",
+                "cat nope.py",
+                "frobnicate")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer,
+                "/ $ run hi.py\nhi from file 42\n", "/lib $ ls\nhi.py", "no such file or folder",
+                "Unknown command: frobnicate", "\n/lib $"));
+    }
+
+    /** A scratchpad run happens on the computer, shares its Python variables, and leaves the terminal alone. */
+    private static void computerScratchpad(GameTestHelper helper) {
+        ServerComputer computer = placeAndStart(helper);
+        computer.submitScratch(UUID.randomUUID(), 1, "shared = 41 + 1\nprint('this goes to the scratchpad, not the terminal')");
+        computer.submitLine("python");
+        computer.submitLine("shared");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, ">>> shared\n42\n");
+            helper.assertTrue(!screen(computer).contains("scratchpad, not"), "scratchpad output leaked into the terminal:\n" + screen(computer));
         });
     }
 

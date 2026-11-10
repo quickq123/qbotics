@@ -14,3 +14,22 @@ dependencies {
     api "com.dylibso.chicory:runtime:${chicory_version}"
     api "com.dylibso.chicory:compiler:${chicory_version}"
 }
+
+// A development aid, not part of the mod: draws the editor screen to PNG files without
+// starting Minecraft (see IdePreviewTool). Run: gradlew :common:idePreview
+sourceSets {
+    preview {
+        java.srcDir 'src/preview/java'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
+tasks.register('idePreview', JavaExec) {
+    description = 'Writes pictures of the editor screen to common/build/ide-preview.'
+    classpath = sourceSets.preview.runtimeClasspath
+    mainClass = 'qbotics.client.ide.IdePreviewTool'
+    args layout.buildDirectory.dir('ide-preview').get().asFile.path
+    jvmArgs '-Djava.awt.headless=true'
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
+}

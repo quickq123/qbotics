@@ -1,0 +1,87 @@
+package qbotics.client.ide;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import net.minecraft.client.Minecraft;
+import qbotics.Qbotics;
+import qbotics.net.IdePayloads;
+import qbotics.net.TerminalInputPayload;
+import qbotics.net.TerminalStatePayload;
+
+/** Where the server's messages for the editor screen arrive, and the real {@link IdeBackend}. */
+public final class ClientIde {
+    private static final Map<UUID, NetworkBackend> BACKENDS = new HashMap<>();
+
+    private ClientIde() {
+    }
+
+    /** The server sent a computer's terminal screen; with open set, show the editor. */
+    public static void onTerminalState(TerminalStatePayload state) {
+        IdeSession session = IdeSession.of(state.deviceId());
+        session.terminalLines = state.lines();
+        session.terminalCursorX = state.cursorX();
+        session.terminalCursorY = state.cursorY();
+        Minecraft minecraft = Minecraft.getInstance();
+        boolean showing = minecraft.screen instanceof IdeScreen screen && screen.session() == session;
+        if (state.open() && !showing) {
+            minecraft.setScreen(new IdeScreen(session, backend(state.deviceId())));
+        }
+    }
+
+    public static void onFileResponse(IdePayloads.FileResponse response) {
+        IdeBackend.FileCallback callback = backend(response.deviceId()).files.remove(response.requestId());
+        if (callback != null) {
+            callback.done(response.errno(), response.data());
+        }
+    }
+
+    public static void onScratchResult(IdePayloads.ScratchResult result) {
+        IdeBackend.ScratchCallback callback = backend(result.deviceId()).scratches.remove(result.runId());
+        if (callback != null) {
+            callback.done(result.ok(), result.output());
+        }
+    }
+
+    /** The "edit" shell command: open a file in the editor that is showing this computer. */
+    public static void onOpenFile(IdePayloads.OpenFile open) {
+        if (Minecraft.getInstance().screen instanceof IdeScreen screen && screen.session().deviceId.equals(open.deviceId())) {
+            screen.openFile(open.path());
+        }
+    }
+
+    private static NetworkBackend backend(UUID deviceId) {
+        return BACKENDS.computeIfAbsent(deviceId, NetworkBackend::new);
+    }
+
+    /** Sends the editor's requests to the server and remembers who is waiting for each answer. */
+    private static final class NetworkBackend implements IdeBackend {
+        private final UUID deviceId;
+        private final Map<Integer, FileCallback> files = new HashMap<>();
+        private final Map<Integer, ScratchCallback> scratches = new HashMap<>();
+        private int nextId = 1;
+
+        NetworkBackend(UUID deviceId) {
+            this.deviceId = deviceId;
+        }
+
+        @Override
+        public void file(byte op, String path, byte[] data, FileCallback callback) {
+            int id = nextId++;
+            files.put(id, callback);
+            Qbotics.platform().sendToServer(new IdePayloads.FileRequest(deviceId, id, op, path, data));
+        }
+
+        @Override
+        public void terminalInput(byte action, String line) {
+            Qbotics.platform().sendToServer(new TerminalInputPayload(deviceId, action, line));
+        }
+
+        @Override
+        public void runScratch(String code, ScratchCallback callback) {
+            int id = nextId++;
+            scratches.put(id, callback);
+            Qbotics.platform().sendToServer(new IdePayloads.ScratchRun(deviceId, id, code));
+        }
+    }
+}

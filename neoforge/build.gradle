@@ -29,6 +29,7 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
+
         // Starts a headless server, runs the tests in qbotics.test.QboticsGameTests, then exits.
         // The exit code is the number of failed tests.
         gameTestServer {

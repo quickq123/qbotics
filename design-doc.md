@@ -782,6 +782,36 @@ github:someuser/qbot-pathfinding@v2.1   --hash=sha256:3f1a…
 - `pkg list` shows what's available; `pkg install` gives a clear error for anything not on the list.
 - A small **bundled default set** works with no config, so single-player learners get useful libraries out of the box.
 
+### 12.2 The computer's screen: a code editor
+
+Right-clicking a computer opens an editor laid out like the code editors developers already use, so there is little need to program anywhere else and what a learner picks up carries over. It fills the whole game window and draws at the window's real resolution (about one screen pixel per font pixel for every 500 pixels of window height), not Minecraft's enlarged GUI scale. A 1920×1080 window shows roughly 160 columns by 50 rows of text. Ctrl+Plus and Ctrl+Minus change the size.
+
+| Area | What it does |
+|---|---|
+| **Explorer** (left) | The drive's folders and files as a tree. Click a file to open it. Right-click, or use **+ File** and **+ Folder**, to create, rename and delete. |
+| **Editor** (middle) | Open files in tabs. Line numbers, Python and JSON colouring, selection by keyboard and mouse, copy/cut/paste, undo/redo, automatic indentation, Tab/Shift+Tab on a selection, Ctrl+/ to comment. An unsaved file shows a marker on its tab. |
+| **Terminal** (below the editor) | The computer itself: a small shell (below). **Run** (or F5) saves the open Python file and runs it here. |
+| **Python Scratchpad** (right, toggled) | A box for a few lines of Python with a **Run** button, and their output beneath. It runs on the computer and shares variables with the terminal's Python, so it doubles as a quick-action pad. Its output doesn't touch the terminal. |
+| **Status bar** | Cursor position, language, saved or unsaved, and messages such as a JSON mistake with its line. |
+
+- **JSON:** mistakes are found as you type and explained in plain words ("Remove the comma before ]"); **Format JSON** re-indents the file.
+- **Nothing is lost by closing the screen:** tabs, unsaved edits and the scratchpad stay as they were until the game is closed.
+- **Limits for now:** files up to 30 KB can be opened and saved from the editor (larger ones still work from Python); one terminal per computer; the terminal has no scroll-back; no find/replace or autocomplete yet.
+
+**The shell.** The terminal starts in a shell, as a terminal in a code editor does:
+
+| Command | Does |
+|---|---|
+| `ls`, `cd`, `pwd`, `cat`, `mkdir`, `rm [-r]`, `mv`, `cp` | File handling |
+| `run file.py` (or `python file.py`) | Runs a program |
+| `python` | The Python prompt; `exit()` returns to the shell |
+| `edit file` | Opens a file in the editor |
+| `clear`, `help` | |
+
+Ctrl+C stops a running program.
+
+**How it is built and checked.** The editor's behaviour and appearance live in one class that doesn't depend on Minecraft's renderer. The game draws it through a thin adapter; a development tool (`gradlew :common:idePreview`) draws the same thing to image files using Minecraft's font, which is how the layout was checked on a machine with no display. The text-editing, colouring and JSON logic are covered by the engine harness, and the shell and scratchpad by in-game tests.
+
 ---
 
 ## 13. Security
@@ -1003,7 +1033,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 0 | ✅ **Engine prototype + benchmark:** MicroPython on Chicory; `print`; `host.submit`/`host.wait` (§2.3). Done 2026-11-10; results in §14.5 | Feasibility, calling convention and real numbers for §14 |
 | 0b | ✅ **Interpreter speed:** split MicroPython's interpreter loop so the JVM can optimise it. Done 2026-11-10: 3–22× faster (§14.5) | Speed good enough for data-heavy programs |
 | 0c | ✅ **Project scaffold:** `common` + `neoforge` Gradle modules for Minecraft 26.1.2; the mod jar bundles the engine and Chicory; `gradlew :neoforge:runData` runs a Python self-test inside NeoForge. Done 2026-11-10 | The engine works inside the real mod loader |
-| 1 | Computer block, terminal, REPL, file system, editor, device UUIDs. **In progress:** block, terminal, REPL, file system, device and drive IDs and the cable block are built and covered by in-game tests; the editor and shell commands are not started | Core loop |
+| 1 | Computer block, terminal, REPL, file system, editor, device UUIDs. **Built, not yet played:** everything is covered by in-game tests and offline renders of the editor screen (§12.2), but nobody has used it in the game client yet | Core loop |
 | 1b | Storage media (floppy) + disk drive; programmer block (loading programs from media) | Moving code between devices |
 | 2 | `machine.Pin` redstone, events, timers | Embedded circuits |
 | 3 | Ownership registry, limits, bricked state, boot queue | Performance controls (early on purpose) |
@@ -1141,6 +1171,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Name **Qbotics**, mod ID `qbotics` | Decided |
 | 2026-11-10 | Network addressing modelled on a home router: each antenna has an external IPv4 address; devices on its cable network get an internal IPv4 address and a forwarded port; remote devices are addressed as `external IP:port` (§9.3) | Decided (numbering proposed) |
 | 2026-11-10 | Recipes: 16 cables from 6 iron + 3 redstone (vertical or horizontal lines); computer from 7 cables, redstone and glass (§20) | Decided |
+| 2026-11-10 | The computer's screen is a code editor (explorer, tabs, terminal, Python scratchpad) drawn at the window's real resolution; the terminal starts in a shell (§12.2) | Decided |
 | 2026-11-10 | Files: plain `open(..., "w")` writes go straight to the drive, so an unclosed file keeps its data; drive ID travels with the broken computer's item | Decided |
 
 ---

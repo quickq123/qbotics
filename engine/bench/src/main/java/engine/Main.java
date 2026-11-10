@@ -3,6 +3,10 @@ package engine;
 import java.nio.file.Files;
 import qbotics.engine.Computer;
 import qbotics.engine.DriveFileSystem;
+import qbotics.ide.Highlighter;
+import qbotics.ide.JsonTools;
+import qbotics.ide.Paths;
+import qbotics.ide.TextBuffer;
 import qbotics.engine.Engine;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -130,6 +134,8 @@ public final class Main {
         functional(interp);
         section("File system (compiled)");
         fileSystem(compiled);
+        section("Editor logic");
+        editorLogic();
 
         if (!quick) {
             section("Boot time per computer");
@@ -369,6 +375,116 @@ public final class Main {
         Computer none = new Computer(engine, BASIC, INSTANT);
         expect("a computer without a drive still runs", none,
                 "try:\n    open('x', 'w')\nexcept OSError as e:\n    print(e.errno)", true, "19\n");
+    }
+
+    /** The editor's text handling, highlighting and JSON tools: plain logic, no screen needed. */
+    static void editorLogic() {
+        TextBuffer b = new TextBuffer("");
+        b.type('a');
+        b.type('b');
+        b.type('c');
+        boolean typed = b.text().equals("abc") && b.isDirty();
+        b.undo();
+        boolean undone = b.text().isEmpty();
+        b.redo();
+        check("typing is undone and redone as one step", typed && undone && b.text().equals("abc"), b.text());
+
+        b = new TextBuffer("def f():");
+        b.moveEnd(false);
+        b.newLine();
+        b.type('x');
+        b.newLine();
+        boolean indented = b.text().equals("def f():\n    x\n    ") && b.cursorColumn() == 4;
+        b.backspace();
+        check("Enter indents after a colon; Backspace removes one indent level",
+                indented && b.cursorColumn() == 0 && b.text().equals("def f():\n    x\n"), b.text());
+
+        b = new TextBuffer("hello world");
+        b.setCursor(0, 0, false);
+        b.setCursor(0, 5, true);
+        String selected = b.selectedText();
+        b.insert("bye");
+        check("typing over a selection replaces it", selected.equals("hello") && b.text().equals("bye world"), b.text());
+
+        b = new TextBuffer("XY");
+        b.setCursor(0, 1, false);
+        b.insert("a\r\nb\n\tc");
+        check("pasting several lines, with tabs and Windows line endings",
+                b.text().equals("Xa\nb\n    cY") && b.cursorLine() == 2 && b.cursorColumn() == 5, b.text());
+
+        b = new TextBuffer("a\nb\nc");
+        b.setCursor(0, 0, false);
+        b.setCursor(1, 1, true);
+        b.indent();
+        boolean in = b.text().equals("    a\n    b\nc");
+        b.outdent();
+        check("Tab and Shift+Tab move the selected lines", in && b.text().equals("a\nb\nc"), b.text());
+
+        b = new TextBuffer("x = 1\n  y = 2");
+        b.selectAll();
+        b.toggleComment("#");
+        boolean commented = b.text().equals("# x = 1\n#   y = 2");
+        b.toggleComment("#");
+        check("Ctrl+/ comments and uncomments", commented && b.text().equals("x = 1\n  y = 2"), b.text());
+
+        b = new TextBuffer("foo.bar(baz)");
+        b.moveWordRight(false);
+        int first = b.cursorColumn();
+        b.moveWordRight(false);
+        b.selectWordAt(0, 9);
+        check("word movement and double-click selection",
+                first == 3 && b.selectionStartColumn() == 8 && b.selectedText().equals("baz"), first + " " + b.selectedText());
+
+        b = new TextBuffer("one");
+        boolean cleanAtStart = !b.isDirty();
+        b.type('!');
+        long version = b.version();
+        b.type('?');
+        b.markSaved(version);
+        boolean stillDirty = b.isDirty(); // typed again while the save was on its way
+        b.markSaved();
+        check("unsaved-changes tracking", cleanAtStart && stillDirty && !b.isDirty(), "");
+
+        var py = Highlighter.Language.PYTHON;
+        check("Python colours: keyword, function name, self, number, comment",
+                kinds(py, "def go(self, n=3):  # hi", 0).equals("KEYWORD FUNCTION SELF NUMBER COMMENT"),
+                kinds(py, "def go(self, n=3):  # hi", 0));
+        check("a # inside a string is not a comment",
+                kinds(py, "s = f\"a # b\" + 'c'", 0).equals("STRING STRING"), kinds(py, "s = f\"a # b\" + 'c'", 0));
+        var open = Highlighter.highlight(py, "x = \"\"\"abc", 0);
+        var close = Highlighter.highlight(py, "def\"\"\" + 1", open.endState());
+        check("a triple-quoted string continues onto the next line",
+                open.endState() != 0 && close.endState() == 0 && close.tokens().get(0).end() == 6
+                        && close.tokens().get(1).kind() == Highlighter.Kind.NUMBER, close.tokens().toString());
+        check("JSON colours: key, number, literal, mistake",
+                kinds(Highlighter.Language.JSON, "\"k\": [1, true, nope]", 0).equals("KEY NUMBER LITERAL ERROR"),
+                kinds(Highlighter.Language.JSON, "\"k\": [1, true, nope]", 0));
+
+        var formatted = JsonTools.format("{\"b\":1,\"a\":[true,null,{\"c\":\"x\"}],\"e\":{}}", 2);
+        String want = "{\n  \"b\": 1,\n  \"a\": [\n    true,\n    null,\n    {\n      \"c\": \"x\"\n    }\n  ],\n  \"e\": {}\n}\n";
+        check("JSON formatting keeps key order", formatted.ok() && formatted.formatted().equals(want), String.valueOf(formatted.formatted()));
+        var comma = JsonTools.check("{\n  \"a\": 1,\n}");
+        var missing = JsonTools.check("[1 2]");
+        var quote = JsonTools.check("{\"a\": \"oops}");
+        check("JSON mistakes are located and explained",
+                comma != null && comma.line() == 3 && comma.error().contains("comma")
+                        && missing != null && missing.error().contains("Expected ,") && missing.column() == 4
+                        && quote != null && quote.error().contains("closing")
+                        && JsonTools.check("{\"ok\": [1.5e3, -2]}") == null,
+                comma + " | " + missing + " | " + quote);
+
+        check("paths",
+                Paths.resolve("/lib", "../a/./b.py").equals("/a/b.py") && Paths.resolve("/", "..").equals("/")
+                        && Paths.parent("/a").equals("/") && Paths.parent("/a/b").equals("/a") && Paths.name("/a/b.py").equals("b.py")
+                        && Paths.isInside("/lib/x", "/lib") && !Paths.isInside("/library", "/lib") && Paths.join("/", "a").equals("/a"), "");
+    }
+
+    static String kinds(Highlighter.Language language, String line, int state) {
+        StringBuilder out = new StringBuilder();
+        for (var token : Highlighter.highlight(language, line, state).tokens()) {
+            out.append(out.isEmpty() ? "" : " ").append(token.kind());
+        }
+        return out.toString();
     }
 
     static long sumKept() {

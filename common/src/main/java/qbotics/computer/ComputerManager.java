@@ -4,9 +4,14 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -16,6 +21,8 @@ import net.minecraft.world.level.storage.LevelResource;
 import qbotics.Qbotics;
 import qbotics.block.ComputerBlockEntity;
 import qbotics.engine.Engine;
+import qbotics.engine.HostFileSystem;
+import qbotics.net.IdePayloads;
 import qbotics.net.TerminalStatePayload;
 
 /**
@@ -39,6 +46,15 @@ public final class ComputerManager {
 
     private record Viewing(UUID deviceId, ResourceKey<Level> dimension, BlockPos pos) {
     }
+
+    /** Messages for players, queued from other threads and sent on the server thread. */
+    private final Queue<Consumer<MinecraftServer>> outbox = new ConcurrentLinkedQueue<>();
+    /** Does the editor's disk work, so a slow disk never stalls the game. */
+    private static final ExecutorService FILE_WORKER = Executors.newSingleThreadExecutor(task -> {
+        Thread thread = new Thread(task, "qbotics-files");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private ComputerManager(Path drivesFolder) {
         this.drivesFolder = drivesFolder;
@@ -76,9 +92,119 @@ public final class ComputerManager {
         if (computers.values().stream().anyMatch(other -> other.driveId().equals(driveId))) {
             block.replaceDrive();
         }
-        ServerComputer computer = new ServerComputer(block.deviceId(), block.driveId(), driveFolder(block.driveId()), cpu);
+        ServerComputer computer = new ServerComputer(block.deviceId(), block.driveId(), driveFolder(block.driveId()), cpu, listener);
         computers.put(block.deviceId(), computer);
         return computer;
+    }
+
+    /**
+     * What computers report from their own threads. Nothing may touch players or the world
+     * from there, so each report is queued and delivered on the next server tick.
+     */
+    private final ServerComputer.Listener listener = new ServerComputer.Listener() {
+        @Override
+        public void scratchResult(UUID deviceId, UUID player, int runId, boolean ok, String output) {
+            outbox.add(server -> {
+                ServerPlayer target = server.getPlayerList().getPlayer(player);
+                if (target != null) {
+                    Qbotics.platform().sendToPlayer(target, new IdePayloads.ScratchResult(deviceId, runId, ok, output));
+                }
+            });
+        }
+
+        @Override
+        public void openInEditor(UUID deviceId, String path) {
+            outbox.add(server -> viewers.forEach((playerId, viewing) -> {
+                ServerPlayer target = server.getPlayerList().getPlayer(playerId);
+                if (target != null && viewing.deviceId().equals(deviceId)) {
+                    Qbotics.platform().sendToPlayer(target, new IdePayloads.OpenFile(deviceId, path));
+                }
+            }));
+        }
+    };
+
+    /** The editor's Run button. */
+    public void onRunFile(ServerPlayer player, UUID deviceId, String path) {
+        ServerComputer computer = viewedComputer(player, deviceId);
+        if (computer != null) {
+            computer.submitRunFile(path);
+        }
+    }
+
+    /** The scratchpad's Run button. */
+    public void onScratchRun(ServerPlayer player, IdePayloads.ScratchRun run) {
+        ServerComputer computer = viewedComputer(player, run.deviceId());
+        if (computer != null) {
+            computer.submitScratch(player.getUUID(), run.runId(), run.code());
+        }
+    }
+
+    /**
+     * The editor asks to list, read or change files. Disk work is done off the server
+     * thread; the answer is sent from the server thread on a later tick.
+     */
+    public void onFileRequest(ServerPlayer player, IdePayloads.FileRequest request) {
+        ServerComputer computer = viewedComputer(player, request.deviceId());
+        UUID playerId = player.getUUID();
+        if (computer == null) {
+            reply(playerId, request, HostFileSystem.EACCES, new byte[0]);
+            return;
+        }
+        HostFileSystem drive = computer.drive();
+        FILE_WORKER.execute(() -> {
+            try {
+                reply(playerId, request, 0, runFileRequest(drive, request));
+            } catch (HostFileSystem.FsException e) {
+                reply(playerId, request, e.errno, new byte[0]);
+            } catch (RuntimeException e) {
+                Qbotics.LOGGER.error("File request failed", e);
+                reply(playerId, request, HostFileSystem.EIO, new byte[0]);
+            }
+        });
+    }
+
+    private static byte[] runFileRequest(HostFileSystem drive, IdePayloads.FileRequest request) throws HostFileSystem.FsException {
+        byte[] none = new byte[0];
+        String path = request.path();
+        switch (request.op()) {
+            case IdePayloads.FileRequest.LIST:
+                return drive.call(HostFileSystem.LIST, path, none);
+            case IdePayloads.FileRequest.READ: {
+                byte[] data = drive.call(HostFileSystem.READ, path, none);
+                if (data.length > IdePayloads.MAX_FILE_BYTES) {
+                    throw new HostFileSystem.FsException(HostFileSystem.EFBIG);
+                }
+                return data;
+            }
+            case IdePayloads.FileRequest.WRITE:
+                return drive.call(HostFileSystem.WRITE, path, request.data());
+            case IdePayloads.FileRequest.MKDIR:
+                return drive.call(HostFileSystem.MKDIR, path, none);
+            case IdePayloads.FileRequest.DELETE:
+                ServerComputer.deleteTree(drive, path);
+                return none;
+            case IdePayloads.FileRequest.RENAME:
+                return drive.call(HostFileSystem.RENAME, path, request.data());
+            case IdePayloads.FileRequest.CREATE:
+                try {
+                    drive.call(HostFileSystem.STAT, path, none);
+                } catch (HostFileSystem.FsException missing) {
+                    return drive.call(HostFileSystem.WRITE, path, none);
+                }
+                throw new HostFileSystem.FsException(HostFileSystem.EEXIST);
+            default:
+                throw new HostFileSystem.FsException(HostFileSystem.EINVAL);
+        }
+    }
+
+    private void reply(UUID playerId, IdePayloads.FileRequest request, int errno, byte[] data) {
+        outbox.add(server -> {
+            ServerPlayer target = server.getPlayerList().getPlayer(playerId);
+            if (target != null) {
+                Qbotics.platform().sendToPlayer(target,
+                        new IdePayloads.FileResponse(request.deviceId(), request.requestId(), errno, data));
+            }
+        });
     }
 
     public boolean isRunning(UUID deviceId) {
@@ -132,6 +258,9 @@ public final class ComputerManager {
 
     /** Once per server tick: send changed screens to the players watching them. */
     public void tick(MinecraftServer server) {
+        for (Consumer<MinecraftServer> message; (message = outbox.poll()) != null; ) {
+            message.accept(server);
+        }
         if (viewers.isEmpty()) {
             return;
         }

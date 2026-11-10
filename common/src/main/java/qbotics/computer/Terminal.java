@@ -9,8 +9,8 @@ import java.util.List;
  * Written by the computer's thread and read by the server thread, so every method locks.
  */
 public final class Terminal {
-    public static final int COLS = 50;
-    public static final int ROWS = 18;
+    public static final int COLS = 80;
+    public static final int ROWS = 14;
 
     private final char[][] grid = new char[ROWS][COLS];
     private int cursorX;

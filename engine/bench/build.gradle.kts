@@ -13,10 +13,11 @@ java {
     }
 }
 
-// The engine classes live in the mod's common module; they have no Minecraft dependencies.
+// The engine classes and the editor's text logic live in the mod's common module; neither
+// has any Minecraft dependencies, so both are compiled and checked here too.
 sourceSets.main {
     java.srcDir("../../common/src/main/java")
-    java.include("engine/**", "qbotics/engine/**")
+    java.include("engine/**", "qbotics/engine/**", "qbotics/ide/**")
 }
 
 val chicoryVersion = "1.7.5"
