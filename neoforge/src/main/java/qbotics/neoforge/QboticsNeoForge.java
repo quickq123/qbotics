@@ -38,6 +38,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import qbotics.Qbotics;
 import qbotics.QboticsContent;
 import qbotics.QboticsPlatform;
+import qbotics.block.CableBlock;
 import qbotics.block.ComputerBlock;
 import qbotics.block.ComputerBlockEntity;
 import qbotics.computer.ComputerManager;
@@ -55,6 +56,9 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<ComputerBlock> COMPUTER = BLOCKS.registerBlock("computer", ComputerBlock::new,
             properties -> properties.mapColor(MapColor.STONE).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> COMPUTER_ITEM = ITEMS.registerSimpleBlockItem(COMPUTER);
+    private static final DeferredBlock<CableBlock> CABLE = BLOCKS.registerBlock("cable", CableBlock::new,
+            properties -> properties.mapColor(MapColor.METAL).strength(0.5f).sound(SoundType.METAL).noOcclusion());
+    private static final DeferredItem<BlockItem> CABLE_ITEM = ITEMS.registerSimpleBlockItem(CABLE);
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ComputerBlockEntity>> COMPUTER_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("computer", () -> new BlockEntityType<>(ComputerBlockEntity::new, COMPUTER.get()));
 
@@ -67,6 +71,7 @@ public final class QboticsNeoForge {
     public QboticsNeoForge(IEventBus modBus, ModContainer container) {
         QboticsContent.COMPUTER_BLOCK = COMPUTER;
         QboticsContent.COMPUTER_BLOCK_ENTITY = COMPUTER_BLOCK_ENTITY;
+        QboticsContent.CABLE_BLOCK = CABLE;
         QboticsContent.DRIVE_ID = DRIVE_ID;
 
         DATA_COMPONENTS.register(modBus);
@@ -131,6 +136,7 @@ public final class QboticsNeoForge {
     private static void addToCreativeTabs(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS || event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(COMPUTER_ITEM);
+            event.accept(CABLE_ITEM);
         }
     }
 }

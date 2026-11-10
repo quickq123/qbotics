@@ -446,12 +446,58 @@ asyncio.run(listen())
 - Both ends are assumed to be chunk-loaded (§6.1). If one isn't, transfers to it fail with `ChunkUnavailableError`.
 - Wireless transfers share the network's throughput limits (§15); an optional extra wireless cap per bridge is possible.
 
-### 9.3 In-game network and pseudo-DNS
+### 9.3 In-game network: addresses, ports and names
 
-- Devices get in-game addresses on their frequency.
-- **In-game HTTP:** `requests` works between computers. The ROM includes a micro web framework so computers can serve APIs (e.g. a REST endpoint for a storage system).
+#### Addressing: the antenna is the router
+
+The in-game network is modelled on a home internet connection, so learners meet real networking ideas (IP addresses, private networks, ports, a router) in a small, safe form. All addresses are **IPv4**.
+
+- **The antenna is the router/modem.** Every antenna has one **external IP address** on the server-wide radio network, the game's "internet".
+- **The cable network behind it is a private network.** When an antenna is attached to a network, every addressable block on it, and every addressable item installed in one of those blocks (for example a hard drive in a drive bay), gets:
+  - an **internal IP address**, used inside that network, and
+  - a **port** on the antenna, used from outside.
+- **No antenna, no addresses.** A cabled network without an antenna still works through its controller (§11.0), but its devices can't be addressed.
+- **Reaching a device:**
+
+| From | Address to use | Example |
+|---|---|---|
+| The same network | Its internal IP | `192.168.1.5` |
+| Anywhere else | The antenna's external IP and the device's port | `100.64.0.12:1003` |
+
+- The antenna forwards each port to its device. This is what lets a remote controller run a separate network: it addresses the device as `external IP:port` without being cabled to it.
+- **Addresses are stable.** They are saved in the server registry (§5.1), don't change on restart, and are freed when the device or antenna is removed. The owner can see them in each device's GUI.
+- **An antenna fitted as an upgrade** to a computer or Qbot makes that device a network of one: it has the external IP itself.
+- **Addresses say where, not whether.** Frequency, access mode and range (§9.1) still decide whether two antennas can talk at all.
+
+```python
+import network
+
+radio = network.Radio()
+print(radio.external_ip)                 # "100.64.0.7"
+print(network.ifconfig())                # this device's internal IP, port and gateway
+
+radio.send("192.168.1.5", "hello")                 # a device on this network
+radio.send("100.64.0.12:1003", {"ore": 128})       # a device behind another antenna
+```
+
+**Proposed numbering (to confirm):**
+
+| What | Proposal | Why |
+|---|---|---|
+| External IPs | From `100.64.0.0/10`, one per antenna | `requests` serves both in-game and real addresses (§9.4). This range is never used on the public internet, so an address can only mean one or the other. |
+| Internal IPs | `192.168.1.0/24` in every network; the antenna is `192.168.1.1`, devices count up from `.2` | Looks like a home network, and shows that private addresses repeat from one network to the next. 253 devices fits the network size cap (§15). |
+| Ports | Given out in order from `1000` within each antenna | Short and easy to read on a block's GUI. |
+
+**Where this is simpler than real networking** (the in-game docs should say so plainly):
+
+- On a real network a port identifies a program on a machine, and a router forwards a port only when someone sets that up. Here every device gets exactly one forwarded port automatically.
+- There is no address lease, subnet mask or routing table to configure.
+
+#### In-game HTTP and names
+
+- **In-game HTTP:** `requests` works between computers, using the addresses above (`requests.get("http://100.64.0.12:1003/items")`). The ROM includes a micro web framework so computers can serve APIs (e.g. a REST endpoint for a storage system).
 - Raw sockets are allowed **only inside the game**.
-- **Pseudo-DNS** (names like `storage.mc`):
+- **Pseudo-DNS** (names like `storage.mc`) maps a name to an `external IP:port`, so programs don't need to hard-code numbers:
   - **First come, first served.** A registered name belongs to its owner's UUID and **can't be taken by anyone else**.
   - **Names never expire.** Only a server admin can free one (`/pc dns release <name>`).
   - Suggested anti-squatting cap: `dns.names_per_player` (§15).
@@ -957,7 +1003,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 0 | ✅ **Engine prototype + benchmark:** MicroPython on Chicory; `print`; `host.submit`/`host.wait` (§2.3). Done 2026-11-10; results in §14.5 | Feasibility, calling convention and real numbers for §14 |
 | 0b | ✅ **Interpreter speed:** split MicroPython's interpreter loop so the JVM can optimise it. Done 2026-11-10: 3–22× faster (§14.5) | Speed good enough for data-heavy programs |
 | 0c | ✅ **Project scaffold:** `common` + `neoforge` Gradle modules for Minecraft 26.1.2; the mod jar bundles the engine and Chicory; `gradlew :neoforge:runData` runs a Python self-test inside NeoForge. Done 2026-11-10 | The engine works inside the real mod loader |
-| 1 | Computer block, terminal, REPL, file system, editor, device UUIDs | Core loop |
+| 1 | Computer block, terminal, REPL, file system, editor, device UUIDs. **In progress:** block, terminal, REPL, file system, device and drive IDs and the cable block are built and covered by in-game tests; the editor and shell commands are not started | Core loop |
 | 1b | Storage media (floppy) + disk drive; programmer block (loading programs from media) | Moving code between devices |
 | 2 | `machine.Pin` redstone, events, timers | Embedded circuits |
 | 3 | Ownership registry, limits, bricked state, boot queue | Performance controls (early on purpose) |
@@ -1093,6 +1139,9 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Stay on MicroPython; a cut-down CPython was considered and rejected (larger interpreter loop, far more memory per computer, no hard heap cap) | Decided |
 | 2026-11-10 | Minecraft 26.1.2, NeoForge, Java 25. Loader-independent code in a `common` module so a Fabric module can be added later | Decided |
 | 2026-11-10 | Name **Qbotics**, mod ID `qbotics` | Decided |
+| 2026-11-10 | Network addressing modelled on a home router: each antenna has an external IPv4 address; devices on its cable network get an internal IPv4 address and a forwarded port; remote devices are addressed as `external IP:port` (§9.3) | Decided (numbering proposed) |
+| 2026-11-10 | Recipes: 16 cables from 6 iron + 3 redstone (vertical or horizontal lines); computer from 7 cables, redstone and glass (§20) | Decided |
+| 2026-11-10 | Files: plain `open(..., "w")` writes go straight to the drive, so an unclosed file keeps its data; drive ID travels with the broken computer's item | Decided |
 
 ---
 
@@ -1106,6 +1155,11 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 
 **Gameplay (confirm or decide when you reach the feature)**
 3. Antenna link rule: is "the larger of the two ranges" right, and must *both* ends be Infinite tier across dimensions (§9.1)? Do antennas fitted as upgrades to computers and Qbots count against `antennas_per_player`?
+3a. Network addressing (§9.3):
+   - Confirm the proposed ranges: external `100.64.0.0/10`, internal `192.168.1.0/24`, ports from `1000`.
+   - Two antennas on one cabled network, or two networks joined by wireless bridging (§9.2): does each antenna keep its own external IP with its own port table for the same devices, or does one antenna become the network's router?
+   - Can a computer open extra ports of its own (for example a web server on one and a control API on another), or is it always one port per device?
+   - Which items are addressable, beyond hard drives in a drive bay?
 4. Qbot tiers: confirm basic = iron and advanced = diamond mining level (§8.4).
 5. Logistics: network size cap, whether one Output can feed several targets, slot counts and names for each tier (§11.0).
 6. Storage media capacities; whether a hard drive doubles as a computer's internal drive (§17.3).
@@ -1119,4 +1173,16 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 12. Peripheral API and adapters, only if a real need appears (§11; lowest priority).
 
 **Deferred on purpose**
-- Recipes, crafting costs, balance; textures, models and sounds.
+- Recipes (other than those in §20), crafting costs, balance; final textures, models and sounds.
+
+---
+
+## 20. Recipes decided so far
+
+All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G` = glass block, `C` = Qbotics cable.
+
+| Result | Pattern | Notes |
+|---|---|---|
+| **16 Cable** | `IRI` / `IRI` / `IRI` | Vertical lines: 6 iron, 3 redstone |
+| **16 Cable** | `III` / `RRR` / `III` | Horizontal lines: the same ingredients |
+| **Computer** | `CCC` / `CRC` / `CGC` | Cable in the shape of leggings, redstone in the middle. Costs 7 cables, 1 redstone, 1 glass |

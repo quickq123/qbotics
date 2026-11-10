@@ -2,14 +2,14 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
-    "S": "minecraft:stone",
+    "C": "qbotics:cable",
     "R": "minecraft:redstone",
     "G": "minecraft:glass"
   },
   "pattern": [
-    "SSS",
-    "SRS",
-    "SGS"
+    "CCC",
+    "CRC",
+    "CGC"
   ],
   "result": {
     "id": "qbotics:computer"

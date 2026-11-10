@@ -15,7 +15,9 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import qbotics.QboticsContent;
+import qbotics.block.CableBlock;
 import qbotics.block.ComputerBlockEntity;
 import qbotics.computer.ComputerManager;
 import qbotics.computer.ServerComputer;
@@ -32,6 +34,8 @@ public final class QboticsGameTests {
 
     /** Test name -> test body. Each runs in the "qbotics:empty" structure. */
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.of(
+            "cable_recipes", QboticsGameTests::cableRecipes,
+            "cable_connects", QboticsGameTests::cableConnects,
             "computer_repl", QboticsGameTests::computerRepl,
             "computer_interrupt", QboticsGameTests::computerInterrupt,
             "computer_recipe", QboticsGameTests::computerRecipe,
@@ -81,21 +85,55 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> assertScreen(helper, computer, "program stopped by the computer", "still alive\n>>>"));
     }
 
-    /** Stone in the shape of leggings, redstone in the middle, glass at the bottom middle. */
-    private static void computerRecipe(GameTestHelper helper) {
-        ItemStack s = new ItemStack(Blocks.STONE);
-        List<ItemStack> grid = List.of(
-                s, s, s,
-                s, new ItemStack(Items.REDSTONE), s,
-                s, new ItemStack(Blocks.GLASS), s);
+    /** What the 3x3 crafting grid gives for these nine stacks, row by row. */
+    private static ItemStack craft(GameTestHelper helper, ItemStack... grid) {
         ServerLevel level = helper.getLevel();
-        CraftingInput input = CraftingInput.of(3, 3, grid);
-        ItemStack result = level.getServer().getRecipeManager()
+        CraftingInput input = CraftingInput.of(3, 3, List.of(grid));
+        return level.getServer().getRecipeManager()
                 .getRecipeFor(RecipeType.CRAFTING, input, level)
                 .map(recipe -> recipe.value().assemble(input))
                 .orElse(ItemStack.EMPTY);
+    }
+
+    /** Cable in the shape of leggings, redstone in the middle, glass at the bottom middle. */
+    private static void computerRecipe(GameTestHelper helper) {
+        ItemStack c = new ItemStack(QboticsContent.CABLE_BLOCK.get());
+        ItemStack result = craft(helper,
+                c, c, c,
+                c, new ItemStack(Items.REDSTONE), c,
+                c, new ItemStack(Blocks.GLASS), c);
         helper.assertTrue(result.is(QboticsContent.COMPUTER_BLOCK.get().asItem()) && result.getCount() == 1,
                 "recipe should give one computer but gave " + result);
+        helper.succeed();
+    }
+
+    /** Six iron and three redstone give 16 cables, as vertical or as horizontal lines. */
+    private static void cableRecipes(GameTestHelper helper) {
+        ItemStack i = new ItemStack(Items.IRON_INGOT);
+        ItemStack r = new ItemStack(Items.REDSTONE);
+        ItemStack vertical = craft(helper, i, r, i, i, r, i, i, r, i);
+        ItemStack horizontal = craft(helper, i, i, i, r, r, r, i, i, i);
+        for (ItemStack result : List.of(vertical, horizontal)) {
+            helper.assertTrue(result.is(QboticsContent.CABLE_BLOCK.get().asItem()) && result.getCount() == 16,
+                    "recipe should give 16 cables but gave " + result);
+        }
+        helper.succeed();
+    }
+
+    /** A cable reaches out to cables and computers beside it, and to nothing else. */
+    private static void cableConnects(GameTestHelper helper) {
+        CableBlock cable = QboticsContent.CABLE_BLOCK.get();
+        BlockPos middle = new BlockPos(1, 1, 1);
+        helper.setBlock(middle, cable);
+        helper.setBlock(middle.east(), cable);
+        helper.setBlock(middle.above(), QboticsContent.COMPUTER_BLOCK.get());
+        helper.setBlock(middle.north(), Blocks.STONE);
+        // Blocks set by a test don't run placement logic, so ask for the connected state.
+        BlockState state = CableBlock.withConnections(helper.getLevel(), helper.absolutePos(middle), cable.defaultBlockState());
+        helper.assertTrue(state.getValue(CableBlock.EAST) && state.getValue(CableBlock.UP)
+                && !state.getValue(CableBlock.NORTH) && !state.getValue(CableBlock.WEST)
+                && !state.getValue(CableBlock.SOUTH) && !state.getValue(CableBlock.DOWN),
+                "cable should connect east (cable) and up (computer) only, but was " + state);
         helper.succeed();
     }
 

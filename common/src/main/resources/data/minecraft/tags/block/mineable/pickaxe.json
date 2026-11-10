@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "qbotics:computer"
+    "qbotics:computer",
+    "qbotics:cable"
   ]
 }
