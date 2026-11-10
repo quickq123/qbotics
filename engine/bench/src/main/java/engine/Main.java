@@ -2,6 +2,7 @@ package engine;
 
 import java.nio.file.Files;
 import qbotics.engine.Computer;
+import qbotics.engine.DriveFileSystem;
 import qbotics.engine.Engine;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -103,6 +104,16 @@ public final class Main {
             return;
         }
 
+        if (args.length > 1 && args[1].equals("exec")) {
+            // Run one script and print what it printed: a quick way to try something on the engine.
+            Computer c = new Computer(compiled, SERVER, INSTANT);
+            // "\n" typed literally on the command line stands for a line break.
+            boolean ok = c.exec(args[2].replace("\\n", "\n"));
+            System.out.println(ok ? "[ok]" : "[exception]");
+            System.out.println(c.takeOutput());
+            return;
+        }
+
         if (args.length > 1 && args[1].equals("stackprobe")) {
             stackProbe(compiled);
             return;
@@ -117,6 +128,8 @@ public final class Main {
         functional(compiled);
         section("Functional checks (interpreter)");
         functional(interp);
+        section("File system (compiled)");
+        fileSystem(compiled);
 
         if (!quick) {
             section("Boot time per computer");
@@ -272,6 +285,90 @@ public final class Main {
             }
             return "JVM " + root.getClass().getSimpleName();
         }
+    }
+
+    /** A computer's drive: ordinary Python file use, and the limits the host enforces. */
+    static void fileSystem(Engine engine) throws Exception {
+        Path drive = Files.createTempDirectory("qbotics-drive-test").resolve("drive");
+        Path outside = drive.resolveSibling("outside.txt");
+        Computer c = new Computer(engine, BASIC, INSTANT, new DriveFileSystem(drive, 64 * KB));
+
+        expect("write, read back, list", c, String.join("\n",
+                "import os",
+                "with open('notes.txt', 'w') as f:",
+                "    f.write('line one\\n')",
+                "    print('line two', file=f)",
+                "print(open('notes.txt').read(), end='')",
+                "print(os.listdir('/'), os.stat('notes.txt')[6])"), true,
+                "line one\nline two\n['notes.txt'] 18\n");
+        check("the file is a real file on the server", Files.readString(drive.resolve("notes.txt")).equals("line one\nline two\n"), "");
+
+        expect("a file that is never closed still has its data", c,
+                "open('unclosed.txt', 'w').write('kept')\nprint(open('unclosed.txt').read())", true, "kept\n");
+        expect("append, readline, iterate", c, String.join("\n",
+                "with open('notes.txt', 'a') as f:",
+                "    f.write('line three\\n')",
+                "f = open('notes.txt')",
+                "print(repr(f.readline()), [line.strip() for line in f])"), true,
+                "'line one\\n' ['line two', 'line three']\n");
+        expect("binary files and read-write mode", c, String.join("\n",
+                "open('data.bin', 'wb').write(bytes(range(8)))",
+                "with open('data.bin', 'r+b') as f:",
+                "    f.seek(2)",
+                "    f.write(b'\\xff\\xfe')",
+                "print(open('data.bin', 'rb').read())"), true,
+                "b'\\x00\\x01\\xff\\xfe\\x04\\x05\\x06\\x07'\n");
+        expect("folders, rename, remove, chdir", c, String.join("\n",
+                "os.mkdir('lib')",
+                "os.rename('notes.txt', 'lib/notes.txt')",
+                "os.chdir('lib')",
+                "print(os.getcwd(), os.listdir(), open('notes.txt').readline().strip())",
+                "os.chdir('/')",
+                "os.remove('lib/notes.txt')",
+                "os.rmdir('lib')",
+                "print(sorted(os.listdir()))"), true,
+                "/lib ['notes.txt'] line one\n['data.bin', 'unclosed.txt']\n");
+        expect("import a module from the drive, with a real traceback", c, String.join("\n",
+                "open('tools.py', 'w').write('def double(x):\\n    return x * 2\\n\\ndef broken():\\n    return 1 / 0\\n')",
+                "import tools",
+                "print(tools.double(21))",
+                "try:",
+                "    tools.broken()",
+                "except ZeroDivisionError as e:",
+                "    import sys",
+                "    sys.print_exception(e)"), true,
+                "42\nTraceback (most recent call last):\n  File \"<stdin>\", line 5, in <module>\n"
+                        + "  File \"tools.py\", line 5, in broken\nZeroDivisionError: divide by zero\n");
+        expect("a missing file is the usual error", c,
+                "try:\n    open('nope.txt')\nexcept OSError as e:\n    print(e.errno, e)", true, "2 [Errno 2] ENOENT\n");
+
+        // Limits enforced by the host.
+        expect("a path can't climb out of the drive", c, String.join("\n",
+                "open('/../../outside.txt', 'w').write('contained')",
+                "print('outside.txt' in os.listdir('/'))"), true, "True\n");
+        check("nothing was written outside the drive", !Files.exists(outside) && Files.exists(drive.resolve("outside.txt")), "");
+        expect("awkward and reserved names are refused", c, String.join("\n",
+                "for name in ('a:b', 'a\\\\b', 'con.txt', 'trailing.', '.~temp', 'x' * 65, 'tab\\tname'):",
+                "    try:",
+                "        open(name, 'w')",
+                "        print('ALLOWED', name)",
+                "    except OSError as e:",
+                "        print(e.errno, end=' ')",
+                "print()"), true, "22 22 22 22 22 22 22 \n");
+        expect("the drive can't grow past its quota", c, String.join("\n",
+                "f = open('big.bin', 'wb')",
+                "try:",
+                "    for i in range(100):",
+                "        f.write(bytes(1024))",
+                "except OSError as e:",
+                "    print(e.errno, os.stat('big.bin')[6] <= 64 * 1024, os.stat('big.bin')[6] > 60 * 1024)",
+                "os.remove('big.bin')",
+                "open('small.txt', 'w').write('room again')",
+                "print(open('small.txt').read())"), true, "28 True True\nroom again\n");
+
+        Computer none = new Computer(engine, BASIC, INSTANT);
+        expect("a computer without a drive still runs", none,
+                "try:\n    open('x', 'w')\nexcept OSError as e:\n    print(e.errno)", true, "19\n");
     }
 
     static long sumKept() {

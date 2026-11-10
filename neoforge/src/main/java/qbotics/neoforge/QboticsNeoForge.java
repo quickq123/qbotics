@@ -1,6 +1,9 @@
 package qbotics.neoforge;
 
+import java.util.UUID;
 import java.util.function.Consumer;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.FunctionGameTestInstance;
@@ -55,10 +58,18 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ComputerBlockEntity>> COMPUTER_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("computer", () -> new BlockEntityType<>(ComputerBlockEntity::new, COMPUTER.get()));
 
+    private static final DeferredRegister.DataComponents DATA_COMPONENTS =
+            DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, Qbotics.MOD_ID);
+    private static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> DRIVE_ID =
+            DATA_COMPONENTS.registerComponentType("drive_id",
+                    builder -> builder.persistent(UUIDUtil.CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC));
+
     public QboticsNeoForge(IEventBus modBus, ModContainer container) {
         QboticsContent.COMPUTER_BLOCK = COMPUTER;
         QboticsContent.COMPUTER_BLOCK_ENTITY = COMPUTER_BLOCK_ENTITY;
+        QboticsContent.DRIVE_ID = DRIVE_ID;
 
+        DATA_COMPONENTS.register(modBus);
         BLOCKS.register(modBus);
         ITEMS.register(modBus);
         BLOCK_ENTITY_TYPES.register(modBus);

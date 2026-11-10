@@ -37,3 +37,9 @@ void mp_hal_delay_ms(mp_uint_t ms) {
 void mp_hal_delay_us(mp_uint_t us) {
     host_sleep_ms((int32_t)((us + 999) / 1000));
 }
+
+// Nothing can be typed at the program yet (input() comes later), so stdin is never ready.
+uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
+    (void)poll_flags;
+    return 0;
+}

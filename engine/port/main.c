@@ -33,6 +33,16 @@ WASM_EXPORT("mpy_init") int mpy_init(uint32_t heap_size) {
     mp_cstack_init_with_top(&__stack_high, MPY_STACK_SIZE - 16 * 1024);
     gc_init(heap, heap + heap_size);
     mp_init();
+
+    // Run the frozen ROM's boot module, which mounts the drive at "/".
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) {
+        mp_import_name(MP_QSTR__boot, mp_const_none, MP_OBJ_NEW_SMALL_INT(0));
+        nlr_pop();
+    } else {
+        mp_obj_print_exception(&mp_plat_print, MP_OBJ_FROM_PTR(nlr.ret_val));
+        return 2;
+    }
     return 0;
 }
 
@@ -108,24 +118,6 @@ void gc_collect(void) {
     gc_collect_root((void **)sp, (top - sp) / sizeof(void *));
     gc_collect_end();
 }
-
-mp_import_stat_t mp_import_stat(const char *path) {
-    (void)path;
-    return MP_IMPORT_STAT_NO_EXIST;
-}
-
-mp_lexer_t *mp_lexer_new_from_file(qstr filename) {
-    (void)filename;
-    mp_raise_OSError(MP_ENOENT);
-}
-
-mp_obj_t mp_builtin_open(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs) {
-    (void)n_args;
-    (void)args;
-    (void)kwargs;
-    mp_raise_OSError(MP_ENOENT);
-}
-MP_DEFINE_CONST_FUN_OBJ_KW(mp_builtin_open_obj, 1, mp_builtin_open);
 
 void nlr_jump_fail(void *val) {
     (void)val;

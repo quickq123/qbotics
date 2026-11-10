@@ -85,7 +85,6 @@ typedef struct _vm_t {
 #define fastn (vm->fastn)
 #define exc_stack (vm->exc_stack)
 #define exc_sp (vm->exc_sp)
-#define qstr_table (vm->qstr_table)
 
 #define DECODE_UINT \
     mp_uint_t unum = 0; \
@@ -121,7 +120,7 @@ typedef struct _vm_t {
 
 #define DECODE_QSTR \
     DECODE_UINT; \
-    qstr qst = qstr_table[unum]
+    qstr qst = vm->qstr_table[unum]
 
 #else
 
@@ -1256,7 +1255,6 @@ static MP_NOINLINE bool vm_handle_exception(vm_t *vm, mp_obj_base_t *exc) {
 #undef fastn
 #undef exc_stack
 #undef exc_sp
-#undef qstr_table
 
 // fastn has items in reverse order (fastn[0] is local[0], fastn[-1] is local[1], etc)
 // sp points to bottom of stack which grows up

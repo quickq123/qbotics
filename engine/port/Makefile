@@ -12,6 +12,9 @@ include $(MPY_DIR)/py/mkenv.mk
 CROSS = 0
 QSTR_DEFS = qstrdefsport.h
 
+# The Python ROM (rom/*.py) is compiled to bytecode and frozen into the engine.
+FROZEN_MANIFEST ?= $(abspath manifest.py)
+
 include $(TOP)/py/py.mk
 include $(TOP)/extmod/extmod.mk
 
@@ -36,7 +39,9 @@ LDFLAGS += $(TARGET_FLAGS) -mexec-model=reactor -lsetjmp \
 SRC_C = \
 	main.c \
 	modhost.c \
+	modhostfs.c \
 	mphalport.c \
+	shared/runtime/sys_stdio_mphal.c \
 
 # SPLIT_VM=1 (default) replaces MicroPython's py/vm.c with vm_split.c, which
 # the JVM can JIT-compile (see the comment at the top of that file).
@@ -52,7 +57,7 @@ WASM_NAME = micropython-ref
 VM_O = $(PY_O)
 endif
 
-SRC_QSTR += main.c modhost.c mphalport.c vm_split.c
+SRC_QSTR += main.c modhost.c modhostfs.c mphalport.c vm_split.c shared/runtime/sys_stdio_mphal.c
 
 OBJ += $(VM_O)
 OBJ += $(addprefix $(BUILD)/, $(SRC_C:.c=.o))

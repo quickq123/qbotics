@@ -17,6 +17,12 @@ HOST_IMPORT("submit") int32_t host_submit(const char *ptr, uint32_t len);
 // or -1 on timeout.
 HOST_IMPORT("wait") int32_t host_wait(int32_t ticket, int32_t timeout_ms, char *buf, uint32_t cap);
 
+// File system. Runs operation `op` on `path`; `arg` is extra data (bytes to
+// write, or the new path for a rename). Returns the length of the result, or a
+// negative errno. The result bytes are then fetched with host_fs_result.
+HOST_IMPORT("fs_call") int32_t host_fs_call(int32_t op, const char *path, uint32_t path_len, const char *arg, uint32_t arg_len);
+HOST_IMPORT("fs_result") void host_fs_result(char *buf, uint32_t cap);
+
 static inline void mp_hal_set_interrupt_char(char c) {
     (void)c;
 }

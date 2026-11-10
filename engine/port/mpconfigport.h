@@ -12,6 +12,9 @@
 #define MICROPY_FLOAT_IMPL                (MICROPY_FLOAT_IMPL_DOUBLE)
 #define MICROPY_ERROR_REPORTING           (MICROPY_ERROR_REPORTING_DETAILED)
 #define MICROPY_WARNINGS                  (1)
+// Use MicroPython's own errno numbers (the familiar Linux ones: ENOENT is 2),
+// not wasi-libc's, which are numbered differently. The Java host uses the same.
+#define MICROPY_USE_INTERNAL_ERRNO        (1)
 #define MICROPY_ALLOC_PATH_MAX            (256)
 
 // Non-local returns (exceptions) use setjmp/longjmp, which wasi-sdk lowers to
@@ -20,16 +23,20 @@
 #define MICROPY_NLR_SETJMP                (1)
 #define MICROPY_GCREGS_SETJMP             (0)
 
-// No host filesystem or stdio: everything goes through host imports.
+// No OS filesystem or stdio: everything goes through host imports.
+// Files live on the computer's drive, reached through the `_hostfs` module and
+// mounted at "/" by the frozen ROM (rom/_boot.py) as an ordinary MicroPython VFS.
 #define MICROPY_HELPER_REPL               (1)
-#define MICROPY_VFS                       (0)
+#define MICROPY_VFS                       (1)
 #define MICROPY_READER_POSIX              (0)
-#define MICROPY_READER_VFS                (0)
-#define MICROPY_ENABLE_EXTERNAL_IMPORT    (0)
-#define MICROPY_PY_SYS_STDFILES           (0)
+#define MICROPY_READER_VFS                (1)
+#define MICROPY_ENABLE_EXTERNAL_IMPORT    (1)
+#define MICROPY_PY_SYS_STDFILES           (1)
 #define MICROPY_PY_BUILTINS_INPUT         (0)
+#define MICROPY_PY_BUILTINS_EXECFILE      (1)
 #define MICROPY_PY_IO                     (1)
-#define MICROPY_PY_OS                     (0)
+#define MICROPY_PY_IO_IOBASE              (1)
+#define MICROPY_PY_OS                     (1)
 #define MICROPY_PY_SELECT                 (0)
 #define MICROPY_PY_MACHINE                (0)
 #define MICROPY_PY_ASYNCIO                (0)

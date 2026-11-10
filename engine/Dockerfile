@@ -24,3 +24,10 @@ RUN git clone --depth 1 --branch "${MICROPYTHON_TAG}" \
 
 ENV PATH="/opt/binaryen/bin:/opt/wasi-sdk/bin:${PATH}"
 WORKDIR /work/port
+
+# mpy-cross compiles the Python ROM (port/rom) to bytecode that is frozen into the engine.
+RUN make -C /opt/micropython/mpy-cross -j"$(nproc)" >/dev/null
+
+# micropython-lib: required by the frozen-manifest tooling, and the source of extra
+# pure-Python packages later.
+RUN git -C /opt/micropython submodule update --init --depth 1 lib/micropython-lib

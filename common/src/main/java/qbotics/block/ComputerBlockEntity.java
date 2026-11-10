@@ -3,6 +3,8 @@ package qbotics.block;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.component.DataComponentGetter;
+import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -19,6 +21,11 @@ import qbotics.computer.ComputerManager;
 public class ComputerBlockEntity extends BlockEntity {
     /** Identifies this placed machine. A new one is assigned on every placement (design doc §17.1). */
     private @Nullable UUID deviceId;
+    /**
+     * Identifies this computer's files. Unlike the device ID it is kept when the block is
+     * broken: the dropped item carries it, so the files come back when it is placed again.
+     */
+    private @Nullable UUID driveId;
     /** The player who placed it. Stored as a UUID because names can change (design doc §5.1). */
     private @Nullable UUID owner;
 
@@ -41,6 +48,20 @@ public class ComputerBlockEntity extends BlockEntity {
         return deviceId;
     }
 
+    public UUID driveId() {
+        if (driveId == null) {
+            driveId = UUID.randomUUID();
+            setChanged();
+        }
+        return driveId;
+    }
+
+    /** Gives this computer a new, empty drive. */
+    public void replaceDrive() {
+        driveId = UUID.randomUUID();
+        setChanged();
+    }
+
     public @Nullable UUID owner() {
         return owner;
     }
@@ -59,6 +80,29 @@ public class ComputerBlockEntity extends BlockEntity {
         super.saveAdditional(output);
         output.storeNullable("device_id", UUIDUtil.CODEC, deviceId);
         output.storeNullable("owner", UUIDUtil.CODEC, owner);
+        output.storeNullable("drive_id", UUIDUtil.CODEC, driveId);
+    }
+
+    // The drive ID moves between the block and its item as a data component.
+
+    @Override
+    protected void applyImplicitComponents(DataComponentGetter components) {
+        super.applyImplicitComponents(components);
+        driveId = components.get(QboticsContent.DRIVE_ID.get());
+    }
+
+    @Override
+    protected void collectImplicitComponents(DataComponentMap.Builder components) {
+        super.collectImplicitComponents(components);
+        if (driveId != null) {
+            components.set(QboticsContent.DRIVE_ID.get(), driveId);
+        }
+    }
+
+    @Override
+    public void removeComponentsFromTag(ValueOutput output) {
+        super.removeComponentsFromTag(output);
+        output.discard("drive_id");
     }
 
     @Override
@@ -66,5 +110,6 @@ public class ComputerBlockEntity extends BlockEntity {
         super.loadAdditional(input);
         deviceId = input.read("device_id", UUIDUtil.CODEC).orElse(null);
         owner = input.read("owner", UUIDUtil.CODEC).orElse(null);
+        driveId = input.read("drive_id", UUIDUtil.CODEC).orElse(null);
     }
 }

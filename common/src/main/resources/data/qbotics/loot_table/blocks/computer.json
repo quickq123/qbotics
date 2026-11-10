@@ -11,7 +11,16 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "qbotics:computer"
+          "name": "qbotics:computer",
+          "functions": [
+            {
+              "function": "minecraft:copy_components",
+              "include": [
+                "qbotics:drive_id"
+              ],
+              "source": "block_entity"
+            }
+          ]
         }
       ],
       "rolls": 1.0

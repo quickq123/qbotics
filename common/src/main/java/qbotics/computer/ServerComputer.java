@@ -1,5 +1,6 @@
 package qbotics.computer;
 
+import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -7,6 +8,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import qbotics.Qbotics;
 import qbotics.engine.Computer;
+import qbotics.engine.DriveFileSystem;
+import qbotics.engine.HostFileSystem;
 import qbotics.engine.Engine;
 
 /**
@@ -17,8 +20,14 @@ public final class ServerComputer {
     /** Basic tier heap (design doc §3.4). */
     private static final int HEAP_BYTES = 256 * 1024;
     private static final int MAX_QUEUED_LINES = 256;
+    private static final String STARTUP_FILE = "/startup.py";
+
+    /** Design doc §15: files.drive_quota_kb. Will come from config. */
+    private static final long DRIVE_QUOTA_BYTES = 1024 * 1024;
 
     private final UUID deviceId;
+    private final UUID driveId;
+    private final DriveFileSystem drive;
     private final Terminal terminal = new Terminal();
     private final BlockingQueue<String> inputLines = new LinkedBlockingQueue<>(MAX_QUEUED_LINES);
     private final Semaphore cpu;
@@ -30,8 +39,10 @@ public final class ServerComputer {
     /** Set by Ctrl+C while the prompt is waiting for more lines of a multi-line entry. */
     private volatile boolean discardEntry;
 
-    ServerComputer(UUID deviceId, Semaphore cpu) {
+    ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu) {
         this.deviceId = deviceId;
+        this.driveId = driveId;
+        this.drive = new DriveFileSystem(driveFolder, DRIVE_QUOTA_BYTES);
         this.cpu = cpu;
         this.thread = Computer.newThread(this::run, "qbotics-computer-" + deviceId.toString().substring(0, 8));
         this.thread.setDaemon(true);
@@ -40,6 +51,10 @@ public final class ServerComputer {
 
     public UUID deviceId() {
         return deviceId;
+    }
+
+    public UUID driveId() {
+        return driveId;
     }
 
     public Terminal terminal() {
@@ -76,12 +91,13 @@ public final class ServerComputer {
         try {
             terminal.write("Qbotics computer starting...\n");
             Computer computer = new Computer(ComputerManager.engine(), HEAP_BYTES,
-                    call -> CompletableFuture.completedFuture("error:no world calls yet"));
+                    call -> CompletableFuture.completedFuture("error:no world calls yet"), drive);
             computer.cpu = cpu;
             computer.outputSink = terminal::write;
             vm = computer;
             terminal.clear();
             terminal.write("MicroPython on Qbotics. Ctrl+C stops a program.\n");
+            runStartup(computer);
             repl(computer);
         } catch (InterruptedException e) {
             // Shut down while waiting for input.
@@ -92,6 +108,22 @@ public final class ServerComputer {
             }
         } finally {
             vm = null;
+        }
+    }
+
+    /** A computer runs /startup.py, if it has one, every time it boots (design doc §1.4). */
+    private void runStartup(Computer computer) {
+        try {
+            drive.call(HostFileSystem.STAT, STARTUP_FILE, new byte[0]);
+        } catch (HostFileSystem.FsException e) {
+            return; // no startup file
+        }
+        running = true;
+        try {
+            computer.exec("execfile('" + STARTUP_FILE + "')");
+        } finally {
+            running = false;
+            computer.stop = shutDown ? Computer.StopMode.HARD : Computer.StopMode.NONE;
         }
     }
 

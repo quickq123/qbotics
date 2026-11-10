@@ -1,5 +1,6 @@
 package qbotics.computer;
 
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -11,6 +12,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.LevelResource;
 import qbotics.Qbotics;
 import qbotics.block.ComputerBlockEntity;
 import qbotics.engine.Engine;
@@ -31,14 +33,25 @@ public final class ComputerManager {
 
     private final Semaphore cpu = new Semaphore(WORKER_CORES, true);
     private final Map<UUID, ServerComputer> computers = new HashMap<>();
+    private final Path drivesFolder;
     /** Player UUID -> the terminal that player has open. */
     private final Map<UUID, Viewing> viewers = new HashMap<>();
 
     private record Viewing(UUID deviceId, ResourceKey<Level> dimension, BlockPos pos) {
     }
 
+    private ComputerManager(Path drivesFolder) {
+        this.drivesFolder = drivesFolder;
+    }
+
     public static synchronized ComputerManager get(MinecraftServer server) {
-        return MANAGERS.computeIfAbsent(server, s -> new ComputerManager());
+        return MANAGERS.computeIfAbsent(server, s -> new ComputerManager(
+                s.getWorldPath(LevelResource.ROOT).resolve("data").resolve(Qbotics.MOD_ID).resolve("drives")));
+    }
+
+    /** Where a drive's files are: <world>/data/qbotics/drives/<drive-id>/ (design doc §17.2). */
+    public Path driveFolder(UUID driveId) {
+        return drivesFolder.resolve(driveId.toString());
     }
 
     /** The shared engine. Loaded (and compiled, about half a second) on first use. */
@@ -51,9 +64,21 @@ public final class ComputerManager {
         return engine;
     }
 
-    /** The running computer for this device, booting it if it isn't running yet. */
-    public ServerComputer getOrStart(UUID deviceId) {
-        return computers.computeIfAbsent(deviceId, id -> new ServerComputer(id, cpu));
+    /** The running computer for this block, booting it if it isn't running yet. */
+    public ServerComputer getOrStart(ComputerBlockEntity block) {
+        ServerComputer running = computers.get(block.deviceId());
+        if (running != null) {
+            return running;
+        }
+        // Two placed computers must never share a drive (design doc §17.1 step 3). That can
+        // happen with a creative-mode copy of a block; the later one gets a new, empty drive.
+        UUID driveId = block.driveId();
+        if (computers.values().stream().anyMatch(other -> other.driveId().equals(driveId))) {
+            block.replaceDrive();
+        }
+        ServerComputer computer = new ServerComputer(block.deviceId(), block.driveId(), driveFolder(block.driveId()), cpu);
+        computers.put(block.deviceId(), computer);
+        return computer;
     }
 
     public boolean isRunning(UUID deviceId) {
@@ -63,7 +88,7 @@ public final class ComputerManager {
     /** A player right-clicked a computer: start it if needed and show them its screen. */
     public void openTerminal(ServerPlayer player, ComputerBlockEntity block) {
         UUID deviceId = block.deviceId();
-        ServerComputer computer = getOrStart(deviceId);
+        ServerComputer computer = getOrStart(block);
         viewers.put(player.getUUID(), new Viewing(deviceId, player.level().dimension(), block.getBlockPos()));
         computer.terminal().takeDirty();
         Qbotics.platform().sendToPlayer(player, TerminalStatePayload.of(deviceId, true, computer.terminal().snapshot()));

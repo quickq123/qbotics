@@ -36,6 +36,7 @@ public final class QboticsGameTests {
             "computer_interrupt", QboticsGameTests::computerInterrupt,
             "computer_recipe", QboticsGameTests::computerRecipe,
             "computer_break", QboticsGameTests::computerBreak,
+            "computer_files", QboticsGameTests::computerFiles,
             "payload_codecs", QboticsGameTests::payloadCodecs);
 
     private QboticsGameTests() {
@@ -44,7 +45,7 @@ public final class QboticsGameTests {
     private static ServerComputer placeAndStart(GameTestHelper helper) {
         helper.setBlock(POS, QboticsContent.COMPUTER_BLOCK.get());
         ComputerBlockEntity block = helper.getBlockEntity(POS, ComputerBlockEntity.class);
-        return ComputerManager.get(helper.getLevel().getServer()).getOrStart(block.deviceId());
+        return ComputerManager.get(helper.getLevel().getServer()).getOrStart(block);
     }
 
     private static String screen(ServerComputer computer) {
@@ -107,6 +108,39 @@ public final class QboticsGameTests {
         helper.getLevel().destroyBlock(helper.absolutePos(POS), true);
         helper.assertTrue(!manager.isRunning(deviceId), "computer should stop when its block is broken");
         helper.succeedWhen(() -> helper.assertItemEntityPresent(QboticsContent.COMPUTER_BLOCK.get().asItem()));
+    }
+
+    /**
+     * Files written in Python are real files in the world folder, programs can be imported
+     * and run from them, and the dropped item keeps the drive so the files aren't lost.
+     */
+    private static void computerFiles(GameTestHelper helper) {
+        ServerComputer computer = placeAndStart(helper);
+        ComputerManager manager = ComputerManager.get(helper.getLevel().getServer());
+        java.nio.file.Path folder = manager.driveFolder(computer.driveId());
+        for (String line : List.of(
+                "f = open('greet.py', 'w')",
+                "f.write('def hello(name):\\n    return \"hi \" + name\\n')",
+                "f.close()",
+                "import os, greet",
+                "print(os.listdir(), greet.hello('qbot'))",
+                "open('boom.py', 'w').write('x = 1\\ny = x / 0\\n')",
+                "execfile('boom.py')")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "['greet.py'] hi qbot", "File \"boom.py\", line 2", "ZeroDivisionError");
+            helper.assertTrue(java.nio.file.Files.isRegularFile(folder.resolve("greet.py")),
+                    "greet.py should be a real file in " + folder);
+            // Break the block: the item that drops must carry the drive.
+            UUID driveId = computer.driveId();
+            helper.getLevel().destroyBlock(helper.absolutePos(POS), true);
+            boolean carried = helper.getLevel()
+                    .getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                            new net.minecraft.world.phys.AABB(helper.absolutePos(POS)).inflate(3))
+                    .stream().anyMatch(item -> driveId.equals(item.getItem().get(QboticsContent.DRIVE_ID.get())));
+            helper.assertTrue(carried, "the dropped computer should carry drive " + driveId);
+        });
     }
 
     /** Both packets survive being written to and read from a buffer. */

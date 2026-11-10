@@ -45,6 +45,9 @@ public final class Computer {
     /** Where queued world calls go; stands in for the main-thread executor (design doc §2.2). */
     private final Function<String, CompletableFuture<String>> worldCalls;
     private final Map<Integer, CompletableFuture<String>> tickets = new HashMap<>();
+    private final HostFileSystem fileSystem;
+    /** The result of the last file operation, waiting for the instance to fetch it. */
+    private byte[] fsResult = new byte[0];
     private int nextTicket = 1;
 
     private final StringBuilder output = new StringBuilder();
@@ -76,8 +79,15 @@ public final class Computer {
         return new Thread(null, body, name, THREAD_STACK_BYTES);
     }
 
+    /** A computer with no drive. */
     public Computer(Engine engine, int heapBytes, Function<String, CompletableFuture<String>> worldCalls) {
+        this(engine, heapBytes, worldCalls, HostFileSystem.NONE);
+    }
+
+    public Computer(Engine engine, int heapBytes, Function<String, CompletableFuture<String>> worldCalls,
+            HostFileSystem fileSystem) {
         this.worldCalls = worldCalls;
+        this.fileSystem = fileSystem;
         var builder = Instance.builder(engine.module)
                 .withImportValues(ImportValues.builder().addFunction(hostFunctions()).build())
                 .withStart(false);
@@ -94,7 +104,7 @@ public final class Computer {
         replNeedsMore = instance.export("mpy_repl_needs_more");
         long rc = instance.export("mpy_init").apply(heapBytes)[0];
         if (rc != 0) {
-            throw new IllegalStateException("mpy_init failed: " + rc);
+            throw new IllegalStateException("mpy_init failed: " + rc + " " + takeOutput());
         }
     }
 
@@ -237,6 +247,26 @@ public final class Computer {
                         int ticket = nextTicket++;
                         tickets.put(ticket, worldCalls.apply(call));
                         return new long[] {ticket};
+                    }),
+            new HostFunction("host", "fs_call", FunctionType.of(List.of(I32, I32, I32, I32, I32), List.of(I32)),
+                    (inst, args) -> {
+                        String path = readString((int) args[1], (int) args[2]);
+                        byte[] arg = instance.memory().readBytes((int) args[3], (int) args[4]);
+                        try {
+                            fsResult = fileSystem.call((int) args[0], path, arg);
+                            return new long[] {fsResult.length};
+                        } catch (HostFileSystem.FsException e) {
+                            fsResult = new byte[0];
+                            return new long[] {-e.errno};
+                        }
+                    }),
+            new HostFunction("host", "fs_result", FunctionType.of(List.of(I32, I32), List.of()),
+                    (inst, args) -> {
+                        if (fsResult.length > 0 && fsResult.length <= args[1]) {
+                            instance.memory().write((int) args[0], fsResult);
+                        }
+                        fsResult = new byte[0];
+                        return null;
                     }),
             new HostFunction("host", "wait", FunctionType.of(List.of(I32, I32, I32, I32), List.of(I32)),
                     (inst, args) -> new long[] {
