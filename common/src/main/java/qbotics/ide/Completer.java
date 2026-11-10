@@ -37,7 +37,7 @@ public final class Completer {
     /** Modules a computer has, and what is in them. */
     private static final Map<String, List<String>> MODULES = Map.of(
             "logistics", List.of("Face", "NetworkError", "network"),
-            "network", List.of("hostname", "ifconfig"),
+            "network", List.of("Radio", "hostname", "ifconfig", "receive", "send"),
             "time", List.of("sleep", "sleep_ms", "ticks_diff", "ticks_ms", "ticks_us", "time"),
             "os", List.of("chdir", "getcwd", "listdir", "mkdir", "remove", "rename", "rmdir", "stat"),
             "math", List.of("atan2", "ceil", "cos", "degrees", "e", "fabs", "floor", "log", "pi", "pow", "radians", "sin", "sqrt", "tan"),

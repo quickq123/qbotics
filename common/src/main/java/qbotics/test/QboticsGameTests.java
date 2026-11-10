@@ -19,6 +19,7 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import qbotics.QboticsContent;
+import qbotics.block.AntennaBlockEntity;
 import qbotics.block.CableBlock;
 import qbotics.block.ComputerBlockEntity;
 import qbotics.block.InputBlockEntity;
@@ -27,6 +28,7 @@ import qbotics.block.PortBlockEntity;
 import qbotics.network.AccessFace;
 import qbotics.network.CableNetwork;
 import qbotics.network.NetworkDevice;
+import qbotics.network.RadioNetwork;
 import qbotics.computer.ComputerManager;
 import qbotics.computer.ServerComputer;
 import qbotics.computer.Terminal;
@@ -56,6 +58,8 @@ public final class QboticsGameTests {
             Map.entry("access_faces", QboticsGameTests::accessFaces),
             Map.entry("input_filters", QboticsGameTests::inputFilters),
             Map.entry("logistics_transfer", QboticsGameTests::logisticsTransfer),
+            Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
+            Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
 
     private QboticsGameTests() {
@@ -446,6 +450,121 @@ public final class QboticsGameTests {
             helper.assertTrue(barrel.countItem(Items.RAW_IRON) == 11, "the barrel should hold 11 raw iron but holds " + barrel.countItem(Items.RAW_IRON));
             helper.assertTrue(input.getItem(1).getCount() == 6 && input.getItem(2).is(Items.IRON_INGOT),
                     "the input should have 6 coal left and the ingots in slot 2");
+        });
+    }
+
+    // ---- antennas and messages (design doc §9.1, §9.3) --------------------------------
+
+    /** An antenna is its network's router, has an external address, and obeys the range rule. */
+    private static void antennaAddresses(GameTestHelper helper) {
+        BlockPos computerPos = new BlockPos(0, 1, 0);
+        BlockPos otherPos = new BlockPos(2, 1, 2);
+        helper.setBlock(computerPos, QboticsContent.COMPUTER_BLOCK.get());
+        helper.assertTrue(ips(networkAt(helper, computerPos)).equals(List.of("192.168.1.2")), "the computer starts at .2");
+        helper.setBlock(computerPos.above(), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        helper.setBlock(otherPos, QboticsContent.ANTENNA_LONG_BLOCK.get());
+        AntennaBlockEntity antenna = helper.getBlockEntity(computerPos.above(), AntennaBlockEntity.class);
+        AntennaBlockEntity other = helper.getBlockEntity(otherPos, AntennaBlockEntity.class);
+
+        CableNetwork network = networkAt(helper, computerPos);
+        helper.assertTrue(network.gateway() == antenna && ips(network).equals(List.of("192.168.1.1", "192.168.1.2")),
+                "the antenna should be the router at .1 and the computer stay at .2, but had " + ips(network));
+        helper.assertTrue(antenna.externalIp().startsWith("100.64.") && other.externalIp().startsWith("100.64.")
+                && !antenna.externalIp().equals(other.externalIp()),
+                "each antenna needs its own external address: " + antenna.externalIp() + " and " + other.externalIp());
+        RadioNetwork radio = RadioNetwork.get(helper.getLevel().getServer());
+        helper.assertTrue(radio.byExternalIp(antenna.externalIp()) == antenna, "an antenna should be found by its external address");
+        helper.assertTrue(antenna.tier() == RadioNetwork.Tier.SHORT && other.tier() == RadioNetwork.Tier.LONG, "tiers come from the block");
+
+        // Frequencies: only antennas on the same one can talk.
+        helper.assertTrue(RadioNetwork.linkProblem(antenna, other) == null, "two new antennas share the default frequency");
+        helper.assertTrue(antenna.tune("mine ops") && antenna.frequency().equals("mine_ops") && !antenna.tune("!!"),
+                "frequency should be cleaned to mine_ops but was " + antenna.frequency());
+        helper.assertTrue(RadioNetwork.linkProblem(antenna, other) != null, "different frequencies should not link");
+        other.tune("mine_ops");
+        helper.assertTrue(RadioNetwork.linkProblem(antenna, other) == null, "the same frequency should link again");
+
+        // A broken antenna can't be reached any more.
+        String gone = other.externalIp();
+        helper.getLevel().destroyBlock(helper.absolutePos(otherPos), false);
+        helper.assertTrue(radio.byExternalIp(gone) == null, "a broken antenna should leave the radio network");
+
+        // Range: the larger of the two reaches counts; height doesn't; dimensions need Infinite at both ends.
+        var overworld = net.minecraft.world.level.Level.OVERWORLD;
+        var nether = net.minecraft.world.level.Level.NETHER;
+        BlockPos here = BlockPos.ZERO;
+        RadioNetwork.Tier s = RadioNetwork.Tier.SHORT;
+        RadioNetwork.Tier l = RadioNetwork.Tier.LONG;
+        RadioNetwork.Tier i = RadioNetwork.Tier.INFINITE;
+        helper.assertTrue(RadioNetwork.rangeProblem(s, overworld, here, s, overworld, new BlockPos(24, 200, 0)) == null
+                && RadioNetwork.rangeProblem(s, overworld, here, s, overworld, new BlockPos(25, 0, 0)) != null
+                && RadioNetwork.rangeProblem(s, overworld, here, l, overworld, new BlockPos(0, 0, 100)) == null
+                && RadioNetwork.rangeProblem(l, overworld, here, s, overworld, new BlockPos(80, 0, 80)) != null
+                && RadioNetwork.rangeProblem(s, overworld, here, i, overworld, new BlockPos(90000, 0, 0)) == null
+                && RadioNetwork.rangeProblem(l, overworld, here, i, nether, here) != null
+                && RadioNetwork.rangeProblem(i, overworld, here, i, nether, new BlockPos(90000, 0, 0)) == null,
+                "the range rule is wrong");
+
+        // Placeholder recipes: a column, each tier from the one before.
+        ItemStack none = ItemStack.EMPTY;
+        ItemStack cable = new ItemStack(QboticsContent.CABLE_BLOCK.get());
+        ItemStack shortOne = craft(helper, none, new ItemStack(Items.REDSTONE_TORCH), none, none, new ItemStack(Items.IRON_INGOT), none, none, cable, none);
+        ItemStack longOne = craft(helper, none, new ItemStack(Items.DIAMOND), none, none, shortOne, none, none, cable, none);
+        ItemStack infinite = craft(helper, none, new ItemStack(Items.ENDER_EYE), none, none, longOne, none, none, cable, none);
+        helper.assertTrue(shortOne.is(QboticsContent.ANTENNA_SHORT_BLOCK.get().asItem()) && longOne.is(QboticsContent.ANTENNA_LONG_BLOCK.get().asItem())
+                && infinite.is(QboticsContent.ANTENNA_INFINITE_BLOCK.get().asItem()),
+                "antenna recipes gave " + shortOne + ", " + longOne + ", " + infinite);
+        helper.succeed();
+    }
+
+    /**
+     * Two computers, each with its own antenna, exchange messages by external address and
+     * port; a computer can message its own network without one; mistakes are explained.
+     */
+    private static void radioMessages(GameTestHelper helper) {
+        BlockPos aPos = new BlockPos(0, 1, 0);
+        BlockPos bPos = new BlockPos(2, 1, 2);
+        ServerComputer a = startAt(helper, aPos);
+        ServerComputer b = startAt(helper, bPos);
+        helper.setBlock(aPos.above(), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        helper.setBlock(bPos.above(), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        networkAt(helper, aPos);
+        networkAt(helper, bPos);
+        String aAddress = helper.getBlockEntity(aPos.above(), AntennaBlockEntity.class).externalIp() + ":1002";
+        String bAddress = helper.getBlockEntity(bPos.above(), AntennaBlockEntity.class).externalIp() + ":1002";
+
+        for (String line : List.of(
+                "python",
+                "import network",
+                "m = network.receive(8)",
+                "print('got', m.data['ore'], m.sender)",
+                "network.send(m.sender, ['thanks', 2])")) {
+            b.submitLine(line);
+        }
+        for (String line : List.of(
+                "python",
+                "import network",
+                "radio = network.Radio()",
+                "print(network.ifconfig()['port'], radio.tier, radio.range, radio.frequency)",
+                "network.send('192.168.1.2', 'to myself')",
+                "print(network.receive(1).data)",
+                "print(network.receive(0))",
+                "network.send('" + bAddress + "', {'ore': 128})",
+                "r = network.receive(8)",
+                "print('reply', r.data, r.sender)",
+                "radio.tune('other')",
+                "network.send('" + bAddress + "', 1)",
+                "network.send('100.64.200.1:1002', 1)",
+                "network.send('192.168.1.1', 1)",
+                "print('end')")) {
+            a.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, a, "end\n");
+            assertScreen(helper, b, "got 128 " + aAddress + "\n");
+            assertScreen(helper, a, "1002 short 24 1\n", "to myself\n", "None\n", "reply ['thanks', 2] " + bAddress + "\n",
+                    "that antenna is tuned to a different", "No antenna with the address 100.64.200.1 can be reached",
+                    "Only computers receive messages; 192.168.1.1 is an antenna.", "end\n");
         });
     }
 }

@@ -8,6 +8,7 @@ public final class Addresses {
     /** Every cable network is the same private network, as home networks are. */
     public static final String INTERNAL_PREFIX = "192.168.1.";
     /** 192.168.1.1 is kept for the antenna (the router). */
+    public static final int GATEWAY_HOST = 1;
     public static final int FIRST_HOST = 2;
     public static final int LAST_HOST = 254;
     public static final int MAX_NAME_LENGTH = 24;

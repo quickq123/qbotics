@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "T": "minecraft:redstone_torch",
+    "I": "minecraft:iron_ingot",
+    "C": "qbotics:cable"
+  },
+  "pattern": [
+    "T",
+    "I",
+    "C"
+  ],
+  "result": {
+    "id": "qbotics:antenna_short"
+  }
+}

@@ -326,7 +326,24 @@ public final class Computer {
             releaseCpu();
         }
         try {
-            result = timeoutMs < 0 ? future.get() : future.get(timeoutMs, TimeUnit.MILLISECONDS);
+            // Wait in short steps, so a stop request (Ctrl+C) ends a long wait, such as one for a message.
+            long end = timeoutMs < 0 ? Long.MAX_VALUE : System.nanoTime() + timeoutMs * 1_000_000L;
+            while (true) {
+                long left = end - System.nanoTime();
+                if (future.isDone() || timeoutMs == 0) {
+                    result = future.get(0, TimeUnit.MILLISECONDS);
+                    break;
+                }
+                if (left <= 0 || stop != StopMode.NONE) {
+                    return -1;
+                }
+                try {
+                    result = future.get(Math.min(50_000_000L, left), TimeUnit.NANOSECONDS);
+                    break;
+                } catch (TimeoutException stillWaiting) {
+                    // look at the stop flag and the clock again
+                }
+            }
         } catch (TimeoutException e) {
             return -1;
         } catch (InterruptedException e) {

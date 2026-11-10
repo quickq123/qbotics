@@ -138,6 +138,10 @@ write_json("assets/qbotics/lang/en_us.json", {
     "block.qbotics.input": "Input",
     "block.qbotics.output": "Output",
     "block.qbotics.bus": "Bus",
+    "block.qbotics.antenna_short": "Short-Range Antenna",
+    "block.qbotics.antenna_long": "Long-Range Antenna",
+    "block.qbotics.antenna_infinite": "Infinite Antenna",
+    "message.qbotics.antenna": "%s  |  external %s  |  frequency %s  |  reach %s",
     "container.qbotics.input": "Input  %s",
     "message.qbotics.port": "%s, pointing at %s",
     "screen.qbotics.terminal": "Computer Terminal",
@@ -281,12 +285,14 @@ write_json("data/qbotics/loot_table/blocks/cable.json", drops_itself("qbotics:ca
 
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
-    "values": ["qbotics:computer", "qbotics:cable", "qbotics:input", "qbotics:output", "qbotics:bus"],
+    "values": ["qbotics:computer", "qbotics:cable", "qbotics:input", "qbotics:output", "qbotics:bus",
+               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
-    "values": ["qbotics:cable", "qbotics:computer", "qbotics:input", "qbotics:output", "qbotics:bus"],
+    "values": ["qbotics:cable", "qbotics:computer", "qbotics:input", "qbotics:output", "qbotics:bus",
+               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
 })
 # ---- item blocks: input, output, bus (design doc §11.0) ---------------------------
 
@@ -397,5 +403,65 @@ for name, heart in (("input", "minecraft:chest"), ("output", "minecraft:dropper"
     # A device named in an anvil keeps its name when broken.
     write_json("data/qbotics/loot_table/blocks/%s.json" % name,
                drops_itself("qbotics:%s" % name, copy_components=["minecraft:custom_name"]))
+
+
+# ---- antennas: one model, a different coloured tip per range tier (design doc §9.1) ----
+
+
+def flat(colour, light, dark):
+    """A plain surface with a lighter top-left and darker bottom-right edge."""
+    px = [[colour for _ in range(16)] for _ in range(16)]
+    for i in range(16):
+        px[0][i] = light
+        px[i][0] = light
+        px[15][i] = dark
+        px[i][15] = dark
+    return px
+
+
+write_png("assets/qbotics/textures/block/antenna_base.png", case_base())
+write_png("assets/qbotics/textures/block/antenna_mast.png", flat(SHEATH, SHEATH_LIGHT, SHEATH_DARK))
+ANTENNA_TIPS = {
+    "short": ((214, 122, 62), (240, 160, 100), (160, 84, 40)),       # copper
+    "long": ((70, 140, 220), (120, 180, 245), (40, 90, 160)),        # blue
+    "infinite": ((160, 90, 220), (200, 140, 250), (104, 50, 160)),   # purple
+}
+ANTENNA_NAMES = {"short": "Short-Range Antenna", "long": "Long-Range Antenna", "infinite": "Infinite Antenna"}
+
+for tier, colours in ANTENNA_TIPS.items():
+    name = "antenna_%s" % tier
+    write_png("assets/qbotics/textures/block/%s_tip.png" % name, flat(*colours))
+    all_faces = ("north", "south", "east", "west", "up", "down")
+    write_json("assets/qbotics/models/block/%s.json" % name, {
+        "parent": "minecraft:block/block",
+        "textures": {
+            "base": "qbotics:block/antenna_base",
+            "mast": "qbotics:block/antenna_mast",
+            "tip": "qbotics:block/%s_tip" % name,
+            "particle": "qbotics:block/antenna_base",
+        },
+        "elements": [
+            {"from": [2, 0, 2], "to": [14, 4, 14], "faces": {f: {"texture": "#base"} for f in all_faces}},
+            {"from": [7, 4, 7], "to": [9, 12, 9], "faces": {f: {"texture": "#mast"} for f in all_faces[:4]}},
+            {"from": [6, 12, 6], "to": [10, 16, 10], "faces": {f: {"texture": "#tip"} for f in all_faces}},
+        ],
+    })
+    write_json("assets/qbotics/blockstates/%s.json" % name, {"variants": {"": {"model": "qbotics:block/%s" % name}}})
+    write_json("assets/qbotics/items/%s.json" % name, {
+        "model": {"type": "minecraft:model", "model": "qbotics:block/%s" % name},
+    })
+    write_json("data/qbotics/loot_table/blocks/%s.json" % name,
+               drops_itself("qbotics:%s" % name, copy_components=["minecraft:custom_name"]))
+
+# Placeholder recipes (design doc §20): a column, each tier built from the one before.
+write_json("data/qbotics/recipe/antenna_short.json", shaped(
+    ["T", "I", "C"], {"T": "minecraft:redstone_torch", "I": "minecraft:iron_ingot", "C": "qbotics:cable"},
+    "qbotics:antenna_short"))
+write_json("data/qbotics/recipe/antenna_long.json", shaped(
+    ["D", "A", "C"], {"D": "minecraft:diamond", "A": "qbotics:antenna_short", "C": "qbotics:cable"},
+    "qbotics:antenna_long"))
+write_json("data/qbotics/recipe/antenna_infinite.json", shaped(
+    ["E", "A", "C"], {"E": "minecraft:ender_eye", "A": "qbotics:antenna_long", "C": "qbotics:cable"},
+    "qbotics:antenna_infinite"))
 
 print("assets written")

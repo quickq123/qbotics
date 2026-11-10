@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "D": "minecraft:diamond",
+    "A": "qbotics:antenna_short",
+    "C": "qbotics:cable"
+  },
+  "pattern": [
+    "D",
+    "A",
+    "C"
+  ],
+  "result": {
+    "id": "qbotics:antenna_long"
+  }
+}

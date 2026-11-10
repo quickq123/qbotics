@@ -8,6 +8,8 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -20,6 +22,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import qbotics.Qbotics;
+import qbotics.computer.ComputerManager;
+import qbotics.block.AntennaBlockEntity;
 import qbotics.block.InputBlockEntity;
 import qbotics.block.PortBlockEntity;
 import qbotics.network.NetworkDevice.Kind;
@@ -78,7 +82,7 @@ public final class NetworkCalls {
             case "self": {
                 for (NetworkDevice device : network.devices()) {
                     if (device.getBlockPos().equals(computerPos)) {
-                        return describe(level, device);
+                        return describe(level, network, device);
                     }
                 }
                 throw new CallError("This computer's block is missing.");
@@ -86,12 +90,12 @@ public final class NetworkCalls {
             case "devices": {
                 JsonArray list = new JsonArray();
                 for (NetworkDevice device : network.devices()) {
-                    list.add(describe(level, device));
+                    list.add(describe(level, network, device));
                 }
                 return list;
             }
             case "find":
-                return describe(level, find(network, string(args, 1), string(args, 2)));
+                return describe(level, network, find(network, string(args, 1), string(args, 2)));
             case "rename": {
                 NetworkDevice device = byMac(network, args, 1);
                 String wanted = args.get(2).getAsString();
@@ -100,7 +104,7 @@ public final class NetworkCalls {
                     throw new CallError("A name can use letters, digits, _ - and . (up to " + Addresses.MAX_NAME_LENGTH + " characters).");
                 }
                 device.setDeviceName(name);
-                return describe(level, device);
+                return describe(level, network, device);
             }
             case "contents": {
                 NetworkDevice device = byMac(network, args, 1);
@@ -136,8 +140,19 @@ public final class NetworkCalls {
             case "set_face": {
                 PortBlockEntity port = port(byMac(network, args, 1));
                 port.setAccessFace(face(args.get(2).getAsString()));
-                return describe(level, port);
+                return describe(level, network, port);
             }
+            case "radio":
+                return describe(level, network, router(network));
+            case "tune": {
+                AntennaBlockEntity antenna = router(network);
+                if (!antenna.tune(args.get(1).getAsString())) {
+                    throw new CallError("A frequency can use letters, digits, _ - and . (up to " + Addresses.MAX_NAME_LENGTH + " characters).");
+                }
+                return describe(level, network, antenna);
+            }
+            case "send":
+                return new JsonPrimitive(send(level, network, computerPos, args.get(1).getAsString(), args.get(2).getAsString()));
             case "insert":
             case "extract":
                 return new JsonPrimitive(move(level, network, method.equals("insert"), args));
@@ -185,6 +200,67 @@ public final class NetworkCalls {
             moved += insert ? ItemPort.move(input, target, item, count - moved) : ItemPort.move(target, input, item, count - moved);
         }
         return moved;
+    }
+
+    // ---- messages between computers (design doc §9.3) ---------------------------------
+
+    /** "100.64.0.12:1003": an antenna's external address and a device's port on it. */
+    private static final Pattern EXTERNAL = Pattern.compile("(\\d{1,3}(?:\\.\\d{1,3}){3}):(\\d{1,5})");
+    private static final int MAX_MESSAGE_CHARS = 4096;
+
+    private static AntennaBlockEntity router(CableNetwork network) {
+        AntennaBlockEntity antenna = network.gateway();
+        if (antenna == null) {
+            throw new CallError("There is no antenna on this network. Cable one to this computer first.");
+        }
+        return antenna;
+    }
+
+    /**
+     * Sends a message to another computer: one on this cable network (by name or address,
+     * no antenna needed) or one behind another antenna (external address and port). Returns
+     * false if the address is right but that computer can't take the message just now.
+     *
+     * @param data the message as JSON text; it is handed over as it is, never interpreted here
+     */
+    private static boolean send(ServerLevel level, CableNetwork network, BlockPos computerPos, String address, String data) {
+        if (data.length() > MAX_MESSAGE_CHARS) {
+            throw new CallError("That message is too long (" + data.length() + " characters; the most is " + MAX_MESSAGE_CHARS + ").");
+        }
+        NetworkDevice self = network.devices().stream().filter(device -> device.getBlockPos().equals(computerPos)).findFirst()
+                .orElseThrow(() -> new CallError("This computer's block is missing."));
+        NetworkDevice target;
+        String sender;
+        Matcher external = EXTERNAL.matcher(address);
+        if (external.matches()) {
+            AntennaBlockEntity near = network.gateway();
+            if (near == null) {
+                throw new CallError("Sending to an external address needs an antenna cabled to this computer.");
+            }
+            String ip = external.group(1);
+            AntennaBlockEntity far = RadioNetwork.get(level.getServer()).byExternalIp(ip);
+            if (far == null || !(far.getLevel() instanceof ServerLevel farLevel)) {
+                throw new CallError("No antenna with the address " + ip + " can be reached. It may not exist, or its area isn't loaded.");
+            }
+            String problem = RadioNetwork.linkProblem(near, far);
+            if (problem != null) {
+                throw new CallError("Can't reach " + ip + ": " + problem + ".");
+            }
+            CableNetwork farNetwork = CableNetwork.at(farLevel, far.getBlockPos());
+            int port = Integer.parseInt(external.group(2));
+            target = farNetwork.gateway() == far && !farNetwork.tooLarge() ? farNetwork.byHost(port - RadioNetwork.PORT_BASE) : null;
+            if (target == null) {
+                throw new CallError("Nothing is on port " + port + " of " + ip + ".");
+            }
+            sender = near.externalIp() + ":" + (RadioNetwork.PORT_BASE + self.hostNumber());
+        } else {
+            target = find(network, address, null);
+            sender = self.ip();
+        }
+        if (target.kind() != Kind.COMPUTER) {
+            throw new CallError("Only computers receive messages; " + address + " is " + article(target.kind()) + ".");
+        }
+        return ComputerManager.get(level.getServer()).deliver(target.deviceId(), sender, data);
     }
 
     // ---- looking things up -----------------------------------------------------------
@@ -293,13 +369,25 @@ public final class NetworkCalls {
 
     // ---- describing things -----------------------------------------------------------
 
-    private static JsonObject describe(ServerLevel level, NetworkDevice device) {
+    private static JsonObject describe(ServerLevel level, CableNetwork network, NetworkDevice device) {
         JsonObject info = new JsonObject();
         info.addProperty("ip", device.ip());
         info.addProperty("mac", device.mac());
         info.addProperty("kind", device.kind().word);
         info.addProperty("name", device.deviceName());
-        if (device instanceof PortBlockEntity port) {
+        // With an antenna on the network, every device can be reached from outside on its own port.
+        AntennaBlockEntity gateway = network.gateway();
+        if (gateway != null && device.hostNumber() > 0) {
+            info.addProperty("gateway", gateway.ip());
+            info.addProperty("external_ip", gateway.externalIp());
+            info.addProperty("port", RadioNetwork.PORT_BASE + device.hostNumber());
+        }
+        if (device instanceof AntennaBlockEntity antenna) {
+            info.addProperty("frequency", antenna.frequency());
+            info.addProperty("tier", antenna.tier().word);
+            info.addProperty("range", antenna.tier() == RadioNetwork.Tier.INFINITE ? -1 : antenna.tier().radius);
+            info.addProperty("router", antenna == gateway);
+        } else if (device instanceof PortBlockEntity port) {
             info.addProperty("face", port.accessFace().word());
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
         } else if (device instanceof InputBlockEntity) {

@@ -5,6 +5,9 @@
     "qbotics:computer",
     "qbotics:input",
     "qbotics:output",
-    "qbotics:bus"
+    "qbotics:bus",
+    "qbotics:antenna_short",
+    "qbotics:antenna_long",
+    "qbotics:antenna_infinite"
   ]
 }

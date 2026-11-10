@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "E": "minecraft:ender_eye",
+    "A": "qbotics:antenna_long",
+    "C": "qbotics:cable"
+  },
+  "pattern": [
+    "E",
+    "A",
+    "C"
+  ],
+  "result": {
+    "id": "qbotics:antenna_infinite"
+  }
+}

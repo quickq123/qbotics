@@ -38,7 +38,10 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import qbotics.Qbotics;
 import qbotics.QboticsContent;
 import qbotics.QboticsPlatform;
+import qbotics.block.AntennaBlock;
+import qbotics.block.AntennaBlockEntity;
 import qbotics.block.CableBlock;
+import qbotics.network.RadioNetwork;
 import qbotics.block.ComputerBlock;
 import qbotics.block.ComputerBlockEntity;
 import qbotics.block.InputBlock;
@@ -91,6 +94,22 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, OUTPUT.get(), BUS.get()));
 
+    // Antennas, one block per range tier (design doc §9.1).
+    private static final DeferredBlock<AntennaBlock> ANTENNA_SHORT = antenna("antenna_short", RadioNetwork.Tier.SHORT);
+    private static final DeferredBlock<AntennaBlock> ANTENNA_LONG = antenna("antenna_long", RadioNetwork.Tier.LONG);
+    private static final DeferredBlock<AntennaBlock> ANTENNA_INFINITE = antenna("antenna_infinite", RadioNetwork.Tier.INFINITE);
+    private static final DeferredItem<BlockItem> ANTENNA_SHORT_ITEM = ITEMS.registerSimpleBlockItem(ANTENNA_SHORT);
+    private static final DeferredItem<BlockItem> ANTENNA_LONG_ITEM = ITEMS.registerSimpleBlockItem(ANTENNA_LONG);
+    private static final DeferredItem<BlockItem> ANTENNA_INFINITE_ITEM = ITEMS.registerSimpleBlockItem(ANTENNA_INFINITE);
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<AntennaBlockEntity>> ANTENNA_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("antenna", () -> new BlockEntityType<>(AntennaBlockEntity::new,
+                    ANTENNA_SHORT.get(), ANTENNA_LONG.get(), ANTENNA_INFINITE.get()));
+
+    private static DeferredBlock<AntennaBlock> antenna(String name, RadioNetwork.Tier tier) {
+        return BLOCKS.registerBlock(name, properties -> new AntennaBlock(tier, properties),
+                properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL).noOcclusion());
+    }
+
     private static final DeferredRegister.DataComponents DATA_COMPONENTS =
             DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, Qbotics.MOD_ID);
     private static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> DRIVE_ID =
@@ -107,6 +126,10 @@ public final class QboticsNeoForge {
         QboticsContent.BUS_BLOCK = BUS;
         QboticsContent.INPUT_BLOCK_ENTITY = INPUT_BLOCK_ENTITY;
         QboticsContent.PORT_BLOCK_ENTITY = PORT_BLOCK_ENTITY;
+        QboticsContent.ANTENNA_SHORT_BLOCK = ANTENNA_SHORT;
+        QboticsContent.ANTENNA_LONG_BLOCK = ANTENNA_LONG;
+        QboticsContent.ANTENNA_INFINITE_BLOCK = ANTENNA_INFINITE;
+        QboticsContent.ANTENNA_BLOCK_ENTITY = ANTENNA_BLOCK_ENTITY;
 
         DATA_COMPONENTS.register(modBus);
         BLOCKS.register(modBus);
@@ -196,6 +219,9 @@ public final class QboticsNeoForge {
             event.accept(INPUT_ITEM);
             event.accept(OUTPUT_ITEM);
             event.accept(BUS_ITEM);
+            event.accept(ANTENNA_SHORT_ITEM);
+            event.accept(ANTENNA_LONG_ITEM);
+            event.accept(ANTENNA_INFINITE_ITEM);
         }
     }
 }

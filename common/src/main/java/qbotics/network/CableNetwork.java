@@ -128,7 +128,20 @@ public final class CableNetwork {
         byMac.sort(Comparator.comparing(NetworkDevice::mac).thenComparing(device -> device.getBlockPos().asLong()));
         Set<Integer> taken = new HashSet<>();
         List<NetworkDevice> waiting = new ArrayList<>();
+        // One antenna is the network's router, at 192.168.1.1. Any others are ordinary devices.
+        NetworkDevice router = null;
         for (NetworkDevice device : byMac) {
+            if (device.kind() == NetworkDevice.Kind.ANTENNA && (router == null || device.hostNumber() == Addresses.GATEWAY_HOST)) {
+                router = device;
+            }
+        }
+        if (router != null) {
+            router.setHostNumber(Addresses.GATEWAY_HOST);
+        }
+        for (NetworkDevice device : byMac) {
+            if (device == router) {
+                continue;
+            }
             int host = device.hostNumber();
             if (host < Addresses.FIRST_HOST || host > Addresses.LAST_HOST || !taken.add(host)) {
                 waiting.add(device);
@@ -165,6 +178,26 @@ public final class CableNetwork {
     /** True if the network has more cables or devices than is allowed; it does nothing until made smaller. */
     public boolean tooLarge() {
         return tooLarge;
+    }
+
+    /** The antenna that is this network's router, or null if it has none. */
+    public qbotics.block.AntennaBlockEntity gateway() {
+        for (NetworkDevice device : devices()) {
+            if (device.hostNumber() == Addresses.GATEWAY_HOST && device instanceof qbotics.block.AntennaBlockEntity antenna) {
+                return antenna;
+            }
+        }
+        return null;
+    }
+
+    /** The device with this last number in its internal IP address, or null. */
+    public NetworkDevice byHost(int hostNumber) {
+        for (NetworkDevice device : devices()) {
+            if (device.hostNumber() == hostNumber) {
+                return device;
+            }
+        }
+        return null;
     }
 
     /** The device with this hardware address, or null. */

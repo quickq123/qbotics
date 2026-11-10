@@ -492,7 +492,7 @@ radio.send("100.64.0.12:1003", {"ore": 128})       # a device behind another ant
 |---|---|---|
 | External IPs | From `100.64.0.0/10`, one per antenna | `requests` serves both in-game and real addresses (§9.4). This range is never used on the public internet, so an address can only mean one or the other. |
 | Internal IPs | `192.168.1.0/24` in every network; the antenna is `192.168.1.1`, devices count up from `.2` | Looks like a home network, and shows that private addresses repeat from one network to the next. 253 devices fits the network size cap (§15). |
-| Ports | Given out in order from `1000` within each antenna | Short and easy to read on a block's GUI. |
+| Ports | `1000` + the last number of the device's internal IP (`192.168.1.5` is port `1005`) | Short, easy to read, and a learner can work it out. (First proposal: given out in order from `1000`.) |
 
 **Where this is simpler than real networking** (the in-game docs should say so plainly):
 
@@ -500,7 +500,33 @@ radio.send("100.64.0.12:1003", {"ore": 128})       # a device behind another ant
 - There is no address lease, subnet mask or routing table to configure.
 - On a real home network the router hands out the internal addresses, so with no router devices fall back to self-assigned ones in a different range (`169.254.x.x`). Here the cable network itself hands out `192.168.1.x` addresses, so adding an antenna later changes nothing a program already uses.
 
-**Built so far (2026-11-10):** names, internal IP addresses and hardware addresses on cable networks, `network.ifconfig()`, `network.hostname()` and the shell's `devices` command. The antenna, external addresses, ports and radio are milestone 6.
+**Built so far (2026-11-10), not yet played:**
+
+- Names, internal IP addresses and hardware addresses on cable networks; `network.ifconfig()`, `network.hostname()`; the shell's `devices` command.
+- **Antenna blocks** in the three range tiers (§9.1). One antenna per cable network is its router at `192.168.1.1`; a second antenna on the same network is an ordinary device for now (open question 3a).
+- **External addresses**, given out in order from `100.64.0.1`, saved with the world, and returned to the pool when the antenna is broken.
+- **Ports:** a device's port is 1000 plus the last number of its internal IP, so `192.168.1.5` is port `1005`. Nothing extra to store, and a learner can work it out.
+- **Messages between computers:**
+
+```python
+import network
+
+network.send("192.168.1.3", {"ore": 128})     # same cable network: no antenna needed
+network.send("100.64.0.12:1003", "hello")     # behind another antenna: needs one here too
+msg = network.receive()                       # waits; receive(5) gives up after 5 seconds and returns None
+print(msg.sender, msg.data)
+network.send(msg.sender, "thanks")            # msg.sender is the address to answer to
+
+radio = network.Radio()                       # the antenna cabled to this computer
+print(radio.external_ip, radio.frequency, radio.tier, radio.range)
+radio.tune("mine-ops")
+```
+
+  - `send` returns `True` if delivered, `False` if the address is right but that computer is switched off or its inbox (64 messages) is full. A wrong address, an antenna out of range or on another frequency raises `NetworkError` saying which.
+  - Data is anything JSON can hold (text, numbers, lists, dicts), up to 4,096 characters.
+  - Right-clicking an antenna shows its addresses, frequency and reach.
+
+**Not built yet:** access modes and frequency ownership (§9.1; every frequency is public for now), `async` receiving, reaching item blocks behind another antenna, antennas as upgrades fitted to computers and Qbots, wireless bridging (§9.2), in-game HTTP and names.
 
 #### In-game HTTP and names
 
@@ -1080,6 +1106,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 3 | Ownership registry, limits, bricked state, boot queue | Performance controls (early on purpose) |
 | 4 | Text monitors, then control surfaces (§10.2) | Displays foundation; cheap control panels |
 | 5 | Qbots: movement, six-side sensing and actions, filtered inventory, tool use, self chunk loading, parking, programmer-block activation of inert Qbots (§5.4) | Qbot experience |
+| 6a | Antennas, brought forward: three range tiers, external addresses, ports, frequencies, messages between computers (§9.3). **Built 2026-11-10, not yet played** | Computers in separate bases can talk |
 | 6 | Antennas (tiers, frequencies, access modes), in-game network, pseudo-DNS, in-game HTTP | Radio |
 | 7a | Item blocks, brought forward: cable networks, internal addresses (§9.3), Input, Output, Bus with access faces, the `logistics` module. **Built 2026-11-10, not yet played** (§11.0) | A program can move items between containers |
 | 7 | Rest of the logistics network: filter and face GUI, tier upgrades, throughput limits, change events; wireless bridging (§9.2); drive bays (§17.6) | Inventory and machine automation |
@@ -1219,6 +1246,8 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | No controller block: the computer plugs straight into the cable (§11.0). Reverses the earlier controller decision | Built; to confirm |
 | 2026-11-10 | Transfers move up to the count asked for and return how many moved, instead of all-or-nothing (§11.0) | Built; to confirm |
 | 2026-11-10 | Outputs and Buses point at the block they were placed against; they don't join the network through that side (§11.0) | Built; to confirm |
+| 2026-11-10 | A device's port on its antenna is 1000 + the last number of its internal IP, instead of ports handed out in order (§9.3) | Built; to confirm |
+| 2026-11-10 | Computers on one cable network can message each other without an antenna; an antenna is needed only to reach another network (§9.3) | Built; to confirm |
 
 ---
 
@@ -1272,3 +1301,6 @@ All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G
 | **Input** | ` C ` / `CXC` / ` C ` | `X` = chest |
 | **Output** | ` C ` / `CXC` / ` C ` | `X` = dropper |
 | **Bus** | ` C ` / `CXC` / ` C ` | `X` = hopper |
+| **Short-Range Antenna** | `T` / `I` / `C` (one column) | Redstone torch, iron ingot, cable |
+| **Long-Range Antenna** | `D` / `A` / `C` (one column) | Diamond, short-range antenna, cable |
+| **Infinite Antenna** | `E` / `A` / `C` (one column) | Eye of ender, long-range antenna, cable |

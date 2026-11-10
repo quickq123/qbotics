@@ -4,6 +4,10 @@
   "block.qbotics.input": "Input",
   "block.qbotics.output": "Output",
   "block.qbotics.bus": "Bus",
+  "block.qbotics.antenna_short": "Short-Range Antenna",
+  "block.qbotics.antenna_long": "Long-Range Antenna",
+  "block.qbotics.antenna_infinite": "Infinite Antenna",
+  "message.qbotics.antenna": "%s  |  external %s  |  frequency %s  |  reach %s",
   "container.qbotics.input": "Input  %s",
   "message.qbotics.port": "%s, pointing at %s",
   "screen.qbotics.terminal": "Computer Terminal"

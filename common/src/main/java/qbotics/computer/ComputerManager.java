@@ -294,6 +294,15 @@ public final class ComputerManager {
         }
     }
 
+    /**
+     * Hands a message to a computer. Returns false if that computer isn't switched on (it
+     * starts the first time someone opens it) or its inbox is full.
+     */
+    public boolean deliver(UUID deviceId, String sender, String data) {
+        ServerComputer computer = computers.get(deviceId);
+        return computer != null && computer.deliver(sender, data);
+    }
+
     /** The computer block was broken. */
     public void remove(UUID deviceId) {
         ServerComputer computer = computers.remove(deviceId);

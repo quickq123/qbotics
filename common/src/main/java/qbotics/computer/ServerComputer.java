@@ -1,7 +1,9 @@
 package qbotics.computer;
 
 import java.nio.charset.StandardCharsets;
+import com.google.gson.JsonObject;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -148,13 +150,64 @@ public final class ServerComputer {
         thread.interrupt();
     }
 
+    // ---- messages from other computers (design doc §9.3) ----------------------------
+
+    /** What a program submits to wait for its next message. Must match network.py in the ROM. */
+    private static final String RECEIVE_CALL = "[\"recv\"]";
+    private static final int MAX_INBOX = 64;
+
+    /** Messages nobody has asked for yet, each already in the form the program reads. */
+    private final ArrayDeque<String> inbox = new ArrayDeque<>();
+    /** Set while a program is waiting and the inbox is empty; the next message completes it. */
+    private CompletableFuture<String> waitingReceive;
+
+    /**
+     * Hands this computer a message. Returns false if its inbox is full: a computer that
+     * never reads its messages can't be made to hold an unlimited number.
+     *
+     * @param data the message as JSON text, passed on untouched
+     */
+    public boolean deliver(String sender, String data) {
+        JsonObject message = new JsonObject();
+        message.addProperty("sender", sender);
+        message.addProperty("data", data);
+        JsonObject reply = new JsonObject();
+        reply.add("r", message);
+        synchronized (inbox) {
+            if (waitingReceive != null) {
+                waitingReceive.complete(reply.toString());
+                waitingReceive = null;
+                return true;
+            }
+            if (inbox.size() >= MAX_INBOX) {
+                return false;
+            }
+            inbox.add(reply.toString());
+            return true;
+        }
+    }
+
+    /** Answers with the oldest waiting message, now or when one arrives. */
+    private CompletableFuture<String> receive() {
+        synchronized (inbox) {
+            String ready = inbox.poll();
+            if (ready != null) {
+                return CompletableFuture.completedFuture(ready);
+            }
+            if (waitingReceive == null) {
+                waitingReceive = new CompletableFuture<>();
+            }
+            return waitingReceive;
+        }
+    }
+
     // ---- the computer's thread ----------------------------------------------------
 
     private void run() {
         try {
             terminal.write("Qbotics computer starting...\n");
             Computer computer = new Computer(ComputerManager.engine(), HEAP_BYTES,
-                    worldCalls, drive);
+                    call -> call.equals(RECEIVE_CALL) ? receive() : worldCalls.apply(call), drive);
             computer.cpu = cpu;
             computer.outputSink = terminal::write;
             computer.lineReader = this::readInputLine;
