@@ -1262,7 +1262,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 7a | Item blocks, brought forward: cable networks, internal addresses (§9.3), Input, Output, Bus with access faces, the `logistics` module. **Built 2026-11-10, not yet played** (§11.0) | A program can move items between containers |
 | 7 | Rest of the logistics network: filter and face GUI, tier upgrades, throughput limits, change events; wireless bridging (§9.2); drive bays (§17.6) | Inventory and machine automation |
 | 7b | Fluid and energy logistics (§11.0) | Full factory automation |
-| 7b | World plates (§11.0.1 to §11.0.3): the cable's model built in code, stand-in players acting for the owner, then Logic Pin, Placer, Breaker and the Bus's screen access | Programs that sense and change the world: redstone logic, auto-crafting, mining and building in place |
+| 7c | World plates (§11.0.1 to §11.0.3): the cable's model built in code, stand-in players acting for the owner, then Logic Pin, Placer, Breaker and the Bus's screen access | Programs that sense and change the world: redstone logic, auto-crafting, mining and building in place |
 | 8 | Uplink (with all §13 protections), then Git import/export (§17.5) | Real-internet access; moving code between worlds |
 | 9 | Web panels v1: engine evaluation, HTML/CSS v1 coverage, sync protocol, events | Flagship UI |
 | 10 | Web panels v2: JS sandbox, `<canvas>`, grid, animations | Full web development |
