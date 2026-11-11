@@ -1002,6 +1002,7 @@ if blocks.can_craft(4):                            # are there ingredients for f
 
 - **`recipe.ingredient(what, slot, amount=1)`** adds one line to the recipe: this name or filter, into this slot, this many per run. The lines are kept in a dictionary by slot, so setting a slot again replaces it.
 - **`recipe.result(slot, what=None, amount=None)`** names a slot the product is taken from. It can be called more than once, for machines that give several outputs. `what` and `amount` are optional: with them the run checks it got that; without, it takes whatever is there.
+- **A result can have its own destination**: `recipe.result(Slot(3), "slag", destination=waste)`. That result goes there; results without one go to the recipe's `destination`. So one machine's outputs can be split between places. The entry in `recipe.results` holds it, as `{"what": ..., "amount": ..., "destination": ...}`, and it is one destination or a list, as everywhere else.
 - **`recipe.can_craft(runs=1)`** answers True or False: do the sources hold enough of every ingredient for that many runs? The same item in several slots is added up. It does not look at the machine, so it can't know whether the recipe is a real one or whether the destination has room.
 - **`recipe.craft(runs=1, screen)`** does the runs on an open screen: lays the ingredients into their slots, takes the product from the result slots to the destination, and repeats. If a run fails (an ingredient is missing, a result slot stays empty, the product has nowhere to go) it raises `NetworkError`; ingredients already placed go back when the screen closes, as for any screen session.
 - **Working out how many runs.** Some jobs start from what there is ("make as many as the stock allows"); others start from what is wanted ("I need 7, and each run gives 2"). Both need the recipe to be readable, not only runnable:
@@ -1020,6 +1021,8 @@ if blocks.can_craft(4):                            # are there ingredients for f
 - **Sources and destination** are given when the recipe is made. They are ordinary attributes, `recipe.sources` and `recipe.destination`, so a program can read or replace them at any time (`blocks.sources = other_parts`, `blocks.sources.append(chest.source())`), and either can be given for one call only (`blocks.craft(4, screen, destination=outbox)`). They are the same sources and destinations `move` uses: one or a list.
 - **Opening and closing.** `with bus.open_screen() as screen:` is the recommended form because the screen is closed, and leftovers returned, even if the program stops with an error. `screen = bus.open_screen()` ... `screen.close()` also works.
 - **Waiting.** `recipe.craft(4, screen, wait=True)` pauses for missing ingredients instead of failing, in the way `move(..., need=, wait=)` does.
+
+**Much later: recipes written for you.** Typing out a recipe slot by slot is slow. A recipe viewer such as JEI already knows every recipe, so it could hand the player the code: look a recipe up there, press a button, and get a filled-in `Recipe` (ingredients by slot, results with their amounts) as text to paste into the editor. Not designed yet; noted here so the Recipe object stays simple enough for a tool to write, which is one more reason to keep it as plain data.
 
 Open points: whether `can_craft` should also try the recipe in the machine (slower, but would catch a wrong recipe); and how filters that overlap between slots are counted (an oak plank can't be used for two slots at once).
 
@@ -1507,6 +1510,8 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | `extract` and `insert` removed. Things move with `move(sources, destinations, ...)` between ends described by `source()` and `destination()`; nothing has to pass through an Interface (§11.0.5) | Decided; built |
 | 2026-11-11 | `move` returns how many moved (none is not an error); `need=` is all-or-nothing and raises; `wait=` pauses until the amount can be moved | Decided; built |
 | 2026-11-11 | Planned: a `Recipe` object: `ingredient(what, slot, amount)`, `result(slot)` (one or several), `can_craft(runs)` as a True/False check against sources, and `craft(runs, screen)` on an open Bus screen, raising if a run fails. Needs screen access | Decided; not built |
+| 2026-11-11 | A recipe result can name its own destination, to split a machine's outputs | Decided; not built |
+| 2026-11-11 | Much later: a recipe viewer (JEI) hands the player ready-made `Recipe` code for a recipe | Idea; not designed |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |
