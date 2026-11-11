@@ -132,13 +132,19 @@ public final class ServerComputer {
     /** Ctrl+C: stop the running program, or cancel what is being typed. */
     public void interrupt() {
         Computer current = vm;
-        if (running && current != null && !waitingForInput) {
-            current.stop = Computer.StopMode.POLITE;
-        } else {
-            // At a prompt, or a program waiting in input(): the waiting side is told directly.
-            jobs.offer(new Interrupt());
+        // Decided together with readInputLine(), so a Ctrl+C that arrives just as a program
+        // starts waiting in input() is neither lost nor counted twice.
+        synchronized (inputLock) {
+            if (running && current != null && !waitingForInput) {
+                current.stop = Computer.StopMode.POLITE;
+            } else {
+                // At a prompt, or a program waiting in input(): the waiting side is told directly.
+                jobs.offer(new Interrupt());
+            }
         }
     }
+
+    private final Object inputLock = new Object();
 
     /** The block was removed or the server is stopping. The thread ends and the instance is dropped. */
     void shutDown() {
@@ -309,8 +315,21 @@ public final class ServerComputer {
 
     /** Python's input(): the next line typed at the terminal, or null for Ctrl+C. */
     private String readInputLine() throws InterruptedException {
-        waitingForInput = true;
+        boolean alreadyStopped;
+        synchronized (inputLock) {
+            waitingForInput = true;
+            // Ctrl+C was pressed a moment before the program began to wait: it counts here.
+            Computer current = vm;
+            alreadyStopped = current != null && current.stop == Computer.StopMode.POLITE;
+            if (alreadyStopped) {
+                current.stop = Computer.StopMode.NONE;
+            }
+        }
         try {
+            if (alreadyStopped) {
+                terminal.write("\n");
+                return null;
+            }
             while (true) {
                 switch (jobs.take()) {
                     case Line line -> {

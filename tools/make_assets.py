@@ -432,7 +432,7 @@ def port_front():
 
 
 # What a plate or store carries, and the colour that says so. (PlateTints.java holds the same colours.)
-MEDIA = {"": (200, 36, 28), "fluid_": (60, 130, 230), "energy_": (240, 190, 40)}
+MEDIA = {"": (246, 246, 246), "fluid_": (96, 128, 168), "energy_": (200, 36, 28)}
 MEDIA_NAMES = {"": "", "fluid_": "Fluid ", "energy_": "Energy "}
 
 
@@ -498,8 +498,8 @@ write_json("assets/qbotics/items/interface.json", {
 # Each plate is three stacked boxes between the cable (at z = 6) and the block it points at
 # (at z = 0), drawn pointing north. The shapes follow a convention players know from other
 # logistics mods: an input has a wide mouth, an output a narrow nozzle, a bus a flat panel.
-# The middle box is a collar in the colour of what the plate carries (red items, blue fluid,
-# yellow energy), and the face has a ring in the same colour.
+# The middle box is a collar in the colour of what the plate carries (white items, blue-grey fluid,
+# red energy), and the face has a ring in the same colour.
 PLATE_BOXES = {
     "input": [(3, 3, 0, 13, 13, 2), (5, 5, 2, 11, 11, 4), (6, 6, 4, 10, 10, 6)],
     "output": [(6, 6, 0, 10, 10, 2), (5, 5, 2, 11, 11, 4), (4, 4, 4, 12, 12, 6)],

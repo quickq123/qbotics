@@ -702,7 +702,7 @@ Blocks joined by the mod's own **cables** form a **network**. A computer on the 
 > - **Fluid Interface**: a full block with four tanks of four buckets (4,000 mB) each. A tank takes any fluid while empty, then only more of the same. A bucket fills or empties it by hand.
 > - **Energy Interface**: a full block holding 2,000,000 FE (the unit mods share, also called RF).
 > - Both are open to other mods' pipes and cables through the loader's standard fluid and energy APIs, and the plates reach other mods' tanks and machines the same way.
-> - **Fluid and Energy versions of Input, Output and Bus**: the same plates and shapes, with a coloured collar and face ring: red for items, blue for fluid, yellow for energy.
+> - **Fluid and Energy versions of Input, Output and Bus**: the same plates and shapes, with a coloured collar and face ring: white for items, blue-grey for fluid, red for energy.
 > - In Python the device kinds are `fluid_interface`, `fluid_input`, `fluid_output`, `fluid_bus` and the same four after `energy_`, with matching `net.fluid_bus()`-style lookups. Fluid amounts are millibuckets (1,000 is a bucket); energy amounts are FE. One call moves at most 16 buckets or 2,000,000 FE.
 > - Not built: fluid filters, flow rates or limits per tick, fluids that carry extra data (they are handled by plain kind only), and any screen for the two stores (right-click shows their contents as a line of text).
 >
