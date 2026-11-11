@@ -697,6 +697,7 @@ Blocks joined by the mod's own **cables** form a **network**. A computer on the 
 > - How it is built: each side of a cable is a block-state value (none, cable, input, output, bus), which gives the cable 15,625 block states and about two seconds of extra start-up. It needs no model code. If the state count becomes a problem, the alternative is a model built in code.
 > - Breaking: aim at a plate and break, and only that plate comes off. Aim at the cable itself and the cable breaks, dropping every plate. (The mining time is the cable's either way.)
 > - Text below that says "Input block" for the filtered storage means the Interface.
+> - Text and examples below that use `extract` and `insert` describe the first API. It was replaced on 2026-11-11 by sources, destinations and `move` (§11.0.5); `docs/reference.md` is the current description.
 >
 > **Fluid and energy (built 2026-11-10):**
 > - **Fluid Interface**: a full block with four tanks of four buckets (4,000 mB) each. A tank takes any fluid while empty, then only more of the same. A bucket fills or empties it by hand.
