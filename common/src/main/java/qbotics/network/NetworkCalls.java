@@ -324,6 +324,28 @@ public final class NetworkCalls {
             }
             case "screen_contents":
                 return screenContents(openScreen(level, screenBus(byMac(network, args, 1))), false);
+            case "screen_button": {
+                // A button on the screen, as a player clicking it: a stonecutter's or loom's choices.
+                ScreenSessions.Session session = openScreen(level, screenBus(byMac(network, args, 1)));
+                if (args.size() < 3 || !args.get(2).isJsonPrimitive() || !args.get(2).getAsJsonPrimitive().isNumber()) {
+                    throw new CallError("press() needs a button number: 0 for the first.");
+                }
+                int button = args.get(2).getAsInt();
+                if (button < 0) {
+                    throw new CallError("Buttons are numbered from 0; there is no number " + button + ".");
+                }
+                session.port(); // counts as using the screen
+                boolean took;
+                try {
+                    took = session.menu.clickMenuButton(session.player, button);
+                } catch (RuntimeException e) {
+                    throw new CallError("The screen failed when button " + button + " was pressed.");
+                }
+                if (took) {
+                    session.menu.broadcastChanges();
+                }
+                return new JsonPrimitive(took);
+            }
             case "screen_close": {
                 CablePort bus = screenBus(byMac(network, args, 1));
                 // What the block hands back goes to the places named, or failing that to any interface on the network.

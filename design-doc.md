@@ -898,7 +898,7 @@ How every drop is caught, including when a block gives several different items:
 
 ### 11.0.2 Screen access: a Bus working a block's screen (built 2026-11-11)
 
-> **Status (2026-11-11): built** for the crafting table, with a game test and a demo on the test stage; other screens (stonecutter, loom, smithing table, grindstone, other mods') are expected to work but not yet tried. Paying experience (anvil) is not built. Decided by the project owner: this is a function of the Bus alone. Player-facing details: `docs/reference.md` §6.8.
+> **Status (2026-11-11): built** and tested on the crafting table, smithing table, grindstone, stonecutter and loom (game tests `screen_access`, `vanilla_screens`; a demo on the test stage). Buttons (the stonecutter's and loom's choices) are pressed with `screen.press(n)`. Other mods' screens are expected to work but not yet tried. Paying experience (anvil) is not built. Decided by the project owner: this is a function of the Bus alone. Player-facing details: `docs/reference.md` §6.8.
 >
 > **As built, differing from the rules below:** leftovers that no Interface will take are **dropped beside the Bus** rather than keeping the screen open, because a screen can't be held open forever (a stopped program, an unloaded chunk) and a drop is the one place they are certainly not lost. A screen unused for a minute closes itself. `put` names its `sources=`, and `take` its destinations, as `move` does.
 

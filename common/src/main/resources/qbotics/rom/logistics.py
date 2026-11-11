@@ -346,6 +346,13 @@ class Screen:
             count = 1 << 20    # the whole slot: a take is never more than one slot holds
         return move(self.source(slot), destinations, what, count)
 
+    def press(self, button):
+        """Presses one of the screen's buttons, as a player clicking it. A stonecutter's or a
+        loom's choices are buttons 0, 1, 2... in the order the screen shows them, for what is
+        in its slots now. Returns False if the screen refused it. Some screens accept any
+        number, so look at the product slot to see what was chosen."""
+        return _call("screen_button", self.bus.mac, button)
+
     def close(self, leftovers=None):
         """Closes the screen. What the block hands back goes to leftovers (one destination
         or a list), then to any interface on the network. Returns how many items had

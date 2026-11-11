@@ -457,11 +457,35 @@ with table.open_screen() as screen:               # closed at the end, even afte
 | `screen.put(slot, what=None, count=None, sources=..., need=None, wait=False)` | Moves into one slot from `sources`; returns how many. `what`, `count`, `need` and `wait` mean what they do in `move` |
 | `screen.take(slot, destinations, what=None, count=None)` | Moves out of one slot; returns how many. With no `count`, the whole slot |
 | `screen.source(slot)`, `screen.destination(slot)` | One slot as an end for `move` (section 6.4), with `only=` and `without=` as usual |
+| `screen.press(button)` | Presses a button on the screen, as a player clicking it. A stonecutter's or loom's choices are buttons 0, 1, 2… in the order shown, for what is in its slots now. Returns `False` if refused; some screens accept any number, so check the product slot |
 | `screen.close(leftovers=None)` | Closes it. Returns how many items had nowhere to go |
 
 **Slot numbers are the screen's.** A crafting table's screen holds its product (slot 0) and its
 grid (1 to 9, left to right, top row first). Hold the probe in Slots mode (section 8) and open
 the block to see them.
+
+Tested vanilla screens and their slots:
+
+| Block | Slots |
+|---|---|
+| Crafting table | product 0, grid 1 to 9 |
+| Smithing table | template 0, base 1, addition 2, product 3 |
+| Grindstone | inputs 0 and 1, product 2 |
+| Stonecutter | input 0, product 1; choose with `press` |
+| Loom | banner 0, dye 1, pattern item 2, product 3; choose with `press` |
+
+A stonecutter's list of choices changes with its input, so the simplest way to pick one is to
+try buttons until the product is the one you want:
+
+```python
+with cutter.open_screen() as screen:
+    screen.put(Slot(0), "stone", 1, sources=store)
+    for n in range(40):
+        screen.press(n)
+        if [e for e in screen.contents() if e["slot"] == 1 and e["item"] == "minecraft:stone_bricks"]:
+            break
+    screen.take(Slot(1), store)
+```
 
 **A product slot** (the crafting table's slot 0) gives only its whole stack, and taking from it
 uses up the ingredients, as it does for a player. Nothing can be put into it.

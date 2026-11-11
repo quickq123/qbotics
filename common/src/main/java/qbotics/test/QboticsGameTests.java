@@ -69,6 +69,7 @@ public final class QboticsGameTests {
             Map.entry("experience_store", QboticsGameTests::experienceStore),
             Map.entry("test_stage", QboticsGameTests::testStage),
             Map.entry("screen_access", QboticsGameTests::screenAccess),
+            Map.entry("vanilla_screens", QboticsGameTests::vanillaScreens),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1068,6 +1069,109 @@ public final class QboticsGameTests {
                 "[(0, 'minecraft:stick', 4), (1, 'minecraft:oak_planks', 1), (4, 'minecraft:oak_p",
                 "4 4 6\n", "3 3 0 6\n", "This bus has no screen open", "2 True False 2 9 1\n", "{'minecraft:coal_block': 2}\n", "2 2\n",
                 "Only 0 of the 1 needed can be moved right now", "after 2\n"));
+    }
+
+    /**
+     * Screen access beyond the crafting table: a smithing table, a grindstone, a stonecutter
+     * and a loom, each through its own bus. The last two choose with a button press.
+     */
+    private static void vanillaScreens(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.SMITHING_TABLE);
+        helper.setBlock(new BlockPos(0, 1, 1), Blocks.GRINDSTONE);
+        helper.setBlock(new BlockPos(1, 1, 2), Blocks.STONECUTTER);
+        helper.setBlock(new BlockPos(1, 2, 1), Blocks.LOOM);
+        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        BlockPos cableAt = helper.absolutePos(new BlockPos(1, 1, 1));
+        CableBlock.attach(level, cableAt, Kind.BUS, Direction.WEST);
+        CableBlock.attach(level, cableAt, Kind.BUS, Direction.SOUTH);
+        CableBlock.attach(level, cableAt, Kind.BUS, Direction.UP);
+        PortBlockEntity plates = helper.getBlockEntity(new BlockPos(1, 1, 1), PortBlockEntity.class);
+        UUID owner = UUID.randomUUID();
+        Map<Direction, String> names = Map.of(Direction.EAST, "smith", Direction.WEST, "grind", Direction.SOUTH, "cutter", Direction.UP, "loom");
+        names.forEach((side, name) -> {
+            CablePort plate = plates.port(side);
+            plate.onPlaced(owner);
+            plate.setDeviceName(name);
+        });
+        String[] stores = {"a", "b"};
+        for (int i = 0; i < 2; i++) {
+            InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1 + i, 1, 0), InterfaceBlockEntity.class);
+            store.setDeviceName(stores[i]);
+            for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+                store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+            }
+        }
+        InterfaceBlockEntity a = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        a.setItem(0, new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
+        a.setItem(1, new ItemStack(Items.DIAMOND_SWORD));
+        a.setItem(2, new ItemStack(Items.NETHERITE_INGOT));
+        a.setItem(3, new ItemStack(Items.IRON_SWORD));
+        a.setItem(4, new ItemStack(Items.IRON_SWORD));
+        a.setItem(5, new ItemStack(Blocks.STONE, 4));
+        a.setItem(6, new ItemStack(Items.WHITE_BANNER));
+        a.setItem(7, new ItemStack(Items.RED_DYE, 2));
+
+        String program = String.join("\n",
+                "from logistics import network, Slot",
+                "net = network()",
+                "stock = [net.interface('a'), net.interface('b')]",
+                "def count(name):",
+                "    return sum(store.count(name) for store in stock)",
+                "",
+                "# Smithing table: template 0, base 1, addition 2, product 3.",
+                "with net.bus('smith').open_screen() as s:",
+                "    print('smith slots', s.slots())",
+                "    s.put(Slot(0), 'netherite_upgrade_smithing_template', sources=stock)",
+                "    s.put(Slot(1), 'diamond_sword', sources=stock)",
+                "    s.put(Slot(2), 'netherite_ingot', sources=stock)",
+                "    print('smith made', s.take(Slot(3), stock))",
+                "",
+                "# Grindstone: two inputs, 0 and 1, product 2. Two swords make one.",
+                "with net.bus('grind').open_screen() as s:",
+                "    print('grind slots', s.slots())",
+                "    s.put(Slot(0), 'iron_sword', sources=stock)",
+                "    s.put(Slot(1), 'iron_sword', sources=stock)",
+                "    print('grind made', s.take(Slot(2), stock))",
+                "",
+                "# Stonecutter: input 0, product 1; the choice is a button, found by trying.",
+                "with net.bus('cutter').open_screen() as s:",
+                "    print('cutter slots', s.slots())",
+                "    s.put(Slot(0), 'stone', 1, sources=stock)",
+                "    chosen = None",
+                "    for n in range(40):",
+                "        s.press(n)",
+                "        if [e for e in s.contents() if e['slot'] == 1 and e['item'] == 'minecraft:stone_bricks']:",
+                "            chosen = n",
+                "            break",
+                "    print('cutter chose', chosen is not None, 'made', s.take(Slot(1), stock))",
+                "",
+                "# Loom: banner 0, dye 1, pattern item 2, product 3; patterns are buttons.",
+                "with net.bus('loom').open_screen() as s:",
+                "    print('loom slots', s.slots())",
+                "    s.put(Slot(0), 'white_banner', sources=stock)",
+                "    s.put(Slot(1), 'red_dye', sources=stock)",
+                "    print('loom pressed', s.press(1))",
+                "    print('loom made', s.take(Slot(3), stock))",
+                "",
+                "print('final', count('netherite_sword'), count('iron_sword'), count('stone_bricks'), count('stone'), count('white_banner'), count('red_dye'))",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/screens.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not write the test program", e);
+        }
+        computer.submitLine("run /screens.py");
+        helper.succeedWhen(() -> {
+            String screen = screen(computer);
+            helper.assertTrue(!screen.contains("Traceback"), "the program failed:\n" + screen);
+            assertScreen(helper, computer, "smith slots [0, 1, 2, 3]", "smith made 1\n", "grind slots [0, 1, 2]", "grind made 1\n",
+                    "cutter slots [0, 1]", "cutter chose True made 1\n", "loom slots [0, 1, 2, 3]", "loom pressed True", "loom made 1\n",
+                    "final 1 1 1 3 1 1\n");
+        });
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */
