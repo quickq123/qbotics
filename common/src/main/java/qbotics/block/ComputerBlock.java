@@ -65,6 +65,8 @@ public class ComputerBlock extends BaseEntityBlock {
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel && level.getBlockEntity(pos) instanceof ComputerBlockEntity computer) {
             computer.onPlaced(placer instanceof Player player ? player.getUUID() : null);
             qbotics.limits.Limits.placed(serverLevel, computer, placer instanceof Player player ? player : null);
+            // A Programmer facing the place it arrived programs it (design doc §5.4).
+            Programmers.arrived(serverLevel, computer);
         }
     }
 

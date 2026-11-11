@@ -165,6 +165,10 @@ write_json("assets/qbotics/lang/en_us.json", {
     "itemGroup.qbotics": "Qbotics",
     "block.qbotics.interface": "Interface",
     "block.qbotics.drive_bay": "Drive Bay",
+    "block.qbotics.programmer": "Programmer",
+    "screen.qbotics.edit_files": "Edit files",
+    "screen.qbotics.programmer_hint": "Redstone on: installs that",
+    "screen.qbotics.programmer_hint2": "level's program (programs.txt)",
     "item.qbotics.hard_drive": "Hard Drive",
     "item.qbotics.hard_drive.blank": "Blank, %s MB. Put it in a Drive Bay to use it.",
     "item.qbotics.hard_drive.used": "Holds files (%s MB). In a Drive Bay, computers on its network see them in /net.",
@@ -446,13 +450,13 @@ write_json("data/qbotics/loot_table/blocks/cable.json", drops_itself("qbotics:ca
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
     "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
-               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay"],
+               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
     "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
-               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay"],
+               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer"],
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 
@@ -632,6 +636,48 @@ def hard_drive():
 
 
 write_png("assets/qbotics/textures/block/drive_bay_front.png", drive_bay_front())
+
+
+def programmer_front():
+    """The Programmer's programming face: a contact pad of pins in a frame, and a light."""
+    px = case_base()
+    for y in range(3, 13):
+        for x in range(3, 13):
+            px[y][x] = EDGE if x in (3, 12) or y in (3, 12) else SCREEN
+    for y in range(5, 11, 2):
+        for x in range(5, 11, 2):
+            px[y][x] = CASE_LIGHT
+    px[13][7] = px[13][8] = RED_BRIGHT
+    return px
+
+
+def programmer_side():
+    """Plain case, with a drive slot across it."""
+    px = case_base()
+    for x in range(4, 12):
+        px[7][x] = EDGE
+        px[8][x] = SCREEN
+    return px
+
+
+write_png("assets/qbotics/textures/block/programmer_front.png", programmer_front())
+write_png("assets/qbotics/textures/block/programmer_side.png", programmer_side())
+write_json("assets/qbotics/models/block/programmer.json", {
+    "parent": "minecraft:block/cube",
+    "textures": {
+        "particle": "qbotics:block/programmer_side",
+        "north": "qbotics:block/programmer_front",
+        "south": "qbotics:block/programmer_side", "east": "qbotics:block/programmer_side",
+        "west": "qbotics:block/programmer_side", "up": "qbotics:block/interface_top", "down": "qbotics:block/interface_top",
+    },
+})
+# Its programming face (north in the model) turns to face the way the block does, as an observer's.
+PROGRAMMER_TURNS = {"north": {}, "south": {"y": 180}, "east": {"y": 90}, "west": {"y": 270}, "up": {"x": 270}, "down": {"x": 90}}
+write_json("assets/qbotics/blockstates/programmer.json", {"variants": {
+    "facing=%s" % facing: dict({"model": "qbotics:block/programmer"}, **turn) for facing, turn in PROGRAMMER_TURNS.items()}})
+write_json("assets/qbotics/items/programmer.json", {
+    "model": {"type": "minecraft:model", "model": "qbotics:block/programmer"},
+})
 write_png("assets/qbotics/textures/item/hard_drive.png", hard_drive())
 write_json("assets/qbotics/models/block/drive_bay.json", {
     "parent": "minecraft:block/cube_column",
@@ -777,6 +823,11 @@ write_json("data/qbotics/recipe/hard_drive.json", shaped(
     ["III", "IRI", "IGI"], {"I": "minecraft:iron_ingot", "R": "minecraft:redstone", "G": "minecraft:gold_ingot"}, "qbotics:hard_drive"))
 write_json("data/qbotics/recipe/drive_bay.json", shaped(
     [" C ", "CBC", " C "], {"C": "qbotics:cable", "B": "minecraft:barrel"}, "qbotics:drive_bay"))
+# Placeholder: a Programmer is cables around a motherboard, a computer's heart without its screen.
+write_json("data/qbotics/recipe/programmer.json", shaped(
+    [" C ", "CMC", " C "], {"C": "qbotics:cable", "M": "qbotics:motherboard"}, "qbotics:programmer"))
+write_json("data/qbotics/loot_table/blocks/programmer.json",
+           drops_itself("qbotics:programmer", copy_components=["minecraft:custom_name"]))
 write_json("data/qbotics/loot_table/blocks/drive_bay.json",
            drops_itself("qbotics:drive_bay", copy_components=["minecraft:custom_name"]))
 write_json("data/qbotics/loot_table/blocks/interface.json",

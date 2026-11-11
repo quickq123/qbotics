@@ -27,6 +27,14 @@ public final class ClientIde {
         }
     }
 
+    /** The server opened a drive (a Programmer's) in the editor: files only, no terminal. */
+    public static void onOpenEditor(IdePayloads.OpenEditor open) {
+        IdeSession session = IdeSession.of(open.deviceId());
+        session.editOnly = true;
+        session.title = open.title();
+        Minecraft.getInstance().setScreen(new IdeScreen(session, backend(open.deviceId())));
+    }
+
     public static void onFileResponse(IdePayloads.FileResponse response) {
         IdeBackend.FileCallback callback = backend(response.deviceId()).files.remove(response.requestId());
         if (callback != null) {

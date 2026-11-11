@@ -290,7 +290,34 @@ public final class ScreenshotRun {
             });
         });
         then(5, minecraft -> shot(minecraft, "09k-drive-bay-screen"));
-        then(5, minecraft -> minecraft.player.closeContainer());
+        // Programmers, facing each way the player might see them, and one's screen.
+        then(10, minecraft -> {
+            minecraft.player.closeContainer();
+            onServer(minecraft, player -> {
+                net.minecraft.world.level.block.Block programmer = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(Qbotics.id("programmer"));
+                Direction[] facings = {Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST, Direction.UP};
+                for (int i = 0; i < facings.length; i++) {
+                    player.level().setBlock(base.offset(10 + i, 0, -6), programmer.defaultBlockState()
+                            .setValue(qbotics.block.ProgrammerBlock.FACING, facings[i]), Block.UPDATE_ALL);
+                }
+                if (player.level().getBlockEntity(base.offset(10, 0, -6)) instanceof qbotics.block.ProgrammerBlockEntity one) {
+                    one.driveSlot().setItem(0, new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("hard_drive"))));
+                    player.getInventory().add(new ItemStack(programmer.asItem()));
+                    player.openMenu(one);
+                }
+            });
+        });
+        then(5, minecraft -> shot(minecraft, "09l-programmer-screen"));
+        then(5, minecraft -> {
+            minecraft.player.closeContainer();
+            onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(base.offset(10, 0, -6)) instanceof qbotics.block.ProgrammerBlockEntity one) {
+                    qbotics.computer.ComputerManager.get(player.level().getServer()).openDriveEditor(player, one);
+                }
+            });
+        });
+        then(15, minecraft -> shot(minecraft, "09m-programmer-editor"));
+        then(5, minecraft -> minecraft.setScreen(null));
         then(10, minecraft -> {
             minecraft.setScreen(null);
             onServer(minecraft, player -> {

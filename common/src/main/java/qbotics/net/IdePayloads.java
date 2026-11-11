@@ -109,6 +109,23 @@ public final class IdePayloads {
     }
 
     /** Server to client: the "edit" shell command asks the editor to open a file. */
+    /**
+     * Server to client: open the editor on a drive that belongs to no computer (a
+     * Programmer's), with only its files: no terminal, nothing to run.
+     */
+    public record OpenEditor(UUID deviceId, String title) implements CustomPacketPayload {
+        public static final Type<OpenEditor> TYPE = new Type<>(Qbotics.id("ide_open_editor"));
+        public static final StreamCodec<ByteBuf, OpenEditor> STREAM_CODEC = StreamCodec.composite(
+                UUIDUtil.STREAM_CODEC, OpenEditor::deviceId,
+                ByteBufCodecs.stringUtf8(64), OpenEditor::title,
+                OpenEditor::new);
+
+        @Override
+        public Type<OpenEditor> type() {
+            return TYPE;
+        }
+    }
+
     public record OpenFile(UUID deviceId, String path) implements CustomPacketPayload {
         public static final Type<OpenFile> TYPE = new Type<>(Qbotics.id("ide_open_file"));
         public static final StreamCodec<ByteBuf, OpenFile> STREAM_CODEC = StreamCodec.composite(

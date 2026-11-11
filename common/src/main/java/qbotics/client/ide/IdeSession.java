@@ -76,6 +76,10 @@ final class IdeSession {
     }
 
     final UUID deviceId;
+    /** True for a drive with no computer behind it (a Programmer's): files only, no terminal, nothing runs. */
+    boolean editOnly;
+    /** What the title bar calls it: "Computer", or "Programmer". */
+    String title = "Computer";
 
     // Explorer
     final Node root = new Node("/", "", true, 0);

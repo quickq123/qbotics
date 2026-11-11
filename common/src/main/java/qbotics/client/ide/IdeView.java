@@ -153,7 +153,7 @@ final class IdeView {
         int centerW = viewWidth - centerX - (session.scratchOpen ? SCRATCH_W + 1 : 0);
         // The terminal's height can be changed by dragging the line above it.
         int wanted = session.terminalHeight > 0 ? session.terminalHeight : TERMINAL_H;
-        int terminalH = Math.clamp(wanted, Math.min(MIN_TERMINAL_H, bodyH / 2), Math.max(MIN_TERMINAL_H, bodyH - 80));
+        int terminalH = session.editOnly ? 0 : Math.clamp(wanted, Math.min(MIN_TERMINAL_H, bodyH / 2), Math.max(MIN_TERMINAL_H, bodyH - 80));
         tabsRect = new Rect(centerX, bodyY, centerW, TAB_H);
         editorRect = new Rect(centerX, bodyY + TAB_H, centerW, bodyH - TAB_H - terminalH - 1);
         terminalRect = new Rect(centerX, bodyY + bodyH - terminalH, centerW, terminalH);
@@ -175,7 +175,9 @@ final class IdeView {
         drawExplorer(ui);
         drawTabs(ui);
         drawEditor(ui, cursorOn);
-        drawTerminal(ui, cursorOn);
+        if (!session.editOnly) {
+            drawTerminal(ui, cursorOn);
+        }
         if (session.scratchOpen) {
             drawScratch(ui, cursorOn);
         }
@@ -183,8 +185,10 @@ final class IdeView {
         drawStatusBar(ui);
         // Thin lines between the panels.
         ui.fill(EXPLORER_W, TITLE_H, 1, viewHeight - TITLE_H - STATUS_H, Ui.BORDER);
-        boolean onEdge = drag == Drag.TERMINAL_EDGE || (dialog == null && menu == null && onTerminalEdge(mouseX, mouseY));
-        ui.fill(terminalRect.x(), terminalRect.y() - 1, terminalRect.width(), onEdge ? 2 : 1, onEdge ? Ui.STATUS_BG : Ui.BORDER);
+        if (!session.editOnly) {
+            boolean onEdge = drag == Drag.TERMINAL_EDGE || (dialog == null && menu == null && onTerminalEdge(mouseX, mouseY));
+            ui.fill(terminalRect.x(), terminalRect.y() - 1, terminalRect.width(), onEdge ? 2 : 1, onEdge ? Ui.STATUS_BG : Ui.BORDER);
+        }
         if (session.scratchOpen) {
             ui.fill(scratchRect.x() - 1, TITLE_H, 1, viewHeight - TITLE_H - STATUS_H, Ui.BORDER);
         }
@@ -214,7 +218,7 @@ final class IdeView {
 
     /** The line between the editor and the terminal, which can be dragged. */
     private boolean onTerminalEdge(double x, double y) {
-        return x >= terminalRect.x() && x < terminalRect.right() && Math.abs(y - terminalRect.y()) <= 2;
+        return !session.editOnly && x >= terminalRect.x() && x < terminalRect.right() && Math.abs(y - terminalRect.y()) <= 2;
     }
 
     private boolean hovered(Rect rect) {
@@ -245,27 +249,36 @@ final class IdeView {
         ui.fill(0, 0, viewWidth, TITLE_H, Ui.BAR_BG);
         ui.text("QBOTICS", 6, 4, Ui.TEXT_BRIGHT);
         int computerX = 6 + ui.textWidth("QBOTICS") + 6;
-        ui.text("Computer", computerX, 4, Ui.TEXT_DIM);
-        // This computer's settings page opens in the editor, like any other file.
-        button(ui, computerX + ui.textWidth("Computer") + 8, 1, TITLE_H - 2, "Settings", false, true, Ui.BAR_BG,
-                () -> openFile(ComputerSettings.PATH));
+        ui.text(session.title, computerX, 4, Ui.TEXT_DIM);
+        if (!session.editOnly) {
+            // This computer's settings page opens in the editor, like any other file.
+            button(ui, computerX + ui.textWidth(session.title) + 8, 1, TITLE_H - 2, "Settings", false, true, Ui.BAR_BG,
+                    () -> openFile(ComputerSettings.PATH));
+        } else {
+            ui.text("Its hard drive: edit here, nothing runs", computerX + ui.textWidth(session.title) + 12, 4, Ui.TEXT_DIM);
+        }
 
         Tab tab = session.active();
         boolean hasFile = tab != null && tab.view != null;
         boolean isPython = hasFile && tab.view.language == Language.PYTHON;
         boolean isJson = hasFile && tab.view.language == Language.JSON;
         // Laid out from the right edge.
-        String scratchLabel = session.scratchOpen ? "Hide Scratchpad" : "Python Scratchpad";
-        int x = viewWidth - 4 - (ui.textWidth(scratchLabel) + 10);
-        button(ui, x, 1, TITLE_H - 2, scratchLabel, false, true, session.scratchOpen ? Ui.ACCENT : Ui.BAR_BG, this::toggleScratch);
+        int x = viewWidth - 4;
+        if (!session.editOnly) {
+            String scratchLabel = session.scratchOpen ? "Hide Scratchpad" : "Python Scratchpad";
+            x -= ui.textWidth(scratchLabel) + 10;
+            button(ui, x, 1, TITLE_H - 2, scratchLabel, false, true, session.scratchOpen ? Ui.ACCENT : Ui.BAR_BG, this::toggleScratch);
+        }
         x -= ui.textWidth("Save") + 10 + 4;
         button(ui, x, 1, TITLE_H - 2, "Save", false, hasFile && tab.view.buffer.isDirty(), Ui.BAR_BG, this::saveActive);
         if (isJson) {
             x -= ui.textWidth("Format JSON") + 10 + 4;
             button(ui, x, 1, TITLE_H - 2, "Format JSON", false, true, Ui.BAR_BG, this::formatActive);
         }
-        x -= ui.textWidth("Run") + 18 + 4;
-        button(ui, x, 1, TITLE_H - 2, "Run", true, isPython, Ui.BAR_BG, this::runActive);
+        if (!session.editOnly) {
+            x -= ui.textWidth("Run") + 18 + 4;
+            button(ui, x, 1, TITLE_H - 2, "Run", true, isPython, Ui.BAR_BG, this::runActive);
+        }
     }
 
     private void drawStatusBar(Ui ui) {
@@ -281,7 +294,7 @@ final class IdeView {
         } else if (problem != null) {
             left = "JSON problem on line " + problem.line() + ": " + problem.error();
         } else {
-            left = "F5 Run   Ctrl+S Save   Ctrl+F Find   Ctrl+H Replace   Ctrl+Space Suggest   Ctrl+/ Comment   Ctrl+Plus/Minus Text size   Esc Close";
+            left = (session.editOnly ? "" : "F5 Run   ") + "Ctrl+S Save   Ctrl+F Find   Ctrl+H Replace   Ctrl+Space Suggest   Ctrl+/ Comment   Ctrl+Plus/Minus Text size   Esc Close";
         }
         String right = "";
         if (tab != null && tab.view != null) {
@@ -429,7 +442,9 @@ final class IdeView {
         } else {
             items.add(new MenuItem("Open", () -> openFile(node.path)));
             if (Language.forFile(node.name) == Language.PYTHON) {
-                items.add(new MenuItem("Run", () -> backend.terminalInput(TerminalInputPayload.RUN_FILE, node.path)));
+                if (!session.editOnly) {
+                    items.add(new MenuItem("Run", () -> backend.terminalInput(TerminalInputPayload.RUN_FILE, node.path)));
+                }
             }
             items.add(new MenuItem("Rename...", () -> promptRename(node)));
             items.add(new MenuItem("Delete", () -> confirmDelete(node)));
@@ -917,6 +932,14 @@ final class IdeView {
             lines = new String[] {tab.problem};
         } else if (tab != null) {
             lines = new String[] {"Opening " + tab.path + " ..."};
+        } else if (session.editOnly) {
+            lines = new String[] {
+                "Click a file in the Explorer to open it here.",
+                "Use + File, or right-click in the Explorer, to make a new one.",
+                "",
+                "Each folder can be a program: what goes onto a computer.",
+                "programs.txt picks one per redstone level, as in \"3: miner\" and \"*: basic\".",
+            };
         } else {
             lines = new String[] {
                 "Click a file in the Explorer to open it here.",
@@ -1480,7 +1503,7 @@ final class IdeView {
             saveActive();
             return true;
         }
-        if (key == InputConstants.KEY_F5) {
+        if (key == InputConstants.KEY_F5 && !session.editOnly) {
             runActive();
             return true;
         }

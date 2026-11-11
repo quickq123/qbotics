@@ -46,6 +46,9 @@ public final class QboticsContent {
     public static Supplier<BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY;
     /** On a hard drive: the ID its files are kept under (design doc §17.3). */
     public static Supplier<DataComponentType<UUID>> MEDIA_ID;
+    /** The Programmer and its screen (design doc §5.4). */
+    public static Supplier<BlockEntityType<qbotics.block.ProgrammerBlockEntity>> PROGRAMMER_BLOCK_ENTITY;
+    public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.ProgrammerMenu>> PROGRAMMER_MENU;
     /** The Drive Bay, which hard drives go in, and its screen (design doc §17.6). */
     public static Supplier<BlockEntityType<qbotics.block.DriveBayBlockEntity>> DRIVE_BAY_BLOCK_ENTITY;
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.DriveBayMenu>> DRIVE_BAY_MENU;

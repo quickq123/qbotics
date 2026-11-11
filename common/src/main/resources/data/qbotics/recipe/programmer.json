@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "C": "qbotics:cable",
+    "M": "qbotics:motherboard"
+  },
+  "pattern": [
+    " C ",
+    "CMC",
+    " C "
+  ],
+  "result": {
+    "id": "qbotics:programmer"
+  }
+}

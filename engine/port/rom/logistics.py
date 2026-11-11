@@ -887,7 +887,27 @@ class DriveBay(Device):
         return list(self.refresh()._info["drives"])
 
 
-_KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus, "drive_bay": DriveBay,
+class Programmer(Device):
+    """A Programmer: copies a program from its hard drive onto the computer in front of its
+    programming face, makes it its owner's (switching it on if a machine placed it), and
+    restarts it so its startup.py runs. Redstone usually starts it; a program can too:
+
+        net.programmer().program(3)          # level 3's program, by the drive's programs.txt
+        net.programmer().program("miner")    # the drive's miner folder"""
+
+    @property
+    def status(self):
+        """What happened the last time it tried."""
+        return self.refresh()._info["status"]
+
+    def program(self, choice=None):
+        """Programs the computer in front: choice is a redstone level (1 to 15), the name
+        of a folder on the drive, or None for programs.txt's * line (or the whole drive).
+        Returns what it did; raises NetworkError if it couldn't."""
+        return _call("program", self.mac, None if choice is None else str(choice))
+
+
+_KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus, "drive_bay": DriveBay, "programmer": Programmer,
           "pin": Pin, "placer": Placer, "breaker": Breaker,
           "fluid_interface": FluidInterface, "fluid_input": FluidInput, "fluid_output": FluidOutput, "fluid_bus": FluidBus,
           "energy_interface": EnergyInterface, "energy_input": EnergyInput, "energy_output": EnergyOutput,
@@ -960,6 +980,10 @@ class Network:
     def experience_interface(self, key=None):
         """An experience interface by name or address; with no argument, the network's only one."""
         return _wrap(_call("find", key, "experience_interface"))
+
+    def programmer(self, key=None):
+        """A programmer by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "programmer"))
 
     def drive_bay(self, key=None):
         """A drive bay by name or address; with no argument, the network's only one."""

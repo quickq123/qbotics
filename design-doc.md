@@ -251,7 +251,7 @@ If placing a device would exceed the owner's limit for that type, the device bec
 ### 5.4 Placed by machines or Qbots
 
 - **Any computer or Qbot placed by a machine or a Qbot is bricked**, with no exceptions and no config option.
-- **Companion programmer block:** carries its owner's UUID and activates and programs inert devices that machines produced. Activation counts against the programmer owner's limit.
+- **Companion programmer block:** carries its owner's UUID and activates and programs inert devices that machines produced. Activation counts against the programmer owner's limit. **Built 2026-11-11 for computers** (`docs/reference.md` §9e): observer-style programming face, one hard-drive socket edited in a terminal-less editor, `programs.txt` mapping redstone levels 1–15 to folders, programs on a rising signal, on a computer's arrival (strongest signal wins) or from `net.programmer().program()`, once per target per tick, never another owner's computer. Qbots to follow.
 - **Self-replicating Qbots:** a Qbot that builds and places a Qbot passes on its **owner UUID and program**. The new Qbot still counts against the owner's limit; if that would exceed it, the new Qbot is bricked.
 
 ### 5.5 Lowering limits (grandfathering)
@@ -390,7 +390,7 @@ pick.use(Side.FRONT)                                 # mine with this tool's lev
 
 ### 8.7 Qbot-related blocks
 
-- **Programmer block:** activates and programs inert Qbots and computers (§5.4). It loads programs from **storage media** (§17.3) or a **drive bay** (§17.6), and activates the device under the programmer owner's UUID.
+- **Programmer block:** activates and programs inert Qbots and computers (§5.4). It loads programs from **storage media** (§17.3) or a **drive bay** (§17.6), and activates the device under the programmer owner's UUID. **Built 2026-11-11 for computers**, with its own hard-drive socket (§5.4, `docs/reference.md` §9e).
 - Upgrades (inventory tiers, antennas, tool-holder): to be defined.
 
 ---
@@ -1359,7 +1359,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 1b | Storage media (floppy) + disk drive; programmer block (loading programs from media) | Moving code between devices |
 | 1b (as built) | **Built 2026-11-11, changed by the project owner:** hard drives instead of floppies, in a Drive Bay (§17.6) rather than a one-disk drive. A Hard Drive (4 MB, files kept under `media/<id>/` and travelling with the item) goes in one of a bay's four sockets; every computer on the bay's cable network sees it as `/net/<bay>/<drive>/`. Not yet: per-bay permissions (read-only, owner/team/public), mounting over an antenna, the duplicate-drive rule of §17.1, the programmer block | |
 | 2 | `machine.Pin` redstone, events, timers. **Events and timers built 2026-11-11** as the `events` module (timers, pin edges and block changes, container changes, messages; one `run()` loop; the game pushes pin events and messages into a per-computer queue). Redstone goes through the Logic Pin (§11.0.1) rather than the computer's own sides; `machine.Pin` on the computer itself is not built | Embedded circuits |
-| 3 | Ownership registry, limits, bricked state, boot queue. **Built 2026-11-11** for computers and antennas (`docs/reference.md` §9b): a server-wide registry saved with the world, per-type limits from `qbotics-server.toml` with operators exempt, bricked placement over the limit or by machines (dark screen, off the network, files kept), right-click reactivation (once a second per player), grandfathering, a boot queue for computers that were on (dimension, owner round-robin, distance, coordinates), a `shutdown` command, and `/qbotics limits`. Not yet: the programmer block (§5.4), ranks and team pooling (§5.6), boot priority | Performance controls (early on purpose) |
+| 3 | Ownership registry, limits, bricked state, boot queue. **Built 2026-11-11** for computers and antennas (`docs/reference.md` §9b): a server-wide registry saved with the world, per-type limits from `qbotics-server.toml` with operators exempt, bricked placement over the limit or by machines (dark screen, off the network, files kept), right-click reactivation (once a second per player), grandfathering, a boot queue for computers that were on (dimension, owner round-robin, distance, coordinates), a `shutdown` command, and `/qbotics limits`. The programmer block (§5.4) built 2026-11-11 for computers (§9e). Not yet: ranks and team pooling (§5.6), boot priority | Performance controls (early on purpose) |
 | 4 | Text monitors, then control surfaces (§10.2) | Displays foundation; cheap control panels |
 | 5 | Qbots: movement, six-side sensing and actions, filtered inventory, tool use, self chunk loading, parking, programmer-block activation of inert Qbots (§5.4) | Qbot experience |
 | 6a | Antennas, brought forward: three range tiers, external addresses, ports, frequencies, messages between computers (§9.3). **Built 2026-11-10, not yet played** | Computers in separate bases can talk |

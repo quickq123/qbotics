@@ -1,0 +1,27 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "qbotics:block/programmer"
+    },
+    "facing=south": {
+      "model": "qbotics:block/programmer",
+      "y": 180
+    },
+    "facing=east": {
+      "model": "qbotics:block/programmer",
+      "y": 90
+    },
+    "facing=west": {
+      "model": "qbotics:block/programmer",
+      "y": 270
+    },
+    "facing=up": {
+      "model": "qbotics:block/programmer",
+      "x": 270
+    },
+    "facing=down": {
+      "model": "qbotics:block/programmer",
+      "x": 90
+    }
+  }
+}

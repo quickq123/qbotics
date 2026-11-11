@@ -93,6 +93,9 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<qbotics.block.DriveBayBlock> DRIVE_BAY = BLOCKS.registerBlock("drive_bay", qbotics.block.DriveBayBlock::new,
             properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> DRIVE_BAY_ITEM = ITEMS.registerSimpleBlockItem(DRIVE_BAY);
+    private static final DeferredBlock<qbotics.block.ProgrammerBlock> PROGRAMMER = BLOCKS.registerBlock("programmer", qbotics.block.ProgrammerBlock::new,
+            properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> PROGRAMMER_ITEM = ITEMS.registerSimpleBlockItem(PROGRAMMER);
     private static final DeferredItem<qbotics.block.HardDriveItem> HARD_DRIVE_ITEM = ITEMS.registerItem("hard_drive", qbotics.block.HardDriveItem::new);
     // Plates that go on cables: no blocks of their own.
     private static final DeferredItem<PlateItem> INPUT_ITEM = ITEMS.registerItem("input",
@@ -140,6 +143,8 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("energy_interface",
                     () -> new BlockEntityType<>(qbotics.block.EnergyInterfaceBlockEntity::new, ENERGY_INTERFACE.get()));
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.ProgrammerBlockEntity>> PROGRAMMER_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("programmer", () -> new BlockEntityType<>(qbotics.block.ProgrammerBlockEntity::new, PROGRAMMER.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.DriveBayBlockEntity>> DRIVE_BAY_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("drive_bay", () -> new BlockEntityType<>(qbotics.block.DriveBayBlockEntity::new, DRIVE_BAY.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY =
@@ -157,6 +162,9 @@ public final class QboticsNeoForge {
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU =
             MENUS.register("interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.InterfaceMenu(containerId, inventory)));
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.ProgrammerMenu>> PROGRAMMER_MENU =
+            MENUS.register("programmer", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.block.ProgrammerMenu(containerId, inventory)));
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.DriveBayMenu>> DRIVE_BAY_MENU =
             MENUS.register("drive_bay", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.DriveBayMenu(containerId, inventory)));
@@ -214,6 +222,7 @@ public final class QboticsNeoForge {
                         output.accept(PROBE_ITEM.get());
                         output.accept(DRIVE_BAY_ITEM.get());
                         output.accept(HARD_DRIVE_ITEM.get());
+                        output.accept(PROGRAMMER_ITEM.get());
                         output.accept(SCREEN_ITEM.get());
                         output.accept(MOTHERBOARD_ITEM.get());
                     })
@@ -251,6 +260,8 @@ public final class QboticsNeoForge {
         QboticsContent.DRIVE_ID = DRIVE_ID;
         QboticsContent.MEDIA_ID = MEDIA_ID;
         QboticsContent.DRIVE_BAY_BLOCK_ENTITY = DRIVE_BAY_BLOCK_ENTITY;
+        QboticsContent.PROGRAMMER_BLOCK_ENTITY = PROGRAMMER_BLOCK_ENTITY;
+        QboticsContent.PROGRAMMER_MENU = PROGRAMMER_MENU;
         QboticsContent.DRIVE_BAY_MENU = DRIVE_BAY_MENU;
         QboticsContent.PROBE_MODE = PROBE_MODE;
         QboticsContent.INTERFACE_BLOCK = INTERFACE;
@@ -482,6 +493,7 @@ public final class QboticsNeoForge {
                 .playToClient(IdePayloads.FileResponse.TYPE, IdePayloads.FileResponse.STREAM_CODEC)
                 .playToClient(IdePayloads.ScratchResult.TYPE, IdePayloads.ScratchResult.STREAM_CODEC)
                 .playToClient(IdePayloads.OpenFile.TYPE, IdePayloads.OpenFile.STREAM_CODEC)
+                .playToClient(IdePayloads.OpenEditor.TYPE, IdePayloads.OpenEditor.STREAM_CODEC)
                 .playToClient(qbotics.net.XpPayloads.Info.TYPE, qbotics.net.XpPayloads.Info.STREAM_CODEC)
                 .playToServer(qbotics.net.XpPayloads.Action.TYPE, qbotics.net.XpPayloads.Action.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {

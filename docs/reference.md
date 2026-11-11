@@ -1080,6 +1080,70 @@ repository's own network (`cp mylib.py /net/repo/lib/`), or by carrying the driv
 **Recipes (placeholders):** Hard Drive: iron around redstone, with a gold ingot at the bottom
 middle (`III` / `IRI` / `IGI`). Drive Bay: four cables around a barrel.
 
+### 9e. The Programmer: putting programs onto computers
+
+A **Programmer** copies a program from its hard drive onto the computer in front of it, then
+restarts that computer so its `startup.py` runs. It runs nothing itself, and needs no computer to
+work it: redstone is enough.
+
+- **Placing it:** like an observer, its **programming face** (the contact pad) points at the
+  block you clicked to place it.
+- **Its drive:** right-click it for its screen, with one hard-drive socket. **Edit files** opens
+  the drive in the editor, with no terminal and no Run: files only.
+- **What a program is:** a folder on the drive, copied onto the computer's own drive (files of the
+  same name are replaced; others are left alone). With no `programs.txt`, the whole drive is the
+  program.
+
+**`programs.txt`** on the drive picks a folder for each redstone level:
+
+```
+# level: folder
+1: basic
+3: miner
+15: guard
+*: basic          # any other level, and a computer arriving with no signal
+```
+
+**When it programs:**
+
+| What happens | Which program |
+|---|---|
+| Its redstone signal turns on (rises from 0) | That level's line, else the `*` line |
+| A computer is placed in front of it | The level of its signal now, or `*` with none |
+| A program asks: `net.programmer().program(3)` or `.program("miner")` | That level, or that folder by name |
+
+A signal that stays on, or changes from one level to another without going to 0, doesn't program
+again. Any redstone the programmer receives counts, as with a lamp.
+
+**Whose computer:** the programmer works for its owner (whoever placed it).
+- A computer that a machine or a Qbot placed (bricked, owned by nobody) becomes the programmer
+  owner's and switches on, if that owner is under their limit (section 9b). If not, nothing is
+  copied and the programmer says why.
+- A computer that already belongs to the same owner is programmed as it is.
+- **Another player's computer is never programmed.**
+
+**Two programmers facing one computer:**
+- A computer is programmed **at most once a game tick**. If two programmers go off in the same
+  tick, the second is refused ("That computer was already programmed this tick").
+- When a computer is placed with several programmers facing it, **only the one with the strongest
+  redstone signal** programs it. A tie goes to the first in the order: below, above, north, south,
+  west, east.
+- Otherwise each acts on its own signal, so the last one to fire is what the computer runs. To
+  choose between programs, use one programmer and its levels instead of two.
+
+**What happened** shows above the hotbar of players within 16 blocks, and as `status`:
+
+```python
+p = net.programmer()          # or net.programmer("name")
+print(p.status)               # "Installed 'miner' (2 files) and restarted the computer."
+p.program("miner")            # raises NetworkError if it couldn't, saying why
+```
+
+The programmer joins the cable network on every side but its programming face, so the computer
+it programs isn't joined to its network through it. Up to 200 files are copied per program.
+
+**Recipe (placeholder):** four cables around a motherboard (` C ` / `CMC` / ` C `).
+
 ---
 
 ## 10. Errors

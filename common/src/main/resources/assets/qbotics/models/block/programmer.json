@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "qbotics:block/programmer_side",
+    "north": "qbotics:block/programmer_front",
+    "south": "qbotics:block/programmer_side",
+    "east": "qbotics:block/programmer_side",
+    "west": "qbotics:block/programmer_side",
+    "up": "qbotics:block/interface_top",
+    "down": "qbotics:block/interface_top"
+  }
+}

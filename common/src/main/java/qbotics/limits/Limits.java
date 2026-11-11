@@ -151,6 +151,26 @@ public final class Limits {
     }
 
     /**
+     * A Programmer switches a device on for its own owner (design doc §5.4): a device with no
+     * owner becomes theirs. Counts against that owner's limit. Returns why not, or null if done.
+     */
+    public static @Nullable String activateFor(ServerLevel level, Limited device, UUID owner) {
+        if (device.owner() != null && !device.owner().equals(owner)) {
+            return "That device belongs to someone else.";
+        }
+        if (device.bricked() && !roomFor(level.getServer(), owner, device.limitType())) {
+            return "Its owner already has " + DeviceRegistry.get(level.getServer()).count(owner, device.limitType()) + " of "
+                    + limit(device.limitType()) + " active " + plural(device.limitType()) + ", so it stays inactive.";
+        }
+        if (device.owner() == null && device instanceof Ownable ownable) {
+            ownable.claim(owner);
+        }
+        device.setBricked(false);
+        register(level, device);
+        return null;
+    }
+
+    /**
      * Lines for /qbotics limits: a player's active devices of each type against the limit,
      * and where each one is; with no player, everyone's, grouped by owner.
      */

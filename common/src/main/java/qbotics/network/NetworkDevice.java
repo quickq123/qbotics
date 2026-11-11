@@ -14,7 +14,9 @@ public interface NetworkDevice {
         /** World plates (design doc §11.0.1): redstone and watching, placing, breaking. */
         PIN("pin"), PLACER("placer"), BREAKER("breaker"),
         /** Holds hard drives, which every computer on its network sees under /net (design doc §17.6). */
-        DRIVE_BAY("drive_bay");
+        DRIVE_BAY("drive_bay"),
+        /** Copies programs from its hard drive onto the computer in front of it (design doc §5.4). */
+        PROGRAMMER("programmer");
 
         /** The word Python programs and messages use. */
         public final String word;

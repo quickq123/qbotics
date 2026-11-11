@@ -122,3 +122,20 @@ HARD DRIVES
 REMOTE
  50. In main:  ssh  followed by remote's address from README.txt. You are now typing on
      remote; Ctrl+C stops its echo; exit comes back.
+
+PROGRAMMER (build this one yourself, from the creative tab)
+ 51. Place a Programmer by clicking the side of a block: its contact-pad face points at that
+     block. Right-click it, put a Hard Drive in, press Edit files: the editor opens with no
+     terminal and no Run button.
+ 52. On the drive make folders basic and miner, each with a startup.py that prints its name,
+     and a programs.txt with the lines   3: miner   and   *: basic .
+ 53. Place a computer in front of the pad: it starts and prints basic (the * program), and
+     the hotbar message says what was installed.
+ 54. Put a lever or redstone at level 3 into the Programmer (e.g. a comparator, or a lever and
+     12 blocks of dust): when it turns on, the computer restarts printing miner. Leaving it on
+     does nothing more.
+ 55. Place a second Programmer facing the same computer, and power both from one lever: only
+     one programs it (the other says "already programmed this tick").
+ 56. On a computer cabled to a Programmer:  python , then
+     from logistics import network ;  p = network().programmer() ;  print(p.status) ;
+     p.program("basic") .

@@ -395,6 +395,18 @@ public final class NetworkCalls {
                 qbotics.block.WorldPlates.sense(level, pin); // starts from what is there now
                 return JsonNull.INSTANCE;
             }
+            case "program": {
+                NetworkDevice device = byMac(network, args, 1);
+                if (!(device instanceof qbotics.block.ProgrammerBlockEntity programmer)) {
+                    throw new CallError("Only a programmer programs; this is " + article(device) + ".");
+                }
+                String choice = args.size() > 2 && !args.get(2).isJsonNull() ? args.get(2).getAsString() : "*";
+                qbotics.block.Programmers.Result result = qbotics.block.Programmers.program(level, programmer, choice);
+                if (!result.ok()) {
+                    throw new CallError(result.message());
+                }
+                return new JsonPrimitive(result.message());
+            }
             case "repo_list", "repo_tree", "repo_read":
                 return Repositories.call(method, level, network, computerPos, args);
             case "watch_open":
@@ -1261,6 +1273,9 @@ public final class NetworkCalls {
         } else if (device instanceof CablePort port) {
             info.addProperty("face", port.accessFace().word());
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
+        } else if (device instanceof qbotics.block.ProgrammerBlockEntity programmer) {
+            info.addProperty("status", programmer.status());
+            info.addProperty("has_drive", programmer.mediaId() != null);
         } else if (device instanceof qbotics.block.DriveBayBlockEntity bay) {
             // Where its drives appear on this network's computers, and their names.
             info.addProperty("folder", bay.folderName());

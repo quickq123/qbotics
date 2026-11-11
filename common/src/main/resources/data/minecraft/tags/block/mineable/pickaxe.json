@@ -10,6 +10,7 @@
     "qbotics:antenna_short",
     "qbotics:antenna_long",
     "qbotics:antenna_infinite",
-    "qbotics:drive_bay"
+    "qbotics:drive_bay",
+    "qbotics:programmer"
   ]
 }

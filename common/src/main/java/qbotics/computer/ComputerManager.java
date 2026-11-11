@@ -308,7 +308,22 @@ public final class ComputerManager {
         ServerComputer computer = viewedComputer(player, request.deviceId());
         UUID playerId = player.getUUID();
         if (computer == null) {
-            reply(playerId, request, HostFileSystem.EACCES, new byte[0]);
+            // Perhaps a Programmer's drive, open in the editor without a terminal.
+            HostFileSystem drive = viewedDrive(player, request.deviceId());
+            if (drive == null || ComputerSettings.covers(request.path())) {
+                reply(playerId, request, HostFileSystem.EACCES, new byte[0]);
+                return;
+            }
+            FILE_WORKER.execute(() -> {
+                try {
+                    reply(playerId, request, 0, runFileRequest(drive, request));
+                } catch (HostFileSystem.FsException e) {
+                    reply(playerId, request, e.errno, new byte[0]);
+                } catch (RuntimeException e) {
+                    Qbotics.LOGGER.error("File request failed", e);
+                    reply(playerId, request, HostFileSystem.EIO, new byte[0]);
+                }
+            });
             return;
         }
         if (ComputerSettings.covers(request.path())) {
@@ -420,6 +435,27 @@ public final class ComputerManager {
     }
 
     /** Only the terminal a player really has open, and is still close to, accepts their input. */
+    /**
+     * Opens a Programmer's hard drive in the editor, for one player: files only, with no
+     * terminal and nothing to run (design doc §5.4).
+     */
+    public void openDriveEditor(ServerPlayer player, qbotics.block.ProgrammerBlockEntity programmer) {
+        viewers.put(player.getUUID(), new Viewing(programmer.deviceId(), player.level().dimension(), programmer.getBlockPos().immutable()));
+        player.closeContainer();
+        Qbotics.platform().sendToPlayer(player, new IdePayloads.OpenEditor(programmer.deviceId(), "Programmer"));
+    }
+
+    /** The drive of the Programmer a player has open in the editor, if this is it and they are still near it. */
+    private HostFileSystem viewedDrive(ServerPlayer player, UUID deviceId) {
+        Viewing viewing = viewers.get(player.getUUID());
+        if (viewing == null || !viewing.deviceId().equals(deviceId) || !inRange(player, viewing)
+                || !(player.level().getBlockEntity(viewing.pos()) instanceof qbotics.block.ProgrammerBlockEntity programmer)
+                || !programmer.deviceId().equals(deviceId) || programmer.mediaId() == null) {
+            return null;
+        }
+        return mediaFiles(programmer.mediaId());
+    }
+
     private ServerComputer viewedComputer(ServerPlayer player, UUID deviceId) {
         Viewing viewing = viewers.get(player.getUUID());
         if (viewing == null || !viewing.deviceId().equals(deviceId) || !inRange(player, viewing)) {
@@ -470,7 +506,9 @@ public final class ComputerManager {
         for (Iterator<Map.Entry<UUID, Viewing>> it = viewers.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<UUID, Viewing> entry = it.next();
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null || !inRange(player, entry.getValue()) || !computers.containsKey(entry.getValue().deviceId())) {
+            boolean driveOnly = !computers.containsKey(entry.getValue().deviceId()) && player != null
+                    && player.level().getBlockEntity(entry.getValue().pos()) instanceof qbotics.block.ProgrammerBlockEntity;
+            if (player == null || !inRange(player, entry.getValue()) || (!computers.containsKey(entry.getValue().deviceId()) && !driveOnly)) {
                 it.remove();
                 continue;
             }

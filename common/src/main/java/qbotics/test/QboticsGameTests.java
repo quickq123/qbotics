@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -86,6 +86,7 @@ public final class QboticsGameTests {
             Map.entry("limits_and_boot", QboticsGameTests::limitsAndBoot),
             Map.entry("drive_bays", QboticsGameTests::driveBays),
             Map.entry("pip_from_remote", QboticsGameTests::pipFromRemote),
+            Map.entry("programmer_block", QboticsGameTests::programmerBlock),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1766,6 +1767,100 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> assertScreen(helper, computer, "/repo/lib\ngreetings\ntools\n", "installed tools (2 files)\ninstalled greetings (1 file)\n",
                 "$ pip list\ngreetings\ntools\n", "There is no package called nothere", "There is no drive bay called repo on this network",
                 "3 hello, main, from the repo\n", "removed greetings\n", "$ pip list\ntools\n"));
+    }
+
+    /**
+     * The Programmer (design doc §5.4): a computer a machine placed in front of it is programmed
+     * as it arrives (and becomes the programmer's owner's); a rising redstone signal installs
+     * that level's program by programs.txt; a program on its network can ask by folder name. Two
+     * programmers can't both program one computer in a tick, and nobody's programmer programs a
+     * stranger's computer.
+     */
+    private static void programmerBlock(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ComputerManager manager = ComputerManager.get(level.getServer());
+        UUID me = UUID.randomUUID();
+        net.minecraft.world.level.block.Block programmerBlock = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(qbotics.Qbotics.id("programmer"));
+        java.util.function.BiFunction<BlockPos, Direction, qbotics.block.ProgrammerBlockEntity> place = (pos, facing) -> {
+            helper.setBlock(pos, programmerBlock.defaultBlockState().setValue(qbotics.block.ProgrammerBlock.FACING, facing));
+            qbotics.block.ProgrammerBlockEntity programmer = helper.getBlockEntity(pos, qbotics.block.ProgrammerBlockEntity.class);
+            programmer.onPlaced(me);
+            programmer.driveSlot().setItem(0, new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("hard_drive"))));
+            return programmer;
+        };
+        // The first faces east, onto where the computer will go; a computer of ours is on its network.
+        qbotics.block.ProgrammerBlockEntity first = place.apply(new BlockPos(1, 1, 1), Direction.EAST);
+        first.setDeviceName("prog");
+        ServerComputer ours = startAt(helper, new BlockPos(1, 1, 0));
+        // The second faces the same place from the other side.
+        qbotics.block.ProgrammerBlockEntity second = place.apply(new BlockPos(3, 1, 1), Direction.WEST);
+        // The third faces a stranger's computer.
+        BlockPos theirsAt = new BlockPos(0, 1, 3);
+        helper.setBlock(theirsAt, QboticsContent.COMPUTER_BLOCK.get());
+        helper.getBlockEntity(theirsAt, ComputerBlockEntity.class).onPlaced(UUID.randomUUID());
+        qbotics.block.ProgrammerBlockEntity third = place.apply(new BlockPos(1, 1, 3), Direction.WEST);
+
+        qbotics.engine.HostFileSystem drive = manager.mediaFiles(first.mediaId());
+        try {
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/programs.txt", "# level: folder\n15: miner\n*: basic\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            drive.call(qbotics.engine.HostFileSystem.MKDIR, "/basic", new byte[0]);
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/basic/startup.py", "print('basic installed')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            drive.call(qbotics.engine.HostFileSystem.MKDIR, "/miner", new byte[0]);
+            drive.call(qbotics.engine.HostFileSystem.MKDIR, "/miner/lib", new byte[0]);
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/miner/startup.py", "print('miner installed')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/miner/lib/dig.py", "DEPTH = 9\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            manager.mediaFiles(third.mediaId()).call(qbotics.engine.HostFileSystem.WRITE, "/startup.py", "print('hi')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not fill the programmer's drive", e);
+        }
+
+        // A machine places a computer in front of the first: it's programmed with the * program as it arrives.
+        BlockPos targetAt = new BlockPos(2, 1, 1);
+        helper.setBlock(targetAt, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity target = helper.getBlockEntity(targetAt, ComputerBlockEntity.class);
+        target.onPlaced(null);
+        qbotics.limits.Limits.placed(level, target, null);
+        qbotics.block.Programmers.arrived(level, target);
+        helper.assertTrue(first.status().startsWith("Installed 'basic' (1 file)"), "the arriving computer should get the * program: " + first.status());
+        helper.assertTrue(me.equals(target.owner()) && !target.bricked(), "it should be switched on as the programmer's owner's");
+        // The second programmer can't program it again this tick.
+        String again = qbotics.block.Programmers.program(level, second, "*").message();
+        helper.assertTrue(again.contains("this tick"), "two programmers shouldn't both program it in one tick: " + again);
+        String stranger = qbotics.block.Programmers.program(level, third, "*").message();
+        helper.assertTrue(stranger.contains("belongs to someone else"), "a stranger's computer should be refused: " + stranger);
+
+        helper.runAfterDelay(2, () -> {
+            // A redstone block below: a rise to 15 installs the miner, folders and all.
+            helper.setBlock(new BlockPos(1, 0, 1), Blocks.REDSTONE_BLOCK);
+            helper.assertTrue(first.status().startsWith("Installed 'miner' (2 files)"), "level 15 should install the miner: " + first.status());
+            helper.assertTrue(java.nio.file.Files.exists(manager.driveFolder(target.driveId()).resolve("lib").resolve("dig.py")),
+                    "the program's folders should be copied too");
+            // A steady signal doesn't program again.
+            helper.setBlock(new BlockPos(1, 0, 2), Blocks.REDSTONE_BLOCK);
+            helper.assertTrue(first.status().startsWith("Installed 'miner'"), "a steady signal shouldn't program again");
+            for (String line : List.of(
+                    "python",
+                    "from logistics import network",
+                    "p = network().programmer()",
+                    "print(p.status)",
+                    "import time",
+                    "time.sleep(0.2)    # once a tick: let the redstone's tick pass",
+                    "print(p.program('basic'))",
+                    "try:",
+                    "    p.program('nothere')",
+                    "except Exception as e:",
+                    "    print('refused:', e)",
+                    "",
+                    "exit()")) {
+                ours.submitLine(line);
+            }
+            helper.succeedWhen(() -> {
+                assertScreen(helper, ours, "Installed 'miner' (2 files)", "Installed 'basic' (1 file)", "refused: The drive has no folder called nothere");
+                ServerComputer programmed = manager.computer(target.deviceId());
+                helper.assertTrue(programmed != null, "the programmed computer should be running");
+                assertScreen(helper, programmed, "basic installed");
+            });
+        });
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */
