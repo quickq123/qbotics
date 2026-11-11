@@ -152,12 +152,46 @@ public final class NetworkCalls {
                 held.addProperty("capacity", store.capacity());
                 return held;
             }
+            case "count": {
+                // How much a device (or its target) holds of whatever passes a name or filter, narrowed by face and slot.
+                NetworkDevice device = byMac(network, args, 1);
+                String wanted = string(args, 2);
+                int slot = slot(args, 4);
+                long total = 0;
+                if (device.medium() == Medium.FLUID) {
+                    NameMatch<Fluid> match = wanted == null ? null : fluid(wanted);
+                    List<FluidPort.Tank> tanks = fluidSource(level, device, string(args, 3)).tanks();
+                    for (int i = 0; i < tanks.size(); i++) {
+                        FluidPort.Tank tank = tanks.get(i);
+                        if (tank.amount() > 0 && (slot < 0 || slot == i) && (match == null || match.test(tank.fluid()))) {
+                            total += tank.amount();
+                        }
+                    }
+                    return new JsonPrimitive(total);
+                }
+                NameMatch<Item> match = wanted == null ? null : item(wanted);
+                List<ItemStack> stacks;
+                if (device instanceof InterfaceBlockEntity store) {
+                    stacks = store.contents();
+                } else if (device instanceof CablePort port && port.medium() == Medium.ITEM && port.kind() != Kind.OUTPUT) {
+                    stacks = (string(args, 3) == null ? wholeTarget(level, port) : target(level, port, string(args, 3))).contents();
+                } else {
+                    throw new CallError("Only an interface, an input or a bus can count what is there; this is " + article(device) + ".");
+                }
+                for (int i = 0; i < stacks.size(); i++) {
+                    ItemStack stack = stacks.get(i);
+                    if (!stack.isEmpty() && (slot < 0 || slot == i) && (match == null || match.test(stack.getItem()))) {
+                        total += stack.getCount();
+                    }
+                }
+                return new JsonPrimitive(total);
+            }
             case "filters": {
                 InterfaceBlockEntity input = input(byMac(network, args, 1));
                 JsonArray list = new JsonArray();
                 for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
-                    Item filter = input.filter(slot);
-                    list.add(filter == null ? JsonNull.INSTANCE : new JsonPrimitive(itemId(filter)));
+                    String filter = input.filterText(slot);
+                    list.add(filter == null ? JsonNull.INSTANCE : new JsonPrimitive(filter));
                 }
                 return list;
             }
@@ -223,8 +257,9 @@ public final class NetworkCalls {
         }
         // No item named means "whatever is there", which is how a furnace's product is taken
         // without knowing what was smelted.
-        Item item = string(args, 2) == null ? null : item(string(args, 2));
-        int count = amount(args, item == null ? MAX_ITEMS_PER_CALL : 1, MAX_ITEMS_PER_CALL, "items");
+        NameMatch<Item> item = string(args, 2) == null ? null : item(string(args, 2));
+        // One named item moves 1 unless a count is given; a filter, like no name at all, moves all there is.
+        int count = amount(args, item == null || item.single() == null ? MAX_ITEMS_PER_CALL : 1, MAX_ITEMS_PER_CALL, "items");
         int slot = slot(args, 6);
         int otherSlot = slot(args, 7);
         List<InterfaceBlockEntity> inputs = new ArrayList<>();
@@ -263,13 +298,28 @@ public final class NetworkCalls {
     private static final int MAX_ENERGY_PER_CALL = EnergyInterfaceBlockEntity.CAPACITY;
 
     /** The fluid for an ID such as "minecraft:water"; "water" alone means the same. */
-    private static Fluid fluid(String id) {
-        Identifier key = Identifier.tryParse(id);
-        Fluid found = key != null && BuiltInRegistries.FLUID.containsKey(key) ? BuiltInRegistries.FLUID.getValue(key) : Fluids.EMPTY;
-        if (found == Fluids.EMPTY || !found.isSource(found.defaultFluidState())) {
-            throw new CallError("There is no fluid called '" + id + "'. Fluid names look like minecraft:water or minecraft:lava.");
+    private static NameMatch<Fluid> fluid(String id) {
+        return match(BuiltInRegistries.FLUID, id, "fluid", "minecraft:water or minecraft:lava");
+    }
+
+    /**
+     * What a program wrote where an item or fluid is named: one name, or a filter (see
+     * {@link NameMatch}). A name or filter that nothing in the game passes is a mistake.
+     */
+    private static <T> NameMatch<T> match(net.minecraft.core.Registry<T> registry, String text, String what, String examples) {
+        NameMatch<T> match;
+        try {
+            match = NameMatch.parse(registry, text);
+        } catch (NameMatch.BadFilter e) {
+            throw new CallError(e.getMessage());
         }
-        return found;
+        if (match.first() == null) {
+            boolean plain = !text.matches(".*[\\s|*?@#$].*");
+            throw new CallError(plain ? "There is no " + what + " called '" + text + "'. " + Character.toUpperCase(what.charAt(0)) + what.substring(1)
+                    + " names look like " + examples + "."
+                    : "No " + what + " passes the filter '" + text + "'.");
+        }
+        return match;
     }
 
     private static String nothingThere(ServerLevel level, CablePort port, String what) {
@@ -386,8 +436,8 @@ public final class NetworkCalls {
 
     /** Arguments: device MAC, fluid, millibuckets, the other end's MAC (or null for any fluid interface), face (or null). */
     private static int moveFluid(ServerLevel level, CableNetwork network, CablePort port, boolean insert, JsonArray args) {
-        Fluid fluid = string(args, 2) == null ? null : fluid(string(args, 2));
-        int count = amount(args, fluid == null ? MAX_FLUID_PER_CALL : FluidPort.BUCKET, MAX_FLUID_PER_CALL, "millibuckets");
+        NameMatch<Fluid> fluid = string(args, 2) == null ? null : fluid(string(args, 2));
+        int count = amount(args, fluid == null || fluid.single() == null ? MAX_FLUID_PER_CALL : FluidPort.BUCKET, MAX_FLUID_PER_CALL, "millibuckets");
         int tank = slot(args, 6);
         int otherTank = slot(args, 7);
         List<FluidInterfaceBlockEntity> stores = new ArrayList<>();
@@ -594,12 +644,9 @@ public final class NetworkCalls {
     }
 
     /** The item for an ID such as "minecraft:coal"; "coal" alone means the same. */
-    private static Item item(String id) {
-        Identifier key = Identifier.tryParse(id);
-        if (key == null || !BuiltInRegistries.ITEM.containsKey(key) || BuiltInRegistries.ITEM.getValue(key) == Items.AIR) {
-            throw new CallError("There is no item called '" + id + "'. Item names look like minecraft:iron_ingot.");
-        }
-        return BuiltInRegistries.ITEM.getValue(key);
+    /** The item, or the filter of items, for what a program wrote: "minecraft:coal", "coal", "#minecraft:logs", "@create". */
+    private static NameMatch<Item> item(String id) {
+        return match(BuiltInRegistries.ITEM, id, "item", "minecraft:iron_ingot");
     }
 
     private static String itemId(Item item) {

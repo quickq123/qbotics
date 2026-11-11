@@ -23,6 +23,9 @@ public interface QboticsPlatform {
      */
     @Nullable ItemPort itemPort(ServerLevel level, BlockPos pos, @Nullable Direction side);
 
+    /** The name players know a mod by ("Applied Energistics 2"), given its ID; the ID itself if it isn't known. */
+    String modName(String modId);
+
     /** The same for the fluid in a block: its tanks, as reached through one of its sides. */
     qbotics.network.@Nullable FluidPort fluidPort(ServerLevel level, BlockPos pos, @Nullable Direction side);
 

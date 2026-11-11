@@ -6,6 +6,16 @@
 #     furnace.insert("minecraft:raw_iron", 16, face=Face.TOP)
 #
 # Every call here is answered by the game on its next tick (a twentieth of a second).
+#
+# Wherever an item or a fluid is named, a filter can be written instead, in the words of
+# the JEI mod's search box:
+#     "coal"                that one item (short for "minecraft:coal")
+#     "*_log"               wildcards: * is any run of characters, ? any one
+#     "@create"             everything from a mod, by its ID or name (part of either is enough)
+#     "#minecraft:logs"     everything carrying a tag ($ works too); "#logs" also works
+#     "@minecraft *_ore"    several words: all must hold
+#     "-*_slab"             a word starting with - must not hold
+#     "coal | charcoal"     alternatives
 import json
 import _host
 
@@ -112,15 +122,15 @@ class Interface(Device):
         """How many of an item it holds (or of everything, with no item). slot= narrows it
         to one slot; a Slot can also stand in for the item: store.count(Slot(0))."""
         item, _, slot = _aim(item, None, slot)
-        return sum(e["count"] for e in self.contents()
-                   if (item is None or e["item"] == item) and (slot is None or e["slot"] == slot))
+        return _call("count", self.mac, item, None, slot)
 
     def filters(self):
         """What each slot accepts: an item name, or None for a closed slot."""
         return _call("filters", self.mac)
 
     def set_slot_filter(self, slot, item):
-        """Opens a slot for one kind of item. None closes it again."""
+        """Opens a slot for one kind of item, or for every item a filter passes:
+        "coal", "#minecraft:logs", "@create", "*_ore". None closes it again."""
         _call("set_filter", self.mac, slot, item)
 
     @property
@@ -149,13 +159,10 @@ class Port(Device):
     def _contents(self, face):
         return _call("contents", self.mac, face)
 
-    def _held(self, key, what, face, slot):
-        # Adds up "count" or "amount" over what the target holds, narrowed by name, face and slot.
+    def _held(self, what, face, slot):
+        # How much the target holds of whatever passes a name or filter, narrowed by face and slot.
         what, face, slot = _aim(what, face, slot)
-        name = "item" if key == "count" else "fluid"
-        number = "slot" if key == "count" else "tank"
-        return sum(e[key] for e in self._contents(face)
-                   if (what is None or e[name] == what) and (slot is None or e[number] == slot))
+        return _call("count", self.mac, what, face, slot)
 
     def _extract(self, what, count, dest, face, slot=None, dest_slot=None):
         what, face, slot = _aim(what, face, slot)
@@ -177,7 +184,7 @@ class Input(Port):
         """How many of an item the target holds: bus.count("coal"). With no item, how many
         of everything. Narrow it with face= or slot=, or give a Face or a Slot in place of
         the item: bus.count(Face.BOTTOM), bus.count(Slot(2))."""
-        return self._held("count", item, face, slot)
+        return self._held(item, face, slot)
 
     def extract(self, item=None, count=None, dest=None, face=None, slot=None, dest_slot=None):
         """Moves items out of the target into an interface (any interface with a slot open
@@ -215,7 +222,7 @@ class Bus(Port):
         """How many of an item the target holds: bus.count("coal"). With no item, how many
         of everything. Narrow it with face= or slot=, or give a Face or a Slot in place of
         the item: bus.count(Face.BOTTOM), bus.count(Slot(2))."""
-        return self._held("count", item, face, slot)
+        return self._held(item, face, slot)
 
     def extract(self, item=None, count=None, dest=None, face=None, slot=None, dest_slot=None):
         """Moves items out of the target into an interface (any interface with a slot open
@@ -254,8 +261,7 @@ class FluidInterface(Device):
         """How many millibuckets of a fluid it holds (or of everything, with no fluid).
         slot= narrows it to one tank; a Slot can also stand in for the fluid."""
         fluid, _, slot = _aim(fluid, None, slot)
-        return sum(t["amount"] for t in self.contents()
-                   if (fluid is None or t["fluid"] == fluid) and (slot is None or t["tank"] == slot))
+        return _call("count", self.mac, fluid, None, slot)
 
 
 class FluidInput(Port):
@@ -268,7 +274,7 @@ class FluidInput(Port):
     def amount(self, fluid=None, face=None, slot=None):
         """How many millibuckets of a fluid the target holds (or of everything). Narrow it
         with face= or slot= (a tank's number), or give a Face or a Slot in place of the fluid."""
-        return self._held("amount", fluid, face, slot)
+        return self._held(fluid, face, slot)
 
     def extract(self, fluid=None, amount=None, dest=None, face=None, slot=None, dest_slot=None):
         """Moves fluid (in millibuckets; 1000 is a bucket) out of the target into a fluid
@@ -303,7 +309,7 @@ class FluidBus(Port):
     def amount(self, fluid=None, face=None, slot=None):
         """How many millibuckets of a fluid the target holds (or of everything). Narrow it
         with face= or slot= (a tank's number), or give a Face or a Slot in place of the fluid."""
-        return self._held("amount", fluid, face, slot)
+        return self._held(fluid, face, slot)
 
     def extract(self, fluid=None, amount=None, dest=None, face=None, slot=None, dest_slot=None):
         """Moves fluid (in millibuckets; 1000 is a bucket) out of the target into a fluid
@@ -391,8 +397,8 @@ class EnergyBus(Port):
 
 
 def _full_name(item):
-    # "coal" means "minecraft:coal". Anything that isn't text (None, for energy) is left alone.
-    return "minecraft:" + item if isinstance(item, str) and ":" not in item else item
+    # Names and filters go to the game as written; it knows that "coal" means "minecraft:coal".
+    return item
 
 
 _KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus,

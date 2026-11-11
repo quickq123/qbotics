@@ -2,6 +2,7 @@ package qbotics.network;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 import net.minecraft.world.level.material.Fluid;
 import org.jspecify.annotations.Nullable;
 
@@ -41,7 +42,7 @@ public interface FluidPort {
 
     /** Moves up to an amount of a fluid from one place to another, using any tanks. */
     static int move(FluidPort from, FluidPort to, Fluid fluid, int amount) {
-        return move(from, -1, to, -1, fluid, amount);
+        return move(from, -1, to, -1, other -> other == fluid, amount);
     }
 
     /**
@@ -51,15 +52,15 @@ public interface FluidPort {
      *
      * @param fromTank the one tank to take from, or -1 for any
      * @param toTank   the one tank to put into, or -1 for any
-     * @param fluid    the fluid to move, or null for whatever is there
+     * @param wanted   which fluids to move (one fluid, or a filter many pass), or null for whatever is there
      */
-    static int move(FluidPort from, int fromTank, FluidPort to, int toTank, @Nullable Fluid fluid, int amount) {
+    static int move(FluidPort from, int fromTank, FluidPort to, int toTank, @Nullable Predicate<Fluid> wanted, int amount) {
         List<Fluid> kinds = new ArrayList<>();
         List<Tank> tanks = from.tanks();
         for (int i = 0; i < tanks.size(); i++) {
             Tank tank = tanks.get(i);
-            boolean wanted = tank.amount() > 0 && (fromTank < 0 || i == fromTank) && (fluid == null || tank.fluid() == fluid);
-            if (wanted && !kinds.contains(tank.fluid())) {
+            boolean moves = tank.amount() > 0 && (fromTank < 0 || i == fromTank) && (wanted == null || wanted.test(tank.fluid()));
+            if (moves && !kinds.contains(tank.fluid())) {
                 kinds.add(tank.fluid());
             }
         }
@@ -68,8 +69,8 @@ public interface FluidPort {
             if (moved >= amount) {
                 break;
             }
-            int wanted = amount - moved;
-            int available = fromTank < 0 ? from.extract(kind, wanted, true) : from.extractFrom(fromTank, kind, wanted, true);
+            int most = amount - moved;
+            int available = fromTank < 0 ? from.extract(kind, most, true) : from.extractFrom(fromTank, kind, most, true);
             int fits = available == 0 ? 0 : toTank < 0 ? to.insert(kind, available, true) : to.insertInto(toTank, kind, available, true);
             if (fits == 0) {
                 continue;

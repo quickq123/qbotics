@@ -63,6 +63,7 @@ public final class QboticsGameTests {
             Map.entry("network_probe", QboticsGameTests::networkProbe),
             Map.entry("fluid_and_energy", QboticsGameTests::fluidAndEnergy),
             Map.entry("slots_and_faces", QboticsGameTests::slotsAndFaces),
+            Map.entry("name_filters", QboticsGameTests::nameFilters),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -766,6 +767,54 @@ public final class QboticsGameTests {
             helper.assertTrue(chest.isEmpty() && store.getItem(0).isEmpty() && store.getItem(1).getCount() == 5
                     && store.getItem(2).getCount() == 17, "everything should have ended up in the interface: " + store.getItem(0)
                     + ", " + store.getItem(1) + ", " + store.getItem(2));
+        });
+    }
+
+    /**
+     * Filters in place of names, in the words of JEI's search box: a tag, a mod, wildcards,
+     * several words, "not", and alternatives. They work for counting, moving and slot filters.
+     */
+    private static void nameFilters(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(2, 1, 1);
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        helper.setBlock(chestPos, Blocks.CHEST);
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        net.minecraft.world.Container chest = helper.getBlockEntity(chestPos, net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        chest.setItem(0, new ItemStack(Blocks.OAK_LOG, 8));
+        chest.setItem(1, new ItemStack(Blocks.BIRCH_LOG, 4));
+        chest.setItem(2, new ItemStack(Items.COAL, 6));
+        chest.setItem(3, new ItemStack(Blocks.IRON_ORE, 3));
+        chest.setItem(4, new ItemStack(Blocks.OAK_PLANKS, 5));
+
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "net = network()",
+                "bus = net.bus()",
+                "store = net.interface()",
+                "store.set_slot_filter(0, '#minecraft:logs')",
+                "store.set_slot_filter(1, '#logs')",
+                "store.set_slot_filter(2, '*_ore')",
+                "store.set_slot_filter(3, 'coal | charcoal')",
+                "print(store.filters()[:4])",
+                "print(bus.count('#minecraft:logs'), bus.count('*_log'), bus.count('@minecraft'), bus.count('@minecraft -*_log -coal'), bus.count('oak_*'))",
+                "print(bus.extract('#logs'), store.count('*_log'), bus.extract('*_ore | coal'), store.count())",
+                "store.set_slot_filter(4, '@nosuchmod')",
+                "bus.extract('irn_ingot')",
+                "print('left', bus.count('@Minecraft'), bus.count('$minecraft:planks'))")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "['#minecraft:logs', '#logs', '*_ore', 'coal | charcoal']\n", "12 12 26 8 13\n", "12 12 9 21\n",
+                    "NetworkError: No item passes the filter '@nosuchmod'.", "NetworkError: There is no item called 'irn_ingot'.", "left 5 5\n");
+            helper.assertTrue(store.getItem(0).is(Blocks.OAK_LOG.asItem()) && store.getItem(1).is(Blocks.BIRCH_LOG.asItem())
+                    && store.getItem(2).is(Blocks.IRON_ORE.asItem()) && store.getItem(3).getCount() == 6 && chest.countItem(Blocks.OAK_PLANKS.asItem()) == 5,
+                    "logs, ore and coal should be in the interface and the planks left behind");
+            // A slot open for a tag takes any item with that tag, and nothing else.
+            helper.assertTrue(store.canPlaceItem(0, new ItemStack(Blocks.SPRUCE_LOG)) && !store.canPlaceItem(0, new ItemStack(Items.COAL))
+                    && store.canPlaceItem(3, new ItemStack(Items.CHARCOAL)), "slot filters should follow the tag and the alternatives");
         });
     }
 

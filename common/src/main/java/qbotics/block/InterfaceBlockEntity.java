@@ -22,6 +22,7 @@ import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 import qbotics.QboticsContent;
 import qbotics.network.ItemPort;
+import qbotics.network.NameMatch;
 
 /**
  * The Input block: the network's chest (design doc §11.0). Every slot starts closed; a
@@ -34,7 +35,7 @@ public class InterfaceBlockEntity extends DeviceBlockEntity implements Container
 
     private final NonNullList<ItemStack> items = NonNullList.withSize(SLOTS, ItemStack.EMPTY);
     /** What each slot accepts; null means the slot is closed. */
-    private final @Nullable Item[] filters = new Item[SLOTS];
+    private final List<@Nullable NameMatch<Item>> filters = new ArrayList<>(java.util.Collections.nCopies(SLOTS, null));
 
     public InterfaceBlockEntity(BlockPos pos, BlockState state) {
         super(QboticsContent.INTERFACE_BLOCK_ENTITY.get(), pos, state);
@@ -45,14 +46,27 @@ public class InterfaceBlockEntity extends DeviceBlockEntity implements Container
         return Kind.INTERFACE;
     }
 
+    /** An item to show for the slot's filter: the item itself, or the first that passes a wider filter. Null if closed. */
     public @Nullable Item filter(int slot) {
-        return filters[slot];
+        NameMatch<Item> filter = filters.get(slot);
+        return filter == null ? null : filter.first();
+    }
+
+    /** The slot's filter as written ("minecraft:coal", "#minecraft:logs", "@create"), or null if the slot is closed. */
+    public @Nullable String filterText(int slot) {
+        NameMatch<Item> filter = filters.get(slot);
+        return filter == null ? null : filter.text();
+    }
+
+    /** Sets what a slot accepts to anything a filter passes; null closes it. */
+    public void setFilter(int slot, @Nullable NameMatch<Item> filter) {
+        filters.set(slot, filter);
+        setChanged();
     }
 
     /** Sets what a slot accepts; null closes it. Items already in the slot stay and can be taken out. */
     public void setFilter(int slot, @Nullable Item item) {
-        filters[slot] = item;
-        setChanged();
+        setFilter(slot, item == null ? null : NameMatch.parse(BuiltInRegistries.ITEM, BuiltInRegistries.ITEM.getKey(item).toString()));
     }
 
     // ---- Container: what hoppers, players and other mods see --------------------------
@@ -95,7 +109,8 @@ public class InterfaceBlockEntity extends DeviceBlockEntity implements Container
 
     @Override
     public boolean canPlaceItem(int slot, ItemStack stack) {
-        return filters[slot] != null && stack.is(filters[slot]);
+        NameMatch<Item> filter = filters.get(slot);
+        return filter != null && filter.test(stack.getItem());
     }
 
     @Override
@@ -228,8 +243,8 @@ public class InterfaceBlockEntity extends DeviceBlockEntity implements Container
         super.saveAdditional(output);
         ContainerHelper.saveAllItems(output, items);
         List<String> names = new ArrayList<>(SLOTS);
-        for (Item filter : filters) {
-            names.add(filter == null ? "" : BuiltInRegistries.ITEM.getKey(filter).toString());
+        for (NameMatch<Item> filter : filters) {
+            names.add(filter == null ? "" : filter.text());
         }
         output.store("filters", Codec.STRING.listOf(), names);
     }
@@ -241,8 +256,15 @@ public class InterfaceBlockEntity extends DeviceBlockEntity implements Container
         ContainerHelper.loadAllItems(input, items);
         List<String> names = input.read("filters", Codec.STRING.listOf()).orElse(List.of());
         for (int slot = 0; slot < SLOTS; slot++) {
-            Identifier id = slot < names.size() && !names.get(slot).isEmpty() ? Identifier.tryParse(names.get(slot)) : null;
-            filters[slot] = id != null && BuiltInRegistries.ITEM.containsKey(id) ? BuiltInRegistries.ITEM.getValue(id) : null;
+            NameMatch<Item> filter = null;
+            if (slot < names.size() && !names.get(slot).isEmpty()) {
+                try {
+                    filter = NameMatch.parse(BuiltInRegistries.ITEM, names.get(slot));
+                } catch (NameMatch.BadFilter e) {
+                    // Saved by an older version, or damaged: the slot is closed.
+                }
+            }
+            filters.set(slot, filter);
         }
     }
 }
