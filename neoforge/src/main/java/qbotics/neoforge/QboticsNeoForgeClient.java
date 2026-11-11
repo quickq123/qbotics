@@ -43,8 +43,11 @@ public final class QboticsNeoForgeClient {
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientTickEvent.Post event) ->
                     qbotics.client.shots.PlaytestStart.tick(net.minecraft.client.Minecraft.getInstance()));
         }
-        modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) ->
-                event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new));
+        modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) -> {
+            event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new);
+            event.register(QboticsNeoForge.FLUID_INTERFACE_MENU.get(), qbotics.client.FluidInterfaceScreen::new);
+            event.register(QboticsNeoForge.ENERGY_INTERFACE_MENU.get(), qbotics.client.EnergyInterfaceScreen::new);
+        });
         modBus.addListener((RegisterClientPayloadHandlersEvent event) -> {
             event.register(TerminalStatePayload.TYPE, (payload, context) -> ClientIde.onTerminalState(payload));
             event.register(IdePayloads.FileResponse.TYPE, (payload, context) -> ClientIde.onFileResponse(payload));

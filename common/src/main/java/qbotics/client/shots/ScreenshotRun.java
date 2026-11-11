@@ -248,6 +248,32 @@ public final class ScreenshotRun {
             });
         });
         then(5, minecraft -> shot(minecraft, "09e-experience-screen"));
+        // The Fluid Interface's screen: water and lava in two tanks, a third kept for water, an empty bucket in a slot.
+        then(10, minecraft -> {
+            minecraft.setScreen(null);
+            onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(base.offset(12, 0, -2)) instanceof qbotics.block.FluidInterfaceBlockEntity tanks) {
+                    tanks.insertInto(0, net.minecraft.world.level.material.Fluids.WATER, 3000, false);
+                    tanks.insertInto(1, net.minecraft.world.level.material.Fluids.LAVA, 1500, false);
+                    tanks.setFilter(2, net.minecraft.world.level.material.Fluids.WATER);
+                    tanks.buckets().setItem(3, new ItemStack(Items.BUCKET));
+                    player.openMenu(tanks);
+                }
+            });
+        });
+        then(5, minecraft -> shot(minecraft, "09i-fluid-interface-screen"));
+        // The Energy Interface's screen, a little over half full.
+        then(10, minecraft -> {
+            minecraft.player.closeContainer();
+            onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(base.offset(14, 0, -2)) instanceof qbotics.block.EnergyInterfaceBlockEntity cell) {
+                    cell.insert(1_200_000, false);
+                    player.openMenu(cell);
+                }
+            });
+        });
+        then(5, minecraft -> shot(minecraft, "09j-energy-interface-screen"));
+        then(5, minecraft -> minecraft.player.closeContainer());
         then(10, minecraft -> {
             minecraft.setScreen(null);
             onServer(minecraft, player -> {

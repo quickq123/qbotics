@@ -150,6 +150,12 @@ public final class QboticsNeoForge {
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU =
             MENUS.register("interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.InterfaceMenu(containerId, inventory)));
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.FluidInterfaceMenu>> FLUID_INTERFACE_MENU =
+            MENUS.register("fluid_interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.block.FluidInterfaceMenu(containerId, inventory)));
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.EnergyInterfaceMenu>> ENERGY_INTERFACE_MENU =
+            MENUS.register("energy_interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.block.EnergyInterfaceMenu(containerId, inventory)));
 
     // Antennas, one block per range tier (design doc §9.1).
     private static final DeferredBlock<AntennaBlock> ANTENNA_SHORT = antenna("antenna_short", RadioNetwork.Tier.SHORT);
@@ -248,6 +254,8 @@ public final class QboticsNeoForge {
         QboticsContent.ENERGY_INTERFACE_BLOCK_ENTITY = ENERGY_INTERFACE_BLOCK_ENTITY;
         QboticsContent.INTERFACE_BLOCK_ENTITY = INTERFACE_BLOCK_ENTITY;
         QboticsContent.INTERFACE_MENU = INTERFACE_MENU;
+        QboticsContent.FLUID_INTERFACE_MENU = FLUID_INTERFACE_MENU;
+        QboticsContent.ENERGY_INTERFACE_MENU = ENERGY_INTERFACE_MENU;
         QboticsContent.PORT_BLOCK_ENTITY = PORT_BLOCK_ENTITY;
         QboticsContent.ANTENNA_SHORT_BLOCK = ANTENNA_SHORT;
         QboticsContent.ANTENNA_LONG_BLOCK = ANTENNA_LONG;
@@ -374,6 +382,49 @@ public final class QboticsNeoForge {
                     }
                     return moved;
                 }
+            }
+
+            @Override
+            public net.minecraft.world.level.material.Fluid fluidIn(ItemStack stack) {
+                if (stack.isEmpty()) {
+                    return null;
+                }
+                var held = net.neoforged.neoforge.transfer.fluid.FluidUtil.getFirstStackContained(stack);
+                return held.isEmpty() ? null : held.getFluid();
+            }
+
+            @Override
+            public boolean exchangeFluid(net.minecraft.world.Container container, int slot, qbotics.block.FluidInterfaceBlockEntity store, int tank) {
+                ItemStack stack = container.getItem(slot);
+                if (stack.isEmpty()) {
+                    return false;
+                }
+                var items = net.neoforged.neoforge.transfer.item.VanillaContainerWrapper.of(container);
+                var item = Capabilities.Fluid.ITEM.getCapability(stack, net.neoforged.neoforge.transfer.access.ItemAccess.forHandlerIndexStrict(items, slot));
+                if (item == null) {
+                    return false;
+                }
+                var into = net.neoforged.neoforge.transfer.RangedResourceHandler.ofSingleIndex(MediaHandlers.of(store), tank);
+                if (net.neoforged.neoforge.transfer.ResourceHandlerUtil.move(item, into, fluid -> true, Integer.MAX_VALUE, null) > 0) {
+                    return true;
+                }
+                return net.neoforged.neoforge.transfer.ResourceHandlerUtil.move(into, item, fluid -> true, Integer.MAX_VALUE, null) > 0;
+            }
+
+            @Override
+            public int exchangeEnergy(net.minecraft.world.Container container, int slot, qbotics.block.EnergyInterfaceBlockEntity store, boolean charge, int max) {
+                ItemStack stack = container.getItem(slot);
+                if (stack.isEmpty()) {
+                    return 0;
+                }
+                var items = net.neoforged.neoforge.transfer.item.VanillaContainerWrapper.of(container);
+                var item = Capabilities.Energy.ITEM.getCapability(stack, net.neoforged.neoforge.transfer.access.ItemAccess.forHandlerIndexStrict(items, slot));
+                if (item == null) {
+                    return 0;
+                }
+                var cell = MediaHandlers.of(store);
+                return charge ? net.neoforged.neoforge.transfer.energy.EnergyHandlerUtil.move(cell, item, max, null)
+                        : net.neoforged.neoforge.transfer.energy.EnergyHandlerUtil.move(item, cell, max, null);
             }
         });
     }

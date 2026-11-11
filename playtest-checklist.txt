@@ -72,6 +72,16 @@ OTHER MODS
      (In this test game everything is owned by the same player, "Dev", so the claim will
      allow it; a second player is needed to test a refusal.)
 
+THE FLUID AND ENERGY STORES
+ 33. Right-click the stage's "tanks" (Fluid Interface): four tanks with sockets above and
+     bucket slots below. Hover a tank: it says what it holds and what it takes.
+ 34. Hold a lava bucket and click tank 2's socket: it shows a lava bucket and now takes only
+     lava; your bucket stays in your hand. Click it with an empty hand to clear it.
+ 35. Put a water bucket in a tank's slot: it empties into that tank and an empty bucket is
+     left. Put an empty bucket in: it fills.
+ 36. Right-click "battery" (Energy Interface): a gauge with the stored FE, and Charge and
+     Drain slots. If a mod in the pack has a battery item, put one in each to try them.
+
 REMOTE
- 32. In main:  ssh  followed by remote's address from README.txt. You are now typing on
+ 37. In main:  ssh  followed by remote's address from README.txt. You are now typing on
      remote; Ctrl+C stops its echo; exit comes back.

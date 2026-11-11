@@ -67,4 +67,20 @@ public interface QboticsPlatform {
      */
     boolean useFluidContainer(net.minecraft.world.entity.player.Player player, net.minecraft.world.InteractionHand hand,
             net.minecraft.world.level.Level level, BlockPos pos, Direction side);
+
+    /** The fluid an item holds (a bucket of water: water), or null if it holds none or isn't a fluid container. */
+    net.minecraft.world.level.material.@Nullable Fluid fluidIn(net.minecraft.world.item.ItemStack stack);
+
+    /**
+     * The fluid container in one slot of a container (a bucket, another mod's tank) empties
+     * into one tank of a Fluid Interface; if it gives nothing, it fills from the tank instead.
+     * The slot ends up holding what the container became. Returns true if anything moved.
+     */
+    boolean exchangeFluid(net.minecraft.world.Container container, int slot, qbotics.block.FluidInterfaceBlockEntity store, int tank);
+
+    /**
+     * Charges the energy-holding item in one slot of a container from an Energy Interface
+     * ({@code charge} true), or drains it into the store. Returns how much moved.
+     */
+    int exchangeEnergy(net.minecraft.world.Container container, int slot, qbotics.block.EnergyInterfaceBlockEntity store, boolean charge, int max);
 }

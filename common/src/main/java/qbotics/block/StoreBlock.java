@@ -26,9 +26,8 @@ import qbotics.network.Medium;
 
 /**
  * The Fluid, Energy and Experience Interfaces: the network's stores for those, as the
- * Interface is for items (design doc §11.0). Right-click to read what one holds; a bucket
- * fills or empties a Fluid Interface, and an Experience Interface opens a screen for
- * storing and taking levels.
+ * Interface is for items (design doc §11.0). Right-click to open a store's screen; a bucket
+ * used on a Fluid Interface fills or empties it directly.
  */
 public class StoreBlock extends BaseEntityBlock {
     public static final MapCodec<StoreBlock> FLUID_CODEC = simpleCodec(StoreBlock::fluid);
@@ -73,6 +72,20 @@ public class StoreBlock extends BaseEntityBlock {
         };
     }
 
+    /** The Energy Interface works its battery slots every tick. */
+    @Override
+    public <T extends BlockEntity> net.minecraft.world.level.block.entity.@Nullable BlockEntityTicker<T> getTicker(Level level, BlockState state,
+            net.minecraft.world.level.block.entity.BlockEntityType<T> type) {
+        if (level.isClientSide() || medium != Medium.ENERGY) {
+            return null;
+        }
+        return (tickLevel, tickPos, tickState, entity) -> {
+            if (entity instanceof EnergyInterfaceBlockEntity store) {
+                store.serverTick();
+            }
+        };
+    }
+
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
@@ -102,6 +115,9 @@ public class StoreBlock extends BaseEntityBlock {
             if (level.getBlockEntity(pos) instanceof ExperienceInterfaceBlockEntity store) {
                 // Experience is stored and taken by hand, on a screen of its own.
                 Qbotics.platform().sendToPlayer(serverPlayer, store.info(serverPlayer));
+            } else if (level.getBlockEntity(pos) instanceof net.minecraft.world.MenuProvider screen) {
+                // The fluid and energy stores' screens: tanks with filters and bucket slots, or a gauge with battery slots.
+                serverPlayer.openMenu(screen);
             } else {
                 serverPlayer.sendOverlayMessage(Component.literal(describe(level.getBlockEntity(pos))));
             }

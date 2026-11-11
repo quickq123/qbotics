@@ -187,6 +187,16 @@ public final class NetworkCalls {
                 return new JsonPrimitive(total);
             }
             case "filters": {
+                if (byMac(network, args, 1) instanceof FluidInterfaceBlockEntity tanks) {
+                    // The fluid each tank is kept for, or null where it takes any.
+                    JsonArray kept = new JsonArray();
+                    for (int tank = 0; tank < FluidInterfaceBlockEntity.TANKS; tank++) {
+                        Fluid filter = tanks.filter(tank);
+                        kept.add(filter == net.minecraft.world.level.material.Fluids.EMPTY ? JsonNull.INSTANCE
+                                : new JsonPrimitive(BuiltInRegistries.FLUID.getKey(filter).toString()));
+                    }
+                    return kept;
+                }
                 InterfaceBlockEntity input = input(byMac(network, args, 1));
                 JsonArray list = new JsonArray();
                 for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
@@ -196,6 +206,22 @@ public final class NetworkCalls {
                 return list;
             }
             case "set_filter": {
+                if (byMac(network, args, 1) instanceof FluidInterfaceBlockEntity tanks) {
+                    int tank = args.get(2).getAsInt();
+                    if (tank < 0 || tank >= FluidInterfaceBlockEntity.TANKS) {
+                        throw new CallError("A fluid interface has tanks 0 to " + (FluidInterfaceBlockEntity.TANKS - 1) + "; there is no tank " + tank + ".");
+                    }
+                    String name = string(args, 3);
+                    Fluid kept = null;
+                    if (name != null) {
+                        kept = fluid(name).single();
+                        if (kept == null) {
+                            throw new CallError("A tank is kept for one fluid; '" + name + "' names more than one. Name just one, such as \"water\".");
+                        }
+                    }
+                    tanks.setFilter(tank, kept);
+                    return JsonNull.INSTANCE;
+                }
                 InterfaceBlockEntity input = input(byMac(network, args, 1));
                 int slot = args.get(2).getAsInt();
                 if (slot < 0 || slot >= InterfaceBlockEntity.SLOTS) {

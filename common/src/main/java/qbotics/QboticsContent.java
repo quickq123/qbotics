@@ -44,6 +44,9 @@ public final class QboticsContent {
     public static Supplier<BlockEntityType<qbotics.block.FluidInterfaceBlockEntity>> FLUID_INTERFACE_BLOCK_ENTITY;
     public static Supplier<BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY;
     public static Supplier<BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY;
+    /** The Fluid Interface's screen (tanks, filters, bucket slots) and the Energy Interface's (gauge, battery slots). */
+    public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.FluidInterfaceMenu>> FLUID_INTERFACE_MENU;
+    public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.EnergyInterfaceMenu>> ENERGY_INTERFACE_MENU;
     /** The Input block's screen of filters and slots. */
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU;
     /** A cable's plate: an input, an output or a bus. */

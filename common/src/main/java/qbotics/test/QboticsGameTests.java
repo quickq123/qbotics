@@ -79,6 +79,7 @@ public final class QboticsGameTests {
             Map.entry("vanilla_screens", QboticsGameTests::vanillaScreens),
             Map.entry("screen_experience", QboticsGameTests::screenExperience),
             Map.entry("world_plates", QboticsGameTests::worldPlates),
+            Map.entry("store_screens", QboticsGameTests::storeScreens),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1390,6 +1391,69 @@ public final class QboticsGameTests {
                     "taken: The space in front of the placer is taken by minecraft:cobblestone", "broke {'minecraft:cobblestone': 1}\n",
                     "poured minecraft:water minecraft:water\n", "took {'minecraft:water': 1000} 2000\n",
                     "nothing: There is nothing in front of the breaker to break.", "stone 4\n");
+        });
+    }
+
+    /**
+     * The fluid and energy stores' screens: tank filters (from a program and from a socket
+     * clicked with a bucket), bucket slots that empty and fill, and the energy gauge's number.
+     */
+    private static void storeScreens(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 0), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        qbotics.block.FluidInterfaceBlockEntity tanks = helper.getBlockEntity(new BlockPos(1, 1, 0), qbotics.block.FluidInterfaceBlockEntity.class);
+        qbotics.block.EnergyInterfaceBlockEntity cell = helper.getBlockEntity(new BlockPos(2, 1, 0), qbotics.block.EnergyInterfaceBlockEntity.class);
+        net.minecraft.world.level.material.Fluid water = net.minecraft.world.level.material.Fluids.WATER;
+        net.minecraft.world.level.material.Fluid lava = net.minecraft.world.level.material.Fluids.LAVA;
+
+        // A full bucket in tank 1's slot empties into tank 1; an empty one put back fills from it.
+        tanks.buckets().setItem(1, new ItemStack(Items.WATER_BUCKET));
+        helper.assertTrue(tanks.tanks().get(1).amount() == 1000 && tanks.buckets().getItem(1).is(Items.BUCKET),
+                "a water bucket in slot 1 should empty into tank 1, leaving an empty bucket: " + tanks.tanks().get(1) + " " + tanks.buckets().getItem(1));
+        tanks.buckets().setItem(1, ItemStack.EMPTY);
+        tanks.buckets().setItem(1, new ItemStack(Items.BUCKET));
+        helper.assertTrue(tanks.tanks().get(1).amount() == 0 && tanks.buckets().getItem(1).is(Items.WATER_BUCKET),
+                "an empty bucket in slot 1 should fill from tank 1: " + tanks.tanks().get(1) + " " + tanks.buckets().getItem(1));
+
+        // A socket clicked with a bucket of lava keeps that tank for lava; with an empty hand, for anything again.
+        net.minecraft.world.entity.player.Player player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        qbotics.block.FluidInterfaceMenu menu = new qbotics.block.FluidInterfaceMenu(1, player.getInventory(), tanks);
+        menu.setCarried(new ItemStack(Items.LAVA_BUCKET));
+        menu.clicked(3, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, player);
+        helper.assertTrue(tanks.filter(3) == lava && menu.getCarried().is(Items.LAVA_BUCKET),
+                "clicking socket 3 with lava should keep tank 3 for lava and leave the bucket in hand");
+        menu.setCarried(ItemStack.EMPTY);
+        menu.clicked(3, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, player);
+        helper.assertTrue(tanks.filter(3) == net.minecraft.world.level.material.Fluids.EMPTY, "an empty hand should clear the filter");
+
+        // A filtered tank refuses other fluids, from pipes and buckets alike.
+        tanks.setFilter(0, lava);
+        helper.assertTrue(tanks.insertInto(0, water, 1000, false) == 0, "tank 0 is kept for lava");
+        tanks.buckets().setItem(0, new ItemStack(Items.WATER_BUCKET));
+        helper.assertTrue(tanks.tanks().get(0).amount() == 0 && tanks.buckets().getItem(0).is(Items.WATER_BUCKET),
+                "a water bucket in tank 0's slot should stay full");
+        tanks.buckets().setItem(0, new ItemStack(Items.LAVA_BUCKET));
+        helper.assertTrue(tanks.tanks().get(0).amount() == 1000 && tanks.tanks().get(0).fluid() == lava, "lava goes in");
+
+        // The energy gauge's number survives being sent in two halves.
+        cell.insert(1_500_000, false);
+        qbotics.block.EnergyInterfaceMenu gauge = new qbotics.block.EnergyInterfaceMenu(2, player.getInventory(), cell);
+        helper.assertTrue(gauge.stored() == 1_500_000, "the gauge should read 1,500,000 but read " + gauge.stored());
+        // Something that holds no energy in a battery slot is left alone.
+        cell.batteries().setItem(qbotics.block.EnergyInterfaceBlockEntity.CHARGE_SLOT, new ItemStack(Blocks.STONE));
+
+        for (String line : List.of("python", "from logistics import network", "tanks = network().fluid_interface()",
+                "tanks.set_tank_filter(2, 'water')", "print(tanks.filters())", "tanks.set_tank_filter(2, None)",
+                "tanks.set_tank_filter(1, '#minecraft:water')", "print(tanks.filters())")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "['minecraft:lava', None, 'minecraft:water', None]",
+                    "A tank is kept for one fluid;", "['minecraft:lava', None, None, None]");
+            helper.assertTrue(cell.stored() == 1_500_000 && cell.batteries().getItem(0).is(Blocks.STONE.asItem()),
+                    "stone in the charge slot should take nothing");
         });
     }
 

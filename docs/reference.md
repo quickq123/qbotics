@@ -388,16 +388,35 @@ Fluid amounts are in millibuckets (mB): 1,000 mB is one bucket. Energy amounts a
 unit mods share (also called RF).
 
 **Fluid Interface** (`net.fluid_interface()`): four tanks of 4,000 mB. A tank takes any fluid
-while empty, then only more of the same.
+while empty, then only more of the same, unless it has a filter.
+
+Right-click it to open its screen: the four tanks, each with a **filter socket** above and a
+**bucket slot** below. Hover a tank to see what it holds.
+
+- **Filters.** Click a tank's socket while holding a bucket of a fluid (or any container
+  holding one): that tank now takes only that fluid, from players, pipes and programs alike.
+  The bucket stays in your hand. Click with an empty hand to let it take any fluid again.
+  What a tank already holds stays when its filter changes.
+- **Bucket slots.** A full bucket (or another mod's fluid container) put in a tank's slot
+  empties into that tank; an empty one fills from it. Take the result out of the slot.
+  Shift-click moves buckets in and out.
+- Using a bucket on the block itself still fills or empties it directly, as before.
 
 | Call | On | Does |
 |---|---|---|
 | `tanks.contents()` | Fluid Interface | A list of `{"tank": 0, "fluid": "minecraft:water", "amount": 1000, "capacity": 4000}`. An empty tank's fluid is `None` |
 | `tanks.amount(fluid=None, slot=None)` | Fluid Interface | Millibuckets held of a name or filter |
+| `tanks.filters()` | Fluid Interface | The fluid each tank is kept for, e.g. `["minecraft:water", None, None, None]`; `None` where it takes any |
+| `tanks.set_tank_filter(tank, fluid)` | Fluid Interface | Keeps a tank for one fluid (`"water"`); `None` lets it take any again |
 | `plate.contents(face=None)` | Fluid Input, Fluid Bus | The target's tanks |
 | `plate.amount(fluid=None, face=None, slot=None)` | Fluid Input, Fluid Bus | Millibuckets the target holds |
 
 **Energy Interface** (`net.energy_interface()`): holds 2,000,000 FE.
+
+Right-click it to open its screen: a gauge of what it holds between two battery slots.
+**Charge** fills a battery (any item that holds FE, from any mod) from the store; **Drain**
+empties one into the store. Each works every tick, up to 50,000 FE a tick or as fast as the
+battery allows. Take the battery out when it is done.
 
 | Call | On | Gives |
 |---|---|---|

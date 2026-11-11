@@ -570,6 +570,18 @@ class FluidInterface(Device, _Gives, _Takes):
         fluid, _, slot = _aim(fluid, None, slot)
         return _call("count", self.mac, fluid, None, slot)
 
+    def filters(self):
+        """The fluid each tank is kept for, e.g. ["minecraft:water", None, None, None];
+        None where a tank takes any fluid."""
+        return _call("filters", self.mac)
+
+    def set_tank_filter(self, tank, fluid):
+        """Keeps a tank for one fluid ("water", "minecraft:lava"); None lets it take any
+        again. What the tank already holds stays. This is a rule of the block itself: it
+        also stops other mods' pipes. On the block's screen, click a tank's socket with a
+        bucket of the fluid to do the same."""
+        _call("set_filter", self.mac, tank, fluid)
+
 
 class _ReadsFluid:
     def contents(self, face=None):
