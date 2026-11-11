@@ -47,9 +47,10 @@ public final class QboticsGameTests {
     /**
      * Tests whose programs wait in real time (a pin waiting for a change, a breaker working at
      * a block) get more ticks than the usual 1,200: the test server runs ticks far faster than
-     * 20 a second, so 1,200 can pass in a second and a half. A test still ends as soon as it passes.
+     * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
+     * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 20_000, "test_stage", 20_000, "watching", 20_000);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -81,6 +82,7 @@ public final class QboticsGameTests {
             Map.entry("world_plates", QboticsGameTests::worldPlates),
             Map.entry("store_screens", QboticsGameTests::storeScreens),
             Map.entry("watching", QboticsGameTests::watching),
+            Map.entry("events_module", QboticsGameTests::eventsModule),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1517,6 +1519,75 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> assertScreen(helper, computer, "none yet []\n", "coal in 1 0 minecraft:coal 0 5\n",
                 "iron only [] 1\n", "loop minecraft:iron_ingot 0 3\n", "w saw 1 then quiet []\n",
                 "fluid 0 minecraft:water 0 1000\n", "energy 0 500\n", "This watch has ended"));
+    }
+
+    /**
+     * The events module: a timer drives the test step by step, while handlers see a pin's
+     * signal rise and fall, a chest change and a message arrive; then events.stop() ends run().
+     */
+    private static void eventsModule(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.REDSTONE_LAMP);
+        helper.setBlock(new BlockPos(0, 1, 2), Blocks.CHEST);
+        for (BlockPos cable : List.of(new BlockPos(1, 1, 1), new BlockPos(1, 1, 2), new BlockPos(2, 1, 2))) {
+            helper.setBlock(cable, QboticsContent.CABLE_BLOCK.get());
+        }
+        // The sensor reads the lamp; the driver, on another cable, powers it.
+        CableBlock.attach(level, helper.absolutePos(new BlockPos(1, 1, 1)), Kind.PIN, Direction.EAST).setDeviceName("sensor");
+        CableBlock.attach(level, helper.absolutePos(new BlockPos(2, 1, 2)), Kind.PIN, Direction.NORTH).setDeviceName("driver");
+        CableBlock.attach(level, helper.absolutePos(new BlockPos(1, 1, 2)), Kind.BUS, Direction.WEST).setDeviceName("chest");
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        store.setDeviceName("store");
+        store.setFilter(0, Items.COAL);
+        store.setItem(0, new ItemStack(Items.COAL, 10));
+
+        String program = String.join("\n",
+                "import events, network",
+                "from logistics import network as cables, move",
+                "net = cables()",
+                "sensor = net.pin('sensor')",
+                "driver = net.pin('driver')",
+                "store = net.interface('store')",
+                "chest = net.bus('chest')",
+                "me = network.ifconfig()['ip']",
+                "",
+                "events.on_pin(sensor, 'rising', lambda e: print('pin', e.name, e.event, e.level))",
+                "events.on_pin(sensor, 'falling', lambda e: print('pin', e.name, e.event, e.level))",
+                "events.on_change(chest, lambda c: print('chest', c['item'], c['was'], c['now']))",
+                "events.on_message(lambda m: print('message', m.data['hi']))",
+                "steps = []",
+                "",
+                "@events.every(0.05)",
+                "def step():",
+                "    steps.append(1)",
+                "    n = len(steps)",
+                "    if n == 1:",
+                "        driver.write(15)",
+                "    elif n == 2:",
+                "        driver.write(0)",
+                "    elif n == 3:",
+                "        move(store, chest, 'coal', 3)",
+                "    elif n == 4:",
+                "        network.send(me, {'hi': 42})",
+                "    elif n == 7:",
+                "        events.stop()",
+                "",
+                "events.after(30, events.stop)    # in case something never comes",
+                "events.run()",
+                "print('ran', len(steps), 'steps')",
+                "events.clear()",
+                "events.run()",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/ev.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not write the test program", e);
+        }
+        computer.submitLine("run /ev.py");
+        helper.succeedWhen(() -> assertScreen(helper, computer, "pin sensor rising 15\n", "pin sensor falling 0\n",
+                "chest minecraft:coal 0 3\n", "message 42\n", "ran 7 steps\n", "There is nothing to wait for"));
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */

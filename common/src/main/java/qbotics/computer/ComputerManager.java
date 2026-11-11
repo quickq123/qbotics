@@ -336,6 +336,21 @@ public final class ComputerManager {
      * Hands a message to a computer. Returns false if that computer isn't switched on (it
      * starts the first time someone opens it) or its inbox is full.
      */
+    /** The running computer with this device ID, or null if it isn't switched on. */
+    public ServerComputer computer(UUID deviceId) {
+        return computers.get(deviceId);
+    }
+
+    /**
+     * Hands a computer an event, under the session its program signed up with. Returns false
+     * if the computer is off, its program has stopped listening, or its queue is full: the
+     * sender can then forget it.
+     */
+    public boolean pushEvent(UUID deviceId, int session, com.google.gson.JsonObject event) {
+        ServerComputer computer = computers.get(deviceId);
+        return computer != null && computer.pushEvent(session, event);
+    }
+
     public boolean deliver(UUID deviceId, String sender, String data) {
         ServerComputer computer = computers.get(deviceId);
         return computer != null && computer.deliver(sender, data);

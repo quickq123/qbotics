@@ -38,6 +38,7 @@ public final class Completer {
     private static final Map<String, List<String>> MODULES = Map.of(
             "logistics", List.of("Face", "NetworkError", "Recipe", "Slot", "move", "network"),
             "network", List.of("Radio", "hostname", "ifconfig", "receive", "scan", "send"),
+            "events", List.of("after", "clear", "every", "on_change", "on_message", "on_pin", "run", "stop"),
             "time", List.of("sleep", "sleep_ms", "ticks_diff", "ticks_ms", "ticks_us", "time"),
             "os", List.of("chdir", "getcwd", "listdir", "mkdir", "remove", "rename", "rmdir", "stat"),
             "math", List.of("atan2", "ceil", "cos", "degrees", "e", "fabs", "floor", "log", "pi", "pow", "radians", "sin", "sqrt", "tan"),

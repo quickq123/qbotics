@@ -45,6 +45,13 @@ public final class CablePort implements NetworkDevice {
     long signalChanges;
     long blockChanges;
     net.minecraft.world.level.block.state.@Nullable BlockState lastSeen;
+    /** Computers whose programs want this pin's events, with the session each signed up under (not saved). */
+    final java.util.Map<UUID, Integer> listeners = new java.util.HashMap<>();
+
+    /** A computer's program wants this pin's events pushed to it (see WorldPlates.sense). */
+    public void listen(UUID computer, int session) {
+        listeners.put(computer, session);
+    }
 
     // ---- a Breaker (not saved): the block it is part-way through breaking, and the drops remembered for it. ----
     net.minecraft.world.level.block.state.@Nullable BlockState breaking;

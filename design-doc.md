@@ -218,7 +218,7 @@ The `.hint` field always holds a learner-friendly fix, e.g. *"There's a block in
 - **World-call executor:** runs queued world requests on the main thread, up to `scheduler.world_calls_budget_ms` per tick. Leftovers wait for the next tick.
 - **Call costs:** each host or peripheral function declares a cost. Expensive calls are rate-limited per computer and per player.
 - **Batch APIs required:** each call waits at least one tick (50 ms), so APIs must return bulk data (e.g. `me.items()` returns everything in one call).
-- **Events over polling:** change feeds (`watch_items()`, redstone edge interrupts, radio receive) are the main pattern taught in docs and templates.
+- **Events over polling:** change feeds (`watch_items()`, redstone edge interrupts, radio receive) are the main pattern taught in docs and templates. Built 2026-11-11 as the `events` module (`docs/reference.md` §7b): each computer has an event queue that the game pushes into (pin events, messages; later, monitor touches), and `events.run()` sleeps on it between timers. Monitors' control surfaces (§10.2) are meant to push their clicks into the same queue.
 
 ---
 
@@ -1356,7 +1356,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 0c | ✅ **Project scaffold:** `common` + `neoforge` Gradle modules for Minecraft 26.1.2; the mod jar bundles the engine and Chicory; `gradlew :neoforge:runData` runs a Python self-test inside NeoForge. Done 2026-11-10 | The engine works inside the real mod loader |
 | 1 | Computer block, terminal, REPL, file system, editor, device UUIDs. **Built, not yet played:** everything is covered by in-game tests and offline renders of the editor screen (§12.2), but nobody has used it in the game client yet | Core loop |
 | 1b | Storage media (floppy) + disk drive; programmer block (loading programs from media) | Moving code between devices |
-| 2 | `machine.Pin` redstone, events, timers | Embedded circuits |
+| 2 | `machine.Pin` redstone, events, timers. **Events and timers built 2026-11-11** as the `events` module (timers, pin edges and block changes, container changes, messages; one `run()` loop; the game pushes pin events and messages into a per-computer queue). Redstone goes through the Logic Pin (§11.0.1) rather than the computer's own sides; `machine.Pin` on the computer itself is not built | Embedded circuits |
 | 3 | Ownership registry, limits, bricked state, boot queue | Performance controls (early on purpose) |
 | 4 | Text monitors, then control surfaces (§10.2) | Displays foundation; cheap control panels |
 | 5 | Qbots: movement, six-side sensing and actions, filtered inventory, tool use, self chunk loading, parking, programmer-block activation of inert Qbots (§5.4) | Qbot experience |

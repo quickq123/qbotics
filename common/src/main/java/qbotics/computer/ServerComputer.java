@@ -180,6 +180,11 @@ public final class ServerComputer {
         JsonObject message = new JsonObject();
         message.addProperty("sender", sender);
         message.addProperty("data", data);
+        if (messagesAsEvents) {
+            // The program handles messages as events (events.on_message): they join the event queue.
+            message.addProperty("type", "message");
+            return pushEvent(eventSession, message);
+        }
         JsonObject reply = new JsonObject();
         reply.add("r", message);
         synchronized (inbox) {
@@ -210,13 +215,100 @@ public final class ServerComputer {
         }
     }
 
+    // ---- events (design doc §4: events over polling) ----------------------------------
+
+    /** What a program submits to wait for its next event. Must match events.py in the ROM. */
+    private static final String EVENT_CALL = "[\"event\"]";
+    private static final int MAX_EVENTS = 256;
+
+    /** Events nobody has taken yet, each already in the form the program reads. */
+    private final ArrayDeque<String> events = new ArrayDeque<>();
+    /** Set while a program is waiting and there is no event yet; the next one completes it. */
+    private CompletableFuture<String> waitingEvent;
+    /**
+     * Counts the times a program has started listening. Whatever signed up to send events
+     * (a Logic Pin, say) remembers the number it signed up under, and is ignored once it
+     * changes: a program that has ended gets nothing more.
+     */
+    private volatile int eventSession;
+    /** True while a program handles messages as events, so they go to the event queue instead of the inbox. */
+    private volatile boolean messagesAsEvents;
+
+    /** The number events are sent under for the program listening now. */
+    public int eventSession() {
+        return eventSession;
+    }
+
+    /**
+     * A program starts listening for events afresh: anything left from before is dropped,
+     * and earlier sign-ups no longer count. Returns the new session number.
+     *
+     * @param messages true if messages should arrive as events rather than wait in the inbox
+     */
+    public int startEvents(boolean messages) {
+        synchronized (events) {
+            events.clear();
+            waitingEvent = null;
+            messagesAsEvents = messages;
+            return ++eventSession;
+        }
+    }
+
+    /** The program has stopped listening (it ended): messages go back to the inbox, and nothing more is queued. */
+    void stopEvents() {
+        synchronized (events) {
+            events.clear();
+            waitingEvent = null;
+            messagesAsEvents = false;
+            eventSession++;
+        }
+    }
+
+    /**
+     * Hands this computer an event. Returns false if it was sent under an old session (the
+     * program that asked for it has ended) or the queue is full, so the sender can forget it.
+     */
+    public boolean pushEvent(int session, JsonObject event) {
+        JsonObject reply = new JsonObject();
+        reply.add("r", event);
+        synchronized (events) {
+            if (session != eventSession) {
+                return false;
+            }
+            if (waitingEvent != null) {
+                waitingEvent.complete(reply.toString());
+                waitingEvent = null;
+                return true;
+            }
+            if (events.size() >= MAX_EVENTS) {
+                return false;
+            }
+            events.add(reply.toString());
+            return true;
+        }
+    }
+
+    /** Answers with the oldest waiting event, now or when one arrives. */
+    private CompletableFuture<String> nextEvent() {
+        synchronized (events) {
+            String ready = events.poll();
+            if (ready != null) {
+                return CompletableFuture.completedFuture(ready);
+            }
+            if (waitingEvent == null) {
+                waitingEvent = new CompletableFuture<>();
+            }
+            return waitingEvent;
+        }
+    }
+
     // ---- the computer's thread ----------------------------------------------------
 
     private void run() {
         try {
             terminal.write("Qbotics computer starting...\n");
             Computer computer = new Computer(ComputerManager.engine(), HEAP_BYTES,
-                    call -> call.equals(RECEIVE_CALL) ? receive() : worldCalls.apply(call), drive);
+                    call -> call.equals(RECEIVE_CALL) ? receive() : call.equals(EVENT_CALL) ? nextEvent() : worldCalls.apply(call), drive);
             computer.cpu = cpu;
             computer.outputSink = terminal::write;
             computer.lineReader = this::readInputLine;
@@ -494,6 +586,7 @@ public final class ServerComputer {
         } finally {
             running = false;
             computer.stop = shutDown ? Computer.StopMode.HARD : Computer.StopMode.NONE;
+            stopEvents(); // a program that has ended listens for nothing
         }
     }
 
@@ -513,8 +606,9 @@ public final class ServerComputer {
             terminal.write(describe(e, file) + "\n");
             return;
         }
-        // Programs see the shell's folder as their current folder.
-        runPython(computer, "import os\nos.chdir(" + pyString(cwd) + ")\nexecfile(" + pyString(file) + ")");
+        // Programs see the shell's folder as their current folder, and start with no event
+        // handlers left over from an earlier program (the events module is loaded afresh).
+        runPython(computer, "import os, sys\nos.chdir(" + pyString(cwd) + ")\nsys.modules.pop('events', None)\nexecfile(" + pyString(file) + ")");
     }
 
     private void runScratch(Computer computer, Scratch scratch) {

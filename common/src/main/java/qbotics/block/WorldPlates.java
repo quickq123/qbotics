@@ -73,6 +73,7 @@ public final class WorldPlates {
         } else if (seen != pin.lastSeen) {
             pin.lastSeen = seen;
             pin.blockChanges++;
+            tell(level, pin, "block", pin.inputLevel);
         }
         // A pin that drives a signal doesn't read: it would only read its own.
         int now = pin.pinOutput ? 0 : level.getSignal(target, pin.pointing());
@@ -80,12 +81,34 @@ public final class WorldPlates {
             pin.signalChanges++;
             if (pin.inputLevel == 0) {
                 pin.rising++;
+                tell(level, pin, "rising", now);
             } else if (now == 0) {
                 pin.falling++;
+                tell(level, pin, "falling", now);
             }
+            tell(level, pin, "change", now);
         }
         pin.inputLevel = now;
         pin.inputKnown = true;
+    }
+
+    /**
+     * Pushes one of a pin's events to every computer whose program is listening for them
+     * (events.on_pin). Computers that have stopped listening are forgotten.
+     */
+    private static void tell(Level level, CablePort pin, String what, int signal) {
+        if (pin.listeners.isEmpty() || level.getServer() == null) {
+            return;
+        }
+        com.google.gson.JsonObject event = new com.google.gson.JsonObject();
+        event.addProperty("type", "pin");
+        event.addProperty("mac", pin.mac());
+        event.addProperty("name", pin.deviceName());
+        event.addProperty("event", what);
+        event.addProperty("level", signal);
+        event.addProperty("block", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(pin.targetPos()).getBlock()).toString());
+        qbotics.computer.ComputerManager computers = qbotics.computer.ComputerManager.get(level.getServer());
+        pin.listeners.entrySet().removeIf(listener -> !computers.pushEvent(listener.getKey(), listener.getValue(), event));
     }
 
     /** What a pin reads now, fresh from the world. */

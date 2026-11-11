@@ -864,6 +864,55 @@ Things to know:
 
 ---
 
+## 7b. The `events` module: running code when things happen
+
+```python
+import events
+```
+
+Instead of a loop that checks again and again, a program says what to do when, then calls
+`events.run()`. In between, it sleeps: a waiting program costs the game nothing.
+
+```python
+import events
+from logistics import network
+net = network()
+
+@events.every(5)                                    # every five seconds
+def report():
+    print("the store holds", net.interface("store").count())
+
+events.after(60, events.stop)                       # once, a minute from now
+events.on_pin(net.pin("button"), "rising", lambda e: net.pin("door").pulse(20))
+events.on_change(net.bus("chest"), lambda change: print(change["item"], change["now"]))
+events.on_message(lambda msg: print("from", msg.sender, ":", msg.data))
+
+events.run()                                        # until events.stop() or Ctrl+C
+```
+
+| Call | Does |
+|---|---|
+| `events.every(seconds, function)` | Runs the function every so many seconds, starting that many seconds from now. Returns a timer; `timer.cancel()` stops it |
+| `events.after(seconds, function)` | Runs the function once, so many seconds from now. Returns a timer |
+| `events.on_pin(pin, what, function)` | Runs the function when a Logic Pin sees `"rising"`, `"falling"`, `"change"` or `"block"` (section 6.10). The function gets an event with `.name`, `.event`, `.level` and `.block` |
+| `events.on_change(device, function, what=None)` | Runs the function for each change to what a device holds (section 6.4b). `device` can also be a watch |
+| `events.on_message(function)` | Runs the function for each message from another computer: it gets `.sender` and `.data`. While `run()` is going, messages come here rather than to `network.receive()` |
+| `events.run()` | Handles everything above until `events.stop()` or Ctrl+C |
+| `events.stop()` | Makes `run()` return once the function running now has finished |
+| `events.clear()` | Forgets every timer and handler |
+
+- Each of `every`, `after`, `on_pin`, `on_change` and `on_message` can be given its function, or
+  used as a decorator above a `def`, as `@events.every(5)` is above.
+- A function that raises an error stops `run()` with that error, as in any program.
+- Pin events and messages are pushed by the game the moment they happen; nothing polls for
+  them. Watched containers are looked at four times a second while `run()` is going.
+- Timers count real time. If the program falls behind (a function took a long time), a
+  repeating timer carries on from now rather than running several times to catch up.
+- Each program started with `run` starts with no handlers. After `run()` returns, the
+  handlers stay set up, so it can be called again.
+
+---
+
 ## 8. The Network Probe
 
 A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows the mode.
@@ -961,6 +1010,7 @@ holds one short program per feature:
 | `demos/9_world.py` | Blinking the lamp, placing a block and breaking it again |
 | `demos/10_levels.py` | Repairing on the anvil and enchanting a book, paid from `xp` |
 | `demos/11_watch.py` | Watches the chest for 30 seconds while you move things in and out by hand |
+| `demos/12_events.py` | Timers and events together for 30 seconds: the lamp blinks while the chest is watched and messages are shown |
 
 `remote` runs `demos/echo.py` from the start, which answers every message, so the radio demo
 works at once. Log in to it with the `ssh` line the README gives; Ctrl+C stops the echo.

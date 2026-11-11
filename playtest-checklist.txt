@@ -86,6 +86,11 @@ WATCHING
  37. In main:  run demos/11_watch.py  then open the stage's chest and move things in and out
      for 30 seconds: each change is printed as it happens (slot, how many, what).
 
+ 38. Run  /qbotics stage  again to get the newest demos, then  run demos/12_events.py :
+     the lamp blinks once a second, chest changes are printed, and a message sent from
+     remote (python, then  import network  and  network.send("<main's address>", "hi") )
+     appears at once. It stops by itself after 30 seconds.
+
 REMOTE
- 38. In main:  ssh  followed by remote's address from README.txt. You are now typing on
+ 39. In main:  ssh  followed by remote's address from README.txt. You are now typing on
      remote; Ctrl+C stops its echo; exit comes back.

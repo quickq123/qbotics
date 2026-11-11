@@ -378,6 +378,23 @@ public final class NetworkCalls {
                 }
                 return new JsonPrimitive(took);
             }
+            case "events_start": {
+                // A program starts handling events: earlier sign-ups are dropped; messages may come as events.
+                qbotics.computer.ServerComputer computer = runningAt(level, computerPos);
+                boolean messages = args.size() > 1 && args.get(1).getAsBoolean();
+                return new JsonPrimitive(computer.startEvents(messages));
+            }
+            case "pin_listen": {
+                // ["pin_listen", mac, session]: this computer wants the pin's events pushed to it.
+                NetworkDevice device = byMac(network, args, 1);
+                if (!(device instanceof CablePort pin) || pin.kind() != Kind.PIN) {
+                    throw new CallError("Only a logic pin sends pin events; this is " + article(device) + ".");
+                }
+                qbotics.computer.ServerComputer computer = runningAt(level, computerPos);
+                pin.listen(computer.deviceId(), args.get(2).getAsInt());
+                qbotics.block.WorldPlates.sense(level, pin); // starts from what is there now
+                return JsonNull.INSTANCE;
+            }
             case "watch_open":
                 return Watches.open(level, network, computerPos, args);
             case "watch_poll":
@@ -1037,6 +1054,16 @@ public final class NetworkCalls {
     }
 
     /** The owner of the computer that made a call, or null if nobody owns it. */
+    /** The running computer whose block is at a position: the one making the call. */
+    private static qbotics.computer.ServerComputer runningAt(ServerLevel level, BlockPos computerPos) {
+        qbotics.computer.ServerComputer computer = level.getBlockEntity(computerPos) instanceof qbotics.block.ComputerBlockEntity block
+                ? qbotics.computer.ComputerManager.get(level.getServer()).computer(block.deviceId()) : null;
+        if (computer == null) {
+            throw new CallError("This computer isn't running.");
+        }
+        return computer;
+    }
+
     private static java.util.UUID ownerAt(ServerLevel level, BlockPos computerPos) {
         return level.getBlockEntity(computerPos) instanceof qbotics.block.ComputerBlockEntity computer ? computer.owner() : null;
     }
