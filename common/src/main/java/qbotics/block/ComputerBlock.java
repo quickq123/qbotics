@@ -29,10 +29,13 @@ import qbotics.computer.ComputerManager;
 public class ComputerBlock extends BaseEntityBlock {
     public static final MapCodec<ComputerBlock> CODEC = simpleCodec(ComputerBlock::new);
     public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
+    /** False while bricked (design doc §5.3): its screen is dark. */
+    public static final net.minecraft.world.level.block.state.properties.BooleanProperty ACTIVE =
+            net.minecraft.world.level.block.state.properties.BooleanProperty.create("active");
 
     public ComputerBlock(BlockBehaviour.Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(ACTIVE, true));
     }
 
     @Override
@@ -59,8 +62,9 @@ public class ComputerBlock extends BaseEntityBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ComputerBlockEntity computer) {
+        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel && level.getBlockEntity(pos) instanceof ComputerBlockEntity computer) {
             computer.onPlaced(placer instanceof Player player ? player.getUUID() : null);
+            qbotics.limits.Limits.placed(serverLevel, computer, placer instanceof Player player ? player : null);
         }
     }
 
@@ -70,6 +74,11 @@ public class ComputerBlock extends BaseEntityBlock {
             return InteractionResult.PASS; // the probe reads this device instead
         }
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof ComputerBlockEntity computer) {
+            if (computer.bricked()) {
+                // Inert: right-clicking asks for it to come back on (design doc §5.3).
+                serverPlayer.sendOverlayMessage(qbotics.limits.Limits.tryActivate(serverPlayer.level(), computer, serverPlayer));
+                return InteractionResult.SUCCESS;
+            }
             ComputerManager.get(serverPlayer.level().getServer()).openTerminal(serverPlayer, computer);
         }
         return InteractionResult.SUCCESS;
@@ -87,6 +96,6 @@ public class ComputerBlock extends BaseEntityBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, ACTIVE);
     }
 }

@@ -83,6 +83,7 @@ public final class QboticsGameTests {
             Map.entry("store_screens", QboticsGameTests::storeScreens),
             Map.entry("watching", QboticsGameTests::watching),
             Map.entry("events_module", QboticsGameTests::eventsModule),
+            Map.entry("limits_and_boot", QboticsGameTests::limitsAndBoot),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1588,6 +1589,73 @@ public final class QboticsGameTests {
         computer.submitLine("run /ev.py");
         helper.succeedWhen(() -> assertScreen(helper, computer, "pin sensor rising 15\n", "pin sensor falling 0\n",
                 "chest minecraft:coal 0 3\n", "message 42\n", "ran 7 steps\n", "There is nothing to wait for"));
+    }
+
+    /**
+     * Limits, the bricked state and the boot queue (design doc §5, §6.3). The player already
+     * has ten active computers (placeholders in the registry), the default limit.
+     */
+    private static void limitsAndBoot(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        UUID me = player.getUUID();
+        qbotics.limits.DeviceRegistry registry = qbotics.limits.DeviceRegistry.get(level.getServer());
+        List<UUID> placeholders = new java.util.ArrayList<>();
+        for (int i = 0; i < qbotics.QboticsConfig.computersPerPlayer; i++) {
+            UUID id = UUID.randomUUID();
+            placeholders.add(id);
+            registry.put(new qbotics.limits.DeviceRegistry.Entry(id, me, qbotics.limits.Limits.COMPUTER, "minecraft:overworld", BlockPos.ZERO));
+        }
+        ComputerManager manager = ComputerManager.get(level.getServer());
+
+        // An eleventh computer is placed bricked: dark, and not on its network.
+        BlockPos atA = new BlockPos(0, 1, 0);
+        helper.setBlock(atA, QboticsContent.COMPUTER_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        ComputerBlockEntity a = helper.getBlockEntity(atA, ComputerBlockEntity.class);
+        a.onPlaced(me);
+        qbotics.limits.Limits.placed(level, a, player);
+        helper.assertTrue(a.bricked() && !helper.getBlockState(atA).getValue(qbotics.block.ComputerBlock.ACTIVE),
+                "the eleventh computer should be bricked, with its screen dark");
+        helper.assertTrue(networkAt(helper, new BlockPos(1, 1, 0)).devices().stream().noneMatch(d -> d == a),
+                "a bricked computer should not be on its network");
+        String refused = qbotics.limits.Limits.tryActivate(level, a, player).getString();
+        helper.assertTrue(refused.contains("You already have 10 of 10 active computers"), "right-clicking it should say why: " + refused);
+
+        // A computer a machine placed is bricked too, and has no owner.
+        BlockPos atB = new BlockPos(2, 1, 0);
+        helper.setBlock(atB, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity b = helper.getBlockEntity(atB, ComputerBlockEntity.class);
+        b.onPlaced(null);
+        qbotics.limits.Limits.placed(level, b, null);
+        helper.assertTrue(b.bricked() && b.owner() == null, "a machine-placed computer should be bricked");
+
+        // A computer that was on comes back on through the boot queue.
+        BlockPos atC = new BlockPos(2, 1, 2);
+        helper.setBlock(atC, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity c = helper.getBlockEntity(atC, ComputerBlockEntity.class);
+        c.setOn(true);
+        manager.queueBoot(level, c);
+        helper.assertTrue(manager.computer(c.deviceId()) == null, "it waits in the queue for the next tick");
+
+        // One of the player's computers goes: the bricked one may now come on (after the once-a-second check).
+        registry.remove(placeholders.removeFirst());
+        helper.runAfterDelay(25, () -> {
+            String allowed = qbotics.limits.Limits.tryActivate(level, a, player).getString();
+            helper.assertTrue(allowed.equals("Switched on.") && !a.bricked() && registry.has(a.deviceId())
+                    && helper.getBlockState(atA).getValue(qbotics.block.ComputerBlock.ACTIVE), "the computer should switch on: " + allowed);
+            helper.assertTrue(networkAt(helper, new BlockPos(1, 1, 0)).devices().contains(a), "and be on its network again");
+            // Breaking it frees its place.
+            helper.setBlock(atA, Blocks.AIR);
+            helper.assertTrue(!registry.has(a.deviceId()), "a broken computer should no longer count");
+            ServerComputer booted = manager.computer(c.deviceId());
+            helper.assertTrue(booted != null, "the queued computer should have come on");
+            booted.submitLine("shutdown");
+            helper.succeedWhen(() -> {
+                helper.assertTrue(manager.computer(c.deviceId()) == null && !c.wasOn(), "shutdown should switch it off and keep it off");
+                placeholders.forEach(registry::remove);
+            });
+        });
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */

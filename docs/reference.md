@@ -48,6 +48,7 @@ terminal below, and an optional Python scratchpad on the right.
 | `devices <external IP>` | Lists the devices behind another antenna |
 | `ssh <name or address>` | Uses another computer's terminal from this one (section 7.4). `exit` returns |
 | `settings` | Opens this computer's settings page (section 1.5) |
+| `shutdown` | Switches this computer off; it stays off, even across restarts, until opened again (section 9b) |
 | `clear` | Clears the terminal |
 
 Names with spaces go in double quotes: `run "my program.py"`.
@@ -943,6 +944,46 @@ tags.
 | A device name | 24 characters |
 | A computer's drive | 1 MB |
 | A file opened in the editor | 30 KB |
+
+---
+
+## 9b. Limits, inactive devices and starting up
+
+**Limits.** Each player may have a set number of active computers and antennas: 10 of each
+unless the server says otherwise. Server operators have no limit. `/qbotics limits` shows yours
+and where each one is; operators can use `/qbotics limits all` for everyone's.
+
+**Inactive (bricked) devices.** A computer or antenna placed beyond its owner's limit is placed
+**inactive**: it does nothing and costs the server nothing. An inactive computer's screen is dark,
+it runs no program, and it isn't on its cable network; an inactive antenna connects to nothing.
+Its files are kept. You are told when you place one.
+
+- To switch one on, get under your limit (break or pick up another), then **right-click it**.
+- Or break it and place it again while under your limit.
+- A computer or antenna placed by a **machine** (a dispenser, a Placer) is always inactive, and
+  has no owner. The first player to right-click it while under their limit switches it on, and
+  it becomes theirs.
+- If the server lowers a limit, devices already on stay on. You can't switch on more until
+  you're below the new limit.
+
+**Starting up.** A computer that was on comes back on by itself when its area of the world
+loads, for example after the server restarts: its `startup.py` runs as usual. Computers come
+back a few at a time (4 a tick by default): the Overworld first, players taking turns, those
+nearest the world's centre first.
+
+**Switching off.** Type `shutdown` in a computer's terminal to switch it off. It stays off,
+even across restarts, until someone opens it again.
+
+**Server settings** (`config/qbotics-server.toml` in the game or server folder):
+
+| Setting | Default | What it does |
+|---|---|---|
+| `limits.computers_per_player` | 10 | Active computers per player; -1 for no limit |
+| `limits.antennas_per_player` | 10 | Active antennas per player; -1 for no limit |
+| `limits.operators_exempt` | true | Operators have no limit |
+| `boot.per_tick` | 4 | Computers started per tick as they come back on |
+| `scheduler.worker_cores` | 2 | How many computers run Python at the same moment (read at server start) |
+| `scheduler.reactivation_checks_per_s` | 1 | How often one player may try to switch on an inactive device |
 
 ---
 

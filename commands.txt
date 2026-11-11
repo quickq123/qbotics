@@ -25,6 +25,11 @@ ADDING MORE MODS TO THE PLAY TEST
     To take mods from another pack, add this to the command:
         -Pqbotics.playtestModsFrom="C:\path\to\that\pack\mods"
 
+IN THE GAME
+    /qbotics limits          your active computers and antennas against your limits
+    /qbotics limits all      everyone's (operators)
+    /qbotics stage           builds the test stage where you stand (operators)
+
 OTHER COMMANDS
     gradlew :neoforge:runGameTestServer     runs the automatic in-game tests
     gradlew build                           builds the mod (the jar is in neoforge\build\libs)

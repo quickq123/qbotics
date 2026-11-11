@@ -45,6 +45,9 @@ public final class ServerComputer {
 
         /** Another computer that is switched on, or null. Used by ssh. */
         ServerComputer running(UUID deviceId);
+
+        /** This computer's program typed shutdown: switch it off until someone opens it again. */
+        void shutDownRequested(UUID deviceId);
     }
 
     private sealed interface Job {
@@ -642,10 +645,11 @@ public final class ServerComputer {
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
             "         ssh <address>      use another computer's terminal from here; exit returns",
             "Other:   clear   help       Ctrl+C stops a running program",
+            "         shutdown           switch this computer off; it stays off until opened again",
             "");
 
     /** The shell's commands, longest first, for spotting one typed without its space. */
-    private static final List<String> COMMANDS = List.of("settings", "devices", "ifconfig", "python", "mkdir", "clear", "help",
+    private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "ifconfig", "python", "mkdir", "clear", "help",
             "edit", "pwd", "cat", "run", "ssh", "ls", "cd", "rm", "mv", "cp", "py");
 
     /**
@@ -701,6 +705,10 @@ public final class ServerComputer {
                         drive.call(HostFileSystem.READ, path(args, 0, name), new byte[0]));
                 case "edit" -> listener.openInEditor(deviceId, path(args, 0, name));
                 case "settings" -> listener.openInEditor(deviceId, ComputerSettings.PATH);
+                case "shutdown" -> {
+                    terminal.write("Shutting down. Open this computer again to switch it on.\n");
+                    listener.shutDownRequested(deviceId);
+                }
                 case "run" -> runFile(computer, path(args, 0, name));
                 case "ssh" -> {
                     if (args.isEmpty()) {

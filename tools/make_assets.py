@@ -116,6 +116,19 @@ write_png("assets/qbotics/textures/block/computer_side.png", side())
 write_png("assets/qbotics/textures/block/computer_top.png", top())
 write_png("assets/qbotics/textures/block/computer_front.png", front())
 
+
+def front_off():
+    """A bricked computer (design doc §5.3): a dark, empty screen and a red power light."""
+    px = front()
+    for y in range(3, 10):
+        for x in range(3, 13):
+            px[y][x] = SCREEN
+    px[13][3] = RED
+    return px
+
+
+write_png("assets/qbotics/textures/block/computer_front_off.png", front_off())
+
 # ---- models and block state ---------------------------------------------------
 
 write_json("assets/qbotics/models/block/computer.json", {
@@ -126,14 +139,23 @@ write_json("assets/qbotics/models/block/computer.json", {
         "top": "qbotics:block/computer_top",
     },
 })
-write_json("assets/qbotics/blockstates/computer.json", {
-    "variants": {
-        "facing=north": {"model": "qbotics:block/computer"},
-        "facing=east": {"model": "qbotics:block/computer", "y": 90},
-        "facing=south": {"model": "qbotics:block/computer", "y": 180},
-        "facing=west": {"model": "qbotics:block/computer", "y": 270},
+write_json("assets/qbotics/models/block/computer_off.json", {
+    "parent": "minecraft:block/orientable",
+    "textures": {
+        "front": "qbotics:block/computer_front_off",
+        "side": "qbotics:block/computer_side",
+        "top": "qbotics:block/computer_top",
     },
 })
+COMPUTER_TURNS = {"north": 0, "east": 90, "south": 180, "west": 270}
+computer_variants = {}
+for facing, turn in COMPUTER_TURNS.items():
+    for active, model in (("true", "qbotics:block/computer"), ("false", "qbotics:block/computer_off")):
+        variant = {"model": model}
+        if turn:
+            variant["y"] = turn
+        computer_variants["active=%s,facing=%s" % (active, facing)] = variant
+write_json("assets/qbotics/blockstates/computer.json", {"variants": computer_variants})
 write_json("assets/qbotics/items/computer.json", {
     "model": {"type": "minecraft:model", "model": "qbotics:block/computer"},
 })

@@ -124,7 +124,9 @@ public final class CableNetwork {
 
     private static NetworkDevice deviceAt(ServerLevel level, BlockPos pos) {
         BlockEntity entity = level.getBlockEntity(pos);
-        return entity instanceof NetworkDevice device && !entity.isRemoved() ? device : null;
+        // A bricked device (design doc §5.3) is inert: it isn't on the network at all.
+        return entity instanceof NetworkDevice device && !entity.isRemoved()
+                && !(entity instanceof qbotics.limits.Limited limited && limited.bricked()) ? device : null;
     }
 
     /**

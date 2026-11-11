@@ -1,18 +1,33 @@
 {
   "variants": {
-    "facing=north": {
+    "active=true,facing=north": {
       "model": "qbotics:block/computer"
     },
-    "facing=east": {
+    "active=false,facing=north": {
+      "model": "qbotics:block/computer_off"
+    },
+    "active=true,facing=east": {
       "model": "qbotics:block/computer",
       "y": 90
     },
-    "facing=south": {
+    "active=false,facing=east": {
+      "model": "qbotics:block/computer_off",
+      "y": 90
+    },
+    "active=true,facing=south": {
       "model": "qbotics:block/computer",
       "y": 180
     },
-    "facing=west": {
+    "active=false,facing=south": {
+      "model": "qbotics:block/computer_off",
+      "y": 180
+    },
+    "active=true,facing=west": {
       "model": "qbotics:block/computer",
+      "y": 270
+    },
+    "active=false,facing=west": {
+      "model": "qbotics:block/computer_off",
       "y": 270
     }
   }

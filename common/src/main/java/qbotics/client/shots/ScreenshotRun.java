@@ -419,6 +419,13 @@ public final class ScreenshotRun {
 
         // A small working network: computer and antenna, cables, a bus under a chest, an interface, an input at a barrel.
         level.setBlock(base.offset(6, 0, -4), QboticsContent.COMPUTER_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        // A bricked computer beside it (over its owner's limit): its screen is dark.
+        // Both face the camera, the working one at its side for comparison.
+        level.setBlock(base.offset(4, 0, -3), QboticsContent.COMPUTER_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+        level.setBlock(base.offset(5, 0, -3), QboticsContent.COMPUTER_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH)
+                .setValue(qbotics.block.ComputerBlock.ACTIVE, false), Block.UPDATE_ALL);
         level.setBlock(base.offset(6, 1, -4), QboticsContent.ANTENNA_SHORT_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(base.offset(7, 0, -4), cable.defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(base.offset(8, 1, -4), Blocks.CHEST.defaultBlockState(), Block.UPDATE_ALL);

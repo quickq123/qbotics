@@ -246,6 +246,7 @@ If placing a device would exceed the owner's limit for that type, the device bec
   - break the block and have an owner who is under the limit place it again, **or**
   - the owner right-clicks it while under the limit.
   - The right-click check runs **only on interaction**, and is rate-limited per player (e.g. one check per second). Mass-placing bricked blocks therefore creates no server load.
+- *As built (2026-11-11):* a device placed by a machine has no owner; until the programmer block exists, the first player to right-click it while under their limit switches it on and becomes its owner.
 
 ### 5.4 Placed by machines or Qbots
 
@@ -1239,7 +1240,7 @@ Measured by the harness in `engine/bench` on the development PC (JDK 21.0.13, Ch
 
 ## 15. Configuration reference
 
-### 15.1 Server (`config/qbotics-server.toml`)
+### 15.1 Server (`config/qbotics-server.toml`; the `[limits]`, `[boot]` and `[scheduler]` settings below that exist so far are built, see `docs/reference.md` §9b)
 
 ```toml
 [limits]
@@ -1357,7 +1358,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 1 | Computer block, terminal, REPL, file system, editor, device UUIDs. **Built, not yet played:** everything is covered by in-game tests and offline renders of the editor screen (§12.2), but nobody has used it in the game client yet | Core loop |
 | 1b | Storage media (floppy) + disk drive; programmer block (loading programs from media) | Moving code between devices |
 | 2 | `machine.Pin` redstone, events, timers. **Events and timers built 2026-11-11** as the `events` module (timers, pin edges and block changes, container changes, messages; one `run()` loop; the game pushes pin events and messages into a per-computer queue). Redstone goes through the Logic Pin (§11.0.1) rather than the computer's own sides; `machine.Pin` on the computer itself is not built | Embedded circuits |
-| 3 | Ownership registry, limits, bricked state, boot queue | Performance controls (early on purpose) |
+| 3 | Ownership registry, limits, bricked state, boot queue. **Built 2026-11-11** for computers and antennas (`docs/reference.md` §9b): a server-wide registry saved with the world, per-type limits from `qbotics-server.toml` with operators exempt, bricked placement over the limit or by machines (dark screen, off the network, files kept), right-click reactivation (once a second per player), grandfathering, a boot queue for computers that were on (dimension, owner round-robin, distance, coordinates), a `shutdown` command, and `/qbotics limits`. Not yet: the programmer block (§5.4), ranks and team pooling (§5.6), boot priority | Performance controls (early on purpose) |
 | 4 | Text monitors, then control surfaces (§10.2) | Displays foundation; cheap control panels |
 | 5 | Qbots: movement, six-side sensing and actions, filtered inventory, tool use, self chunk loading, parking, programmer-block activation of inert Qbots (§5.4) | Qbot experience |
 | 6a | Antennas, brought forward: three range tiers, external addresses, ports, frequencies, messages between computers (§9.3). **Built 2026-11-10, not yet played** | Computers in separate bases can talk |

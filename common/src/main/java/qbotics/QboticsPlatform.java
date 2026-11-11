@@ -68,6 +68,9 @@ public interface QboticsPlatform {
     boolean useFluidContainer(net.minecraft.world.entity.player.Player player, net.minecraft.world.InteractionHand hand,
             net.minecraft.world.level.Level level, BlockPos pos, Direction side);
 
+    /** True if this "player" is a machine's stand-in (a fake player), not a person. */
+    boolean isFakePlayer(net.minecraft.world.entity.player.Player player);
+
     /** The fluid an item holds (a bucket of water: water), or null if it holds none or isn't a fluid container. */
     net.minecraft.world.level.material.@Nullable Fluid fluidIn(net.minecraft.world.item.ItemStack stack);
 

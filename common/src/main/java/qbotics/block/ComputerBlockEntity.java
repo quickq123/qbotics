@@ -23,7 +23,7 @@ import qbotics.network.NetworkDevice;
  * The placed computer's identity. The running program does not live here: it belongs to
  * the server-wide {@link ComputerManager}, keyed by device ID (design doc §6.2).
  */
-public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
+public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, qbotics.limits.Limited, qbotics.limits.Limits.Ownable {
     /** Identifies this placed machine. A new one is assigned on every placement (design doc §17.1). */
     private @Nullable UUID deviceId;
     /**
@@ -36,6 +36,13 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
     /** The name it goes by on its cable network, and the address that network gave it (design doc §9.3). */
     private String name = "";
     private int hostNumber;
+    /** Inert: over its owner's limit, or placed by a machine (design doc §5.3). */
+    private boolean bricked;
+    /**
+     * True once it has been switched on, until a program shuts it down: a computer that was
+     * on comes back on through the boot queue when its chunk loads (design doc §6.3).
+     */
+    private boolean on;
 
     /** Who may log in to this computer from another one with ssh. */
     public enum RemoteLogin {
@@ -115,7 +122,67 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
     public void onPlaced(@Nullable UUID placedBy) {
         deviceId = UUID.randomUUID();
         owner = placedBy;
+        on = false;
         setChanged();
+    }
+
+    // ---- limits and booting (design doc §5, §6.3) ---------------------------------------------
+
+    @Override
+    public String limitType() {
+        return qbotics.limits.Limits.COMPUTER;
+    }
+
+    @Override
+    public boolean bricked() {
+        return bricked;
+    }
+
+    @Override
+    public void setBricked(boolean value) {
+        if (bricked == value) {
+            return;
+        }
+        bricked = value;
+        setChanged();
+        CableNetwork.changed(); // a bricked computer is not on its network
+        if (level != null && getBlockState().hasProperty(ComputerBlock.ACTIVE)) {
+            level.setBlock(getBlockPos(), getBlockState().setValue(ComputerBlock.ACTIVE, !value), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        }
+        if (value && level instanceof ServerLevel serverLevel) {
+            ComputerManager.get(serverLevel.getServer()).remove(deviceId()); // its program stops
+        }
+    }
+
+    @Override
+    public void claim(UUID newOwner) {
+        owner = newOwner;
+        setChanged();
+    }
+
+    /** True if it was on when last seen, so it comes back on when loaded. */
+    public boolean wasOn() {
+        return on;
+    }
+
+    /** Remembers whether it is switched on: started, or shut down by its program. */
+    public void setOn(boolean value) {
+        if (on != value) {
+            on = value;
+            setChanged();
+        }
+    }
+
+    /** It has been loaded (or placed): it counts, and if it was on it comes back on. */
+    @Override
+    public void setLevel(net.minecraft.world.level.Level newLevel) {
+        super.setLevel(newLevel);
+        if (newLevel instanceof ServerLevel serverLevel) {
+            qbotics.limits.Limits.loaded(serverLevel, this);
+            if (on && !bricked) {
+                ComputerManager.get(serverLevel.getServer()).queueBoot(serverLevel, this);
+            }
+        }
     }
 
     @Override
@@ -150,6 +217,9 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
     public void setOwner(@Nullable UUID newOwner) {
         owner = newOwner;
         setChanged();
+        if (level instanceof ServerLevel serverLevel) {
+            qbotics.limits.Limits.ownerChanged(serverLevel, this);
+        }
     }
 
     @Override
@@ -193,6 +263,7 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
         // The block was broken or replaced (not merely unloaded): the computer is gone.
         if (deviceId != null && level instanceof ServerLevel serverLevel) {
             ComputerManager.get(serverLevel.getServer()).remove(deviceId);
+            qbotics.limits.Limits.removed(serverLevel, this);
         }
     }
 
@@ -207,6 +278,8 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
         output.putString("remote_login", remoteLogin.word);
         output.putString("password_hash", passwordHash);
         output.putString("password_salt", passwordSalt);
+        output.putBoolean("bricked", bricked);
+        output.putBoolean("on", on);
     }
 
     // The drive ID moves between the block and its item as a data component.
@@ -250,5 +323,7 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
         remoteLogin = saved == null ? RemoteLogin.OWNER : saved;
         passwordHash = input.getStringOr("password_hash", "");
         passwordSalt = input.getStringOr("password_salt", "");
+        bricked = input.getBooleanOr("bricked", false);
+        on = input.getBooleanOr("on", false);
     }
 }

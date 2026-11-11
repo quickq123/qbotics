@@ -15,7 +15,30 @@ import qbotics.network.RadioNetwork;
  * the server-wide radio network and is tuned to a frequency; only antennas on the same
  * frequency and in range can exchange messages.
  */
-public class AntennaBlockEntity extends DeviceBlockEntity {
+public class AntennaBlockEntity extends DeviceBlockEntity implements qbotics.limits.Limited, qbotics.limits.Limits.Ownable {
+    /** Inert: over its owner's limit, or placed by a machine (design doc §5.3). It routes nothing. */
+    private boolean bricked;
+
+    @Override
+    public String limitType() {
+        return qbotics.limits.Limits.ANTENNA;
+    }
+
+    @Override
+    public boolean bricked() {
+        return bricked;
+    }
+
+    @Override
+    public void setBricked(boolean value) {
+        if (bricked != value) {
+            bricked = value;
+            setChanged();
+            qbotics.network.CableNetwork.changed();
+        }
+    }
+
+
     /** Its number on the radio network; 0 until the server has given it one. */
     private int externalNumber;
     private String frequency = RadioNetwork.DEFAULT_FREQUENCY;
@@ -69,6 +92,7 @@ public class AntennaBlockEntity extends DeviceBlockEntity {
     public void setLevel(Level level) {
         super.setLevel(level);
         if (level instanceof ServerLevel serverLevel) {
+            qbotics.limits.Limits.loaded(serverLevel, this);
             int number = RadioNetwork.get(serverLevel.getServer()).register(this, externalNumber);
             if (number != externalNumber) {
                 externalNumber = number;
@@ -96,6 +120,9 @@ public class AntennaBlockEntity extends DeviceBlockEntity {
     @Override
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
+        if (level instanceof ServerLevel serverLevel) {
+            qbotics.limits.Limits.removed(serverLevel, this);
+        }
         // Broken, not merely unloaded: the address goes back to the pool.
         if (level instanceof ServerLevel serverLevel) {
             RadioNetwork.get(serverLevel.getServer()).release(this, externalNumber);
@@ -106,6 +133,7 @@ public class AntennaBlockEntity extends DeviceBlockEntity {
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
+        output.putBoolean("bricked", bricked);
         output.putInt("external", externalNumber);
         output.putString("frequency", frequency);
         output.putString("access", access.word);
@@ -114,6 +142,7 @@ public class AntennaBlockEntity extends DeviceBlockEntity {
     @Override
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
+        bricked = input.getBooleanOr("bricked", false);
         externalNumber = input.getIntOr("external", 0);
         String saved = Addresses.cleanName(input.getStringOr("frequency", ""));
         frequency = saved.isEmpty() ? RadioNetwork.DEFAULT_FREQUENCY : saved;

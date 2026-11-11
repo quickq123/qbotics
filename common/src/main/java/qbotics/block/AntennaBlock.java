@@ -71,8 +71,9 @@ public class AntennaBlock extends BaseEntityBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof AntennaBlockEntity antenna) {
+        if (level instanceof ServerLevel serverLevel && level.getBlockEntity(pos) instanceof AntennaBlockEntity antenna) {
             antenna.onPlaced(placer instanceof Player player ? player.getUUID() : null);
+            qbotics.limits.Limits.placed(serverLevel, antenna, placer instanceof Player player ? player : null);
         }
     }
 
@@ -84,6 +85,11 @@ public class AntennaBlock extends BaseEntityBlock {
         }
         if (player instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel
                 && level.getBlockEntity(pos) instanceof AntennaBlockEntity antenna) {
+            if (antenna.bricked()) {
+                // Inert: right-clicking asks for it to come back on (design doc §5.3).
+                serverPlayer.sendOverlayMessage(qbotics.limits.Limits.tryActivate(serverLevel, antenna, serverPlayer));
+                return InteractionResult.SUCCESS;
+            }
             CableNetwork.at(serverLevel, pos);
             String reach = tier == RadioNetwork.Tier.INFINITE ? "unlimited" : tier.radius + " blocks";
             serverPlayer.sendOverlayMessage(Component.translatable("message.qbotics.antenna",

@@ -91,6 +91,17 @@ WATCHING
      remote (python, then  import network  and  network.send("<main's address>", "hi") )
      appears at once. It stops by itself after 30 seconds.
 
+LIMITS AND STARTING UP
+ 39. Type  /qbotics limits : your active computers and antennas, and where each is.
+ 40. In main's terminal type  shutdown : it switches off. Open it again: it starts afresh.
+ 41. Leave main on (open it once), quit the game and start the play test again: main and
+     remote come back on by themselves (remote's echo is running again).
+ 42. Optional, to see a computer placed inactive: quit, then open
+     neoforge\runs\playtest\config\qbotics-server.toml and set
+     computers_per_player = 1 and operators_exempt = false (with cheats on you count as an
+     operator, who has no limit). Start again and place a computer: it is placed with a dark
+     screen, and right-clicking it says why. Set them back afterwards.
+
 REMOTE
- 39. In main:  ssh  followed by remote's address from README.txt. You are now typing on
+ 43. In main:  ssh  followed by remote's address from README.txt. You are now typing on
      remote; Ctrl+C stops its echo; exit comes back.

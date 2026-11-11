@@ -34,13 +34,12 @@ import qbotics.network.NetworkCalls;
 public final class ComputerManager {
     /** How far a player may be from a computer and still use its terminal. */
     private static final double MAX_USE_DISTANCE = 8.0;
-    /** Design doc §4: scheduler.worker_cores. Will come from config. */
-    private static final int WORKER_CORES = 2;
 
     private static final Map<MinecraftServer, ComputerManager> MANAGERS = new WeakHashMap<>();
     private static Engine engine;
 
-    private final Semaphore cpu = new Semaphore(WORKER_CORES, true);
+    /** How many computers may run Python at once (design doc §4: scheduler.worker_cores, read at server start). */
+    private final Semaphore cpu = new Semaphore(Math.max(1, qbotics.QboticsConfig.workerCores), true);
     /** Read by computers' own threads too (an ssh session looks the other computer up), so it must be safe for that. */
     private final Map<UUID, ServerComputer> computers = new java.util.concurrent.ConcurrentHashMap<>();
     private final Path drivesFolder;
@@ -105,7 +104,112 @@ public final class ComputerManager {
                     return answer;
                 });
         computers.put(block.deviceId(), computer);
+        places.put(block.deviceId(), new Viewing(block.deviceId(), dimension, pos));
+        booting.remove(block.deviceId());
+        block.setOn(true); // it comes back on by itself when its chunk next loads
         return computer;
+    }
+
+    // ---- the boot queue (design doc §6.3) ------------------------------------------------
+
+    /** Where each running computer is, so a program's shutdown can find its block. */
+    private final Map<UUID, Viewing> places = new HashMap<>();
+
+    /** A computer waiting to come back on: where it is, whose it is, and how far from the world's origin. */
+    private record Boot(UUID deviceId, ResourceKey<Level> dimension, BlockPos pos, String owner) {
+        long distance() {
+            return (long) pos.getX() * pos.getX() + (long) pos.getZ() * pos.getZ();
+        }
+    }
+
+    private final Map<UUID, Boot> booting = new java.util.LinkedHashMap<>();
+
+    /**
+     * A computer that was on has loaded: it comes back on through the queue, a few per tick,
+     * so a server start or a large area loading doesn't start hundreds at once.
+     */
+    public void queueBoot(net.minecraft.server.level.ServerLevel level, ComputerBlockEntity block) {
+        UUID id = block.deviceId();
+        if (!computers.containsKey(id)) {
+            booting.put(id, new Boot(id, level.dimension(), block.getBlockPos().immutable(), String.valueOf(block.owner())));
+        }
+    }
+
+    /** How many computers are waiting to come back on. */
+    public int bootQueueSize() {
+        return booting.size();
+    }
+
+    /**
+     * The order computers come back on: the Overworld first, then the other dimensions;
+     * within one, owners take turns; each owner's computers nearest the world's origin first,
+     * then by position. The same every time, and fair between players.
+     */
+    private java.util.List<Boot> bootOrder() {
+        Map<String, Map<String, java.util.List<Boot>>> byPlace = new java.util.TreeMap<>((a, b) -> {
+            boolean aHome = a.equals(Level.OVERWORLD.identifier().toString());
+            boolean bHome = b.equals(Level.OVERWORLD.identifier().toString());
+            return aHome != bHome ? (aHome ? -1 : 1) : a.compareTo(b);
+        });
+        for (Boot boot : booting.values()) {
+            byPlace.computeIfAbsent(boot.dimension().identifier().toString(), d -> new java.util.TreeMap<>())
+                    .computeIfAbsent(boot.owner(), o -> new java.util.ArrayList<>()).add(boot);
+        }
+        java.util.List<Boot> order = new java.util.ArrayList<>();
+        for (Map<String, java.util.List<Boot>> owners : byPlace.values()) {
+            java.util.List<java.util.List<Boot>> lines = new java.util.ArrayList<>();
+            for (java.util.List<Boot> mine : owners.values()) {
+                mine.sort(java.util.Comparator.comparingLong(Boot::distance).thenComparing(Boot::pos));
+                lines.add(mine);
+            }
+            for (int turn = 0; ; turn++) {
+                boolean any = false;
+                for (java.util.List<Boot> mine : lines) {
+                    if (turn < mine.size()) {
+                        order.add(mine.get(turn));
+                        any = true;
+                    }
+                }
+                if (!any) {
+                    break;
+                }
+            }
+        }
+        return order;
+    }
+
+    /** Once a tick: starts the next few computers in the boot queue. */
+    private void bootSome(MinecraftServer server) {
+        if (booting.isEmpty()) {
+            return;
+        }
+        int started = 0;
+        for (Boot boot : bootOrder()) {
+            if (started >= Math.max(1, qbotics.QboticsConfig.bootPerTick)) {
+                break;
+            }
+            booting.remove(boot.deviceId());
+            net.minecraft.server.level.ServerLevel level = server.getLevel(boot.dimension());
+            if (level == null || !level.isLoaded(boot.pos())
+                    || !(level.getBlockEntity(boot.pos()) instanceof ComputerBlockEntity block)
+                    || !block.deviceId().equals(boot.deviceId()) || block.bricked() || !block.wasOn()) {
+                continue; // gone, unloaded again, or switched off since
+            }
+            getOrStart(block);
+            started++;
+        }
+    }
+
+    /** A program asked its computer to shut down: it stops, and stays off until someone opens it. */
+    private void shutDownComputer(MinecraftServer server, UUID deviceId) {
+        Viewing place = places.remove(deviceId);
+        remove(deviceId);
+        if (place != null) {
+            net.minecraft.server.level.ServerLevel level = server.getLevel(place.dimension());
+            if (level != null && level.isLoaded(place.pos()) && level.getBlockEntity(place.pos()) instanceof ComputerBlockEntity block) {
+                block.setOn(false);
+            }
+        }
     }
 
     /**
@@ -126,6 +230,11 @@ public final class ComputerManager {
         @Override
         public ServerComputer running(UUID deviceId) {
             return computers.get(deviceId);
+        }
+
+        @Override
+        public void shutDownRequested(UUID deviceId) {
+            outbox.add(server -> shutDownComputer(server, deviceId));
         }
 
         @Override
@@ -294,6 +403,7 @@ public final class ComputerManager {
         for (Consumer<MinecraftServer> message; (message = outbox.poll()) != null; ) {
             message.accept(server);
         }
+        bootSome(server);
         qbotics.network.ScreenSessions.tick(server, session -> NetworkCalls.interfaces(
                 qbotics.network.CableNetwork.at(qbotics.network.ScreenSessions.levelOf(session), qbotics.network.ScreenSessions.busPosOf(session))));
         if (viewers.isEmpty()) {
@@ -358,6 +468,7 @@ public final class ComputerManager {
 
     /** The computer block was broken. */
     public void remove(UUID deviceId) {
+        booting.remove(deviceId);
         ServerComputer computer = computers.remove(deviceId);
         if (computer != null) {
             computer.shutDown();

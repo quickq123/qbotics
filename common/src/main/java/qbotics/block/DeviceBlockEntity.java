@@ -50,6 +50,12 @@ public abstract class DeviceBlockEntity extends BlockEntity implements NetworkDe
         return deviceId;
     }
 
+    /** Gives the device an owner it lacked (a player claiming one a machine placed). */
+    public void claim(UUID newOwner) {
+        owner = newOwner;
+        setChanged();
+    }
+
     public @Nullable UUID owner() {
         return owner;
     }

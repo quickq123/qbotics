@@ -225,6 +225,10 @@ public final class QboticsNeoForge {
                     .persistent(com.mojang.serialization.Codec.INT).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT));
 
     public QboticsNeoForge(IEventBus modBus, ModContainer container) {
+        // The server settings (limits, boot queue, scheduler): config/qbotics-server.toml.
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.SERVER, QboticsServerConfig.SPEC);
+        modBus.addListener((net.neoforged.fml.event.config.ModConfigEvent.Loading event) -> QboticsServerConfig.apply(event));
+        modBus.addListener((net.neoforged.fml.event.config.ModConfigEvent.Reloading event) -> QboticsServerConfig.apply(event));
         QboticsContent.COMPUTER_BLOCK = COMPUTER;
         QboticsContent.COMPUTER_BLOCK_ENTITY = COMPUTER_BLOCK_ENTITY;
         QboticsContent.CABLE_BLOCK = CABLE;
@@ -285,8 +289,26 @@ public final class QboticsNeoForge {
         // /qbotics stage: builds the test stage beside the player (see TestStage). For players who may use commands.
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.RegisterCommandsEvent event) -> event.getDispatcher().register(
                 net.minecraft.commands.Commands.literal("qbotics")
-                        .requires(net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS))
-                        .then(net.minecraft.commands.Commands.literal("stage").executes(context -> {
+                        // /qbotics limits: a player's active devices against their limits; "all" (operators) lists everyone's.
+                        .then(net.minecraft.commands.Commands.literal("limits")
+                                .executes(context -> {
+                                    ServerPlayer player = context.getSource().getPlayerOrException();
+                                    for (String line : qbotics.limits.Limits.report(context.getSource().getServer(), player.getUUID())) {
+                                        context.getSource().sendSuccess(() -> Component.literal(line), false);
+                                    }
+                                    return 1;
+                                })
+                                .then(net.minecraft.commands.Commands.literal("all")
+                                        .requires(net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS))
+                                        .executes(context -> {
+                                            for (String line : qbotics.limits.Limits.report(context.getSource().getServer(), null)) {
+                                                context.getSource().sendSuccess(() -> Component.literal(line), false);
+                                            }
+                                            return 1;
+                                        })))
+                        .then(net.minecraft.commands.Commands.literal("stage")
+                                .requires(net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS))
+                                .executes(context -> {
                             ServerPlayer player = context.getSource().getPlayerOrException();
                             // The stage goes to the south-east, leaving the player standing just outside its corner.
                             String built = qbotics.stage.TestStage.build(player.level(), player.blockPosition().offset(2, 0, 2), player.getUUID());
@@ -382,6 +404,11 @@ public final class QboticsNeoForge {
                     }
                     return moved;
                 }
+            }
+
+            @Override
+            public boolean isFakePlayer(net.minecraft.world.entity.player.Player player) {
+                return player.isFakePlayer();
             }
 
             @Override

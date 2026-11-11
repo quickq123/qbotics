@@ -218,6 +218,10 @@ public final class RadioNetwork {
 
     /** Why two antennas can't talk, or null if they can (design doc §9.1). */
     public static @Nullable String linkProblem(AntennaBlockEntity from, AntennaBlockEntity to) {
+        if (from.bricked() || to.bricked()) {
+            // An inert antenna (design doc §5.3) sends and receives nothing.
+            return (from.bricked() ? "this network's" : "that") + " antenna is inactive: its owner has more antennas than they may have";
+        }
         if (from == to) {
             return null;
         }
