@@ -693,7 +693,8 @@ Blocks joined by the mod's own **cables** form a **network**. A computer on the 
 > - The filtered storage block is now the **Interface** (`net.interface()`), leaving room for fluid and energy interfaces later.
 > - **Input** is a new directional device: it takes items out of the container it points at, into Interfaces. Later it will be able to pull on its own.
 > - **Input, Output and Bus are plates on cables**, not blocks: they share the cable's block, in the way players know from Applied Energistics and Refined Storage. Click the container with the plate in hand; it goes on the cable in front of that face (a cable from the inventory is placed if there is none). Sneak and right-click with an empty hand takes it off.
-> - Limit for now: **one plate per cable block**. Several plates on one cable need a model built in code; a second plate goes on the next cable along.
+> - A cable carries **up to six plates, one per side**, each a device of its own with its own address. This is for tight spaces: one cable between several machines serves them all. Click a plate (not the cable) to read it or take it off.
+> - How it is built: each side of a cable is a block-state value (none, cable, input, output, bus), which gives the cable 15,625 block states and about two seconds of extra start-up. It needs no model code. If the state count becomes a problem, the alternative is a model built in code.
 > - Text below that says "Input block" for the filtered storage means the Interface.
 >
 > **Changed from the first design: there is no controller block.** The computer plugs straight into the cable. Reasons: one less block to craft and explain before a learner's first program moves an item; the network needs no stored state of its own (it is worked out from the cables, and each block remembers its own address); and limits can count the item blocks themselves. A controller can come back later if something needs a single owner per network, such as wireless bridging (§9.2), which still assumes one.
@@ -1263,7 +1264,8 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Computers on one cable network can message each other without an antenna; an antenna is needed only to reach another network (§9.3) | Built; to confirm |
 | 2026-11-10 | The filtered storage block is the Interface; Input is a directional device that extracts from what it points at | Decided |
 | 2026-11-10 | Input, Output and Bus are plates sharing a cable's block, in the style of Applied Energistics | Decided |
-| 2026-11-10 | One plate per cable block for now (kept as block states so no model code is needed) | Built; to confirm |
+| 2026-11-10 | A cable carries up to six plates, one per side (for tight spaces) | Decided |
+| 2026-11-10 | Plates are block-state values on the cable (15,625 states) instead of a model built in code | Built; to confirm |
 
 ---
 

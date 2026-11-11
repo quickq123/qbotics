@@ -82,17 +82,17 @@ public final class CableNetwork {
             if (device != null) {
                 found.add(device);
             }
+            // A cable's plates are devices too, sharing the cable's position.
+            found.addAll(CableBlock.ports(level, pos));
             for (Direction side : Direction.values()) {
-                if (device != null && !device.connectsOn(side)) {
+                if (!joinsOn(level, pos, side)) {
                     continue;
                 }
                 BlockPos next = pos.relative(side);
                 if (seen.contains(next) || !level.isLoaded(next)) {
                     continue;
                 }
-                NetworkDevice neighbour = deviceAt(level, next);
-                boolean joins = neighbour != null ? neighbour.connectsOn(side.getOpposite()) : isCable(level, next);
-                if (joins) {
+                if (joinsOn(level, next, side.getOpposite())) {
                     if (seen.size() >= MAX_BLOCKS) {
                         tooLarge = true;
                         queue.clear();
@@ -106,6 +106,16 @@ public final class CableNetwork {
         tooLarge |= !giveAddresses(found);
         found.sort(Comparator.comparingInt(NetworkDevice::hostNumber));
         return new CableNetwork(List.copyOf(found), tooLarge, now);
+    }
+
+    /** True if the cable or device at a position joins the network through this side of it. */
+    private static boolean joinsOn(ServerLevel level, BlockPos pos, Direction side) {
+        net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+        if (state.getBlock() instanceof CableBlock) {
+            return CableBlock.plateKind(state, side) == null; // a plate's face is not a connection
+        }
+        NetworkDevice device = deviceAt(level, pos);
+        return device != null && device.connectsOn(side);
     }
 
     private static boolean isCable(ServerLevel level, BlockPos pos) {

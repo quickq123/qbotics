@@ -6,7 +6,7 @@
   "item.qbotics.input": "Input",
   "item.qbotics.output": "Output",
   "item.qbotics.bus": "Bus",
-  "message.qbotics.plate_taken": "That cable already carries a plate.",
+  "message.qbotics.plate_taken": "That side of the cable already carries a plate.",
   "message.qbotics.plate_needs_cable": "A plate goes on a cable: you need a cable in your inventory.",
   "block.qbotics.antenna_short": "Short-Range Antenna",
   "block.qbotics.antenna_long": "Long-Range Antenna",

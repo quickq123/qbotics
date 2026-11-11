@@ -140,7 +140,7 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.input": "Input",
     "item.qbotics.output": "Output",
     "item.qbotics.bus": "Bus",
-    "message.qbotics.plate_taken": "That cable already carries a plate.",
+    "message.qbotics.plate_taken": "That side of the cable already carries a plate.",
     "message.qbotics.plate_needs_cable": "A plate goes on a cable: you need a cable in your inventory.",
     "block.qbotics.antenna_short": "Short-Range Antenna",
     "block.qbotics.antenna_long": "Long-Range Antenna",
@@ -218,7 +218,7 @@ write_json("assets/qbotics/items/cable.json", {
 def arm(side, **rotation):
     apply = {"model": "qbotics:block/cable_side"}
     apply.update(rotation)
-    return {"when": {side: "true"}, "apply": apply}
+    return {"when": {side: "cable"}, "apply": apply}
 
 
 # (The cable's block state is written further down, with the plates it can carry.)
@@ -406,7 +406,7 @@ for plate, boxes in PLATE_BOXES.items():
         "model": {"type": "minecraft:model", "model": "qbotics:block/plate_%s" % plate},
     })
     for facing, turn in PLATE_TURNS.items():
-        cable_parts.append({"when": {"plate": plate, "facing": facing},
+        cable_parts.append({"when": {facing: plate},
                             "apply": dict({"model": "qbotics:block/plate_%s" % plate}, **turn)})
 # Written here, after the plates, because a cable's look includes the plate it carries.
 write_json("assets/qbotics/blockstates/cable.json", {"multipart": cable_parts})

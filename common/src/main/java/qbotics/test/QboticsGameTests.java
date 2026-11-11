@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import qbotics.QboticsContent;
 import qbotics.block.AntennaBlockEntity;
 import qbotics.block.CableBlock;
+import qbotics.block.CablePort;
 import qbotics.block.ComputerBlockEntity;
 import qbotics.block.InterfaceBlockEntity;
 import qbotics.network.NetworkDevice.Kind;
@@ -155,9 +156,9 @@ public final class QboticsGameTests {
         helper.setBlock(middle.north(), Blocks.STONE);
         // Blocks set by a test don't run placement logic, so ask for the connected state.
         BlockState state = CableBlock.withConnections(helper.getLevel(), helper.absolutePos(middle), cable.defaultBlockState());
-        helper.assertTrue(state.getValue(CableBlock.EAST) && state.getValue(CableBlock.UP)
-                && !state.getValue(CableBlock.NORTH) && !state.getValue(CableBlock.WEST)
-                && !state.getValue(CableBlock.SOUTH) && !state.getValue(CableBlock.DOWN),
+        helper.assertTrue(arm(state, Direction.EAST) && arm(state, Direction.UP)
+                && !arm(state, Direction.NORTH) && !arm(state, Direction.WEST)
+                && !arm(state, Direction.SOUTH) && !arm(state, Direction.DOWN),
                 "cable should connect east (cable) and up (computer) only, but was " + state);
         helper.succeed();
     }
@@ -291,6 +292,11 @@ public final class QboticsGameTests {
         return ComputerManager.get(helper.getLevel().getServer()).getOrStart(helper.getBlockEntity(pos, ComputerBlockEntity.class));
     }
 
+    /** True if a cable reaches out to its neighbour on this side. */
+    private static boolean arm(BlockState cable, Direction side) {
+        return CableBlock.side(cable, side) == CableBlock.Side.CABLE;
+    }
+
     private static BlockState port(Kind kind, Direction pointing) {
         return QboticsContent.CABLE_BLOCK.get().withPlate(kind, pointing);
     }
@@ -329,11 +335,11 @@ public final class QboticsGameTests {
                 "an input on its own is a network of one, but was " + ips(networkAt(helper, farInput)));
 
         // The bus doesn't join the network through the side that points at its target.
-        PortBlockEntity bus = helper.getBlockEntity(new BlockPos(2, 1, 0), PortBlockEntity.class);
-        helper.assertTrue(!bus.connectsOn(Direction.SOUTH) && bus.connectsOn(Direction.WEST), "a bus connects on every side but its front");
+        CablePort bus = helper.getBlockEntity(new BlockPos(2, 1, 0), PortBlockEntity.class).port(Direction.SOUTH);
+        helper.assertTrue(bus != null && bus.kind() == Kind.BUS, "the cable should carry a bus on its south side");
         BlockState cable = CableBlock.withConnections(helper.getLevel(), helper.absolutePos(new BlockPos(2, 1, 1)),
                 QboticsContent.CABLE_BLOCK.get().defaultBlockState());
-        helper.assertTrue(!cable.getValue(CableBlock.NORTH), "a cable in front of a bus should not reach out to it");
+        helper.assertTrue(!arm(cable, Direction.NORTH), "a cable in front of a bus should not reach out to it");
 
         // Join the far input on: it held .2 as well, so one of the two is given a new address.
         Map<String, String> before = new java.util.HashMap<>();
@@ -508,28 +514,41 @@ public final class QboticsGameTests {
         };
         click.apply(chestPos, Direction.NORTH);
         BlockState withPlate = helper.getBlockState(cablePos);
-        helper.assertTrue(withPlate.getValue(CableBlock.PLATE) == CableBlock.Plate.INPUT && CableBlock.plateSide(withPlate) == Direction.SOUTH
-                && !withPlate.getValue(CableBlock.SOUTH) && withPlate.getValue(CableBlock.WEST) && player.getItemInHand(hand).getCount() == 1,
+        helper.assertTrue(CableBlock.plateKind(withPlate, Direction.SOUTH) == Kind.INPUT && arm(withPlate, Direction.WEST)
+                && !arm(withPlate, Direction.SOUTH) && player.getItemInHand(hand).getCount() == 1,
                 "the cable should carry an input pointing south at the chest, and one item be used: " + withPlate);
-        PortBlockEntity plate = helper.getBlockEntity(cablePos, PortBlockEntity.class);
+        PortBlockEntity host = helper.getBlockEntity(cablePos, PortBlockEntity.class);
+        CablePort plate = host.port(Direction.SOUTH);
         helper.assertTrue(plate.kind() == Kind.INPUT && plate.targetPos().equals(helper.absolutePos(chestPos)) && plate.deviceName().equals("ore_in"),
                 "the plate should be an input named ore_in pointing at the chest, but is " + plate.kind() + " " + plate.deviceName());
         click.apply(chestPos, Direction.NORTH);
-        helper.assertTrue(player.getItemInHand(hand).getCount() == 1, "a cable carries only one plate");
+        helper.assertTrue(player.getItemInHand(hand).getCount() == 1, "a side carries only one plate");
+
+        // A second plate goes on another side of the same cable: here, pointing up at a barrel.
+        helper.setBlock(cablePos.above(), Blocks.BARREL);
+        click.apply(cablePos.above(), Direction.DOWN);
+        BlockState withTwo = helper.getBlockState(cablePos);
+        CablePort second = host.port(Direction.UP);
+        helper.assertTrue(CableBlock.plateKind(withTwo, Direction.UP) == Kind.INPUT && CableBlock.plateKind(withTwo, Direction.SOUTH) == Kind.INPUT
+                && second != null && host.ports().size() == 2 && !second.mac().equals(plate.mac())
+                && second.targetPos().equals(helper.absolutePos(cablePos.above())) && player.getItemInHand(hand).isEmpty(),
+                "the cable should carry two inputs, each its own device: " + withTwo);
 
         // With no cable in front of the clicked face, one is taken from the player's inventory.
+        player.setItemInHand(hand, new ItemStack(QboticsContent.PLATE_ITEMS.get(Kind.BUS).get()));
         click.apply(chestPos, Direction.UP);
         helper.assertTrue(helper.getBlockState(chestPos.above()).isAir() && player.getItemInHand(hand).getCount() == 1, "no cable, no plate");
         player.getInventory().add(new ItemStack(QboticsContent.CABLE_BLOCK.get(), 3));
         click.apply(chestPos, Direction.UP);
-        helper.assertTrue(CableBlock.plateSide(helper.getBlockState(chestPos.above())) == Direction.DOWN && player.getItemInHand(hand).isEmpty()
+        helper.assertTrue(CableBlock.plateKind(helper.getBlockState(chestPos.above()), Direction.DOWN) == Kind.BUS && player.getItemInHand(hand).isEmpty()
                 && player.getInventory().countItem(QboticsContent.CABLE_BLOCK.get().asItem()) == 2,
-                "the plate should have been placed with one of the player's cables");
+                "the bus should have been placed with one of the player's cables");
 
-        // It is a device on the network: the computer, the interface and the input.
+        // The plates are devices on the network: the computer, the interface and the two inputs.
         BlockPos computerAt = helper.absolutePos(computerPos);
         CableNetwork network = networkAt(helper, computerPos);
-        helper.assertTrue(network.devices().size() == 3 && network.devices().contains(plate), "three devices, but had " + ips(network));
+        helper.assertTrue(network.devices().size() == 4 && network.devices().contains(plate) && network.devices().contains(second)
+                && ips(network).stream().distinct().count() == 4, "four devices with four addresses, but had " + ips(network));
         java.util.function.Function<String, String> call = request ->
                 qbotics.network.NetworkCalls.handle(level.getServer(), level.dimension(), computerAt, request);
         String mac = plate.mac();
@@ -538,16 +557,19 @@ public final class QboticsGameTests {
                 && store.getItem(0).getCount() == 5 && chest.getItem(5).getCount() == 7, "an input should move 5 coal to the interface");
         helper.assertTrue(call.apply("[\"insert\",\"" + mac + "\",\"minecraft:coal\",1,null,null]").contains("An input can only take items out"),
                 "an input should refuse to put items in");
+        helper.assertTrue(call.apply("[\"find\",\"" + second.mac() + "\",null]").contains("minecraft:barrel"), "the second input points at the barrel");
 
-        // Breaking the cable drops the plate with its name; taking the plate off leaves a plain cable.
-        List<ItemStack> drops = net.minecraft.world.level.block.Block.getDrops(withPlate, level, helper.absolutePos(cablePos), plate);
-        helper.assertTrue(drops.size() == 2 && drops.stream().anyMatch(stack -> stack.getItem() instanceof qbotics.block.PlateItem
-                && stack.getHoverName().getString().equals("ore_in")), "the drops should be the cable and the named plate: " + drops);
-        ItemStack taken = CableBlock.detach(level, helper.absolutePos(cablePos));
-        BlockState bare = helper.getBlockState(cablePos);
-        helper.assertTrue(taken.getItem() instanceof qbotics.block.PlateItem && CableBlock.plateSide(bare) == null
-                && level.getBlockEntity(helper.absolutePos(cablePos)) == null && networkAt(helper, computerPos).devices().size() == 2,
-                "taking the plate off should leave a bare cable and two devices");
+        // Breaking the cable drops every plate; taking plates off one at a time ends with a plain cable.
+        List<ItemStack> drops = net.minecraft.world.level.block.Block.getDrops(withTwo, level, helper.absolutePos(cablePos), host);
+        helper.assertTrue(drops.size() == 3 && drops.stream().anyMatch(stack -> stack.getItem() instanceof qbotics.block.PlateItem
+                && stack.getHoverName().getString().equals("ore_in")), "the drops should be the cable and both plates: " + drops);
+        ItemStack taken = CableBlock.detach(level, helper.absolutePos(cablePos), Direction.SOUTH);
+        helper.assertTrue(taken.getItem() instanceof qbotics.block.PlateItem && plate.isRemoved() && !second.isRemoved()
+                && CableBlock.plateKind(helper.getBlockState(cablePos), Direction.UP) == Kind.INPUT
+                && networkAt(helper, computerPos).devices().size() == 3, "taking one plate off should leave the other working");
+        CableBlock.detach(level, helper.absolutePos(cablePos), Direction.UP);
+        helper.assertTrue(!CableBlock.hasPlates(helper.getBlockState(cablePos)) && level.getBlockEntity(helper.absolutePos(cablePos)) == null
+                && networkAt(helper, computerPos).devices().size() == 2, "taking the last plate off should leave a bare cable and two devices");
         helper.succeed();
     }
 

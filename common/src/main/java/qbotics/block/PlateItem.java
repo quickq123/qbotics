@@ -51,7 +51,7 @@ public class PlateItem extends Item {
         Direction side = onCable ? face : face.getOpposite();
         BlockState there = level.getBlockState(pos);
         boolean cableThere = there.getBlock() instanceof CableBlock;
-        if (cableThere && CableBlock.plateSide(there) != null) {
+        if (cableThere && CableBlock.plateKind(there, side) != null) {
             return fail(player, "message.qbotics.plate_taken");
         }
         if (!cableThere && !there.canBeReplaced()) {
@@ -72,7 +72,7 @@ public class PlateItem extends Item {
             }
             level.setBlock(pos, CableBlock.withConnections(level, pos, cable.defaultBlockState()), Block.UPDATE_ALL);
         }
-        PortBlockEntity port = CableBlock.attach(level, pos, kind, side);
+        CablePort port = CableBlock.attach(level, pos, kind, side);
         if (port == null) {
             return InteractionResult.FAIL;
         }

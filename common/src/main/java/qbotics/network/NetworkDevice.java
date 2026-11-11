@@ -6,7 +6,7 @@ import net.minecraft.core.Direction;
 
 /**
  * A block that has an address on a cable network: a computer, or one of the item blocks
- * (design doc §9.3 and §11.0). Implemented by block entities.
+ * (design doc §9.3 and §11.0). Implemented by block entities, and by the plates on a cable.
  */
 public interface NetworkDevice {
     enum Kind {

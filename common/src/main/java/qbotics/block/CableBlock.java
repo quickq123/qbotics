@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
@@ -27,17 +28,16 @@ import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.Mirror;
-import net.minecraft.world.level.block.PipeBlock;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -51,28 +51,29 @@ import qbotics.network.NetworkDevice;
  * Cable: joins Qbotics blocks into one network (design doc §11.0), and a crafting
  * ingredient. {@link CableNetwork} walks along cables to find which devices are joined.
  *
- * <p>A cable can also carry one plate (an Input, an Output or a Bus) on one of its faces,
- * sharing the cable's block. The plate points at the neighbour on that side and is a device
- * on the network; its details are kept in a {@link PortBlockEntity}, which only cables
- * with a plate have.
+ * <p>Each of a cable's six sides is one of: nothing, an arm reaching to a neighbour, or a
+ * plate (an Input, an Output or a Bus) that shares the cable's block and points at the
+ * neighbour on that side. So one cable in a tight space can serve up to six containers.
+ * Every plate is a device on the network; their details are kept in a
+ * {@link PortBlockEntity}, which only cables with a plate have.
  */
-public class CableBlock extends PipeBlock implements EntityBlock {
+public class CableBlock extends Block implements EntityBlock {
     public static final MapCodec<CableBlock> CODEC = simpleCodec(CableBlock::new);
     /** Blocks a cable reaches out to: other cables, computers, and every network block. */
     public static final TagKey<Block> CONNECTABLE = TagKey.create(Registries.BLOCK, Qbotics.id("cable_connectable"));
 
-    /** The plate a cable carries. */
-    public enum Plate implements StringRepresentable {
-        NONE("none", null), INPUT("input", NetworkDevice.Kind.INPUT), OUTPUT("output", NetworkDevice.Kind.OUTPUT),
-        BUS("bus", NetworkDevice.Kind.BUS);
+    /** What is on one side of a cable. */
+    public enum Side implements StringRepresentable {
+        NONE("none", null), CABLE("cable", null), INPUT("input", NetworkDevice.Kind.INPUT),
+        OUTPUT("output", NetworkDevice.Kind.OUTPUT), BUS("bus", NetworkDevice.Kind.BUS);
 
         private final String word;
-        /** What kind of device the plate is; null for no plate. */
-        public final NetworkDevice.@Nullable Kind kind;
+        /** The kind of device the plate is; null where there is no plate. */
+        public final NetworkDevice.@Nullable Kind plate;
 
-        Plate(String word, NetworkDevice.@Nullable Kind kind) {
+        Side(String word, NetworkDevice.@Nullable Kind plate) {
             this.word = word;
-            this.kind = kind;
+            this.plate = plate;
         }
 
         @Override
@@ -80,42 +81,50 @@ public class CableBlock extends PipeBlock implements EntityBlock {
             return word;
         }
 
-        public static Plate of(NetworkDevice.Kind kind) {
-            for (Plate plate : values()) {
-                if (plate.kind == kind) {
-                    return plate;
+        static Side of(NetworkDevice.Kind kind) {
+            for (Side side : values()) {
+                if (side.plate == kind) {
+                    return side;
                 }
             }
-            return NONE;
+            throw new IllegalArgumentException(kind + " is not a plate");
         }
     }
 
-    public static final EnumProperty<Plate> PLATE = EnumProperty.create("plate", Plate.class);
-    /** Which way the plate points. Means nothing while there is no plate. */
-    public static final EnumProperty<Direction> PLATE_FACING = BlockStateProperties.FACING;
-
-    /** Thickness of the cable in pixels (sixteenths of a block). */
-    private static final float THICKNESS = 4.0f;
-    /** The space a plate takes up on each side, for aiming at it and bumping into it. */
-    private static final Map<Direction, VoxelShape> PLATE_SHAPES = new EnumMap<>(Direction.class);
+    /** One property for each side, named after it: north, east, south, west, up, down. */
+    public static final Map<Direction, EnumProperty<Side>> SIDES = new EnumMap<>(Direction.class);
+    /** The cable's own shapes, and the space a plate takes up, for aiming at it and bumping into it. */
+    private static final VoxelShape CORE = Block.box(6, 6, 6, 10, 10, 10);
+    private static final Map<Direction, VoxelShape> ARMS = new EnumMap<>(Direction.class);
+    private static final Map<Direction, VoxelShape> PLATES = new EnumMap<>(Direction.class);
 
     static {
-        PLATE_SHAPES.put(Direction.NORTH, Block.box(3, 3, 0, 13, 13, 6));
-        PLATE_SHAPES.put(Direction.SOUTH, Block.box(3, 3, 10, 13, 13, 16));
-        PLATE_SHAPES.put(Direction.WEST, Block.box(0, 3, 3, 6, 13, 13));
-        PLATE_SHAPES.put(Direction.EAST, Block.box(10, 3, 3, 16, 13, 13));
-        PLATE_SHAPES.put(Direction.DOWN, Block.box(3, 0, 3, 13, 6, 13));
-        PLATE_SHAPES.put(Direction.UP, Block.box(3, 10, 3, 13, 16, 13));
+        for (Direction direction : Direction.values()) {
+            SIDES.put(direction, EnumProperty.create(direction.getSerializedName(), Side.class));
+        }
+        ARMS.put(Direction.NORTH, Block.box(6, 6, 0, 10, 10, 6));
+        ARMS.put(Direction.SOUTH, Block.box(6, 6, 10, 10, 10, 16));
+        ARMS.put(Direction.WEST, Block.box(0, 6, 6, 6, 10, 10));
+        ARMS.put(Direction.EAST, Block.box(10, 6, 6, 16, 10, 10));
+        ARMS.put(Direction.DOWN, Block.box(6, 0, 6, 10, 6, 10));
+        ARMS.put(Direction.UP, Block.box(6, 10, 6, 10, 16, 10));
+        PLATES.put(Direction.NORTH, Block.box(3, 3, 0, 13, 13, 6));
+        PLATES.put(Direction.SOUTH, Block.box(3, 3, 10, 13, 13, 16));
+        PLATES.put(Direction.WEST, Block.box(0, 3, 3, 6, 13, 13));
+        PLATES.put(Direction.EAST, Block.box(10, 3, 3, 16, 13, 13));
+        PLATES.put(Direction.DOWN, Block.box(3, 0, 3, 13, 6, 13));
+        PLATES.put(Direction.UP, Block.box(3, 10, 3, 13, 16, 13));
     }
 
-    private final Map<BlockState, VoxelShape> shapesWithPlate = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<BlockState, VoxelShape> shapes = new ConcurrentHashMap<>();
 
     public CableBlock(BlockBehaviour.Properties properties) {
-        super(THICKNESS, properties);
-        registerDefaultState(stateDefinition.any()
-                .setValue(NORTH, false).setValue(EAST, false).setValue(SOUTH, false)
-                .setValue(WEST, false).setValue(UP, false).setValue(DOWN, false)
-                .setValue(PLATE, Plate.NONE).setValue(PLATE_FACING, Direction.NORTH));
+        super(properties);
+        BlockState state = stateDefinition.any();
+        for (EnumProperty<Side> property : SIDES.values()) {
+            state = state.setValue(property, Side.NONE);
+        }
+        registerDefaultState(state);
     }
 
     @Override
@@ -123,29 +132,60 @@ public class CableBlock extends PipeBlock implements EntityBlock {
         return CODEC;
     }
 
-    /** The direction this cable's plate points, or null if it has no plate. */
-    public static @Nullable Direction plateSide(BlockState state) {
-        return state.getBlock() instanceof CableBlock && state.getValue(PLATE) != Plate.NONE ? state.getValue(PLATE_FACING) : null;
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        for (Direction direction : Direction.values()) {
+            builder.add(SIDES.get(direction));
+        }
     }
 
-    /** This cable with a plate on one side. Used when a plate is attached, and by tests. */
-    public BlockState withPlate(NetworkDevice.Kind kind, Direction side) {
-        return defaultBlockState().setValue(PLATE, Plate.of(kind)).setValue(PLATE_FACING, side);
+    public static Side side(BlockState state, Direction direction) {
+        return state.getBlock() instanceof CableBlock ? state.getValue(SIDES.get(direction)) : Side.NONE;
+    }
+
+    /** The kind of plate on a side of this cable, or null if that side has none (or this is no cable). */
+    public static NetworkDevice.@Nullable Kind plateKind(BlockState state, Direction direction) {
+        return side(state, direction).plate;
+    }
+
+    public static boolean hasPlates(BlockState state) {
+        for (Direction direction : Direction.values()) {
+            if (plateKind(state, direction) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A cable with one plate. Used by tests; players attach plates with {@link PlateItem}. */
+    public BlockState withPlate(NetworkDevice.Kind kind, Direction direction) {
+        return defaultBlockState().setValue(SIDES.get(direction), Side.of(kind));
     }
 
     @Override
     public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return state.getValue(PLATE) == Plate.NONE ? null : new PortBlockEntity(pos, state);
+        return hasPlates(state) ? new PortBlockEntity(pos, state) : null;
     }
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        VoxelShape cable = super.getShape(state, level, pos, context);
-        Direction side = plateSide(state);
-        if (side == null) {
-            return cable;
-        }
-        return shapesWithPlate.computeIfAbsent(state, s -> Shapes.or(cable, PLATE_SHAPES.get(side)));
+        return shapes.computeIfAbsent(state, s -> {
+            VoxelShape shape = CORE;
+            for (Direction direction : Direction.values()) {
+                Side side = side(s, direction);
+                if (side == Side.CABLE) {
+                    shape = Shapes.or(shape, ARMS.get(direction));
+                } else if (side.plate != null) {
+                    shape = Shapes.or(shape, PLATES.get(direction));
+                }
+            }
+            return shape;
+        });
+    }
+
+    @Override
+    protected boolean propagatesSkylightDown(BlockState state) {
+        return true;
     }
 
     // ---- connections -------------------------------------------------------------------
@@ -155,10 +195,10 @@ public class CableBlock extends PipeBlock implements EntityBlock {
         return withConnections(context.getLevel(), context.getClickedPos(), defaultBlockState());
     }
 
+    /** This cable with an arm towards every neighbour it joins. Sides that carry plates are left alone. */
     public static BlockState withConnections(BlockGetter level, BlockPos pos, BlockState state) {
         for (Direction direction : Direction.values()) {
-            state = state.setValue(PROPERTY_BY_DIRECTION.get(direction),
-                    connects(state, level.getBlockState(pos.relative(direction)), direction));
+            state = connect(state, level.getBlockState(pos.relative(direction)), direction);
         }
         return state;
     }
@@ -166,16 +206,16 @@ public class CableBlock extends PipeBlock implements EntityBlock {
     @Override
     protected BlockState updateShape(BlockState state, LevelReader level, ScheduledTickAccess ticks, BlockPos pos,
             Direction directionToNeighbour, BlockPos neighbourPos, BlockState neighbourState, RandomSource random) {
-        return state.setValue(PROPERTY_BY_DIRECTION.get(directionToNeighbour), connects(state, neighbourState, directionToNeighbour));
+        return connect(state, neighbourState, directionToNeighbour);
     }
 
-    /** True if this cable should reach out to the neighbour that lies in the given direction. */
-    private static boolean connects(BlockState cable, BlockState neighbour, Direction direction) {
-        // A plate takes up its side of the cable, and doesn't join the network through its face.
-        if (plateSide(cable) == direction || plateSide(neighbour) == direction.getOpposite()) {
-            return false;
+    private static BlockState connect(BlockState cable, BlockState neighbour, Direction direction) {
+        if (plateKind(cable, direction) != null) {
+            return cable; // a plate takes up its side
         }
-        return neighbour.is(CONNECTABLE);
+        // A plate doesn't join the network through its face, so nothing reaches out to one.
+        boolean joins = neighbour.is(CONNECTABLE) && plateKind(neighbour, direction.getOpposite()) == null;
+        return cable.setValue(SIDES.get(direction), joins ? Side.CABLE : Side.NONE);
     }
 
     @Override
@@ -192,78 +232,107 @@ public class CableBlock extends PipeBlock implements EntityBlock {
 
     // ---- plates --------------------------------------------------------------------------
 
+    /** Every plate on the cable at a position; empty if there is no cable there or it carries none. */
+    public static List<CablePort> ports(Level level, BlockPos pos) {
+        return hasPlates(level.getBlockState(pos)) && level.getBlockEntity(pos) instanceof PortBlockEntity host ? host.ports() : List.of();
+    }
+
     /**
-     * Puts a plate on a cable that has none. Returns the plate's device, or null if the
-     * cable already carries one.
+     * Puts a plate on one side of a cable. Returns the plate's device, or null if that side
+     * already carries a plate.
      */
-    public static @Nullable PortBlockEntity attach(Level level, BlockPos pos, NetworkDevice.Kind kind, Direction side) {
+    public static @Nullable CablePort attach(Level level, BlockPos pos, NetworkDevice.Kind kind, Direction direction) {
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof CableBlock) || state.getValue(PLATE) != Plate.NONE) {
+        if (!(state.getBlock() instanceof CableBlock) || plateKind(state, direction) != null) {
             return null;
         }
-        BlockState changed = withConnections(level, pos, state.setValue(PLATE, Plate.of(kind)).setValue(PLATE_FACING, side));
+        BlockState changed = state.setValue(SIDES.get(direction), Side.of(kind));
         level.setBlock(pos, changed, Block.UPDATE_ALL);
         if (!(level.getBlockEntity(pos) instanceof PortBlockEntity)) {
             level.setBlockEntity(new PortBlockEntity(pos, changed));
         }
         CableNetwork.changed();
-        return level.getBlockEntity(pos) instanceof PortBlockEntity port ? port : null;
+        return level.getBlockEntity(pos) instanceof PortBlockEntity host ? host.port(direction) : null;
     }
 
-    /** Takes the plate off a cable and returns it as an item (named, if the plate was). */
-    public static ItemStack detach(Level level, BlockPos pos) {
+    /** Takes the plate off one side of a cable and returns it as an item (named, if the plate was). */
+    public static ItemStack detach(Level level, BlockPos pos, Direction direction) {
         BlockState state = level.getBlockState(pos);
-        if (plateSide(state) == null) {
+        if (plateKind(state, direction) == null) {
             return ItemStack.EMPTY;
         }
-        ItemStack plate = plateItem(state, level.getBlockEntity(pos));
-        level.removeBlockEntity(pos);
-        level.setBlock(pos, withConnections(level, pos, state.setValue(PLATE, Plate.NONE).setValue(PLATE_FACING, Direction.NORTH)),
-                Block.UPDATE_ALL);
+        PortBlockEntity host = level.getBlockEntity(pos) instanceof PortBlockEntity found ? found : null;
+        ItemStack plate = plateItem(state, direction, host);
+        BlockState bare = state.setValue(SIDES.get(direction), Side.NONE);
+        // Forget the plate before the state changes, so it isn't mistaken for one that is still there.
+        if (host != null) {
+            host.forget(direction);
+        }
+        if (!hasPlates(bare)) {
+            level.removeBlockEntity(pos);
+        }
+        level.setBlock(pos, withConnections(level, pos, bare), Block.UPDATE_ALL);
         CableNetwork.changed();
         return plate;
     }
 
-    private static ItemStack plateItem(BlockState state, @Nullable BlockEntity entity) {
-        NetworkDevice.Kind kind = state.getValue(PLATE).kind;
+    private static ItemStack plateItem(BlockState state, Direction direction, @Nullable BlockEntity entity) {
+        NetworkDevice.Kind kind = plateKind(state, direction);
         if (kind == null) {
             return ItemStack.EMPTY;
         }
         ItemStack stack = new ItemStack(QboticsContent.PLATE_ITEMS.get(kind).get());
-        if (entity instanceof PortBlockEntity port && !port.deviceName().isEmpty()) {
+        CablePort port = entity instanceof PortBlockEntity host ? host.port(direction) : null;
+        if (port != null && !port.deviceName().isEmpty()) {
             stack.set(DataComponents.CUSTOM_NAME, Component.literal(port.deviceName()));
         }
         return stack;
     }
 
-    /** Breaking the cable drops its plate too. */
+    /** Breaking the cable drops its plates too. */
     @Override
     protected List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
         List<ItemStack> drops = new ArrayList<>(super.getDrops(state, params));
-        ItemStack plate = plateItem(state, params.getOptionalParameter(LootContextParams.BLOCK_ENTITY));
-        if (!plate.isEmpty()) {
-            drops.add(plate);
+        BlockEntity entity = params.getOptionalParameter(LootContextParams.BLOCK_ENTITY);
+        for (Direction direction : Direction.values()) {
+            ItemStack plate = plateItem(state, direction, entity);
+            if (!plate.isEmpty()) {
+                drops.add(plate);
+            }
         }
         return drops;
     }
 
+    /** Which plate a click landed on, or null if it was on the cable itself. */
+    private static @Nullable Direction plateAt(BlockState state, BlockPos pos, BlockHitResult hit) {
+        Vec3 at = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
+        for (Direction direction : Direction.values()) {
+            if (plateKind(state, direction) != null && PLATES.get(direction).bounds().inflate(0.01).contains(at)) {
+                return direction;
+            }
+        }
+        return null;
+    }
+
     /**
-     * Right-click a cable's plate with an empty hand to read its addresses and what it points
-     * at; sneak and right-click to take the plate off.
+     * Right-click a plate with an empty hand to read its addresses and what it points at;
+     * sneak and right-click to take that plate off.
      */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (plateSide(state) == null) {
+        Direction direction = plateAt(state, pos, hit);
+        if (direction == null) {
             return InteractionResult.PASS;
         }
         if (player instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel
-                && level.getBlockEntity(pos) instanceof PortBlockEntity port) {
+                && level.getBlockEntity(pos) instanceof PortBlockEntity host) {
+            CablePort port = host.port(direction);
             if (player.isSecondaryUseActive()) {
-                ItemStack plate = detach(level, pos);
+                ItemStack plate = detach(level, pos, direction);
                 if (!player.hasInfiniteMaterials() || !player.getInventory().contains(plate)) {
                     player.getInventory().placeItemBackInInventory(plate);
                 }
-            } else {
+            } else if (port != null) {
                 CableNetwork.at(serverLevel, pos); // makes sure it has been given an address
                 Block target = level.getBlockState(port.targetPos()).getBlock();
                 serverPlayer.sendOverlayMessage(Component.translatable("message.qbotics.port",
@@ -281,16 +350,19 @@ public class CableBlock extends PipeBlock implements EntityBlock {
 
     @Override
     protected BlockState rotate(BlockState state, Rotation rotation) {
-        return state.setValue(PLATE_FACING, rotation.rotate(state.getValue(PLATE_FACING)));
+        BlockState turned = state;
+        for (Direction direction : Direction.values()) {
+            turned = turned.setValue(SIDES.get(rotation.rotate(direction)), state.getValue(SIDES.get(direction)));
+        }
+        return turned;
     }
 
     @Override
     protected BlockState mirror(BlockState state, Mirror mirror) {
-        return state.setValue(PLATE_FACING, mirror.mirror(state.getValue(PLATE_FACING)));
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(NORTH, EAST, SOUTH, WEST, UP, DOWN, PLATE, PLATE_FACING);
+        BlockState flipped = state;
+        for (Direction direction : Direction.values()) {
+            flipped = flipped.setValue(SIDES.get(mirror.mirror(direction)), state.getValue(SIDES.get(direction)));
+        }
+        return flipped;
     }
 }

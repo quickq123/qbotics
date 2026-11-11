@@ -25,7 +25,7 @@ import qbotics.Qbotics;
 import qbotics.computer.ComputerManager;
 import qbotics.block.AntennaBlockEntity;
 import qbotics.block.InterfaceBlockEntity;
-import qbotics.block.PortBlockEntity;
+import qbotics.block.CablePort;
 import qbotics.network.NetworkDevice.Kind;
 
 /**
@@ -127,7 +127,7 @@ public final class NetworkCalls {
                 if (device instanceof InterfaceBlockEntity input) {
                     return contents(input);
                 }
-                if (device instanceof PortBlockEntity port && port.kind() != Kind.OUTPUT) {
+                if (device instanceof CablePort port && port.kind() != Kind.OUTPUT) {
                     // With no face named, an input or bus reads the whole container, not only what one face shows.
                     String faceWord = string(args, 2);
                     return contents(faceWord == null ? wholeTarget(level, port) : target(level, port, faceWord));
@@ -154,7 +154,7 @@ public final class NetworkCalls {
                 return JsonNull.INSTANCE;
             }
             case "set_face": {
-                PortBlockEntity port = port(byMac(network, args, 1));
+                CablePort port = port(byMac(network, args, 1));
                 port.setAccessFace(face(args.get(2).getAsString()));
                 return describe(level, network, port);
             }
@@ -183,7 +183,7 @@ public final class NetworkCalls {
      * Arguments: device MAC, item, count, the other end's MAC (or null for any interface), face (or null).
      */
     private static int move(ServerLevel level, CableNetwork network, boolean insert, JsonArray args) {
-        PortBlockEntity port = port(byMac(network, args, 1));
+        CablePort port = port(byMac(network, args, 1));
         if (!insert && port.kind() == Kind.OUTPUT) {
             throw new CallError("An output can only put items in. Use an input or a bus to take items out.");
         }
@@ -349,8 +349,8 @@ public final class NetworkCalls {
         throw new CallError("That needs an interface; this is " + article(device.kind()) + ".");
     }
 
-    private static PortBlockEntity port(NetworkDevice device) {
-        if (device instanceof PortBlockEntity port) {
+    private static CablePort port(NetworkDevice device) {
+        if (device instanceof CablePort port) {
             return port;
         }
         throw new CallError("That needs an input, an output or a bus; this is " + article(device.kind()) + ".");
@@ -378,14 +378,14 @@ public final class NetworkCalls {
     }
 
     /** Everything in the container a bus points at, whichever face it would go in or out through. */
-    private static ItemPort wholeTarget(ServerLevel level, PortBlockEntity port) {
+    private static ItemPort wholeTarget(ServerLevel level, CablePort port) {
         BlockPos pos = port.targetPos();
         ItemPort whole = level.isLoaded(pos) ? Qbotics.platform().itemPort(level, pos, null) : null;
         return whole != null ? whole : target(level, port, null);
     }
 
     /** The container a bus or output points at, seen through a face. */
-    private static ItemPort target(ServerLevel level, PortBlockEntity port, String faceWord) {
+    private static ItemPort target(ServerLevel level, CablePort port, String faceWord) {
         AccessFace face = faceWord == null ? port.accessFace() : face(faceWord);
         BlockPos pos = port.targetPos();
         Direction side = face.resolve(port.pointing());
@@ -418,7 +418,7 @@ public final class NetworkCalls {
             info.addProperty("tier", antenna.tier().word);
             info.addProperty("range", antenna.tier() == RadioNetwork.Tier.INFINITE ? -1 : antenna.tier().radius);
             info.addProperty("router", antenna == gateway);
-        } else if (device instanceof PortBlockEntity port) {
+        } else if (device instanceof CablePort port) {
             info.addProperty("face", port.accessFace().word());
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
         } else if (device instanceof InterfaceBlockEntity) {
