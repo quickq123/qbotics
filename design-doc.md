@@ -1284,6 +1284,8 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Fluid Interface (4 tanks x 4 buckets), Energy Interface (2,000,000 FE), and fluid and energy Input, Output and Bus | Decided |
 | 2026-11-10 | Transfers can be aimed by face or slot/tank number with no item or fluid named; slots are numbered from 0, left to right, top to bottom | Decided |
 | 2026-11-10 | Item and fluid filters follow JEI's search words (`@mod`, `#tag` or `$tag`, wildcards, `-not`, `a \| b`) | Decided |
+| 2026-11-10 | `docs/reference.md` is the running player reference (commands, Python calls, filters, probe, limits), updated with every player-facing feature; it is the source for a later help page | Decided |
+| 2026-11-10 | Finding an item's name: the probe adds it to item tooltips (Ctrl+C copies, Shift lists tags), and a wrong name in a program suggests the closest real ones | Built; to confirm |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |

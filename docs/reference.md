@@ -1,0 +1,471 @@
+# Qbotics reference
+
+What a player can type, call and use in Qbotics. This file is the source for the in-game or
+web help pages, so it is kept current: every feature that a player's code or hands can reach
+is added here when it is built.
+
+Each entry gives the form, what it does, and an example. Things that are planned but not
+built are not listed.
+
+Contents
+
+1. [The computer](#1-the-computer)
+2. [Python on a computer](#2-python-on-a-computer)
+3. [Networks and addresses](#3-networks-and-addresses)
+4. [Naming items and fluids: names and filters](#4-naming-items-and-fluids-names-and-filters)
+5. [Faces and slots](#5-faces-and-slots)
+6. [The `logistics` module: items, fluid, energy](#6-the-logistics-module)
+7. [The `network` module: messages and antennas](#7-the-network-module)
+8. [The Network Probe](#8-the-network-probe)
+9. [Limits](#9-limits)
+10. [Errors](#10-errors)
+
+---
+
+## 1. The computer
+
+Right-click a computer to open its screen: files on the left, the editor in the middle, the
+terminal below, and an optional Python scratchpad on the right.
+
+### 1.1 Terminal commands
+
+| Command | What it does |
+|---|---|
+| `help` | Lists the commands |
+| `ls [folder]` | Lists a folder |
+| `cd <folder>` | Changes the current folder (`cd` alone goes to `/`) |
+| `pwd` | Shows the current folder |
+| `cat <file>` | Prints a file |
+| `mkdir <folder>` | Makes a folder |
+| `rm [-r] <path>` | Deletes a file; `-r` deletes a folder and everything in it |
+| `mv <from> <to>` | Renames or moves; moving onto a folder puts it inside |
+| `cp <from> <to>` | Copies a file |
+| `edit <file>` | Opens a file in the editor (a new file is created when saved) |
+| `run <file.py>` | Runs a program. `python <file.py>` does the same |
+| `python` | The Python prompt. `exit()` returns to the terminal |
+| `devices` | Lists the devices on this computer's network (also `ifconfig`) |
+| `devices <external IP>` | Lists the devices behind another antenna |
+| `clear` | Clears the terminal |
+
+Names with spaces go in double quotes: `run "my program.py"`.
+
+Ctrl+C stops a running program. A file named `/startup.py` runs when the computer starts.
+
+### 1.2 Editor keys
+
+| Key | What it does |
+|---|---|
+| F5 | Saves and runs the open Python file |
+| Ctrl+S | Saves |
+| Ctrl+F, Ctrl+H | Find; find and replace. F3 and Shift+F3 step through matches |
+| Ctrl+Space | Suggests completions |
+| Ctrl+/ | Comments or uncomments the selected lines |
+| Ctrl+Z, Ctrl+Y | Undo, redo |
+| Ctrl+W | Closes the tab |
+| Shift+Alt+F | Formats a JSON file |
+| Ctrl+Plus, Ctrl+Minus | Larger or smaller text |
+| Tab, Shift+Tab | Indents or un-indents the selection |
+| Esc | Closes the screen (nothing is lost) |
+
+Resting the mouse on a function name shows how to call it and what it does.
+
+### 1.3 Terminal mouse and keys
+
+| Action | What it does |
+|---|---|
+| Drag | Selects text. Double-click selects a word |
+| Ctrl+C | Copies the selection; with nothing selected, stops the program |
+| Ctrl+V | Pastes; each pasted line is entered |
+| Right-click | Copy, Copy All, Paste, Select All |
+| Up, Down | Earlier commands |
+| Page Up, Page Down, wheel | Scrolls back through output. End returns |
+
+### 1.4 The scratchpad
+
+A box for trying a few lines of Python. Ctrl+Enter runs it. It shares variables with the
+terminal's Python prompt. `input()` does not work there.
+
+---
+
+## 2. Python on a computer
+
+Computers run MicroPython, a small version of Python 3. Most everyday Python works: functions,
+classes, lists, dicts, f-strings, `try`/`except`, `with`, generators.
+
+Modules available: `time`, `os`, `json`, `math`, `random`, `sys`, `gc`, and the two this mod
+adds, `logistics` and `network`.
+
+| Thing | Notes |
+|---|---|
+| `print(...)` | Writes to the terminal |
+| `input(prompt)` | Waits for a line typed in the terminal. Ctrl+C raises `KeyboardInterrupt` |
+| `open(path, mode)` | Files on the computer's own drive |
+| `time.sleep(seconds)` | Waits; decimals work |
+| `execfile(path)` | Runs another file |
+
+---
+
+## 3. Networks and addresses
+
+Devices joined by cable, or touching each other, form one network. Every device has three
+ways to be named:
+
+| Identifier | Looks like | Notes |
+|---|---|---|
+| Name | `smelter` | Given by you, with the probe, an anvil or `rename()`. Letters, digits, `_`, `-`, `.`; up to 24 characters. The best thing to write in code |
+| Internal IP | `192.168.1.5` | Given by the network. Can change if two networks are joined |
+| Hardware address | `02:3F:42:CB:A9:E3` | Fixed while the device stays placed; new if it is picked up and placed again |
+
+With an antenna on the network, each device can also be reached from other networks:
+
+| Identifier | Looks like | Notes |
+|---|---|---|
+| External address | `100.64.0.12:1005` | The antenna's external IP, then the device's port. The port is 1000 plus the last number of the internal IP |
+
+### 3.1 Kinds of device
+
+| Kind (as programs see it) | What it is |
+|---|---|
+| `computer` | A computer |
+| `antenna` | An antenna. The first on a network is its router, at `192.168.1.1` |
+| `interface` | Item storage: nine filtered slots |
+| `input`, `output`, `bus` | Item plates on a cable: take out, put in, or both |
+| `fluid_interface` | Fluid storage: four tanks of 4,000 mB |
+| `fluid_input`, `fluid_output`, `fluid_bus` | Fluid plates |
+| `energy_interface` | Energy storage: 2,000,000 FE |
+| `energy_input`, `energy_output`, `energy_bus` | Energy plates |
+
+Plates share a cable's block, one per side, and point at the block next to that side. Their
+colour says what they carry: white for items, blue-grey for fluid, red for energy.
+
+---
+
+## 4. Naming items and fluids: names and filters
+
+Wherever a program names an item or a fluid, it can write one name or a filter. The filter
+words follow the JEI mod's search box.
+
+| Written | Means |
+|---|---|
+| `"minecraft:coal"` | That one item |
+| `"coal"` | The same: `minecraft:` is assumed |
+| `"*_log"` | Wildcards on the name. `*` is any run of characters, `?` any single one. Without a colon the part after the colon is matched, in any mod |
+| `"minecraft:*_ore"` | Wildcards on the whole name |
+| `"@create"` | Everything from a mod, by its ID or its name. Part of either is enough |
+| `"#minecraft:logs"` | Everything carrying a tag. `#logs` tries `minecraft:logs`, then `c:logs` |
+| `"$minecraft:logs"` | The same; `$` is JEI's tag prefix |
+| `"@minecraft *_ore"` | Several words: all must hold |
+| `"-*_slab"` | A word starting with `-` must not hold |
+| `"coal \| charcoal"` | Alternatives |
+
+Fluids use the same words: `"water"`, `"@minecraft"`, `"#c:water"`.
+
+A name that doesn't exist is an error that suggests close matches. A filter that nothing in
+the game passes is an error too.
+
+How many move when no count is given:
+
+| Written | Default amount |
+|---|---|
+| One item name | 1 |
+| One fluid name | 1,000 mB (one bucket) |
+| A filter, or nothing | Everything there, up to the limit for one call |
+
+---
+
+## 5. Faces and slots
+
+### 5.1 Faces
+
+A plate reaches its target through one of the target's faces. This matters for blocks that
+treat their sides differently, such as a furnace.
+
+| Face | Which side of the target |
+|---|---|
+| `Face.NEAR` | The side touching the plate (the default) |
+| `Face.FAR` | The opposite side |
+| `Face.TOP`, `Face.BOTTOM` | Above and below |
+| `Face.LEFT`, `Face.RIGHT` | As seen from the plate, looking at the target |
+
+For a plate pointing up or down, `TOP` is north and `LEFT` is west, as on a map.
+
+`plate.set_face(face)` changes the face used when a call names none.
+
+For a furnace: `Face.TOP` reaches the ingredient, a side reaches the fuel, `Face.BOTTOM`
+reaches the product.
+
+### 5.2 Slots
+
+Slots and tanks are numbered from 0, left to right and top to bottom, exactly as `contents()`
+lists them. `Slot(n)` names one.
+
+A slot number with no face counts across the whole container. With a face it counts only the
+slots that face exposes.
+
+The probe's Slots mode shows these numbers on any container's screen (section 8).
+
+### 5.3 Where a name would go
+
+`extract`, `insert`, `count` and `amount` take a name or filter, or a `Face`, or a `Slot`, as
+their first value. They also take `face=` and `slot=` alongside a name.
+
+```python
+bus.extract(Face.BOTTOM)             # whatever the furnace has made
+bus.extract(Slot(0))                 # whatever is in the first slot
+bus.extract("coal", 4, slot=5)       # 4 coal, from slot 5 only
+bus.count(Slot(2))                   # how many are in slot 2
+```
+
+---
+
+## 6. The `logistics` module
+
+```python
+from logistics import network, Face, Slot
+net = network()
+```
+
+Every call is answered by the game on its next tick (a twentieth of a second).
+
+### 6.1 The network
+
+| Call | Gives |
+|---|---|
+| `network()` | The network this computer is on |
+| `net.devices()` | Every device, in address order |
+| `net.device(key)` | One device by name, internal IP or hardware address |
+| `net.me` | This computer |
+| `net.interface(key)`, `net.input(key)`, `net.output(key)`, `net.bus(key)` | One item device. With no key: the only one of its kind, or an error saying how many there are |
+| `net.fluid_interface(key)`, `net.fluid_input(key)`, `net.fluid_output(key)`, `net.fluid_bus(key)` | The same for fluid |
+| `net.energy_interface(key)`, `net.energy_input(key)`, `net.energy_output(key)`, `net.energy_bus(key)` | The same for energy |
+| `net.interfaces()`, `net.inputs()`, `net.outputs()`, `net.buses()` | Every item device of a kind |
+
+### 6.2 Every device
+
+| Attribute or call | Gives |
+|---|---|
+| `.name`, `.ip`, `.mac`, `.kind` | As they were when the device was looked up |
+| `.rename(name)` | Names the device. `""` removes the name |
+| `.refresh()` | Looks the device up again |
+
+### 6.3 Plates (`input`, `output`, `bus` and their fluid and energy versions)
+
+| Attribute or call | Gives |
+|---|---|
+| `.target` | The block it points at, such as `"minecraft:furnace"` |
+| `.face` | The face used when a call names none |
+| `.set_face(face)` | Changes that face |
+
+### 6.4 Items
+
+**Interface** (`net.interface()`): nine slots. Every slot starts closed.
+
+| Call | Does |
+|---|---|
+| `store.contents()` | A list of `{"slot": 0, "item": "minecraft:coal", "count": 12}` |
+| `store.count(item=None, slot=None)` | How many it holds of a name or filter; of everything with none |
+| `store.filters()` | What each slot accepts; `None` for a closed slot |
+| `store.set_slot_filter(slot, item)` | Opens a slot for a name or filter. `None` closes it |
+| `store.slots` | How many slots it has |
+
+A slot holds one kind of item at a time, up to one stack, even when its filter passes many.
+
+**Input and Bus**: take items out of the target, into an Interface.
+
+| Call | Does |
+|---|---|
+| `bus.contents(face=None)` | What the target holds |
+| `bus.count(item=None, face=None, slot=None)` | How many the target holds |
+| `bus.extract(item=None, count=None, dest=None, face=None, slot=None, dest_slot=None)` | Moves items from the target into an Interface. Returns how many moved |
+
+**Output and Bus**: put items from an Interface into the target.
+
+| Call | Does |
+|---|---|
+| `out.insert(item=None, count=None, source=None, face=None, slot=None, source_slot=None)` | Moves items from an Interface into the target. Returns how many moved |
+
+| Argument | Meaning |
+|---|---|
+| `item` | A name or filter (section 4), a `Face`, a `Slot`, or nothing for whatever is there |
+| `count` | The most to move. Fewer may move; the call returns the number |
+| `dest`, `source` | Which Interface: a device or its name or address. With none, any on the network |
+| `face` | Which face of the target to work through |
+| `slot` | Which slot of the target |
+| `dest_slot`, `source_slot` | Which slot of the Interface |
+
+```python
+store = net.interface()
+store.set_slot_filter(0, "#minecraft:logs")
+net.input("tree_farm").extract("#minecraft:logs")
+net.output("furnace").insert("coal", 8, face=Face.LEFT)
+```
+
+### 6.5 Fluid
+
+Amounts are in millibuckets (mB). 1,000 mB is one bucket.
+
+**Fluid Interface** (`net.fluid_interface()`): four tanks of 4,000 mB. A tank takes any fluid
+while empty, then only more of the same.
+
+| Call | Does |
+|---|---|
+| `tanks.contents()` | A list of `{"tank": 0, "fluid": "minecraft:water", "amount": 1000, "capacity": 4000}`. An empty tank's fluid is `None` |
+| `tanks.amount(fluid=None, slot=None)` | Millibuckets held of a name or filter; of everything with none |
+
+**Fluid Input and Fluid Bus**
+
+| Call | Does |
+|---|---|
+| `fbus.contents(face=None)` | The target's tanks |
+| `fbus.amount(fluid=None, face=None, slot=None)` | Millibuckets the target holds |
+| `fbus.extract(fluid=None, amount=None, dest=None, face=None, slot=None, dest_slot=None)` | Moves fluid from the target into a Fluid Interface. Returns how much moved |
+
+**Fluid Output and Fluid Bus**
+
+| Call | Does |
+|---|---|
+| `fout.insert(fluid=None, amount=None, source=None, face=None, slot=None, source_slot=None)` | Moves fluid from a Fluid Interface into the target. Returns how much moved |
+
+`slot`, `dest_slot` and `source_slot` are tank numbers.
+
+```python
+net.fluid_input().extract("water", 2000)
+net.fluid_bus("boiler").insert("lava")       # one bucket
+```
+
+### 6.6 Energy
+
+Amounts are in FE, the unit mods share (also called RF).
+
+**Energy Interface** (`net.energy_interface()`): holds 2,000,000 FE.
+
+| Attribute | Gives |
+|---|---|
+| `cell.stored` | Energy held now |
+| `cell.capacity` | The most it can hold |
+
+**Energy Input and Energy Bus**
+
+| Call | Does |
+|---|---|
+| `ebus.stored(face=None)` | Energy the target holds |
+| `ebus.capacity(face=None)` | The most the target can hold |
+| `ebus.extract(amount, dest=None, face=None)` | Moves energy from the target into an Energy Interface. Returns how much moved |
+
+**Energy Output and Energy Bus**
+
+| Call | Does |
+|---|---|
+| `eout.insert(amount, source=None, face=None)` | Moves energy from an Energy Interface into the target. Returns how much moved |
+
+```python
+if net.energy_interface().stored > 100000:
+    net.energy_output("machine").insert(50000)
+```
+
+---
+
+## 7. The `network` module
+
+```python
+import network
+```
+
+### 7.1 This computer
+
+| Call | Gives |
+|---|---|
+| `network.ifconfig()` | A dict: `ip`, `mac`, `name`, and `gateway`, `external_ip`, `port` (these three are `None` without an antenna) |
+| `network.hostname()` | This computer's name |
+| `network.hostname(name)` | Sets it |
+
+### 7.2 Messages
+
+| Call | Does |
+|---|---|
+| `network.send(address, data)` | Sends text, numbers, lists or dicts to another computer. Returns `True` if delivered, `False` if that computer is off or its inbox is full |
+| `network.receive(timeout=None)` | Waits for the next message. With a timeout in seconds, returns `None` if none arrives |
+| `network.scan(external_ip)` | The devices behind another antenna: a list of dicts with `address`, `ip`, `mac`, `kind`, `name` |
+
+An address is a name, internal IP or hardware address on the same network (no antenna
+needed), or `"external IP:port"` for a computer behind another antenna.
+
+A received message has `.sender` (the address to answer) and `.data`.
+
+```python
+network.send("192.168.1.3", {"ore": 128})
+msg = network.receive(5)
+if msg:
+    network.send(msg.sender, "thanks")
+```
+
+A computer receives only while it is switched on. Computers start when first opened.
+
+### 7.3 The antenna
+
+| Call | Gives |
+|---|---|
+| `network.Radio()` | The antenna that is this network's router |
+| `radio.external_ip` | The address other networks reach this one by |
+| `radio.frequency` | The frequency it is tuned to |
+| `radio.tune(frequency)` | Changes it. Only antennas on the same frequency hear each other |
+| `radio.tier` | `"short"`, `"long"` or `"infinite"` |
+| `radio.range` | Reach in blocks; `None` for infinite |
+
+Two antennas can talk when they are on the same frequency and within the larger of their two
+ranges. Height does not count. Across dimensions, both must be Infinite.
+
+| Antenna | Reach |
+|---|---|
+| Short-Range | 24 blocks |
+| Long-Range | 100 blocks |
+| Infinite | Any distance, any dimension |
+
+---
+
+## 8. The Network Probe
+
+A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows the mode.
+
+| Mode | Right-click does |
+|---|---|
+| Labels | On a device: opens a pop-up with its name, a ready line of Python, its internal IP, hardware address and external address. Click a line to copy it. A box at the top names the device |
+| Slots | Blocks open as usual, and every container screen shows each slot's number |
+
+In either mode, hovering an item in any inventory shows the name programs use for it. For a
+bucket it also shows the fluid's name. Ctrl+C copies the name. Holding Shift lists the item's
+tags.
+
+---
+
+## 9. Limits
+
+| What | Limit |
+|---|---|
+| Items moved by one call | 576 (nine stacks) |
+| Fluid moved by one call | 16,000 mB |
+| Energy moved by one call | 2,000,000 FE |
+| A message | 4,096 characters once written as JSON |
+| A computer's inbox | 64 messages |
+| Calls waiting for the game at once | 32 per computer |
+| A network | 4,096 cables and blocks; 253 devices |
+| A device name | 24 characters |
+| A computer's drive | 1 MB |
+| A file opened in the editor | 30 KB |
+
+---
+
+## 10. Errors
+
+Mistakes in `logistics` and `network` calls raise `NetworkError` with a message in plain
+words. Catch it like any exception:
+
+```python
+from logistics import network, NetworkError
+try:
+    network().bus("smelter").extract("iron_ingot", 8)
+except NetworkError as problem:
+    print("could not move:", problem)
+```
+
+A transfer that moves nothing is not an error: the call returns 0.
