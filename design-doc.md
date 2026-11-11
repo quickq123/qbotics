@@ -964,6 +964,36 @@ carries the owner's identity (the same player ID and name) and stands at the pla
 - 20 mB a point is assumed for every experience fluid for now. A mod whose fluid uses another rate will be over- or under-charged; accepted for now, and the place for a per-fluid setting later.
 - The operation charges exactly the points it costs, as if the stand-in player had just enough levels.
 
+### 11.0.5 Sources, destinations and `move` (built 2026-11-11)
+
+**Why.** The first API moved things with `extract` and `insert` on a plate, always by way of an
+Interface. Reading such a program, it was hard to tell where something went between one line
+and the next, and the Interface in the middle was a requirement with no reason behind it.
+
+**The shape now.** `extract` and `insert` are gone. A program describes the two ends and then
+moves between them:
+
+- `device.source(only=, without=, face=, slot=)` and `device.destination(...)` describe an end and do nothing by themselves, so they can be made once, named, pooled in a list and reused.
+- `move(sources, destinations, what, count)` does the moving, directly between the ends. An Interface is an end like any other.
+- Either side can be one end or a list. Sources are drawn on in order; each fills the destinations in order.
+- Interfaces, Inputs and Buses can be sources; Interfaces, Outputs and Buses can be destinations. The Experience Interface is both.
+- A destination's own lists are separate from an Interface's slot filters. The slot filters belong to the block and are what stop other mods' pipes; that is their purpose.
+
+**When there isn't enough.** `move` returns how many moved, and none is not an error, so a loop that drains a chest ends quietly. `need=` asks for exactly that many or nothing, and raises if they can't be moved now, which is a useful first lesson in handling "not enough yet". `wait=` with `need=` pauses until they can: a factory that makes parts at different times can wait for each step before going on.
+
+Details and examples: `docs/reference.md` §6.4.
+
+**Planned: recipes.** The same idea one level up, for crafting:
+
+```python
+piston = Recipe(["PPP", "CIC", "CRC"], P="#minecraft:planks", C="cobblestone", I="iron_ingot", R="redstone")
+craft(piston, parts, table, result=store, wait=True)
+```
+
+- A `Recipe` is described once: a grid of letters and what each letter stands for, as the game's own recipe files do. Names can be filters.
+- `craft` checks that every ingredient is available (all or nothing, as `need=` does), lays them out by slot, triggers the craft, and moves the result to a destination. With `wait=True` it pauses until the ingredients are there.
+- It needs something to craft in. Either the vanilla Crafter with a Logic Pin to pulse it (§11.0.1), or a crafting table through the Bus's screen access (§11.0.2). So it is built after one of those.
+
 ### 11.1 Public peripheral API (separate small jar)
 
 ```java
@@ -1445,6 +1475,9 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | Planned (§11.0.3): screen access, the Placer and the Breaker act as a stand-in for the plate's owner, with the owner's rights and no more. Mods that block stand-in players block them; FTB Chunks is the claim mod to keep working | Decided; not built |
 | 2026-11-11 | Experience Interface: real experience only, unlimited, stored and taken by levels at the block, locked to owner, team or public; eight cables around a glass bottle. It never accepts liquid experience | Decided; built |
 | 2026-11-11 | A program that spends experience must name its source: an Experience Interface, or liquid experience (20 mB a point, assumed for all such fluids) in a Fluid Interface or behind a fluid plate. Liquid experience is only consumed, never converted | Decided; not built |
+| 2026-11-11 | `extract` and `insert` removed. Things move with `move(sources, destinations, ...)` between ends described by `source()` and `destination()`; nothing has to pass through an Interface (§11.0.5) | Decided; built |
+| 2026-11-11 | `move` returns how many moved (none is not an error); `need=` is all-or-nothing and raises; `wait=` pauses until the amount can be moved | Decided; built |
+| 2026-11-11 | Planned: `Recipe` and `craft`, built on `move`, once the Logic Pin or screen access exists | Decided; not built |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |

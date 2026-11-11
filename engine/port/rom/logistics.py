@@ -1,9 +1,13 @@
 # Item logistics: the blocks cabled to this computer (design doc §11.0).
 #
-#     from logistics import network, Face
+#     from logistics import network, move, Face
 #     net = network()
-#     furnace = net.bus("furnace")      # a bus plate on a cable, pointing at a furnace
-#     furnace.insert("minecraft:raw_iron", 16, face=Face.TOP)
+#     chest = net.bus("chest")            # a bus plate on a cable, pointing at a chest
+#     furnace = net.bus("furnace")
+#     move(chest, furnace.destination(face=Face.TOP), "raw_iron", 16)
+#
+# Things are moved from sources to destinations. A device's source() and destination()
+# describe one end (which face or slot, and what it may give or take); move() does the moving.
 #
 # Every call here is answered by the game on its next tick (a twentieth of a second).
 #
@@ -17,6 +21,7 @@
 #     "-*_slab"             a word starting with - must not hold
 #     "coal | charcoal"     alternatives
 import json
+import time
 import _host
 
 
@@ -52,7 +57,7 @@ _FACES = (Face.NEAR, Face.FAR, Face.TOP, Face.BOTTOM, Face.LEFT, Face.RIGHT)
 class Slot:
     """A slot (or a tank) by its number. Numbers start at 0 and run left to right, top to
     bottom, as contents() lists them. Use it where an item's name would go:
-    bus.extract(Slot(0)) takes whatever is in the first slot."""
+    chest.count(Slot(0)) is how many are in the first slot."""
 
     def __init__(self, index):
         self.index = index
@@ -62,15 +67,100 @@ class Slot:
 
 
 def _aim(what, face, slot):
-    # The first thing given to extract(), insert(), count() or amount() may be a name, a
-    # Face or a Slot. Returns (name or None, face or None, slot number or None).
+    # The first thing given to count() or amount() may be a name, a Face or a Slot.
+    # Returns (name or None, face or None, slot number or None).
     if isinstance(what, Slot):
         what, slot = None, what
     elif what in _FACES:
         what, face = None, what
     if isinstance(slot, Slot):
         slot = slot.index
-    return _full_name(what), face, slot
+    return what, face, slot
+
+
+def _list(names):
+    # only= and without= take one name or a list of them.
+    if names is None:
+        return []
+    if isinstance(names, str):
+        return [names]
+    return list(names)
+
+
+class Source:
+    """Somewhere to draw from: a device, and what it may give. Make one with a device's
+    source() and hand it to move(). It does nothing by itself, so it can be made once, kept
+    in a variable or a list, and used again and again."""
+
+    def __init__(self, device, only=None, without=None, face=None, slot=None):
+        self.device = device
+        self.only = _list(only)
+        self.without = _list(without)
+        self.face = face
+        self.slot = slot.index if isinstance(slot, Slot) else slot
+
+    def _spec(self):
+        return {"mac": self.device.mac, "only": self.only, "without": self.without, "face": self.face, "slot": self.slot}
+
+    def __repr__(self):
+        return "<%s %s>" % (type(self).__name__.lower(), self.device.name or self.device.ip)
+
+
+class Destination(Source):
+    """Somewhere to put things: a device, and what it will take. Make one with a device's
+    destination() and hand it to move()."""
+
+
+def _ends(given, make):
+    # One end of a move: a Source or Destination, a device, a name, or a list of those.
+    if not isinstance(given, (list, tuple)):
+        given = [given]
+    specs = []
+    for end in given:
+        if isinstance(end, str):
+            end = _wrap(_call("find", end, None))
+        if isinstance(end, Device):
+            end = make(end)
+        specs.append(end._spec())
+    return specs
+
+
+def move(sources, destinations, what=None, count=None, need=None, wait=False):
+    """Moves things from sources to destinations and returns how many moved.
+
+    sources and destinations are each one thing or a list: a Source or Destination
+    (made with a device's source() or destination()), or simply a device. Sources are
+    drawn on in order, and each fills the destinations in order.
+
+    what is a name or a filter ("coal", "#minecraft:logs", "@create"); leave it out to
+    move whatever the sources and destinations allow. For energy and experience leave
+    it out and give only an amount.
+
+    count moves up to that many; fewer (even 0) is not an error. Without it, one of a
+    named item (one bucket of a named fluid) moves, or everything for a filter.
+
+    need moves exactly that many or nothing at all, and raises NetworkError if that
+    many can't be moved right now. With wait=True it waits until they can instead
+    (wait=30 gives up after 30 seconds); Ctrl+C stops the wait.
+
+        move(chest, furnace.destination(face=Face.TOP), "raw_iron", 8)
+        move(all_fuel, furnace.destination(face=Face.LEFT), "#minecraft:coals", need=4, wait=True)
+        move(furnace.source(face=Face.BOTTOM), store)
+    """
+    froms = _ends(sources, Source)
+    tos = _ends(destinations, Destination)
+    if wait and need is None:
+        need = count if count is not None else 1
+    started = time.ticks_ms()
+    while True:
+        reply = _call("move", froms, tos, what, count, need)
+        if not reply.get("short"):
+            return reply["moved"]
+        if not wait:
+            raise NetworkError("Only %d of the %d needed can be moved right now. Nothing was moved." % (reply["could"], need))
+        if wait is not True and time.ticks_diff(time.ticks_ms(), started) >= wait * 1000:
+            raise NetworkError("Gave up after %s seconds: only %d of the %d needed could be moved." % (wait, reply["could"], need))
+        time.sleep(0.5)
 
 
 def _mac(device):
@@ -110,9 +200,59 @@ class Device:
         return "<%s%s %s %s>" % (self.kind, name, self.ip, self.mac)
 
 
-class Interface(Device):
-    """Filtered storage: the network's chest. Inputs and buses deliver to it;
-    outputs and buses draw from it."""
+class _Gives:
+    # For devices that things can be taken from.
+    def source(self, only=None, without=None, face=None, slot=None):
+        """This device as somewhere to draw from, for move(). only= lists the names or
+        filters it may give (nothing else); without= lists what it must keep. face= and
+        slot= narrow it to one face or one slot (or tank) of the container."""
+        return Source(self, only, without, face, slot)
+
+
+class _Takes:
+    # For devices that things can be put into.
+    def destination(self, only=None, without=None, face=None, slot=None):
+        """This device as somewhere to put things, for move(). only= lists the names or
+        filters it will take (nothing else); without= lists what it refuses. face= and
+        slot= narrow it to one face or one slot (or tank) of the container."""
+        return Destination(self, only, without, face, slot)
+
+
+class Port(Device):
+    """A plate on a cable that points at a container: an input, an output or a bus."""
+
+    def set_face(self, face):
+        """Sets the face used when nothing names one."""
+        self._update(_call("set_face", self.mac, face))
+
+    @property
+    def face(self):
+        """The face used when nothing names one."""
+        return self._info["face"]
+
+    @property
+    def target(self):
+        """The block it points at, e.g. "minecraft:furnace"."""
+        return self.refresh()._info["target"]
+
+
+class _Reads:
+    # For plates that can see what their target holds.
+    def contents(self, face=None):
+        """What the target holds, as seen through a face (or all of it, with no face)."""
+        return _call("contents", self.mac, face)
+
+    def count(self, item=None, face=None, slot=None):
+        """How many of an item the target holds: chest.count("coal"). With no item, how
+        many of everything. Narrow it with face= or slot=, or give a Face or a Slot in
+        place of the item: chest.count(Face.BOTTOM), chest.count(Slot(2)). For fluid the
+        answer is in millibuckets."""
+        item, face, slot = _aim(item, face, slot)
+        return _call("count", self.mac, item, face, slot)
+
+
+class Interface(Device, _Gives, _Takes):
+    """Filtered storage: the network's chest. A source and a destination for move()."""
 
     def contents(self):
         """What it holds: a list of {"slot": 0, "item": "minecraft:coal", "count": 12}."""
@@ -125,12 +265,13 @@ class Interface(Device):
         return _call("count", self.mac, item, None, slot)
 
     def filters(self):
-        """What each slot accepts: an item name, or None for a closed slot."""
+        """What each slot accepts: a name or filter, or None for a closed slot."""
         return _call("filters", self.mac)
 
     def set_slot_filter(self, slot, item):
         """Opens a slot for one kind of item, or for every item a filter passes:
-        "coal", "#minecraft:logs", "@create", "*_ore". None closes it again."""
+        "coal", "#minecraft:logs", "@create", "*_ore". None closes it again. This is a
+        rule of the block itself: it also stops hoppers and other mods' pipes."""
         _call("set_filter", self.mac, slot, item)
 
     @property
@@ -139,118 +280,23 @@ class Interface(Device):
         return self._info["slots"]
 
 
-class Port(Device):
-    """A plate on a cable that points at a container: an input, an output or a bus."""
-
-    def set_face(self, face):
-        """Sets the face used when a call doesn't name one."""
-        self._update(_call("set_face", self.mac, face))
-
-    @property
-    def face(self):
-        """The face used when a call doesn't name one."""
-        return self._info["face"]
-
-    @property
-    def target(self):
-        """The block it points at, e.g. "minecraft:furnace"."""
-        return self.refresh()._info["target"]
-
-    def _contents(self, face):
-        return _call("contents", self.mac, face)
-
-    def _held(self, what, face, slot):
-        # How much the target holds of whatever passes a name or filter, narrowed by face and slot.
-        what, face, slot = _aim(what, face, slot)
-        return _call("count", self.mac, what, face, slot)
-
-    def _extract(self, what, count, dest, face, slot=None, dest_slot=None):
-        what, face, slot = _aim(what, face, slot)
-        return _call("extract", self.mac, what, count, _mac(dest), face, slot, _aim(None, None, dest_slot)[2])
-
-    def _insert(self, what, count, source, face, slot=None, source_slot=None):
-        what, face, slot = _aim(what, face, slot)
-        return _call("insert", self.mac, what, count, _mac(source), face, slot, _aim(None, None, source_slot)[2])
+class Input(Port, _Reads, _Gives):
+    """Takes items out of the container it points at. A source for move()."""
 
 
-class Input(Port):
-    """Takes items out of the container it points at, into the network's interfaces."""
-
-    def contents(self, face=None):
-        """What the target holds, as seen through a face (or all of it, with no face)."""
-        return self._contents(face)
-
-    def count(self, item=None, face=None, slot=None):
-        """How many of an item the target holds: bus.count("coal"). With no item, how many
-        of everything. Narrow it with face= or slot=, or give a Face or a Slot in place of
-        the item: bus.count(Face.BOTTOM), bus.count(Slot(2))."""
-        return self._held(item, face, slot)
-
-    def extract(self, item=None, count=None, dest=None, face=None, slot=None, dest_slot=None):
-        """Moves items out of the target into an interface (any interface with a slot open
-        for them, unless dest says which). Returns how many moved.
-
-        Name the item, or leave it out to take whatever is there:
-        bus.extract("iron_ingot", 16), bus.extract(Face.BOTTOM), bus.extract(Slot(0)),
-        bus.extract(face=Face.BOTTOM, slot=0). count defaults to 1 of a named item, and to
-        everything otherwise. dest_slot picks the interface's slot."""
-        return self._extract(item, count, dest, face, slot, dest_slot)
+class Output(Port, _Takes):
+    """Puts items into the container it points at. A destination for move()."""
 
 
-class Output(Port):
-    """Puts items from the network's interfaces into the container it points at."""
-
-    def insert(self, item=None, count=None, source=None, face=None, slot=None, source_slot=None):
-        """Moves items from an interface (any interface, unless source says which) into
-        the target. Returns how many moved; 0 if none could.
-
-        Name the item, or leave it out to send whatever the interface holds:
-        out.insert("coal", 8, face=Face.LEFT), out.insert(Slot(1)) puts into the target's
-        slot 1, out.insert(source_slot=0) sends what is in the interface's first slot.
-        count defaults to 1 of a named item, and to everything otherwise."""
-        return self._insert(item, count, source, face, slot, source_slot)
-
-
-class Bus(Port):
-    """An input and an output in one: reads its target, takes items out and puts items in."""
-
-    def contents(self, face=None):
-        """What the target holds, as seen through a face (or all of it, with no face)."""
-        return self._contents(face)
-
-    def count(self, item=None, face=None, slot=None):
-        """How many of an item the target holds: bus.count("coal"). With no item, how many
-        of everything. Narrow it with face= or slot=, or give a Face or a Slot in place of
-        the item: bus.count(Face.BOTTOM), bus.count(Slot(2))."""
-        return self._held(item, face, slot)
-
-    def extract(self, item=None, count=None, dest=None, face=None, slot=None, dest_slot=None):
-        """Moves items out of the target into an interface (any interface with a slot open
-        for them, unless dest says which). Returns how many moved.
-
-        Name the item, or leave it out to take whatever is there:
-        bus.extract("iron_ingot", 16), bus.extract(Face.BOTTOM), bus.extract(Slot(0)),
-        bus.extract(face=Face.BOTTOM, slot=0). count defaults to 1 of a named item, and to
-        everything otherwise. dest_slot picks the interface's slot."""
-        return self._extract(item, count, dest, face, slot, dest_slot)
-
-    def insert(self, item=None, count=None, source=None, face=None, slot=None, source_slot=None):
-        """Moves items from an interface (any interface, unless source says which) into
-        the target. Returns how many moved; 0 if none could.
-
-        Name the item, or leave it out to send whatever the interface holds:
-        out.insert("coal", 8, face=Face.LEFT), out.insert(Slot(1)) puts into the target's
-        slot 1, out.insert(source_slot=0) sends what is in the interface's first slot.
-        count defaults to 1 of a named item, and to everything otherwise."""
-        return self._insert(item, count, source, face, slot, source_slot)
+class Bus(Port, _Reads, _Gives, _Takes):
+    """An input and an output in one: a source and a destination for move()."""
 
 
 # ---- fluid: amounts are in millibuckets (mB); 1000 is one bucket ----
 
 
-class FluidInterface(Device):
-    """The network's fluid store: four tanks of four buckets (4000 mB) each. Fluid
-    inputs and buses deliver to it; fluid outputs and buses draw from it."""
+class FluidInterface(Device, _Gives, _Takes):
+    """The network's fluid store: four tanks of four buckets (4000 mB) each."""
 
     def contents(self):
         """What each tank holds: a list of {"tank": 0, "fluid": "minecraft:water",
@@ -264,78 +310,35 @@ class FluidInterface(Device):
         return _call("count", self.mac, fluid, None, slot)
 
 
-class FluidInput(Port):
-    """Takes fluid out of the tank it points at, into the network's fluid interfaces."""
-
+class _ReadsFluid:
     def contents(self, face=None):
         """The target's tanks, as seen through a face (or all of them, with no face)."""
-        return self._contents(face)
+        return _call("contents", self.mac, face)
 
     def amount(self, fluid=None, face=None, slot=None):
         """How many millibuckets of a fluid the target holds (or of everything). Narrow it
         with face= or slot= (a tank's number), or give a Face or a Slot in place of the fluid."""
-        return self._held(fluid, face, slot)
-
-    def extract(self, fluid=None, amount=None, dest=None, face=None, slot=None, dest_slot=None):
-        """Moves fluid (in millibuckets; 1000 is a bucket) out of the target into a fluid
-        interface (any, unless dest says which). Returns how much moved.
-
-        Name the fluid, or leave it out to take whatever is there: bus.extract("water", 2000),
-        bus.extract(Slot(0)) empties the target's first tank. amount defaults to one bucket
-        of a named fluid, and to everything otherwise. dest_slot picks the interface's tank."""
-        return self._extract(fluid, amount, dest, face, slot, dest_slot)
+        fluid, face, slot = _aim(fluid, face, slot)
+        return _call("count", self.mac, fluid, face, slot)
 
 
-class FluidOutput(Port):
-    """Puts fluid from the network's fluid interfaces into the tank it points at."""
-
-    def insert(self, fluid=None, amount=None, source=None, face=None, slot=None, source_slot=None):
-        """Moves fluid (in millibuckets; 1000 is a bucket) from a fluid interface (any,
-        unless source says which) into the target. Returns how much moved.
-
-        Name the fluid, or leave it out to send whatever the interface holds. slot picks the
-        target's tank, source_slot the interface's: out.insert(source_slot=0). amount
-        defaults to one bucket of a named fluid, and to everything otherwise."""
-        return self._insert(fluid, amount, source, face, slot, source_slot)
+class FluidInput(Port, _ReadsFluid, _Gives):
+    """Takes fluid out of the tank it points at. A source for move()."""
 
 
-class FluidBus(Port):
+class FluidOutput(Port, _Takes):
+    """Puts fluid into the tank it points at. A destination for move()."""
+
+
+class FluidBus(Port, _ReadsFluid, _Gives, _Takes):
     """A fluid input and a fluid output in one."""
-
-    def contents(self, face=None):
-        """The target's tanks, as seen through a face (or all of them, with no face)."""
-        return self._contents(face)
-
-    def amount(self, fluid=None, face=None, slot=None):
-        """How many millibuckets of a fluid the target holds (or of everything). Narrow it
-        with face= or slot= (a tank's number), or give a Face or a Slot in place of the fluid."""
-        return self._held(fluid, face, slot)
-
-    def extract(self, fluid=None, amount=None, dest=None, face=None, slot=None, dest_slot=None):
-        """Moves fluid (in millibuckets; 1000 is a bucket) out of the target into a fluid
-        interface (any, unless dest says which). Returns how much moved.
-
-        Name the fluid, or leave it out to take whatever is there: bus.extract("water", 2000),
-        bus.extract(Slot(0)) empties the target's first tank. amount defaults to one bucket
-        of a named fluid, and to everything otherwise. dest_slot picks the interface's tank."""
-        return self._extract(fluid, amount, dest, face, slot, dest_slot)
-
-    def insert(self, fluid=None, amount=None, source=None, face=None, slot=None, source_slot=None):
-        """Moves fluid (in millibuckets; 1000 is a bucket) from a fluid interface (any,
-        unless source says which) into the target. Returns how much moved.
-
-        Name the fluid, or leave it out to send whatever the interface holds. slot picks the
-        target's tank, source_slot the interface's: out.insert(source_slot=0). amount
-        defaults to one bucket of a named fluid, and to everything otherwise."""
-        return self._insert(fluid, amount, source, face, slot, source_slot)
 
 
 # ---- energy: amounts are in FE, the unit mods share (also called RF) ----
 
 
-class EnergyInterface(Device):
-    """The network's energy store: it holds 2,000,000 FE. Energy inputs and buses
-    charge it; energy outputs and buses draw from it."""
+class EnergyInterface(Device, _Gives, _Takes):
+    """The network's energy store: it holds 2,000,000 FE."""
 
     @property
     def stored(self):
@@ -348,9 +351,7 @@ class EnergyInterface(Device):
         return self._info["capacity"]
 
 
-class EnergyInput(Port):
-    """Takes energy out of the machine it points at, into the network's energy interfaces."""
-
+class _ReadsEnergy:
     def stored(self, face=None):
         """How much energy the target holds."""
         return _call("energy", self.mac, face)["stored"]
@@ -359,46 +360,22 @@ class EnergyInput(Port):
         """The most the target can hold."""
         return _call("energy", self.mac, face)["capacity"]
 
-    def extract(self, amount, dest=None, face=None):
-        """Moves up to an amount of energy out of the target into an energy interface
-        (any, unless dest says which). Returns how much moved."""
-        return self._extract(None, amount, dest, face)
+
+class EnergyInput(Port, _ReadsEnergy, _Gives):
+    """Takes energy out of the machine it points at. A source for move()."""
 
 
-class EnergyOutput(Port):
-    """Puts energy from the network's energy interfaces into the machine it points at."""
-
-    def insert(self, amount, source=None, face=None):
-        """Moves up to an amount of energy from an energy interface (any, unless source
-        says which) into the target. Returns how much moved."""
-        return self._insert(None, amount, source, face)
+class EnergyOutput(Port, _Takes):
+    """Puts energy into the machine it points at. A destination for move()."""
 
 
-class EnergyBus(Port):
+class EnergyBus(Port, _ReadsEnergy, _Gives, _Takes):
     """An energy input and an energy output in one."""
 
-    def stored(self, face=None):
-        """How much energy the target holds."""
-        return _call("energy", self.mac, face)["stored"]
 
-    def capacity(self, face=None):
-        """The most the target can hold."""
-        return _call("energy", self.mac, face)["capacity"]
-
-    def extract(self, amount, dest=None, face=None):
-        """Moves up to an amount of energy out of the target into an energy interface
-        (any, unless dest says which). Returns how much moved."""
-        return self._extract(None, amount, dest, face)
-
-    def insert(self, amount, source=None, face=None):
-        """Moves up to an amount of energy from an energy interface (any, unless source
-        says which) into the target. Returns how much moved."""
-        return self._insert(None, amount, source, face)
-
-
-class ExperienceInterface(Device):
+class ExperienceInterface(Device, _Gives, _Takes):
     """The network's experience store. It holds real experience only, with no limit;
-    players store and take levels at the block. Programs can read it."""
+    players store and take levels at the block. move() between two of them moves points."""
 
     @property
     def points(self):
@@ -414,11 +391,6 @@ class ExperienceInterface(Device):
     def lock(self):
         """Who may store and take at the block: "private", "team" or "public"."""
         return self.refresh()._info["lock"]
-
-
-def _full_name(item):
-    # Names and filters go to the game as written; it knows that "coal" means "minecraft:coal".
-    return item
 
 
 _KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus,

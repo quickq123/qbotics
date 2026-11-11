@@ -55,6 +55,11 @@ public interface FluidPort {
      * @param wanted   which fluids to move (one fluid, or a filter many pass), or null for whatever is there
      */
     static int move(FluidPort from, int fromTank, FluidPort to, int toTank, @Nullable Predicate<Fluid> wanted, int amount) {
+        return move(from, fromTank, to, toTank, wanted, amount, false);
+    }
+
+    /** The same, with a trial run: with simulate true nothing changes, and the answer is how much would move. */
+    static int move(FluidPort from, int fromTank, FluidPort to, int toTank, @Nullable Predicate<Fluid> wanted, int amount, boolean simulate) {
         List<Fluid> kinds = new ArrayList<>();
         List<Tank> tanks = from.tanks();
         for (int i = 0; i < tanks.size(); i++) {
@@ -73,6 +78,10 @@ public interface FluidPort {
             int available = fromTank < 0 ? from.extract(kind, most, true) : from.extractFrom(fromTank, kind, most, true);
             int fits = available == 0 ? 0 : toTank < 0 ? to.insert(kind, available, true) : to.insertInto(toTank, kind, available, true);
             if (fits == 0) {
+                continue;
+            }
+            if (simulate) {
+                moved += fits;
                 continue;
             }
             int taken = fromTank < 0 ? from.extract(kind, fits, false) : from.extractFrom(fromTank, kind, fits, false);

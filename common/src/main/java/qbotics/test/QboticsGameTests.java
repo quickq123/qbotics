@@ -492,20 +492,20 @@ public final class QboticsGameTests {
 
         for (String line : List.of(
                 "python",
-                "from logistics import network, Face",
+                "from logistics import network, move, Face",
                 "net = network()",
                 "f = net.bus()",
                 "inbox = net.interface()",
                 "print('before', f.count('iron_ingot'), inbox.filters()[2])",
                 "inbox.set_slot_filter(2, 'minecraft:iron_ingot')",
-                "a = f.insert('minecraft:raw_iron', 5, face=Face.TOP)",
-                "b = f.insert('coal', 2, source=inbox, face=Face.LEFT)",
-                "print('moved', a, b, f.extract('iron_ingot', 64, face=Face.BOTTOM))",
-                "print('out', net.output().insert('raw_iron', 100), inbox.count('raw_iron'), inbox.count('iron_ingot'))",
+                "a = move(inbox, f.destination(face=Face.TOP), 'minecraft:raw_iron', 5)",
+                "b = move(inbox, f.destination(face=Face.LEFT), 'coal', 2)",
+                "print('moved', a, b, move(f.source(face=Face.BOTTOM), inbox, 'iron_ingot', 64))",
+                "print('out', move(inbox, net.output(), 'raw_iron', 100), inbox.count('raw_iron'), inbox.count('iron_ingot'))",
                 "print(len(net.devices()), net.me.kind, f.target, f.ip.startswith('192.168.1.'))",
                 "net.bus('nope')",
-                "f.insert('minecraft:not_a_thing')",
-                "net.output().extract",
+                "move(inbox, f, 'minecraft:not_a_thing')",
+                "move(net.output(), inbox)",
                 "import network",
                 "print('host', network.hostname('base'), network.ifconfig()['ip'] == net.me.ip)")) {
             computer.submitLine(line);
@@ -513,7 +513,7 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "before 3 None\n", "moved 5 2 3\n", "out 11 0 3\n", "4 computer minecraft:furnace True\n",
                     "NetworkError: No bus on this network has the name or address 'nope'.",
-                    "There is no item called 'minecraft:not_a_thing'", "AttributeError", "host base True\n");
+                    "There is no item called 'minecraft:not_a_thing'", "An output can't be a source", "host base True\n");
             // The furnace is lit, so by now it may have smelted some of the five: count both.
             helper.assertTrue(furnace.getItem(0).getCount() + furnace.getItem(2).getCount() == 5,
                     "the furnace should hold the five raw iron (smelted or not) and none of the old ingots: "
@@ -595,9 +595,12 @@ public final class QboticsGameTests {
                 qbotics.network.NetworkCalls.handle(level.getServer(), level.dimension(), computerAt, request);
         String mac = plate.mac();
         helper.assertTrue(call.apply("[\"contents\",\"" + mac + "\",null]").contains("\"count\":12"), "an input reads its target");
-        helper.assertTrue(call.apply("[\"extract\",\"" + mac + "\",\"minecraft:coal\",5,null,null]").equals("{\"r\":5}")
+        String storeMac = store.mac();
+        helper.assertTrue(call.apply("[\"move\",[{\"mac\":\"" + mac + "\"}],[{\"mac\":\"" + storeMac + "\"}],\"minecraft:coal\",5,null]")
+                .equals("{\"r\":{\"moved\":5}}")
                 && store.getItem(0).getCount() == 5 && chest.getItem(5).getCount() == 7, "an input should move 5 coal to the interface");
-        helper.assertTrue(call.apply("[\"insert\",\"" + mac + "\",\"minecraft:coal\",1,null,null]").contains("An input can only take items out"),
+        helper.assertTrue(call.apply("[\"move\",[{\"mac\":\"" + storeMac + "\"}],[{\"mac\":\"" + mac + "\"}],\"minecraft:coal\",1,null]")
+                .contains("An input can't be a destination"),
                 "an input should refuse to put items in");
         helper.assertTrue(call.apply("[\"find\",\"" + second.mac() + "\",null]").contains("minecraft:barrel"), "the second input points at the barrel");
 
@@ -675,20 +678,27 @@ public final class QboticsGameTests {
         String e = energyBus.mac();
         helper.assertTrue(call.apply("[\"contents\",\"" + f + "\",null]").contains("\"fluid\":\"minecraft:water\",\"amount\":3000"),
                 "the fluid bus should read its target's tanks: " + call.apply("[\"contents\",\"" + f + "\",null]"));
-        helper.assertTrue(call.apply("[\"extract\",\"" + f + "\",\"minecraft:water\",2500,null,null]").equals("{\"r\":2500}")
+        java.util.function.BiFunction<String, String, String> ends = (from, to) -> "[{\"mac\":\"" + from + "\"}],[{\"mac\":\"" + to + "\"}]";
+        helper.assertTrue(call.apply("[\"move\"," + ends.apply(f, store.mac()) + ",\"minecraft:water\",2500,null]").equals("{\"r\":{\"moved\":2500}}")
                 && store.tanks().getFirst().amount() == 2500, "2500 mB of water should move into the fluid interface");
-        helper.assertTrue(call.apply("[\"insert\",\"" + f + "\",\"minecraft:water\",500,null,null]").equals("{\"r\":500}")
+        helper.assertTrue(call.apply("[\"move\"," + ends.apply(store.mac(), f) + ",\"minecraft:water\",500,null]").equals("{\"r\":{\"moved\":500}}")
                 && store.tanks().getFirst().amount() == 2000 && tank.extract(water, 99_000, true) == 1000, "500 mB should go back");
-        helper.assertTrue(call.apply("[\"extract\",\"" + f + "\",\"minecraft:milk_tea\",1,null,null]").contains("There is no fluid called"),
+        helper.assertTrue(call.apply("[\"move\"," + ends.apply(f, store.mac()) + ",\"minecraft:milk_tea\",1,null]").contains("There is no fluid called"),
                 "an unknown fluid should be explained");
         helper.assertTrue(call.apply("[\"energy\",\"" + e + "\",null]").equals("{\"r\":{\"stored\":500000,\"capacity\":2000000}}"),
                 "the energy bus should read its target: " + call.apply("[\"energy\",\"" + e + "\",null]"));
-        helper.assertTrue(call.apply("[\"extract\",\"" + e + "\",null,200000,null,null]").equals("{\"r\":200000}")
+        helper.assertTrue(call.apply("[\"move\"," + ends.apply(e, cell.mac()) + ",null,200000,null]").equals("{\"r\":{\"moved\":200000}}")
                 && cell.stored() == 200_000 && machine.stored() == 300_000, "200,000 should move into the energy interface");
-        helper.assertTrue(call.apply("[\"insert\",\"" + e + "\",null,50000,null,null]").equals("{\"r\":50000}")
+        helper.assertTrue(call.apply("[\"move\"," + ends.apply(cell.mac(), e) + ",null,50000,null]").equals("{\"r\":{\"moved\":50000}}")
                 && cell.stored() == 150_000 && machine.stored() == 350_000, "50,000 should go back");
-        helper.assertTrue(call.apply("[\"extract\",\"" + f + "\",\"minecraft:water\",1,\"" + cell.mac() + "\",null]").contains("needs a fluid interface"),
+        helper.assertTrue(call.apply("[\"move\"," + ends.apply(f, cell.mac()) + ",\"minecraft:water\",1,null]").contains("A move carries one kind of thing"),
                 "fluid can't be sent to an energy interface");
+        // "need": all or nothing. More than there is moves nothing and says how much could; the exact amount moves.
+        helper.assertTrue(call.apply("[\"move\"," + ends.apply(e, cell.mac()) + ",null,null,900000]").equals("{\"r\":{\"moved\":0,\"short\":true,\"could\":350000}}")
+                && machine.stored() == 350_000, "asking for more than there is should move nothing");
+        helper.assertTrue(call.apply("[\"move\"," + ends.apply(e, cell.mac()) + ",null,null,50000]").equals("{\"r\":{\"moved\":50000}}")
+                && call.apply("[\"move\"," + ends.apply(cell.mac(), e) + ",null,null,50000]").equals("{\"r\":{\"moved\":50000}}"),
+                "an exact amount that fits should move, there and back");
 
         // Breaking the cable gives back the fluid plate, not an item one.
         List<ItemStack> drops = net.minecraft.world.level.block.Block.getDrops(helper.getBlockState(fluidCable), level,
@@ -711,18 +721,18 @@ public final class QboticsGameTests {
         // And from Python.
         for (String line : List.of(
                 "python",
-                "from logistics import network, Slot",
+                "from logistics import network, move, Slot",
                 "net = network()",
                 "print(net.fluid_bus().amount('water'), net.fluid_interface().amount(), net.fluid_interface().contents()[0]['fluid'])",
-                "print(net.energy_interface().stored, net.energy_bus().stored(), net.energy_bus().insert(1000))",
-                "print(net.fluid_bus().extract('water', 250), net.fluid_bus().kind)",
+                "print(net.energy_interface().stored, net.energy_bus().stored(), move(net.energy_interface(), net.energy_bus(), count=1000))",
+                "print(move(net.fluid_bus(), net.fluid_interface(), 'water', 250), net.fluid_bus().kind)",
                 // By tank number, without naming the fluid: the target's first tank holds the lava.
-                "print(net.fluid_bus().amount(Slot(0)), net.fluid_bus().extract(Slot(0)), net.fluid_interface().amount('lava'))",
-                "net.energy_bus().extract(0)")) {
+                "print(net.fluid_bus().amount(Slot(0)), move(net.fluid_bus().source(slot=0), net.fluid_interface()), net.fluid_interface().amount('lava'))",
+                "move(net.energy_bus(), net.energy_interface(), count=0)")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> assertScreen(helper, computer, "1000 2000 minecraft:water\n", "150000 350000 1000\n", "250 fluid_bus\n", "500 500 500\n",
-                "NetworkError: The amount must be 1 or more units of energy, not 0."));
+                "NetworkError: The count must be 1 or more, not 0."));
     }
 
     /**
@@ -746,27 +756,27 @@ public final class QboticsGameTests {
 
         for (String line : List.of(
                 "python",
-                "from logistics import network, Face, Slot",
+                "from logistics import network, move, Face, Slot",
                 "net = network()",
                 "bus = net.bus()",
                 "store = net.interface()",
                 "print(bus.count(Slot(0)), bus.count('coal'), bus.count(slot=3), bus.count())",
                 // Whatever is in a slot, without naming it.
-                "print(bus.extract(Slot(3)), store.count(Slot(1)))",
+                "print(move(bus.source(slot=3), store), store.count(Slot(1)))",
                 // A named item, from one slot of the chest into one slot of the interface.
-                "print(bus.extract('coal', 4, slot=5, dest_slot=2), store.count(slot=2), bus.count(Slot(5)))",
-                "print(bus.extract(Slot(0)), store.count('coal'))",
+                "print(move(bus.source(slot=5), store.destination(slot=2), 'coal', 4), store.count(slot=2), bus.count(Slot(5)))",
+                "print(move(bus.source(slot=Slot(0)), store), store.count('coal'))",
                 // The other way: from one slot of the interface into one slot of the chest.
-                "print(bus.insert(source_slot=1, slot=8), bus.count(Slot(8)))",
-                "print(bus.insert(Slot(0), source_slot=2, count=3), bus.count(Slot(0)))",
-                "bus.extract(Slot(40))",
+                "print(move(store.source(slot=1), bus.destination(slot=8)), bus.count(Slot(8)))",
+                "print(move(store.source(slot=2), bus.destination(slot=0), count=3), bus.count(Slot(0)))",
+                "move(bus.source(slot=40), store)",
                 // Whatever can be reached through a face: here, everything left in the chest.
-                "print(bus.extract(Face.TOP), bus.count())")) {
+                "print(move(bus.source(face=Face.TOP), store), bus.count())")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "10 17 5 22\n", "5 5\n", "4 4 3\n", "10 14\n", "5 5\n", "3 3\n",
-                    "NetworkError: The target has slots 0 to 26 here; there is no slot 40.", "11 0\n");
+                    "has slots 0 to 26 here; there is no slot 40.", "11 0\n");
             // Coal tops up the slot that already holds coal (slot 2) before starting an empty one.
             helper.assertTrue(chest.isEmpty() && store.getItem(0).isEmpty() && store.getItem(1).getCount() == 5
                     && store.getItem(2).getCount() == 17, "everything should have ended up in the interface: " + store.getItem(0)
@@ -794,7 +804,7 @@ public final class QboticsGameTests {
 
         for (String line : List.of(
                 "python",
-                "from logistics import network",
+                "from logistics import network, move",
                 "net = network()",
                 "bus = net.bus()",
                 "store = net.interface()",
@@ -804,25 +814,34 @@ public final class QboticsGameTests {
                 "store.set_slot_filter(3, 'coal | charcoal')",
                 "print(store.filters()[:4])",
                 "print(bus.count('#minecraft:logs'), bus.count('*_log'), bus.count('@minecraft'), bus.count('@minecraft -*_log -coal'), bus.count('oak_*'))",
-                "print(bus.extract('#logs'), store.count('*_log'), bus.extract('*_ore | coal'), store.count())",
+                "print(move(bus, store, '#logs'), store.count('*_log'), move(bus, store, '*_ore | coal'), store.count())",
                 "store.set_slot_filter(4, '@nosuchmod')",
-                "bus.extract('irn_ingot')",
-                "print('left', bus.count('@Minecraft'), bus.count('$minecraft:planks'))")) {
+                "move(bus, store, 'irn_ingot')",
+                "print('left', bus.count('@Minecraft'), bus.count('$minecraft:planks'))",
+                // A source with its own lists: only logs, but not birch. Then all-or-nothing amounts.
+                "print(move(store.source(only=['#minecraft:logs'], without='birch_*'), bus), bus.count('oak_log'))",
+                "move(store, bus, 'coal', need=50)",
+                "print(move(store, bus, 'coal', need=6), move(store, bus.destination(only='*_ore'), need=3, wait=5), store.count())",
+                // A pool of sources, drawn on in order; the destination refuses what its own list leaves out.
+                "pool = [store.source(), bus.source(only='coal')]",
+                "print(move(pool, net.interface().destination(without='coal'), 'coal', 4), move(pool, store, 'coal', 4), store.count('coal'))")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "['#minecraft:logs', '#logs', '*_ore', 'coal | charcoal']\n", "12 12 26 8 13\n", "12 12 9 21\n",
                     "NetworkError: No item passes the filter '@nosuchmod'.", // (The whole message is longer than the terminal is wide, so it wraps; the start is enough here.)
-                    "NetworkError: There is no item called 'irn_ingot'. Did you mean", "left 5 5\n");
+                    "NetworkError: There is no item called 'irn_ingot'. Did you mean", "left 5 5\n", "8 8\n",
+                    "NetworkError: Only 6 of the 50 needed can be moved right now. Nothing was moved.", "6 3 4\n", "0 4 4\n");
             var items = net.minecraft.core.registries.BuiltInRegistries.ITEM;
             helper.assertTrue(qbotics.network.NameMatch.closest(items, "iron_ore_raw").contains("minecraft:raw_iron")
                     && qbotics.network.NameMatch.closest(items, "oak_plank").getFirst().equals("minecraft:oak_planks")
                     && qbotics.network.NameMatch.closest(items, "zzzzqqqq").isEmpty(),
                     "suggestions were " + qbotics.network.NameMatch.closest(items, "iron_ore_raw") + " and "
                     + qbotics.network.NameMatch.closest(items, "oak_plank"));
-            helper.assertTrue(store.getItem(0).is(Blocks.OAK_LOG.asItem()) && store.getItem(1).is(Blocks.BIRCH_LOG.asItem())
-                    && store.getItem(2).is(Blocks.IRON_ORE.asItem()) && store.getItem(3).getCount() == 6 && chest.countItem(Blocks.OAK_PLANKS.asItem()) == 5,
-                    "logs, ore and coal should be in the interface and the planks left behind");
+            helper.assertTrue(store.getItem(0).isEmpty() && store.getItem(1).is(Blocks.BIRCH_LOG.asItem()) && store.getItem(2).isEmpty()
+                    && store.getItem(3).getCount() == 4 && chest.countItem(Blocks.OAK_PLANKS.asItem()) == 5 && chest.countItem(Items.COAL) == 2,
+                    "at the end the interface should hold the birch logs and 4 coal: " + store.getItem(0) + ", " + store.getItem(1) + ", "
+                    + store.getItem(2) + ", " + store.getItem(3));
             // A slot open for a tag takes any item with that tag, and nothing else.
             helper.assertTrue(store.canPlaceItem(0, new ItemStack(Blocks.SPRUCE_LOG)) && !store.canPlaceItem(0, new ItemStack(Items.COAL))
                     && store.canPlaceItem(3, new ItemStack(Items.CHARCOAL)), "slot filters should follow the tag and the alternatives");
@@ -971,7 +990,7 @@ public final class QboticsGameTests {
                 "store", "tanks", "xp")), "the main network should hold exactly the stage's devices, but had " + names);
 
         ServerComputer computer = ComputerManager.get(level.getServer()).getOrStart(main);
-        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices")) {
+        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources")) {
             computer.submitLine("run demos/" + demo + ".py");
         }
         computer.submitLine("pwd");
@@ -980,8 +999,9 @@ public final class QboticsGameTests {
             String text = String.join("\n", state.scrolled()) + "\n" + String.join("\n", state.lines());
             helper.assertTrue(text.contains("$ pwd"), "the demos are still running; so far:\n" + text);
             helper.assertTrue(!text.contains("Traceback") && !text.contains("Error"), "a demo failed:\n" + text);
-            for (String expected : List.of("149 items; 32 are coal", "the store: 8", "moved to the store: 24", "5000 mB, 3000 of it water",
-                    "battery now holds 250000 of 2000000", "Sent: True", "{'echo': {'hello': 'from main'}}", "experience_interface")) {
+            for (String expected : List.of("149 items; 32 are coal", "chest to furnace: 8", "moved to the store: 24", "5000 mB, 3000 of it water",
+                    "battery now holds 250000 of 2000000", "Sent: True", "{'echo': {'hello': 'from main'}}", "experience_interface",
+                    "into the furnace: 4", "all but gold: 20", "As expected: Only 6 of the 50 needed", "Exactly 6 gold: 6")) {
                 helper.assertTrue(text.contains(expected), "the demos should have printed '" + expected + "' but printed:\n" + text);
             }
         });

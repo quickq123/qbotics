@@ -288,73 +288,326 @@ public final class NetworkCalls {
             }
             case "send":
                 return new JsonPrimitive(send(level, network, computerPos, args.get(1).getAsString(), args.get(2).getAsString()));
-            case "insert":
-            case "extract":
-                return new JsonPrimitive(move(level, network, method.equals("insert"), args));
+            case "move":
+                return moveAll(level, network, args);
             default:
                 throw new CallError("This computer doesn't know the call '" + method + "'.");
         }
     }
 
+    // ---- moving: from sources to destinations --------------------------------------------
+
+    private static final int MAX_ENDS = 32;
+    private static final int MAX_END_FILTERS = 32;
+
     /**
-     * insert: from interfaces, through an output or bus, into its target.
-     * extract: out of an input's or bus's target, into interfaces.
-     * Arguments: device MAC, item (or null for whatever is there), count (or null: 1 of a named
-     * item, otherwise all there is), the other end's MAC (or null for any interface), face (or
-     * null), slot of the target (or null), slot of the interface (or null).
+     * One end of a move, as the program described it: a device, and optionally a face and a
+     * slot (or tank) to work through, and lists of what it will and won't pass.
      */
-    private static int move(ServerLevel level, CableNetwork network, boolean insert, JsonArray args) {
-        CablePort port = port(byMac(network, args, 1));
-        String stuff = switch (port.medium()) {
-            case ITEM -> "items";
-            case FLUID -> "fluid";
-            case ENERGY -> "energy";
-            case EXPERIENCE -> "experience";
-        };
-        if (!insert && port.kind() == Kind.OUTPUT) {
-            throw new CallError("An output can only put " + stuff + " in. Use an input or a bus to take " + stuff + " out.");
+    private record End(NetworkDevice device, String face, int slot, JsonObject written) {
+        String label() {
+            return device.deviceName().isEmpty() ? device.ip() : device.deviceName();
         }
-        if (insert && port.kind() == Kind.INPUT) {
-            throw new CallError("An input can only take " + stuff + " out. Use an output or a bus to put " + stuff + " in.");
+    }
+
+    private static List<End> ends(CableNetwork network, JsonElement written, String what) {
+        JsonArray list = written.getAsJsonArray();
+        if (list.isEmpty()) {
+            throw new CallError("A move needs at least one " + what + ".");
         }
-        if (port.medium() == Medium.FLUID) {
-            return moveFluid(level, network, port, insert, args);
+        if (list.size() > MAX_ENDS) {
+            throw new CallError("A move can name at most " + MAX_ENDS + " " + what + "s.");
         }
-        if (port.medium() == Medium.ENERGY) {
-            return moveEnergy(level, network, port, insert, args);
+        List<End> ends = new ArrayList<>();
+        for (JsonElement element : list) {
+            JsonObject spec = element.getAsJsonObject();
+            String mac = spec.get("mac").getAsString();
+            NetworkDevice device = network.byMac(mac);
+            if (device == null) {
+                throw new CallError("The device " + mac + " is no longer on this network.");
+            }
+            String face = spec.has("face") && !spec.get("face").isJsonNull() ? spec.get("face").getAsString() : null;
+            int slot = spec.has("slot") && !spec.get("slot").isJsonNull() ? spec.get("slot").getAsInt() : -1;
+            if (slot < -1) {
+                throw new CallError("Slots and tanks are numbered from 0; there is no number " + slot + ".");
+            }
+            ends.add(new End(device, face, slot, spec));
         }
-        // No item named means "whatever is there", which is how a furnace's product is taken
-        // without knowing what was smelted.
-        NameMatch<Item> item = string(args, 2) == null ? null : item(string(args, 2));
-        // One named item moves 1 unless a count is given; a filter, like no name at all, moves all there is.
-        int count = amount(args, item == null || item.single() == null ? MAX_ITEMS_PER_CALL : 1, MAX_ITEMS_PER_CALL, "items");
-        int slot = slot(args, 6);
-        int otherSlot = slot(args, 7);
-        List<InterfaceBlockEntity> inputs = new ArrayList<>();
-        String other = string(args, 4);
-        if (other != null) {
-            inputs.add(input(byMac(network, args, 4)));
-        } else {
-            for (NetworkDevice device : network.devices()) {
-                if (device instanceof InterfaceBlockEntity input) {
-                    inputs.add(input);
+        return ends;
+    }
+
+    private static <T> List<NameMatch<T>> names(JsonObject spec, String key, java.util.function.Function<String, NameMatch<T>> parse) {
+        List<NameMatch<T>> names = new ArrayList<>();
+        if (spec.has(key) && spec.get(key).isJsonArray()) {
+            JsonArray written = spec.getAsJsonArray(key);
+            if (written.size() > MAX_END_FILTERS) {
+                throw new CallError("A source or destination can list at most " + MAX_END_FILTERS + " names or filters.");
+            }
+            for (JsonElement name : written) {
+                names.add(parse.apply(name.getAsString()));
+            }
+        }
+        return names;
+    }
+
+    /** What one end lets through: anything in its "only" list (or anything, if that is empty) that is not in its "without" list. */
+    private static <T> java.util.function.Predicate<T> endFilter(End end, java.util.function.Function<String, NameMatch<T>> parse) {
+        List<NameMatch<T>> only = names(end.written(), "only", parse);
+        List<NameMatch<T>> without = names(end.written(), "without", parse);
+        return thing -> (only.isEmpty() || only.stream().anyMatch(filter -> filter.test(thing)))
+                && without.stream().noneMatch(filter -> filter.test(thing));
+    }
+
+    private static Integer wholeNumber(JsonArray args, int index, String what) {
+        if (index >= args.size() || args.get(index).isJsonNull()) {
+            return null;
+        }
+        long number = args.get(index).getAsLong();
+        if (number < 1) {
+            throw new CallError("The " + what + " must be 1 or more, not " + number + ".");
+        }
+        return (int) Math.min(number, Integer.MAX_VALUE);
+    }
+
+    private static CallError notASource(End end) {
+        return new CallError(end.device() instanceof CablePort port && port.kind() == Kind.OUTPUT
+                ? "An output can't be a source: it only puts things in. Use an input or a bus."
+                : end.label() + " is " + article(end.device()) + ", which can't be a source.");
+    }
+
+    private static CallError notADestination(End end) {
+        return new CallError(end.device() instanceof CablePort port && port.kind() == Kind.INPUT
+                ? "An input can't be a destination: it only takes things out. Use an output or a bus."
+                : end.label() + " is " + article(end.device()) + ", which can't be a destination.");
+    }
+
+    private interface Step {
+        /** Moves (or, in a trial, counts) up to a limit from one source to one destination. */
+        long run(int source, int destination, long limit, boolean simulate);
+    }
+
+    /**
+     * Moves things from sources to destinations (design doc §11.0.5). Sources are drawn on in
+     * the order given, and each fills the destinations in the order given, until the amount
+     * asked for has moved. Nothing has to pass through an interface: an input's chest can feed
+     * an output's furnace directly.
+     *
+     * <p>Arguments: the sources, the destinations (each a list of {"mac", "face", "slot",
+     * "only": [...], "without": [...]}), a name or filter (or null), "count" (move up to this
+     * many; or null), "need" (move exactly this many or nothing; or null).
+     *
+     * <p>The answer is {"moved": n}. With "need", if that many can't be moved now, nothing is
+     * moved and the answer is {"moved": 0, "short": true, "could": how many}: the program then
+     * waits and asks again, or reports it.
+     */
+    private static JsonObject moveAll(ServerLevel level, CableNetwork network, JsonArray args) {
+        List<End> sources = ends(network, args.get(1), "source");
+        List<End> destinations = ends(network, args.get(2), "destination");
+        String wanted = string(args, 3);
+        Integer count = wholeNumber(args, 4, "count");
+        Integer need = wholeNumber(args, 5, "amount needed");
+        Medium medium = sources.getFirst().device().medium();
+        for (End end : sources) {
+            if (end.device().kind() == Kind.COMPUTER || end.device().kind() == Kind.ANTENNA) {
+                throw notASource(end);
+            }
+        }
+        for (End end : destinations) {
+            if (end.device().kind() == Kind.COMPUTER || end.device().kind() == Kind.ANTENNA) {
+                throw notADestination(end);
+            }
+        }
+        for (End end : destinations) {
+            if (end.device().medium() != medium) {
+                throw new CallError("A move carries one kind of thing: " + sources.getFirst().label() + " handles "
+                        + medium.word + (medium == Medium.ITEM ? "s" : "") + " but " + end.label() + " handles " + end.device().medium().word
+                        + (end.device().medium() == Medium.ITEM ? "s" : "") + ".");
+            }
+        }
+        for (End end : sources) {
+            if (end.device().medium() != medium) {
+                throw new CallError("A move carries one kind of thing, but its sources handle both " + medium.word + " and "
+                        + end.device().medium().word + ".");
+            }
+        }
+
+        long most;
+        long byDefault;
+        Step step;
+        switch (medium) {
+            case ITEM -> {
+                NameMatch<Item> match = wanted == null ? null : item(wanted);
+                List<ItemPort> from = new ArrayList<>();
+                List<ItemPort> to = new ArrayList<>();
+                List<java.util.function.Predicate<Item>> passes = new ArrayList<>();
+                for (End end : sources) {
+                    ItemPort port;
+                    if (end.device() instanceof InterfaceBlockEntity store) {
+                        port = store;
+                    } else if (end.device() instanceof CablePort plate && plate.kind() != Kind.OUTPUT) {
+                        // With no face named, a source is the whole container, as contents() shows it.
+                        port = end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
+                    } else {
+                        throw notASource(end);
+                    }
+                    checkSlot(end.slot(), port.contents().size(), end.label(), "slot");
+                    from.add(port);
                 }
+                for (End end : destinations) {
+                    ItemPort port;
+                    if (end.device() instanceof InterfaceBlockEntity store) {
+                        port = store;
+                    } else if (end.device() instanceof CablePort plate && plate.kind() != Kind.INPUT) {
+                        // A slot number with no face counts slots across the whole container.
+                        port = end.slot() >= 0 && end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
+                    } else {
+                        throw notADestination(end);
+                    }
+                    checkSlot(end.slot(), port.contents().size(), end.label(), "slot");
+                    to.add(port);
+                }
+                for (End source : sources) {
+                    java.util.function.Predicate<Item> own = endFilter(source, NetworkCalls::item);
+                    for (End destination : destinations) {
+                        java.util.function.Predicate<Item> theirs = endFilter(destination, NetworkCalls::item);
+                        passes.add(thing -> (match == null || match.test(thing)) && own.test(thing) && theirs.test(thing));
+                    }
+                }
+                most = MAX_ITEMS_PER_CALL;
+                byDefault = match != null && match.single() != null ? 1 : most;
+                step = (s, d, limit, simulate) -> from.get(s) == to.get(d) ? 0 : ItemPort.move(from.get(s), sources.get(s).slot(),
+                        to.get(d), destinations.get(d).slot(), passes.get(s * destinations.size() + d), (int) limit, simulate);
             }
-            if (inputs.isEmpty()) {
-                throw new CallError("There is no interface on this network to " + (insert ? "take items from." : "put items into."));
+            case FLUID -> {
+                NameMatch<Fluid> match = wanted == null ? null : fluid(wanted);
+                List<FluidPort> from = new ArrayList<>();
+                List<FluidPort> to = new ArrayList<>();
+                List<java.util.function.Predicate<Fluid>> passes = new ArrayList<>();
+                for (End end : sources) {
+                    if (end.device() instanceof CablePort plate && plate.kind() == Kind.OUTPUT) {
+                        throw notASource(end);
+                    }
+                    FluidPort port = fluidSource(level, end.device(), end.face());
+                    checkSlot(end.slot(), port.tanks().size(), end.label(), "tank");
+                    from.add(port);
+                }
+                for (End end : destinations) {
+                    FluidPort port;
+                    if (end.device() instanceof FluidInterfaceBlockEntity store) {
+                        port = store;
+                    } else if (end.device() instanceof CablePort plate && plate.kind() != Kind.INPUT) {
+                        port = fluidTarget(level, plate, end.face(), end.slot() >= 0);
+                    } else {
+                        throw notADestination(end);
+                    }
+                    checkSlot(end.slot(), port.tanks().size(), end.label(), "tank");
+                    to.add(port);
+                }
+                for (End source : sources) {
+                    java.util.function.Predicate<Fluid> own = endFilter(source, NetworkCalls::fluid);
+                    for (End destination : destinations) {
+                        java.util.function.Predicate<Fluid> theirs = endFilter(destination, NetworkCalls::fluid);
+                        passes.add(thing -> (match == null || match.test(thing)) && own.test(thing) && theirs.test(thing));
+                    }
+                }
+                most = MAX_FLUID_PER_CALL;
+                byDefault = match != null && match.single() != null ? FluidPort.BUCKET : most;
+                step = (s, d, limit, simulate) -> from.get(s) == to.get(d) ? 0 : FluidPort.move(from.get(s), sources.get(s).slot(),
+                        to.get(d), destinations.get(d).slot(), passes.get(s * destinations.size() + d), (int) limit, simulate);
+            }
+            case ENERGY -> {
+                if (wanted != null) {
+                    throw new CallError("Energy has no kinds to name: give only the amount, as in move(battery, machine, count=5000).");
+                }
+                List<EnergyPort> from = new ArrayList<>();
+                List<EnergyPort> to = new ArrayList<>();
+                for (End end : sources) {
+                    if (end.device() instanceof CablePort plate && plate.kind() == Kind.OUTPUT) {
+                        throw notASource(end);
+                    }
+                    from.add(energySource(level, end.device(), end.face()));
+                }
+                for (End end : destinations) {
+                    if (end.device() instanceof EnergyInterfaceBlockEntity store) {
+                        to.add(store);
+                    } else if (end.device() instanceof CablePort plate && plate.kind() != Kind.INPUT) {
+                        to.add(energyTarget(level, plate, end.face(), false));
+                    } else {
+                        throw notADestination(end);
+                    }
+                }
+                most = MAX_ENERGY_PER_CALL;
+                byDefault = most;
+                step = (s, d, limit, simulate) -> {
+                    if (from.get(s) == to.get(d)) {
+                        return 0;
+                    }
+                    if (!simulate) {
+                        return EnergyPort.move(from.get(s), to.get(d), (int) limit);
+                    }
+                    int available = from.get(s).extract((int) limit, true);
+                    return available == 0 ? 0 : to.get(d).insert(available, true);
+                };
+            }
+            default -> {
+                // Experience, between Experience Interfaces. (Paying for things with it comes with screen access.)
+                if (wanted != null) {
+                    throw new CallError("Experience has no kinds to name: give only the amount, in points.");
+                }
+                List<qbotics.block.ExperienceInterfaceBlockEntity> from = new ArrayList<>();
+                List<qbotics.block.ExperienceInterfaceBlockEntity> to = new ArrayList<>();
+                for (End end : sources) {
+                    if (!(end.device() instanceof qbotics.block.ExperienceInterfaceBlockEntity store)) {
+                        throw notASource(end);
+                    }
+                    from.add(store);
+                }
+                for (End end : destinations) {
+                    if (!(end.device() instanceof qbotics.block.ExperienceInterfaceBlockEntity store)) {
+                        throw notADestination(end);
+                    }
+                    to.add(store);
+                }
+                most = Integer.MAX_VALUE;
+                byDefault = most;
+                step = (s, d, limit, simulate) -> {
+                    long room = qbotics.block.ExperienceInterfaceBlockEntity.MAX_POINTS - to.get(d).points();
+                    long amount = from.get(s) == to.get(d) ? 0 : Math.min(limit, Math.min(from.get(s).points(), room));
+                    return simulate ? amount : to.get(d).add(from.get(s).take(amount));
+                };
             }
         }
-        // A slot number with no face named counts slots as contents() lists them: through the whole container.
-        ItemPort target = slot >= 0 && string(args, 5) == null ? wholeTarget(level, port) : target(level, port, string(args, 5));
-        checkSlot(slot, target.contents().size(), "The target", "slot");
-        checkSlot(otherSlot, InterfaceBlockEntity.SLOTS, "An interface", "slot");
-        int moved = 0;
-        for (InterfaceBlockEntity input : inputs) {
-            if (moved >= count) {
-                break;
+
+        if (need != null && need > most) {
+            throw new CallError("One move can carry at most " + most + "; " + need + " were asked for.");
+        }
+        long limit = need != null ? need : count != null ? Math.min(count, most) : byDefault;
+        JsonObject answer = new JsonObject();
+        if (need != null) {
+            // All or nothing: find out first whether that many can move, and change nothing if not.
+            long could = sweep(step, sources.size(), destinations.size(), limit, true);
+            if (could < need) {
+                answer.addProperty("moved", 0);
+                answer.addProperty("short", true);
+                answer.addProperty("could", could);
+                return answer;
             }
-            moved += insert ? ItemPort.move(input, otherSlot, target, slot, item, count - moved)
-                    : ItemPort.move(target, slot, input, otherSlot, item, count - moved);
+        }
+        long moved = sweep(step, sources.size(), destinations.size(), limit, false);
+        if (need != null && moved < need) {
+            // Several kinds competing for the same free slots can make the trial run optimistic.
+            throw new CallError("Only " + moved + " of the " + need + " needed could be moved; the rest had nowhere to go.");
+        }
+        answer.addProperty("moved", moved);
+        return answer;
+    }
+
+    private static long sweep(Step step, int sources, int destinations, long limit, boolean simulate) {
+        long moved = 0;
+        for (int s = 0; s < sources && moved < limit; s++) {
+            for (int d = 0; d < destinations && moved < limit; d++) {
+                moved += step.run(s, d, limit - moved, simulate);
+            }
         }
         return moved;
     }
@@ -475,18 +728,6 @@ public final class NetworkCalls {
         return list;
     }
 
-    /** The count argument of insert and extract, checked and capped; with none given, a default. */
-    private static int amount(JsonArray args, int byDefault, int most, String unit) {
-        if (args.size() <= 3 || args.get(3).isJsonNull()) {
-            return byDefault;
-        }
-        int count = args.get(3).getAsInt();
-        if (count < 1) {
-            throw new CallError("The amount must be 1 or more " + unit + ", not " + count + ".");
-        }
-        return Math.min(count, most);
-    }
-
     /** A slot or tank number argument, or -1 if none was given. */
     private static int slot(JsonArray args, int index) {
         if (index >= args.size() || args.get(index).isJsonNull()) {
@@ -504,72 +745,6 @@ public final class NetworkCalls {
             throw new CallError(size == 0 ? owner + " has no " + word + "s that can be reached here."
                     : owner + " has " + word + "s 0 to " + (size - 1) + " here; there is no " + word + " " + slot + ".");
         }
-    }
-
-    /** Arguments: device MAC, fluid, millibuckets, the other end's MAC (or null for any fluid interface), face (or null). */
-    private static int moveFluid(ServerLevel level, CableNetwork network, CablePort port, boolean insert, JsonArray args) {
-        NameMatch<Fluid> fluid = string(args, 2) == null ? null : fluid(string(args, 2));
-        int count = amount(args, fluid == null || fluid.single() == null ? MAX_FLUID_PER_CALL : FluidPort.BUCKET, MAX_FLUID_PER_CALL, "millibuckets");
-        int tank = slot(args, 6);
-        int otherTank = slot(args, 7);
-        List<FluidInterfaceBlockEntity> stores = new ArrayList<>();
-        if (string(args, 4) != null) {
-            if (!(byMac(network, args, 4) instanceof FluidInterfaceBlockEntity store)) {
-                throw new CallError("That needs a fluid interface; this is " + article(byMac(network, args, 4)) + ".");
-            }
-            stores.add(store);
-        } else {
-            for (NetworkDevice device : network.devices()) {
-                if (device instanceof FluidInterfaceBlockEntity store) {
-                    stores.add(store);
-                }
-            }
-            if (stores.isEmpty()) {
-                throw new CallError("There is no fluid interface on this network to " + (insert ? "take fluid from." : "put fluid into."));
-            }
-        }
-        FluidPort target = fluidTarget(level, port, string(args, 5), tank >= 0);
-        checkSlot(tank, target.tanks().size(), "The target", "tank");
-        checkSlot(otherTank, FluidInterfaceBlockEntity.TANKS, "A fluid interface", "tank");
-        int moved = 0;
-        for (FluidInterfaceBlockEntity store : stores) {
-            if (moved >= count) {
-                break;
-            }
-            moved += insert ? FluidPort.move(store, otherTank, target, tank, fluid, count - moved)
-                    : FluidPort.move(target, tank, store, otherTank, fluid, count - moved);
-        }
-        return moved;
-    }
-
-    /** Arguments: device MAC, null, amount of energy, the other end's MAC (or null for any energy interface), face (or null). */
-    private static int moveEnergy(ServerLevel level, CableNetwork network, CablePort port, boolean insert, JsonArray args) {
-        int count = amount(args, MAX_ENERGY_PER_CALL, MAX_ENERGY_PER_CALL, "units of energy");
-        List<EnergyInterfaceBlockEntity> stores = new ArrayList<>();
-        if (string(args, 4) != null) {
-            if (!(byMac(network, args, 4) instanceof EnergyInterfaceBlockEntity store)) {
-                throw new CallError("That needs an energy interface; this is " + article(byMac(network, args, 4)) + ".");
-            }
-            stores.add(store);
-        } else {
-            for (NetworkDevice device : network.devices()) {
-                if (device instanceof EnergyInterfaceBlockEntity store) {
-                    stores.add(store);
-                }
-            }
-            if (stores.isEmpty()) {
-                throw new CallError("There is no energy interface on this network to " + (insert ? "take energy from." : "put energy into."));
-            }
-        }
-        EnergyPort target = energyTarget(level, port, string(args, 5), false);
-        int moved = 0;
-        for (EnergyInterfaceBlockEntity store : stores) {
-            if (moved >= count) {
-                break;
-            }
-            moved += insert ? EnergyPort.move(store, target, count - moved) : EnergyPort.move(target, store, count - moved);
-        }
-        return moved;
     }
 
     // ---- messages between computers (design doc §9.3) ---------------------------------

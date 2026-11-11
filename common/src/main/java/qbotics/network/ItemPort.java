@@ -48,6 +48,15 @@ public interface ItemPort {
      * @param wanted   which items to move (one item, or a filter many pass), or null for whatever is there
      */
     static int move(ItemPort from, int fromSlot, ItemPort to, int toSlot, @Nullable Predicate<Item> wanted, int count) {
+        return move(from, fromSlot, to, toSlot, wanted, count, false);
+    }
+
+    /**
+     * The same, with a trial run: with simulate true nothing changes, and the answer is how
+     * many would move. (A trial of several kinds of item into one place can come out a little
+     * high, because each kind is tried as if it had the free slots to itself.)
+     */
+    static int move(ItemPort from, int fromSlot, ItemPort to, int toSlot, @Nullable Predicate<Item> wanted, int count, boolean simulate) {
         int moved = 0;
         // Stacks of one item can still differ (damage, enchantments, names); each kind moves separately.
         List<ItemStack> kinds = new ArrayList<>();
@@ -67,6 +76,10 @@ public interface ItemPort {
             int available = fromSlot < 0 ? from.extract(kind, most, true) : from.extractFrom(fromSlot, kind, most, true);
             int fits = available == 0 ? 0 : toSlot < 0 ? to.insert(kind, available, true) : to.insertInto(toSlot, kind, available, true);
             if (fits == 0) {
+                continue;
+            }
+            if (simulate) {
+                moved += fits;
                 continue;
             }
             int taken = fromSlot < 0 ? from.extract(kind, fits, false) : from.extractFrom(fromSlot, kind, fits, false);

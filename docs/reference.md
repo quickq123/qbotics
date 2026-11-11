@@ -192,7 +192,7 @@ How many move when no count is given:
 |---|---|
 | One item name | 1 |
 | One fluid name | 1,000 mB (one bucket) |
-| A filter, or nothing | Everything there, up to the limit for one call |
+| A filter, or nothing | Everything there, up to the limit for one move |
 
 ---
 
@@ -227,17 +227,18 @@ slots that face exposes.
 
 The probe's Slots mode shows these numbers on any container's screen (section 8).
 
-### 5.3 Where a name would go
+### 5.3 In counting
 
-`extract`, `insert`, `count` and `amount` take a name or filter, or a `Face`, or a `Slot`, as
-their first value. They also take `face=` and `slot=` alongside a name.
+`count` and `amount` take a name or filter, or a `Face`, or a `Slot`, as their first value,
+and `face=` and `slot=` alongside a name.
 
 ```python
-bus.extract(Face.BOTTOM)             # whatever the furnace has made
-bus.extract(Slot(0))                 # whatever is in the first slot
-bus.extract("coal", 4, slot=5)       # 4 coal, from slot 5 only
-bus.count(Slot(2))                   # how many are in slot 2
+chest.count("coal")              # all the coal
+chest.count(Slot(2))             # whatever is in slot 2
+furnace.count(Face.BOTTOM)       # what the furnace has made
 ```
+
+For moving, the face and slot belong to the source or destination (section 6.4).
 
 ---
 
@@ -280,7 +281,79 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `.face` | The face used when a call names none |
 | `.set_face(face)` | Changes that face |
 
-### 6.4 Items
+### 6.4 Moving things: sources, destinations and `move`
+
+Things are moved **from sources to destinations**. A source or destination is only a
+description of one end: which device, optionally which face or slot, and what it may give or
+take. Nothing happens until `move` is called, so an end can be made once, kept in a variable,
+put in a list, and used again.
+
+Nothing has to pass through an Interface. An Input's chest can feed an Output's furnace directly.
+
+| What | Can be a source | Can be a destination |
+|---|---|---|
+| Interface, Fluid Interface, Energy Interface, Experience Interface | yes | yes |
+| Input (and Fluid Input, Energy Input): the container it points at | yes | no |
+| Output (and its fluid and energy versions): the container it points at | no | yes |
+| Bus (and its fluid and energy versions): the container it points at | yes | yes |
+
+**Describing an end**
+
+```python
+device.source(only=None, without=None, face=None, slot=None)
+device.destination(only=None, without=None, face=None, slot=None)
+```
+
+| Argument | Meaning |
+|---|---|
+| `only` | A name or filter, or a list of them (section 4). The end handles these and nothing else |
+| `without` | A name or filter, or a list. The end never handles these |
+| `face` | Work through this face of the container (section 5.1) |
+| `slot` | Work with this one slot, or tank (section 5.2) |
+
+With no arguments an end handles everything. A device can be given to `move` as it is, which
+means the same as its `source()` or `destination()` with no arguments.
+
+**Moving**
+
+```python
+move(sources, destinations, what=None, count=None, need=None, wait=False)
+```
+
+It returns how many moved.
+
+| Argument | Meaning |
+|---|---|
+| `sources` | One source or a list. They are drawn on in the order given |
+| `destinations` | One destination or a list. Each source fills them in the order given |
+| `what` | A name or filter. Left out: whatever the ends allow. For energy and experience it is always left out |
+| `count` | Move up to this many. Fewer, even none, is not an error. Left out: 1 of a named item, one bucket of a named fluid, or everything for a filter or no name |
+| `need` | Move exactly this many, or nothing at all. If that many can't be moved now, `NetworkError` is raised and nothing has moved |
+| `wait` | With `need`: `True` waits until that many can be moved; a number waits that many seconds and then raises. Ctrl+C stops the wait |
+
+What moves must pass three things: `what`, the source's own lists, and the destination's own
+lists. An Interface's slot filters (section 6.5) apply as well; those belong to the block and
+also stop hoppers and other mods' pipes.
+
+```python
+from logistics import network, move, Face
+net = network()
+store, chest, furnace = net.interface("store"), net.bus("chest"), net.bus("furnace")
+
+move(chest, furnace.destination(face=Face.TOP), "raw_iron", 8)    # ore in through the top
+move(furnace.source(face=Face.BOTTOM), store)                    # collect whatever it made
+
+fuel = [store.source(only=["coal", "charcoal"]), chest.source(only="*coal")]
+move(fuel, furnace.destination(face=Face.LEFT), count=4)          # from the first source that has some
+
+move(fuel, furnace.destination(face=Face.LEFT), "charcoal", need=8, wait=True)   # pause until 8 are there
+```
+
+`need` checks before it moves. When a filter matches several kinds of item that compete for
+the same free slots, the check can be optimistic; if fewer than `need` then move, that is
+reported as an error saying how many did.
+
+### 6.5 Items
 
 **Interface** (`net.interface()`): nine slots. Every slot starts closed.
 
@@ -291,100 +364,47 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `store.filters()` | What each slot accepts; `None` for a closed slot |
 | `store.set_slot_filter(slot, item)` | Opens a slot for a name or filter. `None` closes it |
 | `store.slots` | How many slots it has |
+| `store.source(...)`, `store.destination(...)` | Section 6.4 |
 
 A slot holds one kind of item at a time, up to one stack, even when its filter passes many.
 
-**Input and Bus**: take items out of the target, into an Interface.
+**Input**, **Output** and **Bus**
 
-| Call | Does |
-|---|---|
-| `bus.contents(face=None)` | What the target holds |
-| `bus.count(item=None, face=None, slot=None)` | How many the target holds |
-| `bus.extract(item=None, count=None, dest=None, face=None, slot=None, dest_slot=None)` | Moves items from the target into an Interface. Returns how many moved |
+| Call | On | Does |
+|---|---|---|
+| `plate.contents(face=None)` | Input, Bus | What the target holds |
+| `plate.count(item=None, face=None, slot=None)` | Input, Bus | How many the target holds |
+| `plate.source(...)` | Input, Bus | Section 6.4 |
+| `plate.destination(...)` | Output, Bus | Section 6.4 |
 
-**Output and Bus**: put items from an Interface into the target.
+### 6.6 Fluid and energy
 
-| Call | Does |
-|---|---|
-| `out.insert(item=None, count=None, source=None, face=None, slot=None, source_slot=None)` | Moves items from an Interface into the target. Returns how many moved |
-
-| Argument | Meaning |
-|---|---|
-| `item` | A name or filter (section 4), a `Face`, a `Slot`, or nothing for whatever is there |
-| `count` | The most to move. Fewer may move; the call returns the number |
-| `dest`, `source` | Which Interface: a device or its name or address. With none, any on the network |
-| `face` | Which face of the target to work through |
-| `slot` | Which slot of the target |
-| `dest_slot`, `source_slot` | Which slot of the Interface |
-
-```python
-store = net.interface()
-store.set_slot_filter(0, "#minecraft:logs")
-net.input("tree_farm").extract("#minecraft:logs")
-net.output("furnace").insert("coal", 8, face=Face.LEFT)
-```
-
-### 6.5 Fluid
-
-Amounts are in millibuckets (mB). 1,000 mB is one bucket.
+Fluid amounts are in millibuckets (mB): 1,000 mB is one bucket. Energy amounts are in FE, the
+unit mods share (also called RF).
 
 **Fluid Interface** (`net.fluid_interface()`): four tanks of 4,000 mB. A tank takes any fluid
 while empty, then only more of the same.
 
-| Call | Does |
-|---|---|
-| `tanks.contents()` | A list of `{"tank": 0, "fluid": "minecraft:water", "amount": 1000, "capacity": 4000}`. An empty tank's fluid is `None` |
-| `tanks.amount(fluid=None, slot=None)` | Millibuckets held of a name or filter; of everything with none |
-
-**Fluid Input and Fluid Bus**
-
-| Call | Does |
-|---|---|
-| `fbus.contents(face=None)` | The target's tanks |
-| `fbus.amount(fluid=None, face=None, slot=None)` | Millibuckets the target holds |
-| `fbus.extract(fluid=None, amount=None, dest=None, face=None, slot=None, dest_slot=None)` | Moves fluid from the target into a Fluid Interface. Returns how much moved |
-
-**Fluid Output and Fluid Bus**
-
-| Call | Does |
-|---|---|
-| `fout.insert(fluid=None, amount=None, source=None, face=None, slot=None, source_slot=None)` | Moves fluid from a Fluid Interface into the target. Returns how much moved |
-
-`slot`, `dest_slot` and `source_slot` are tank numbers.
-
-```python
-net.fluid_input().extract("water", 2000)
-net.fluid_bus("boiler").insert("lava")       # one bucket
-```
-
-### 6.6 Energy
-
-Amounts are in FE, the unit mods share (also called RF).
+| Call | On | Does |
+|---|---|---|
+| `tanks.contents()` | Fluid Interface | A list of `{"tank": 0, "fluid": "minecraft:water", "amount": 1000, "capacity": 4000}`. An empty tank's fluid is `None` |
+| `tanks.amount(fluid=None, slot=None)` | Fluid Interface | Millibuckets held of a name or filter |
+| `plate.contents(face=None)` | Fluid Input, Fluid Bus | The target's tanks |
+| `plate.amount(fluid=None, face=None, slot=None)` | Fluid Input, Fluid Bus | Millibuckets the target holds |
 
 **Energy Interface** (`net.energy_interface()`): holds 2,000,000 FE.
 
-| Attribute | Gives |
-|---|---|
-| `cell.stored` | Energy held now |
-| `cell.capacity` | The most it can hold |
+| Call | On | Gives |
+|---|---|---|
+| `cell.stored`, `cell.capacity` | Energy Interface | Energy held now; the most it can hold |
+| `plate.stored(face=None)`, `plate.capacity(face=None)` | Energy Input, Energy Bus | The same for the target |
 
-**Energy Input and Energy Bus**
-
-| Call | Does |
-|---|---|
-| `ebus.stored(face=None)` | Energy the target holds |
-| `ebus.capacity(face=None)` | The most the target can hold |
-| `ebus.extract(amount, dest=None, face=None)` | Moves energy from the target into an Energy Interface. Returns how much moved |
-
-**Energy Output and Energy Bus**
-
-| Call | Does |
-|---|---|
-| `eout.insert(amount, source=None, face=None)` | Moves energy from an Energy Interface into the target. Returns how much moved |
+All of them have `source(...)` and `destination(...)` as section 6.4 says. In a fluid end,
+`slot` is a tank number. Energy has no kinds, so `only`, `without` and `what` are not used:
 
 ```python
-if net.energy_interface().stored > 100000:
-    net.energy_output("machine").insert(50000)
+move(net.fluid_bus("boiler"), net.fluid_interface("tanks"), "water", 3000)
+move(net.energy_interface("battery"), net.energy_output("machine"), count=50000)
 ```
 
 ### 6.7 Experience
@@ -400,7 +420,7 @@ take: the owner, the owner's team, or everyone. Picked up, the block keeps its e
 
 It does not accept liquid experience from other mods.
 
-A program can read it:
+A program can read it, and `move` between two of them moves points (`move(bank, other, count=500)`):
 
 | Attribute | Gives |
 |---|---|
@@ -527,9 +547,10 @@ tags.
 
 | What | Limit |
 |---|---|
-| Items moved by one call | 576 (nine stacks) |
-| Fluid moved by one call | 16,000 mB |
-| Energy moved by one call | 2,000,000 FE |
+| Items moved by one `move` | 576 (nine stacks) |
+| Fluid moved by one `move` | 16,000 mB |
+| Energy moved by one `move` | 2,000,000 FE |
+| Sources or destinations in one `move` | 32 each |
 | A message | 4,096 characters once written as JSON |
 | A computer's inbox | 64 messages |
 | Calls waiting for the game at once | 32 per computer |
@@ -546,14 +567,14 @@ Mistakes in `logistics` and `network` calls raise `NetworkError` with a message 
 words. Catch it like any exception:
 
 ```python
-from logistics import network, NetworkError
+from logistics import network, move, NetworkError
 try:
-    network().bus("smelter").extract("iron_ingot", 8)
+    move(network().bus("smelter"), network().interface("store"), "iron_ingot", need=8)
 except NetworkError as problem:
     print("could not move:", problem)
 ```
 
-A transfer that moves nothing is not an error: the call returns 0.
+A move that moves nothing is not an error: `move` returns 0. Ask for `need=` when it should be one.
 
 ---
 
@@ -584,12 +605,13 @@ holds one short program per feature:
 
 | Program | Shows |
 |---|---|
-| `demos/1_items.py` | Counting, moving, feeding the furnace, collecting what it made |
+| `demos/1_items.py` | Counting, moving into the furnace, collecting what it made |
 | `demos/2_filters.py` | Tags, wildcards, mods, and slots by number |
 | `demos/3_fluid.py` | Moving water and lava by name and by tank |
 | `demos/4_energy.py` | Reading and moving energy |
 | `demos/5_radio.py` | Listing the other network, sending a message, reading the reply |
 | `demos/6_devices.py` | Every device on the network |
+| `demos/7_sources.py` | Sources and destinations: pools, keeping things back, exact amounts |
 
 `remote` runs `demos/echo.py` from the start, which answers every message, so the radio demo
 works at once. Log in to it with the `ssh` line the README gives; Ctrl+C stops the echo.
