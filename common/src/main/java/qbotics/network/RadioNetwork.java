@@ -178,21 +178,28 @@ public final class RadioNetwork {
      * @param caller the owner of the device that is asking, or null if nobody owns it
      */
     public static @Nullable String accessProblem(MinecraftServer server, AntennaBlockEntity antenna, java.util.@Nullable UUID caller) {
-        java.util.UUID owner = antenna.owner();
-        if (antenna.access() == Access.PUBLIC || java.util.Objects.equals(owner, caller)) {
+        if (allowed(server, antenna.access(), antenna.owner(), caller)) {
             return null;
-        }
-        if (antenna.access() == Access.TEAM && owner != null && caller != null) {
-            // Teams are the game's own (the /team command); they list players by name.
-            var mine = server.services().profileResolver().fetchById(owner).map(profile -> server.getScoreboard().getPlayersTeam(profile.name()));
-            var theirs = server.services().profileResolver().fetchById(caller).map(profile -> server.getScoreboard().getPlayersTeam(profile.name()));
-            if (mine.isPresent() && theirs.isPresent() && mine.get() == theirs.get()) {
-                return null;
-            }
-            return "that antenna is for its owner's team only";
         }
         return antenna.access() == Access.TEAM ? "that antenna is for its owner's team only"
                 : "that antenna is private: only its owner's devices may use it";
+    }
+
+    /**
+     * The rule behind every lock in the mod: is someone let in to a thing with this access
+     * setting and this owner? The owner always is. Used for antennas and for the Experience Interface.
+     */
+    public static boolean allowed(MinecraftServer server, Access access, java.util.@Nullable UUID owner, java.util.@Nullable UUID caller) {
+        if (access == Access.PUBLIC || java.util.Objects.equals(owner, caller)) {
+            return true;
+        }
+        if (access == Access.TEAM && owner != null && caller != null) {
+            // Teams are the game's own (the /team command); they list players by name.
+            var mine = server.services().profileResolver().fetchById(owner).map(profile -> server.getScoreboard().getPlayersTeam(profile.name()));
+            var theirs = server.services().profileResolver().fetchById(caller).map(profile -> server.getScoreboard().getPlayersTeam(profile.name()));
+            return mine.isPresent() && theirs.isPresent() && mine.get() != null && mine.get() == theirs.get();
+        }
+        return false;
     }
 
     /** Why two antennas can't talk, or null if they can (design doc §9.1). */

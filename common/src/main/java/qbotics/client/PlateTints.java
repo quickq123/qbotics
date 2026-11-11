@@ -30,6 +30,7 @@ public final class PlateTints {
             case ITEM -> ITEM;
             case FLUID -> FLUID;
             case ENERGY -> ENERGY;
+            case EXPERIENCE -> 0xFF80E040; // no plate carries it yet
         };
     }
 

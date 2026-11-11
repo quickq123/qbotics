@@ -204,6 +204,24 @@ public final class ScreenshotRun {
             }
         }));
         then(5, minecraft -> shot(minecraft, "09c-interface-slots"));
+        // The Experience Interface's screen.
+        then(10, minecraft -> {
+            minecraft.player.closeContainer();
+            onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(base.offset(13, 0, -2)) instanceof qbotics.block.ExperienceInterfaceBlockEntity bank) {
+                    Qbotics.platform().sendToPlayer(player, bank.info(player));
+                }
+            });
+        });
+        then(5, minecraft -> shot(minecraft, "09e-experience-screen"));
+        then(10, minecraft -> {
+            minecraft.setScreen(null);
+            onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(base.offset(9, 0, -4)) instanceof InterfaceBlockEntity store) {
+                    player.openMenu(store);
+                }
+            });
+        });
         // With any probe in hand, an item's tooltip shows the name programs use. The mouse is
         // put over the Interface's first stored stack (this needs the game's window to be in front).
         then(10, minecraft -> {
@@ -344,6 +362,10 @@ public final class ScreenshotRun {
         }
         level.setBlock(base.offset(12, 0, -2), QboticsContent.FLUID_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(base.offset(14, 0, -2), QboticsContent.ENERGY_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        level.setBlock(base.offset(13, 0, -2), QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        if (level.getBlockEntity(base.offset(13, 0, -2)) instanceof qbotics.block.ExperienceInterfaceBlockEntity bank) {
+            bank.add(2000);
+        }
         // Cable on its own: a straight run, a corner, a T, a lone piece, and one going up.
         int[][] run = {{0, 0, -7}, {1, 0, -7}, {2, 0, -7}, {3, 0, -7}, {3, 0, -6}, {4, 0, -7}, {4, 1, -7}, {6, 0, -7}};
         for (int[] at : run) {

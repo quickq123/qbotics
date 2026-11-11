@@ -309,6 +309,7 @@ public final class NetworkCalls {
             case ITEM -> "items";
             case FLUID -> "fluid";
             case ENERGY -> "energy";
+            case EXPERIENCE -> "experience";
         };
         if (!insert && port.kind() == Kind.OUTPUT) {
             throw new CallError("An output can only put " + stuff + " in. Use an input or a bus to take " + stuff + " out.");
@@ -786,6 +787,10 @@ public final class NetworkCalls {
             info.addProperty("tank_capacity", FluidInterfaceBlockEntity.TANK_CAPACITY);
         } else if (device instanceof EnergyInterfaceBlockEntity) {
             info.addProperty("capacity", EnergyInterfaceBlockEntity.CAPACITY);
+        } else if (device instanceof qbotics.block.ExperienceInterfaceBlockEntity store) {
+            info.addProperty("points", store.points());
+            info.addProperty("levels", qbotics.block.Experience.levelAt(store.points()));
+            info.addProperty("lock", store.lock().word);
         }
         return info;
     }

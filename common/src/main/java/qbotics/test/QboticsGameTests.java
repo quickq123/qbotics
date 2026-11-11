@@ -66,6 +66,7 @@ public final class QboticsGameTests {
             Map.entry("name_filters", QboticsGameTests::nameFilters),
             Map.entry("computer_settings", QboticsGameTests::computerSettings),
             Map.entry("remote_login", QboticsGameTests::remoteLogin),
+            Map.entry("experience_store", QboticsGameTests::experienceStore),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -895,6 +896,61 @@ public final class QboticsGameTests {
                 helper.fail("the folder should have been made on the other computer's drive");
             }
         });
+    }
+
+    /**
+     * The Experience Interface: levels go in and come out as exactly the points they cost,
+     * a lock says who may use it, and the experience travels with the block when it is picked up.
+     */
+    private static void experienceStore(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        ServerLevel level = helper.getLevel();
+        helper.setBlock(pos, QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get());
+        qbotics.block.ExperienceInterfaceBlockEntity store = helper.getBlockEntity(pos, qbotics.block.ExperienceInterfaceBlockEntity.class);
+        // The game's own numbers: level 30 costs 1,395 points; level 31, 1,507.
+        helper.assertTrue(qbotics.block.Experience.pointsAtLevel(16) == 352 && qbotics.block.Experience.pointsAtLevel(30) == 1395
+                && qbotics.block.Experience.pointsAtLevel(31) == 1507 && qbotics.block.Experience.levelAt(1506) == 30
+                && qbotics.block.Experience.levelAt(1507) == 31 && qbotics.block.Experience.levelAt(0) == 0, "the level arithmetic is wrong");
+
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setExperienceLevels(30);
+        player.setExperiencePoints(40);
+        long before = qbotics.block.Experience.pointsOf(player);
+        // Storing 5 levels takes the top five (25 to 30), and leaves the progress alone.
+        long stored = store.store(player, 5);
+        helper.assertTrue(stored == 1395 - 910 && store.points() == stored && qbotics.block.Experience.pointsOf(player) == before - stored
+                && player.experienceLevel == 25, "storing 5 levels from 30 should move 485 points, but moved " + stored + " leaving level "
+                + player.experienceLevel);
+        // Taking them back is exact: nothing gained, nothing lost.
+        store.give(player, 1000);
+        helper.assertTrue(store.points() == 0 && qbotics.block.Experience.pointsOf(player) == before && player.experienceLevel == 30,
+                "taking everything back should restore the player exactly: level " + player.experienceLevel);
+        store.store(player, Integer.MAX_VALUE);
+        helper.assertTrue(store.points() == before && player.experienceLevel == 0 && qbotics.block.Experience.pointsOf(player) == 0,
+                "Store All should empty the player");
+        // It holds far more than a player ever could.
+        helper.assertTrue(store.add(Long.MAX_VALUE) > 1_000_000_000_000_000L && store.take(Long.MAX_VALUE) > 0 && store.points() == 0,
+                "the store should hold a practically unlimited amount");
+        store.add(before);
+
+        // The lock: a block nobody owns is open; once owned, strangers are kept out until it is made public.
+        var server = level.getServer();
+        UUID owner = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
+        helper.assertTrue(store.mayUse(server, stranger) && store.mayChangeLock(stranger), "a block nobody owns is open to all");
+        store.setOwnerForTest(owner);
+        helper.assertTrue(store.mayUse(server, owner) && !store.mayUse(server, stranger) && !store.mayChangeLock(stranger)
+                && store.mayChangeLock(owner), "a private store is its owner's alone");
+        store.setLock(RadioNetwork.Access.PUBLIC);
+        helper.assertTrue(store.mayUse(server, stranger) && !store.mayChangeLock(stranger), "a public store lets anyone use it, not relock it");
+
+        // Picking the block up keeps the experience in the item.
+        List<ItemStack> drops = net.minecraft.world.level.block.Block.getDrops(helper.getBlockState(pos), level, helper.absolutePos(pos), store);
+        helper.assertTrue(drops.size() == 1 && Long.valueOf(before).equals(drops.getFirst().get(QboticsContent.XP_POINTS.get())),
+                "the dropped item should carry the experience: " + drops);
+        // It is a device on a network like the other stores.
+        helper.assertTrue(networkAt(helper, pos).devices().getFirst().kindWord().equals("experience_interface"), "it should be a network device");
+        helper.succeed();
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */

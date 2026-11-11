@@ -110,6 +110,12 @@ public final class QboticsNeoForge {
             qbotics.block.StoreBlock::fluid, properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredBlock<qbotics.block.StoreBlock> ENERGY_INTERFACE = BLOCKS.registerBlock("energy_interface",
             qbotics.block.StoreBlock::energy, properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredBlock<qbotics.block.StoreBlock> EXPERIENCE_INTERFACE = BLOCKS.registerBlock("experience_interface",
+            qbotics.block.StoreBlock::experience, properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> EXPERIENCE_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(EXPERIENCE_INTERFACE);
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.ExperienceInterfaceBlockEntity>> EXPERIENCE_INTERFACE_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("experience_interface",
+                    () -> new BlockEntityType<>(qbotics.block.ExperienceInterfaceBlockEntity::new, EXPERIENCE_INTERFACE.get()));
     private static final DeferredItem<BlockItem> FLUID_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(FLUID_INTERFACE);
     private static final DeferredItem<BlockItem> ENERGY_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(ENERGY_INTERFACE);
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.FluidInterfaceBlockEntity>> FLUID_INTERFACE_BLOCK_ENTITY =
@@ -162,6 +168,7 @@ public final class QboticsNeoForge {
                         output.accept(INTERFACE_ITEM.get());
                         output.accept(FLUID_INTERFACE_ITEM.get());
                         output.accept(ENERGY_INTERFACE_ITEM.get());
+                        output.accept(EXPERIENCE_INTERFACE_ITEM.get());
                         output.accept(INPUT_ITEM.get());
                         output.accept(OUTPUT_ITEM.get());
                         output.accept(BUS_ITEM.get());
@@ -190,6 +197,9 @@ public final class QboticsNeoForge {
         return CABLE.get();
     }
 
+    private static final DeferredHolder<DataComponentType<?>, DataComponentType<Long>> XP_POINTS =
+            DATA_COMPONENTS.registerComponentType("xp_points", builder -> builder
+                    .persistent(com.mojang.serialization.Codec.LONG).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_LONG));
     private static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> PROBE_MODE =
             DATA_COMPONENTS.registerComponentType("probe_mode", builder -> builder
                     .persistent(com.mojang.serialization.Codec.INT).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT));
@@ -214,6 +224,9 @@ public final class QboticsNeoForge {
                 java.util.Map.entry("energy_bus", ENERGY_BUS_ITEM));
         QboticsContent.FLUID_INTERFACE_BLOCK = FLUID_INTERFACE;
         QboticsContent.ENERGY_INTERFACE_BLOCK = ENERGY_INTERFACE;
+        QboticsContent.EXPERIENCE_INTERFACE_BLOCK = EXPERIENCE_INTERFACE;
+        QboticsContent.EXPERIENCE_INTERFACE_BLOCK_ENTITY = EXPERIENCE_INTERFACE_BLOCK_ENTITY;
+        QboticsContent.XP_POINTS = XP_POINTS;
         QboticsContent.FLUID_INTERFACE_BLOCK_ENTITY = FLUID_INTERFACE_BLOCK_ENTITY;
         QboticsContent.ENERGY_INTERFACE_BLOCK_ENTITY = ENERGY_INTERFACE_BLOCK_ENTITY;
         QboticsContent.INTERFACE_BLOCK_ENTITY = INTERFACE_BLOCK_ENTITY;
@@ -312,6 +325,12 @@ public final class QboticsNeoForge {
                 .playToClient(IdePayloads.FileResponse.TYPE, IdePayloads.FileResponse.STREAM_CODEC)
                 .playToClient(IdePayloads.ScratchResult.TYPE, IdePayloads.ScratchResult.STREAM_CODEC)
                 .playToClient(IdePayloads.OpenFile.TYPE, IdePayloads.OpenFile.STREAM_CODEC)
+                .playToClient(qbotics.net.XpPayloads.Info.TYPE, qbotics.net.XpPayloads.Info.STREAM_CODEC)
+                .playToServer(qbotics.net.XpPayloads.Action.TYPE, qbotics.net.XpPayloads.Action.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.block.ExperienceInterfaceBlockEntity.onAction(player, payload);
+                    }
+                })
                 .playToClient(qbotics.net.ProbePayloads.Info.TYPE, qbotics.net.ProbePayloads.Info.STREAM_CODEC)
                 .playToServer(qbotics.net.ProbePayloads.Mode.TYPE, qbotics.net.ProbePayloads.Mode.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {

@@ -155,6 +155,7 @@ With an antenna on the network, each device can also be reached from other netwo
 | `fluid_input`, `fluid_output`, `fluid_bus` | Fluid plates |
 | `energy_interface` | Energy storage: 2,000,000 FE |
 | `energy_input`, `energy_output`, `energy_bus` | Energy plates |
+| `experience_interface` | Experience storage, with no limit |
 
 Plates share a cable's block, one per side, and point at the block next to that side. Their
 colour says what they carry: white for items, blue-grey for fluid, red for energy.
@@ -259,6 +260,7 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `net.interface(key)`, `net.input(key)`, `net.output(key)`, `net.bus(key)` | One item device. With no key: the only one of its kind, or an error saying how many there are |
 | `net.fluid_interface(key)`, `net.fluid_input(key)`, `net.fluid_output(key)`, `net.fluid_bus(key)` | The same for fluid |
 | `net.energy_interface(key)`, `net.energy_input(key)`, `net.energy_output(key)`, `net.energy_bus(key)` | The same for energy |
+| `net.experience_interface(key)` | The experience store |
 | `net.interfaces()`, `net.inputs()`, `net.outputs()`, `net.buses()` | Every item device of a kind |
 
 ### 6.2 Every device
@@ -383,6 +385,27 @@ Amounts are in FE, the unit mods share (also called RF).
 if net.energy_interface().stored > 100000:
     net.energy_output("machine").insert(50000)
 ```
+
+### 6.7 Experience
+
+**Experience Interface** (`net.experience_interface()`): a block that holds experience. It
+holds real experience only and has no limit.
+
+At the block, right-click to open its screen: type a number of levels and press **Store** or
+**Take**, or use **Store All** and **Take All**. Storing takes your top levels at what those
+cost, and taking gives enough to climb that many levels from where you are, so nothing is
+gained or lost. The **Lock** button, which only the owner can press, sets who may store and
+take: the owner, the owner's team, or everyone. Picked up, the block keeps its experience.
+
+It does not accept liquid experience from other mods.
+
+A program can read it:
+
+| Attribute | Gives |
+|---|---|
+| `bank.points` | Experience held, in points |
+| `bank.levels` | The level those points would take a player to from nothing |
+| `bank.lock` | `"private"`, `"team"` or `"public"` |
 
 ---
 

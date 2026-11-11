@@ -922,7 +922,7 @@ Rules:
 - **A session with an end.** Items in screen slots exist only while the screen is open. When the session closes, whatever is left goes back to an Interface. If it can't all go back, the session does not close silently: nothing is ever lost or dropped.
 - **Best effort.** It goes through the same door a player uses, so most slot screens should work, including other mods'. Where a mod refuses stand-in players or does part of its work in the player's own game, the call fails with a message. That is accepted.
 - **Slot numbers are the screen's.** A screen can hold several inventories (a crafting table's grid and its result), so slots are numbered across the whole screen, not within each. The probe's Slots mode must show these same numbers on such screens.
-- **Not solved yet:** screens that charge the player something a stand-in doesn't have, chiefly experience levels (anvil, enchanting table).
+- **Experience:** a screen that charges levels (anvil, enchanting table) is paid from a source the program names; see §11.0.4.
 
 First targets, to prove it: crafting table, stonecutter, loom, smithing table, grindstone.
 
@@ -936,6 +936,33 @@ carries the owner's identity (the same player ID and name) and stands at the pla
 - **Best effort across mods.** The stand-in is made the standard way for the loader, so mods that recognise stand-in players treat it as one. A mod or server that blocks stand-in players blocks these plates too. That is accepted.
 - **FTB Chunks comes first.** It is the claim mod most modpacks use, so it is the one to test against and keep working. It has three team settings for stand-in players: allow all of them, allow named ones, and allow those carrying the ID of a real player (`allow_fake_players`, `allow_named_fake_players`, `allow_fake_players_by_id` in its source). Carrying the owner's ID is what lets the third setting treat a plate as its owner, so a team member's plates work inside that team's claims without the claim being opened to every machine. To confirm against the real mod when built, including what its defaults are.
 - **A plate with no owner** (placed by a machine or a command) has nobody to stand in for, and does none of these things.
+
+### 11.0.4 Experience: the Experience Interface, and paying for things that cost levels
+
+> **Status (2026-11-11):** the Experience Interface block is **built**. Spending experience from a program is **planned**, with screen access (§11.0.2).
+
+**The Experience Interface** is a full block that joins a network like the other Interfaces.
+
+- It holds **real experience only**, counted in points so that what goes in is exactly what comes out. It has no practical limit.
+- A player right-clicks it, types a number of levels, and presses Store or Take. Store All and Take All do what they say. Storing takes the player's top levels at what those cost; taking gives enough to climb that many levels from where the player is.
+- It has a **lock**: private (the owner), the owner's team, or public. Only the owner changes it. A block nobody owns is open to all.
+- Picked up, it keeps its experience in the item.
+- Recipe: eight cables around a glass bottle.
+- It is there so that plain Minecraft, with no other mods, has a way to pay for things that cost levels, and so that experience stored by mistake can be taken back.
+
+**It never takes liquid experience.** Other mods' experience fluids each have their own rate. If a fluid could be poured in and taken out as levels, a fluid with a generous rate would be a way to print experience. So the block and fluids are kept apart.
+
+**Paying for an interaction (planned).** When a program does something that costs levels, such as using an anvil through a Bus's screen access, it must **say where the experience comes from**:
+
+| Source named by the program | What is spent |
+|---|---|
+| An Experience Interface | Real experience, in points |
+| A Fluid Interface holding liquid experience | The fluid, at 20 mB a point |
+| A Fluid Input or Fluid Bus pointing at a tank of liquid experience | The fluid, at 20 mB a point |
+
+- Liquid experience is only ever **consumed** by an interaction. It is never turned into experience a player can take.
+- 20 mB a point is assumed for every experience fluid for now. A mod whose fluid uses another rate will be over- or under-charged; accepted for now, and the place for a per-fluid setting later.
+- The operation charges exactly the points it costs, as if the stand-in player had just enough levels.
 
 ### 11.1 Public peripheral API (separate small jar)
 
@@ -1416,6 +1443,8 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | Crafting tables, anvils and smithing tables hold nothing in the world, so plates can't reach them directly; the vanilla Crafter can be reached, and needs a Logic Pin to trigger it | Noted |
 | 2026-11-11 | Planned (§11.0.2): screen access, a function of the Bus only: it opens a block's screen as a stand-in player and works its slots, best effort across mods | Decided; not built |
 | 2026-11-11 | Planned (§11.0.3): screen access, the Placer and the Breaker act as a stand-in for the plate's owner, with the owner's rights and no more. Mods that block stand-in players block them; FTB Chunks is the claim mod to keep working | Decided; not built |
+| 2026-11-11 | Experience Interface: real experience only, unlimited, stored and taken by levels at the block, locked to owner, team or public; eight cables around a glass bottle. It never accepts liquid experience | Decided; built |
+| 2026-11-11 | A program that spends experience must name its source: an Experience Interface, or liquid experience (20 mB a point, assumed for all such fluids) in a Fluid Interface or behind a fluid plate. Liquid experience is only consumed, never converted | Decided; not built |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |

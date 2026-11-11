@@ -2,9 +2,9 @@ package qbotics.network;
 
 import org.jspecify.annotations.Nullable;
 
-/** What a logistics device carries: items, fluids or energy (design doc §11.0). */
+/** What a logistics device carries: items, fluids, energy or experience (design doc §11.0). */
 public enum Medium {
-    ITEM("item", ""), FLUID("fluid", "fluid_"), ENERGY("energy", "energy_");
+    ITEM("item", ""), FLUID("fluid", "fluid_"), ENERGY("energy", "energy_"), EXPERIENCE("experience", "experience_");
 
     /** The word saved in the world. */
     public final String word;

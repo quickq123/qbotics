@@ -25,13 +25,15 @@ import qbotics.network.FluidPort;
 import qbotics.network.Medium;
 
 /**
- * The Fluid Interface and the Energy Interface: the network's stores for fluid and energy,
- * as the Interface is for items (design doc §11.0). Right-click to read what one holds; a
- * bucket fills or empties a Fluid Interface.
+ * The Fluid, Energy and Experience Interfaces: the network's stores for those, as the
+ * Interface is for items (design doc §11.0). Right-click to read what one holds; a bucket
+ * fills or empties a Fluid Interface, and an Experience Interface opens a screen for
+ * storing and taking levels.
  */
 public class StoreBlock extends BaseEntityBlock {
     public static final MapCodec<StoreBlock> FLUID_CODEC = simpleCodec(StoreBlock::fluid);
     public static final MapCodec<StoreBlock> ENERGY_CODEC = simpleCodec(StoreBlock::energy);
+    public static final MapCodec<StoreBlock> EXPERIENCE_CODEC = simpleCodec(StoreBlock::experience);
 
     private final Medium medium;
 
@@ -48,9 +50,13 @@ public class StoreBlock extends BaseEntityBlock {
         return new StoreBlock(Medium.ENERGY, properties);
     }
 
+    public static StoreBlock experience(BlockBehaviour.Properties properties) {
+        return new StoreBlock(Medium.EXPERIENCE, properties);
+    }
+
     @Override
     protected MapCodec<StoreBlock> codec() {
-        return medium == Medium.FLUID ? FLUID_CODEC : ENERGY_CODEC;
+        return medium == Medium.FLUID ? FLUID_CODEC : medium == Medium.ENERGY ? ENERGY_CODEC : EXPERIENCE_CODEC;
     }
 
     @Override
@@ -60,7 +66,11 @@ public class StoreBlock extends BaseEntityBlock {
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return medium == Medium.FLUID ? new FluidInterfaceBlockEntity(pos, state) : new EnergyInterfaceBlockEntity(pos, state);
+        return switch (medium) {
+            case FLUID -> new FluidInterfaceBlockEntity(pos, state);
+            case EXPERIENCE -> new ExperienceInterfaceBlockEntity(pos, state);
+            default -> new EnergyInterfaceBlockEntity(pos, state);
+        };
     }
 
     @Override
@@ -89,7 +99,12 @@ public class StoreBlock extends BaseEntityBlock {
         }
         if (player instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel) {
             CableNetwork.at(serverLevel, pos); // makes sure it has an address to show
-            serverPlayer.sendOverlayMessage(Component.literal(describe(level.getBlockEntity(pos))));
+            if (level.getBlockEntity(pos) instanceof ExperienceInterfaceBlockEntity store) {
+                // Experience is stored and taken by hand, on a screen of its own.
+                Qbotics.platform().sendToPlayer(serverPlayer, store.info(serverPlayer));
+            } else {
+                serverPlayer.sendOverlayMessage(Component.literal(describe(level.getBlockEntity(pos))));
+            }
         }
         return InteractionResult.SUCCESS;
     }

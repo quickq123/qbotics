@@ -145,6 +145,18 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.input": "Input",
     "item.qbotics.output": "Output",
     "item.qbotics.bus": "Bus",
+    "block.qbotics.experience_interface": "Experience Interface",
+    "screen.qbotics.xp.holds": "Holds %s points: enough to take a new player to level %s",
+    "screen.qbotics.xp.you": "You are level %s",
+    "screen.qbotics.xp.locked": "This is locked: you can't store or take here",
+    "screen.qbotics.xp.levels": "Levels",
+    "screen.qbotics.xp.store": "Store",
+    "screen.qbotics.xp.take": "Take",
+    "screen.qbotics.xp.store_all": "Store All",
+    "screen.qbotics.xp.take_all": "Take All",
+    "screen.qbotics.xp.lock.private": "Lock: only the owner (click to change)",
+    "screen.qbotics.xp.lock.team": "Lock: the owner's team (click to change)",
+    "screen.qbotics.xp.lock.public": "Lock: open to everyone (click to change)",
     "block.qbotics.fluid_interface": "Fluid Interface",
     "block.qbotics.energy_interface": "Energy Interface",
     "item.qbotics.fluid_input": "Fluid Input",
@@ -391,13 +403,13 @@ write_json("data/qbotics/loot_table/blocks/cable.json", drops_itself("qbotics:ca
 
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
-    "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface",
+    "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
-    "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface",
+    "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
@@ -445,6 +457,7 @@ def port_front():
 # What a plate or store carries, and the colour that says so. (PlateTints.java holds the same colours.)
 MEDIA = {"": (246, 246, 246), "fluid_": (96, 128, 168), "energy_": (200, 36, 28)}
 MEDIA_NAMES = {"": "", "fluid_": "Fluid ", "energy_": "Energy "}
+XP_GREEN = (128, 224, 64)
 
 
 def tint_value(colour):
@@ -485,7 +498,13 @@ write_png("assets/qbotics/textures/block/fluid_interface_top.png", store_top(MED
 write_png("assets/qbotics/textures/block/energy_interface_side.png",
           store_side(MEDIA["energy_"], [(3, 2, 6, 14), (6, 2, 10, 14), (10, 2, 13, 14)]))
 write_png("assets/qbotics/textures/block/energy_interface_top.png", store_top(MEDIA["energy_"]))
-for store in ("fluid_interface", "energy_interface"):
+# The experience store shows one round bottle of green.
+write_png("assets/qbotics/textures/block/experience_interface_side.png",
+          store_side(XP_GREEN, [(5, 2, 11, 5), (3, 5, 13, 14)]))
+write_png("assets/qbotics/textures/block/experience_interface_top.png", store_top(XP_GREEN))
+write_json("data/qbotics/recipe/experience_interface.json", shaped(
+    ["CCC", "CBC", "CCC"], {"C": "qbotics:cable", "B": "minecraft:glass_bottle"}, "qbotics:experience_interface"))
+for store in ("fluid_interface", "energy_interface", "experience_interface"):
     write_json("assets/qbotics/models/block/%s.json" % store, {
         "parent": "minecraft:block/cube_column",
         "textures": {"end": "qbotics:block/%s_top" % store, "side": "qbotics:block/%s_side" % store},
@@ -494,8 +513,10 @@ for store in ("fluid_interface", "energy_interface"):
     write_json("assets/qbotics/items/%s.json" % store, {
         "model": {"type": "minecraft:model", "model": "qbotics:block/%s" % store},
     })
+    # A store named in an anvil keeps its name when broken; the experience store keeps its experience too.
     write_json("data/qbotics/loot_table/blocks/%s.json" % store,
-               drops_itself("qbotics:%s" % store, copy_components=["minecraft:custom_name"]))
+               drops_itself("qbotics:%s" % store, copy_components=["minecraft:custom_name", "qbotics:xp_points"]
+                            if store == "experience_interface" else ["minecraft:custom_name"]))
 
 write_json("assets/qbotics/models/block/interface.json", {
     "parent": "minecraft:block/cube_column",

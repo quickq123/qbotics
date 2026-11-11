@@ -37,6 +37,10 @@ public final class QboticsContent {
     /** The network's stores for fluid and for energy. */
     public static Supplier<qbotics.block.StoreBlock> FLUID_INTERFACE_BLOCK;
     public static Supplier<qbotics.block.StoreBlock> ENERGY_INTERFACE_BLOCK;
+    public static Supplier<qbotics.block.StoreBlock> EXPERIENCE_INTERFACE_BLOCK;
+    public static Supplier<BlockEntityType<qbotics.block.ExperienceInterfaceBlockEntity>> EXPERIENCE_INTERFACE_BLOCK_ENTITY;
+    /** On an Experience Interface item: the experience it carries, in points. */
+    public static Supplier<DataComponentType<Long>> XP_POINTS;
     public static Supplier<BlockEntityType<qbotics.block.FluidInterfaceBlockEntity>> FLUID_INTERFACE_BLOCK_ENTITY;
     public static Supplier<BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY;
     public static Supplier<BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY;

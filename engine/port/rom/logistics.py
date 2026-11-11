@@ -396,6 +396,26 @@ class EnergyBus(Port):
         return self._insert(None, amount, source, face)
 
 
+class ExperienceInterface(Device):
+    """The network's experience store. It holds real experience only, with no limit;
+    players store and take levels at the block. Programs can read it."""
+
+    @property
+    def points(self):
+        """Experience held, in points (what the game counts underneath levels)."""
+        return self.refresh()._info["points"]
+
+    @property
+    def levels(self):
+        """The level those points would take a player to from nothing."""
+        return self.refresh()._info["levels"]
+
+    @property
+    def lock(self):
+        """Who may store and take at the block: "private", "team" or "public"."""
+        return self.refresh()._info["lock"]
+
+
 def _full_name(item):
     # Names and filters go to the game as written; it knows that "coal" means "minecraft:coal".
     return item
@@ -404,7 +424,7 @@ def _full_name(item):
 _KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus,
           "fluid_interface": FluidInterface, "fluid_input": FluidInput, "fluid_output": FluidOutput, "fluid_bus": FluidBus,
           "energy_interface": EnergyInterface, "energy_input": EnergyInput, "energy_output": EnergyOutput,
-          "energy_bus": EnergyBus}
+          "energy_bus": EnergyBus, "experience_interface": ExperienceInterface}
 
 
 def _wrap(info):
@@ -469,6 +489,10 @@ class Network:
     def energy_bus(self, key=None):
         """An energy bus by name or address; with no argument, the network's only one."""
         return _wrap(_call("find", key, "energy_bus"))
+
+    def experience_interface(self, key=None):
+        """An experience interface by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "experience_interface"))
 
     def interfaces(self):
         """Every interface on the network."""

@@ -445,7 +445,7 @@ public final class Docs {
                     case "open" -> "file";
                     default -> called;
                 };
-                if (called.startsWith("fluid_") || called.startsWith("energy_")) {
+                if (called.startsWith("fluid_") || called.startsWith("energy_") || called.startsWith("experience_")) {
                     // net.fluid_input() gives a FluidInput, net.energy_bus() an EnergyBus.
                     String[] words = called.split("_");
                     made = Character.toUpperCase(words[0].charAt(0)) + words[0].substring(1)
