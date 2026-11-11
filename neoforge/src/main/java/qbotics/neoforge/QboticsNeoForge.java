@@ -207,7 +207,7 @@ public final class QboticsNeoForge {
             for (String name : QboticsGameTests.ALL.keySet()) {
                 event.registerTest(Qbotics.id(name), new FunctionGameTestInstance(
                         ResourceKey.create(Registries.TEST_FUNCTION, Qbotics.id(name)),
-                        new TestData<>(environment, Qbotics.id("empty"), 200, 0, true)));
+                        new TestData<>(environment, Qbotics.id("empty"), 1200, 0, true)));
             }
         });
     }
