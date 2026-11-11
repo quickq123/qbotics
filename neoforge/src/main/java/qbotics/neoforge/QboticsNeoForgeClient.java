@@ -13,6 +13,14 @@ import qbotics.net.TerminalStatePayload;
 @Mod(value = Qbotics.MOD_ID, dist = Dist.CLIENT)
 public final class QboticsNeoForgeClient {
     public QboticsNeoForgeClient(IEventBus modBus) {
+        // The probe's Slots mode: numbers on container screens, and sneak + scroll to change mode.
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ContainerScreenEvent.Render.Foreground event) ->
+                qbotics.client.SlotLabels.draw(event.getContainerScreen(), event.getGuiGraphics()));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.InputEvent.MouseScrollingEvent event) -> {
+            if (qbotics.client.SlotLabels.scrolled(event.getScrollDeltaY())) {
+                event.setCanceled(true);
+            }
+        });
         // A plate's ring is coloured by what it carries (see PlateTints).
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.BlockTintSources event) ->
                 event.register(qbotics.client.PlateTints.sources(), QboticsNeoForge.cableBlock()));

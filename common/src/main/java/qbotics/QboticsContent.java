@@ -22,6 +22,8 @@ public final class QboticsContent {
     public static Supplier<BlockEntityType<ComputerBlockEntity>> COMPUTER_BLOCK_ENTITY;
     public static Supplier<CableBlock> CABLE_BLOCK;
     public static Supplier<InterfaceBlock> INTERFACE_BLOCK;
+    /** On a Network Probe: which mode it is in (see ProbeItem). */
+    public static Supplier<DataComponentType<Integer>> PROBE_MODE;
     /** The Network Probe: reads a device's name and addresses. */
     public static Supplier<? extends net.minecraft.world.item.Item> PROBE_ITEM;
     /** The Input, Output and Bus plates, as the items a player holds. They go on cables. */

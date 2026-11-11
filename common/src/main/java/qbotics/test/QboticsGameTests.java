@@ -810,6 +810,16 @@ public final class QboticsGameTests {
         helper.assertTrue(outside.external().startsWith("100.64.") && outside.external().endsWith(":" + port),
                 "the external address should end in port " + port + " but was " + outside.external());
 
+        // Modes: Labels reads devices; in Slots mode devices open as usual so their slot numbers can be seen.
+        net.minecraft.world.entity.player.Player player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        ItemStack probe = new ItemStack(QboticsContent.PROBE_ITEM.get());
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, probe);
+        helper.assertTrue(qbotics.block.ProbeItem.mode(probe) == qbotics.block.ProbeItem.LABELS && qbotics.block.ProbeItem.heldBy(player)
+                && !qbotics.block.ProbeItem.showsSlots(player), "a new probe is in Labels mode");
+        probe.set(QboticsContent.PROBE_MODE.get(), qbotics.block.ProbeItem.SLOTS);
+        helper.assertTrue(!qbotics.block.ProbeItem.heldBy(player) && qbotics.block.ProbeItem.showsSlots(player)
+                && probe.getHoverName().getString().contains("Slots"), "in Slots mode the probe shows slots and says so: " + probe.getHoverName().getString());
+
         ByteBuf buffer = Unpooled.buffer();
         qbotics.net.ProbePayloads.Info.STREAM_CODEC.encode(buffer, outside);
         helper.assertTrue(outside.equals(qbotics.net.ProbePayloads.Info.STREAM_CODEC.decode(buffer)), "probe info changed in transit");

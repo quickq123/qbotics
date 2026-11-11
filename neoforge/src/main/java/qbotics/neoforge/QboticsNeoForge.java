@@ -190,11 +190,16 @@ public final class QboticsNeoForge {
         return CABLE.get();
     }
 
+    private static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> PROBE_MODE =
+            DATA_COMPONENTS.registerComponentType("probe_mode", builder -> builder
+                    .persistent(com.mojang.serialization.Codec.INT).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT));
+
     public QboticsNeoForge(IEventBus modBus, ModContainer container) {
         QboticsContent.COMPUTER_BLOCK = COMPUTER;
         QboticsContent.COMPUTER_BLOCK_ENTITY = COMPUTER_BLOCK_ENTITY;
         QboticsContent.CABLE_BLOCK = CABLE;
         QboticsContent.DRIVE_ID = DRIVE_ID;
+        QboticsContent.PROBE_MODE = PROBE_MODE;
         QboticsContent.INTERFACE_BLOCK = INTERFACE;
         QboticsContent.PROBE_ITEM = PROBE_ITEM;
         QboticsContent.PLATE_ITEMS = java.util.Map.ofEntries(
@@ -302,6 +307,11 @@ public final class QboticsNeoForge {
                 .playToClient(IdePayloads.ScratchResult.TYPE, IdePayloads.ScratchResult.STREAM_CODEC)
                 .playToClient(IdePayloads.OpenFile.TYPE, IdePayloads.OpenFile.STREAM_CODEC)
                 .playToClient(qbotics.net.ProbePayloads.Info.TYPE, qbotics.net.ProbePayloads.Info.STREAM_CODEC)
+                .playToServer(qbotics.net.ProbePayloads.Mode.TYPE, qbotics.net.ProbePayloads.Mode.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.block.ProbeItem.onMode(player, payload);
+                    }
+                })
                 .playToServer(qbotics.net.ProbePayloads.Rename.TYPE, qbotics.net.ProbePayloads.Rename.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         qbotics.block.ProbeItem.onRename(player, payload);

@@ -8,12 +8,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import qbotics.Qbotics;
+import qbotics.QboticsContent;
 import qbotics.net.ProbePayloads;
 import qbotics.network.CableNetwork;
 import qbotics.network.NetworkDevice;
@@ -33,9 +35,44 @@ public class ProbeItem extends Item {
         super(properties);
     }
 
-    /** True if the player is holding a probe. Devices then leave the right-click to it. */
+    /** The probe's modes, changed by sneaking and scrolling. The number is kept on the item. */
+    public static final int LABELS = 0;
+    public static final int SLOTS = 1;
+    public static final int MODES = 2;
+
+    public static int mode(ItemStack stack) {
+        Integer mode = stack.get(QboticsContent.PROBE_MODE.get());
+        return mode == null || mode < 0 || mode >= MODES ? LABELS : mode;
+    }
+
+    /**
+     * True if the player is holding a probe in its Labels mode. Devices then leave the
+     * right-click to it, so it can read them.
+     */
     public static boolean heldBy(Player player) {
-        return player.getMainHandItem().getItem() instanceof ProbeItem;
+        ItemStack held = player.getMainHandItem();
+        return held.getItem() instanceof ProbeItem && mode(held) == LABELS;
+    }
+
+    /** True if the player is holding a probe in its Slots mode: container screens then number their slots. */
+    public static boolean showsSlots(Player player) {
+        ItemStack held = player.getMainHandItem();
+        return held.getItem() instanceof ProbeItem && mode(held) == SLOTS;
+    }
+
+    /** A player sneaked and scrolled with the probe in hand. */
+    public static void onMode(ServerPlayer player, ProbePayloads.Mode request) {
+        ItemStack held = player.getMainHandItem();
+        if (held.getItem() instanceof ProbeItem && request.mode() >= 0 && request.mode() < MODES) {
+            held.set(QboticsContent.PROBE_MODE.get(), request.mode());
+            player.sendOverlayMessage(Component.translatable("message.qbotics.probe_mode." + request.mode()));
+        }
+    }
+
+    /** The item's name says which mode it is in. */
+    @Override
+    public Component getName(ItemStack stack) {
+        return Component.translatable("item.qbotics.probe.mode." + mode(stack));
     }
 
     /** For a plate on a cable, its side's number; -1 for a device that is a whole block. */
@@ -105,10 +142,18 @@ public class ProbeItem extends Item {
         BlockPos pos = context.getClickedPos();
         if (!(level instanceof ServerLevel serverLevel) || !(context.getPlayer() instanceof ServerPlayer player)) {
             // In the player's game: claim the click if this could be a device; the server decides.
+            if (mode(context.getItemInHand()) == SLOTS) {
+                return InteractionResult.PASS;
+            }
             BlockState state = level.getBlockState(pos);
             boolean device = state.getBlock() instanceof CableBlock ? CableBlock.plateAt(state, pos, context.getClickLocation()) != null
                     : level.getBlockEntity(pos) instanceof NetworkDevice;
             return device ? InteractionResult.SUCCESS : InteractionResult.PASS;
+        }
+        if (mode(context.getItemInHand()) == SLOTS) {
+            // A block with slots has already opened its screen by now; this one has none to show.
+            player.sendOverlayMessage(Component.translatable("message.qbotics.probe_no_slots"));
+            return InteractionResult.PASS;
         }
         ProbePayloads.Info info = inspect(serverLevel, pos, context.getClickLocation());
         if (info == null) {

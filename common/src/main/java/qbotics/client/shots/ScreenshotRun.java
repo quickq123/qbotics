@@ -183,6 +183,31 @@ public final class ScreenshotRun {
         }));
         then(5, minecraft -> shot(minecraft, "09-interface-screen"));
         then(10, minecraft -> minecraft.player.closeContainer());
+        // The probe's Slots mode: a furnace, then the Interface, with their slots numbered.
+        then(15, minecraft -> onServer(minecraft, player -> {
+            ItemStack probe = new ItemStack(QboticsContent.PROBE_ITEM.get());
+            probe.set(QboticsContent.PROBE_MODE.get(), ProbeItem.SLOTS);
+            player.getInventory().setItem(0, probe);
+            BlockPos at = base.offset(9, 0, -6);
+            player.level().setBlock(at, Blocks.FURNACE.defaultBlockState(), Block.UPDATE_ALL);
+            if (player.level().getBlockEntity(at) instanceof net.minecraft.world.level.block.entity.FurnaceBlockEntity furnace) {
+                furnace.setItem(0, new ItemStack(Items.RAW_IRON, 3));
+                furnace.setItem(2, new ItemStack(Items.IRON_INGOT, 5));
+                player.openMenu(furnace);
+            }
+        }));
+        then(5, minecraft -> shot(minecraft, "09b-furnace-slots"));
+        then(10, minecraft -> minecraft.player.closeContainer());
+        then(15, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(base.offset(9, 0, -4)) instanceof InterfaceBlockEntity store) {
+                player.openMenu(store);
+            }
+        }));
+        then(5, minecraft -> shot(minecraft, "09c-interface-slots"));
+        then(10, minecraft -> {
+            minecraft.player.closeContainer();
+            onServer(minecraft, player -> player.getInventory().setItem(0, ItemStack.EMPTY));
+        });
         then(15, minecraft -> onServer(minecraft, player -> {
             BlockPos cable = base.offset(8, 0, -4);
             ProbeItem.rename(player.level(), null, new ProbePayloads.Rename(cable, Direction.UP.get3DDataValue(), "smelter"));

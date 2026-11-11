@@ -60,6 +60,17 @@ public final class ProbePayloads {
         }
     }
 
+    /** Client to server: the player sneaked and scrolled with a probe in hand; put it in this mode. */
+    public record Mode(int mode) implements CustomPacketPayload {
+        public static final Type<Mode> TYPE = new Type<>(Qbotics.id("probe_mode"));
+        public static final StreamCodec<ByteBuf, Mode> STREAM_CODEC = StreamCodec.composite(ByteBufCodecs.VAR_INT, Mode::mode, Mode::new);
+
+        @Override
+        public Type<Mode> type() {
+            return TYPE;
+        }
+    }
+
     /** Client to server: give the probed device a name ("" removes it). */
     public record Rename(BlockPos pos, int side, String name) implements CustomPacketPayload {
         public static final Type<Rename> TYPE = new Type<>(Qbotics.id("probe_rename"));
