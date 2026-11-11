@@ -1,0 +1,16 @@
+# Mods loaded beside Qbotics in the play-test run (gradlew :neoforge:runPlaytest).
+# One mod file per line; * stands for the version. They are copied from the modpack folder
+# set in neoforge/build.gradle (FTB Evolution 2 unless qbotics.playtestModsFrom says otherwise).
+# Each mod needs the mods it depends on listed too.
+
+# FTB Chunks: land claims, which the bus's screen access must respect
+ftb-library-neoforge-*.jar
+ftb-teams-neoforge-*.jar
+ftb-chunks-neoforge-*.jar
+
+# JEI: item lists and names (its filter syntax is what Qbotics' filters follow)
+jei-*-neoforge-*.jar
+
+# Functional Storage: drawers, for moving items to and from another mod's storage
+titanium-*.jar
+functionalstorage-*.jar

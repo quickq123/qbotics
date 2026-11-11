@@ -35,6 +35,11 @@ public final class QboticsNeoForgeClient {
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientTickEvent.Post event) ->
                     qbotics.client.shots.ScreenshotRun.tick(net.minecraft.client.Minecraft.getInstance()));
         }
+        // A development aid: see PlaytestStart. Off unless the game was started for it.
+        if (qbotics.client.shots.PlaytestStart.ENABLED) {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientTickEvent.Post event) ->
+                    qbotics.client.shots.PlaytestStart.tick(net.minecraft.client.Minecraft.getInstance()));
+        }
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) ->
                 event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new));
         modBus.addListener((RegisterClientPayloadHandlersEvent event) -> {

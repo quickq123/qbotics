@@ -718,6 +718,11 @@ A move that moves nothing is not an error: `move` returns 0. Ask for `need=` whe
 placing blocks or typing a program first. It needs permission to use commands (cheats on, or
 an operator).
 
+Working from the mod's source, `gradlew :neoforge:runPlaytest` starts the game straight into a
+lasting creative world with the stage already built, and with the other mods listed in
+`neoforge/playtest-mods.txt` (FTB Chunks, JEI and Functional Storage to begin with) loaded
+alongside, to try Qbotics with them.
+
 It builds a floor of 15 by 9 blocks to the south-east of where you stand, **replacing
 whatever is there**, and gives you a Network Probe if you have none. Everything it places
 belongs to you.

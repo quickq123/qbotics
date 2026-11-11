@@ -33,6 +33,15 @@ neoForge {
             programArguments.addAll '--width', '1280', '--height', '720'
         }
 
+        // For playing with the mod: opens straight into a lasting creative world (made, with the
+        // test stage, the first time), with the mods listed in playtest-mods.txt alongside.
+        // Run: gradlew :neoforge:runPlaytest   Its game folder: neoforge/runs/playtest
+        playtest {
+            client()
+            gameDirectory = project.file('runs/playtest')
+            systemProperty 'qbotics.playtest', 'true'
+        }
+
         server {
             server()
             programArgument '--nogui'
@@ -110,4 +119,24 @@ tasks.matching { it.name == 'runClientShots' }.configureEach {
                 'soundCategory_master:0.0', 'narrator:0', 'guiScale:2', 'renderDistance:6', 'fov:0.0',
                 'skipMultiplayerWarning:true', 'joinedFirstServer:true'].join(System.lineSeparator()) + System.lineSeparator()
     }
+}
+
+// The play-test run's other mods: each line of playtest-mods.txt names a mod file (a * stands
+// for its version) to copy from a modpack folder into runs/playtest/mods before the game starts.
+// The folder is the gradle property qbotics.playtestModsFrom, or the FTB Evolution 2 instance.
+// The mods folder is made to match the list, so a mod is added or removed by editing the list.
+def playtestModsFrom = providers.gradleProperty('qbotics.playtestModsFrom')
+        .orElse(System.getProperty('user.home') + '/curseforge/minecraft/Instances/FTB Evolution 2/mods')
+def playtestModList = file('playtest-mods.txt')
+def syncPlaytestMods = tasks.register('syncPlaytestMods', Sync) {
+    description = 'Copies the mods named in playtest-mods.txt into the play-test game folder.'
+    def patterns = playtestModList.readLines().collect { it.trim() }.findAll { it && !it.startsWith('#') }
+    from(playtestModsFrom) {
+        include patterns
+    }
+    into file('runs/playtest/mods')
+    inputs.file playtestModList
+}
+tasks.matching { it.name == 'runPlaytest' }.configureEach {
+    dependsOn syncPlaytestMods
 }
