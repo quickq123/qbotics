@@ -878,6 +878,8 @@ Right-clicking a computer opens an editor laid out like the code editors develop
 
 Text in the terminal can be selected by dragging (double-click selects a word, such as an address). Ctrl+C copies the selection; with nothing selected it stops the program as before. Ctrl+V pastes, and a right-click menu offers Copy, Copy All, Paste and Select All.
 
+**Hover hints.** Resting the mouse on a function name in a Python file shows how it is called and what it does. The text comes from the Python source itself: the docstrings of the mod's own modules (`logistics`, `network`, copied into the jar by `engine/build.sh`) and of functions in the file being edited. Only Python's built-ins are described by hand (`qbotics.ide.Docs`). It does not understand types: it guesses a variable's class from a line such as `inbox = net.input()`, and otherwise shows every class that has a method by that name.
+
 Ctrl+C stops a running program.
 
 **How it is built and checked.** The editor's behaviour and appearance live in one class that doesn't depend on Minecraft's renderer. The game draws it through a thin adapter; a development tool (`gradlew :common:idePreview`) draws the same thing to image files using Minecraft's font, which is how the layout was checked on a machine with no display. The text-editing, colouring and JSON logic are covered by the engine harness, and the shell and scratchpad by in-game tests.

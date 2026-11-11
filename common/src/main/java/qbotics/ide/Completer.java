@@ -214,7 +214,7 @@ public final class Completer {
     }
 
     /** The name used in this file -> the module it stands for ("import time", "import random as rnd"). */
-    private static Map<String, String> importedModules(TextBuffer buffer) {
+    static Map<String, String> importedModules(TextBuffer buffer) {
         Map<String, String> modules = new java.util.HashMap<>();
         for (int i = 0; i < buffer.lineCount(); i++) {
             String text = buffer.line(i).strip();

@@ -1,9 +1,11 @@
 package qbotics.client.ide;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.input.KeyEvent;
 import qbotics.ide.Completer;
+import qbotics.ide.Docs;
 import qbotics.ide.Finder;
 import qbotics.ide.Highlighter;
 import qbotics.ide.Highlighter.Language;
@@ -277,6 +279,92 @@ final class CodeView {
         }
     }
 
+    // ---- hover hints ------------------------------------------------------------
+
+    /** How long the mouse must rest on a name before its hint appears. The preview tool sets it to 0. */
+    static long hoverDelayMs = 400;
+    private static final int HOVER_COLUMNS = 62;
+
+    /** Set by typing, clicking and scrolling: no hint until the mouse moves again. */
+    private boolean hoverHidden;
+    private double hoverMouseX = -1;
+    private double hoverMouseY = -1;
+    // The last place a hint was looked up for, so it isn't worked out again every frame.
+    private int hoverLine = -1;
+    private int hoverColumn = -1;
+    private long hoverVersion = -1;
+    private Docs.Hint hover;
+    private long hoverSince;
+
+    /**
+     * Shows how to use the function the mouse is resting on, as code editors do. Called
+     * after everything else is drawn, with the mouse over this view.
+     */
+    void renderHover(Ui ui, double mouseX, double mouseY, int screenRight, int screenBottom) {
+        if (mouseX != hoverMouseX || mouseY != hoverMouseY) {
+            hoverMouseX = mouseX;
+            hoverMouseY = mouseY;
+            hoverHidden = false;
+        }
+        boolean overText = mouseX >= textLeft && mouseX < area.right() - SCROLLBAR_W && area.contains(mouseX, mouseY);
+        if (language != Language.PYTHON || hoverHidden || completion != null || draggingText || draggingScrollbar || !overText) {
+            hoverLine = -1;
+            hover = null;
+            return;
+        }
+        int line = lineAt(mouseY);
+        int column = scrollColumn + (int) Math.floor((mouseX - textLeft) / Ui.CELL_W);
+        boolean sameWord = hover != null && line == hoverLine && column >= hover.start() && column < hover.end();
+        if (hoverVersion != buffer.version() || !(sameWord || (line == hoverLine && column == hoverColumn))) {
+            Docs.Hint found = Docs.lookup(buffer, line, column);
+            if (found == null || hover == null || line != hoverLine || found.start() != hover.start()) {
+                hoverSince = System.currentTimeMillis();
+            }
+            hover = found;
+            hoverLine = line;
+            hoverColumn = column;
+            hoverVersion = buffer.version();
+        }
+        if (hover == null || System.currentTimeMillis() - hoverSince < hoverDelayMs) {
+            return;
+        }
+
+        // What to write: each meaning's "how to call it" line, then what it does.
+        List<String> rows = new ArrayList<>();
+        List<Boolean> isSignature = new ArrayList<>();
+        for (Docs.Entry entry : hover.entries()) {
+            if (!rows.isEmpty()) {
+                rows.add("");
+                isSignature.add(false);
+            }
+            for (String row : Docs.wrap(entry.signature(), HOVER_COLUMNS)) {
+                rows.add(row);
+                isSignature.add(true);
+            }
+            for (String row : Docs.wrap(entry.doc(), HOVER_COLUMNS)) {
+                rows.add(row);
+                isSignature.add(false);
+            }
+        }
+        int longest = 0;
+        for (String row : rows) {
+            longest = Math.max(longest, row.length());
+        }
+        int width = longest * Ui.CELL_W + 12;
+        int height = rows.size() * Ui.CELL_H + 6;
+        int wordX = textLeft + (hover.start() - scrollColumn) * Ui.CELL_W - 5;
+        int x = Math.max(2, Math.min(wordX, screenRight - width - 4));
+        int lineY = area.y() + (hoverLine - scrollLine) * Ui.CELL_H;
+        // Below the line, or above it when there is no room below.
+        int y = lineY + Ui.CELL_H + 2 + height <= screenBottom ? lineY + Ui.CELL_H + 2 : Math.max(2, lineY - height - 2);
+        ui.fill(x + 2, y + 2, width, height, Ui.SHADOW);
+        ui.fill(x, y, width, height, Ui.MENU_BG);
+        ui.outline(x, y, width, height, Ui.BORDER);
+        for (int i = 0; i < rows.size(); i++) {
+            ui.mono(rows.get(i), x + 6, y + 3 + i * Ui.CELL_H, isSignature.get(i) ? Ui.SYN_FUNCTION : Ui.TEXT);
+        }
+    }
+
     // ---- autocomplete ------------------------------------------------------------
 
     private void updateCompletion(boolean asked) {
@@ -319,6 +407,7 @@ final class CodeView {
     }
 
     void mouseDown(double x, double y, boolean shift, boolean doubleClick) {
+        hoverHidden = true;
         completion = null;
         if (buffer.lineCount() > visibleLines() && x >= area.right() - SCROLLBAR_W - 1) {
             draggingScrollbar = true;
@@ -347,6 +436,7 @@ final class CodeView {
 
     /** The mouse wheel: three lines (or six columns) a notch. The cursor stays where it is. */
     void scroll(double vertical, double horizontal) {
+        hoverHidden = true;
         scrollLine = Math.clamp(scrollLine - (int) Math.round(vertical * 3), 0, maxScrollLine());
         scrollColumn = Math.clamp(scrollColumn - (int) Math.round(horizontal * 6), 0, Math.max(0, longestLine - 1));
     }
@@ -354,6 +444,7 @@ final class CodeView {
     // ---- keyboard ----------------------------------------------------------------
 
     void charTyped(int codepoint) {
+        hoverHidden = true;
         if (codepoint >= ' ' && codepoint != 127 && Character.isBmpCodePoint(codepoint)) {
             buffer.type((char) codepoint);
             revealCursor = true;
@@ -363,6 +454,7 @@ final class CodeView {
 
     /** Handles an editing key. Returns false if the key means nothing to a code view. */
     boolean keyPressed(KeyEvent event, IdeView.Host host) {
+        hoverHidden = true;
         boolean shift = event.hasShiftDown();
         boolean control = event.hasControlDown();
         int key = event.key();

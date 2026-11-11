@@ -194,6 +194,15 @@ final class IdeView {
         } else if (session.focus == Focus.SCRATCH && session.scratchOpen) {
             session.scratch.renderPopup(ui, viewHeight - STATUS_H);
         }
+        // A hint for the name the mouse is resting on, unless something is open on top of the text.
+        if (dialog == null && menu == null && drag == Drag.NONE) {
+            boolean overFindBar = active != null && active.find.open && mouseY < editorRect.y() + 36 && mouseX > editorRect.right() - 360;
+            if (active != null && active.view != null && editorRect.contains(mouseX, mouseY) && !overFindBar) {
+                active.view.renderHover(ui, mouseX, mouseY, viewWidth, viewHeight - STATUS_H);
+            } else if (session.scratchOpen && scratchCodeRect.contains(mouseX, mouseY)) {
+                session.scratch.renderHover(ui, mouseX, mouseY, viewWidth, viewHeight - STATUS_H);
+            }
+        }
         if (menu != null) {
             drawMenu(ui);
         }

@@ -104,6 +104,7 @@ class Radio:
 
     @property
     def frequency(self):
+        """The frequency it is tuned to. Change it with tune()."""
         return self._get("frequency")
 
     @property
@@ -122,9 +123,11 @@ class Radio:
         self._info = _call("tune", str(frequency))
 
     def send(self, address, data):
+        """The same as network.send()."""
         return send(address, data)
 
     def receive(self, timeout=None):
+        """The same as network.receive()."""
         return receive(timeout)
 
     def __repr__(self):

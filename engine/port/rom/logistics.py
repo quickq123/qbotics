@@ -94,6 +94,7 @@ class Input(Device):
 
     @property
     def slots(self):
+        """How many slots it has."""
         return self._info["slots"]
 
 
@@ -111,6 +112,7 @@ class Output(Device):
 
     @property
     def face(self):
+        """The face used when a call doesn't name one."""
         return self._info["face"]
 
     @property
@@ -127,6 +129,7 @@ class Bus(Output):
         return _call("contents", self.mac, face)
 
     def count(self, item=None, face=None):
+        """How many of an item the target holds (or of everything, with no item)."""
         item = _full_name(item)
         return sum(e["count"] for e in self.contents(face) if item is None or e["item"] == item)
 
@@ -163,18 +166,23 @@ class Network:
         return _wrap(_call("find", key, "input"))
 
     def output(self, key=None):
+        """An output by name or address; with no argument, the network's only output."""
         return _wrap(_call("find", key, "output"))
 
     def bus(self, key=None):
+        """A bus by name or address; with no argument, the network's only bus."""
         return _wrap(_call("find", key, "bus"))
 
     def inputs(self):
+        """Every input on the network."""
         return self.devices("input")
 
     def outputs(self):
+        """Every output on the network."""
         return self.devices("output")
 
     def buses(self):
+        """Every bus on the network."""
         return self.devices("bus")
 
     @property
@@ -184,6 +192,8 @@ class Network:
 
 
 def network():
+    """The cable network this computer is on. Ask it for its blocks:
+    net.input(), net.output(), net.bus(), net.devices()."""
     return Network()
 
 

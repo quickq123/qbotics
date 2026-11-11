@@ -113,6 +113,18 @@ public final class IdePreviewTool {
         copying.click(260, 420, IdeView.RIGHT_BUTTON);
         copying.shot("11-terminal-menu");
 
+        // Hover hints: resting the mouse on a function shows how to use it.
+        CodeView.hoverDelayMs = 0;
+        Scene hints = new Scene(960, 540, 2);
+        hints.view.openFile("/hints.py");
+        hints.frame();
+        int[][] spots = {{8, 3}, {13, 4}, {11, 5}, {10, 6}, {14, 7}, {2, 8}, {7, 8}, {6, 9}, {7, 10}, {17, 14}, {3, 15}, {8, 16}};
+        for (int i = 0; i < spots.length; i++) {
+            // Column and line (counting from 0) of a name in hints.py; the text starts 189 px in.
+            hints.mouse(189 + spots[i][0] * Ui.CELL_W + 2, 31 + spots[i][1] * Ui.CELL_H + 4);
+            hints.shot("12-hover-" + (char) ('a' + i));
+        }
+
         // A small window (854x480, Minecraft's default size): one screen pixel per font pixel.
         Scene small = new Scene(854, 480, 1);
         small.view.openFile("/miner.py");
@@ -329,6 +341,25 @@ public final class IdePreviewTool {
                 return;
             }
             folders.addAll(List.of("/lib", "/data"));
+            put("/hints.py", String.join("\n",
+                    "from logistics import network, Face",
+                    "import time",
+                    "import network as radio",
+                    "net = network()",
+                    "inbox = net.input(\"ore\")",
+                    "far = net.bus(\"far_chest\")",
+                    "inbox.set_slot_filter(0, \"minecraft:coal\")",
+                    "moved = far.extract(\"coal\", 16, dest=inbox)",
+                    "print(len(net.devices()), moved)",
+                    "time.sleep(0.5)",
+                    "radio.send(\"100.64.0.2:1003\", {\"moved\": moved})",
+                    "",
+                    "def restock(count, slot=0):",
+                    "    \"\"\"Tops the furnace up with count coal.\"\"\"",
+                    "    return far.insert(\"coal\", count, face=Face.LEFT)",
+                    "restock(8)",
+                    "inbox.count(\"coal\")",
+                    ""));
             put("/miner.py", String.join("\n",
                     "\"\"\"Digs a staircase down to diamond level.\"\"\"",
                     "import time",

@@ -20,4 +20,7 @@ MSYS_NO_PATHCONV=1 docker run --rm \
 # The mod ships the split-interpreter build as a resource.
 if [ -f out/micropython.wasm ]; then
     cp out/micropython.wasm ../common/src/main/resources/qbotics/engine/micropython.wasm
+    # The editor reads the modules' source for its hover hints (qbotics.ide.Docs).
+    mkdir -p ../common/src/main/resources/qbotics/rom
+    cp port/rom/logistics.py port/rom/network.py ../common/src/main/resources/qbotics/rom/
 fi
