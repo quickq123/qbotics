@@ -135,6 +135,7 @@ write_json("assets/qbotics/items/computer.json", {
 write_json("assets/qbotics/lang/en_us.json", {
     "block.qbotics.computer": "Computer",
     "block.qbotics.cable": "Cable",
+    "itemGroup.qbotics": "Qbotics",
     "block.qbotics.input": "Input",
     "block.qbotics.output": "Output",
     "block.qbotics.bus": "Bus",

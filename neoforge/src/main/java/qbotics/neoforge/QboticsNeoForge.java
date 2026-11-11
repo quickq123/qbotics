@@ -16,7 +16,9 @@ import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import qbotics.test.QboticsGameTests;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.material.MapColor;
@@ -25,7 +27,6 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -110,6 +111,24 @@ public final class QboticsNeoForge {
                 properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL).noOcclusion());
     }
 
+    /** The mod's own tab in the creative inventory, holding everything it adds. */
+    private static final DeferredRegister<CreativeModeTab> CREATIVE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Qbotics.MOD_ID);
+    private static final DeferredHolder<CreativeModeTab, CreativeModeTab> CREATIVE_TAB = CREATIVE_TABS.register("qbotics",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.qbotics"))
+                    .icon(() -> new ItemStack(COMPUTER_ITEM.get()))
+                    .displayItems((parameters, output) -> {
+                        output.accept(COMPUTER_ITEM.get());
+                        output.accept(CABLE_ITEM.get());
+                        output.accept(INPUT_ITEM.get());
+                        output.accept(OUTPUT_ITEM.get());
+                        output.accept(BUS_ITEM.get());
+                        output.accept(ANTENNA_SHORT_ITEM.get());
+                        output.accept(ANTENNA_LONG_ITEM.get());
+                        output.accept(ANTENNA_INFINITE_ITEM.get());
+                    })
+                    .build());
+
     private static final DeferredRegister.DataComponents DATA_COMPONENTS =
             DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, Qbotics.MOD_ID);
     private static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> DRIVE_ID =
@@ -136,7 +155,7 @@ public final class QboticsNeoForge {
         ITEMS.register(modBus);
         BLOCK_ENTITY_TYPES.register(modBus);
         modBus.addListener(QboticsNeoForge::registerPayloads);
-        modBus.addListener(QboticsNeoForge::addToCreativeTabs);
+        CREATIVE_TABS.register(modBus);
         // Hoppers and other mods' pipes see the Input block as an ordinary (filtered) inventory.
         modBus.addListener((RegisterCapabilitiesEvent event) -> event.registerBlockEntity(
                 Capabilities.Item.BLOCK, INPUT_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input)));
@@ -212,16 +231,4 @@ public final class QboticsNeoForge {
         });
     }
 
-    private static void addToCreativeTabs(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS || event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
-            event.accept(COMPUTER_ITEM);
-            event.accept(CABLE_ITEM);
-            event.accept(INPUT_ITEM);
-            event.accept(OUTPUT_ITEM);
-            event.accept(BUS_ITEM);
-            event.accept(ANTENNA_SHORT_ITEM);
-            event.accept(ANTENNA_LONG_ITEM);
-            event.accept(ANTENNA_INFINITE_ITEM);
-        }
-    }
 }

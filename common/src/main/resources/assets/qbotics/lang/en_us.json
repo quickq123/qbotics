@@ -1,6 +1,7 @@
 {
   "block.qbotics.computer": "Computer",
   "block.qbotics.cable": "Cable",
+  "itemGroup.qbotics": "Qbotics",
   "block.qbotics.input": "Input",
   "block.qbotics.output": "Output",
   "block.qbotics.bus": "Bus",
