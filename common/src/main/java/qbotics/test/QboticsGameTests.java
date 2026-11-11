@@ -1114,9 +1114,10 @@ public final class QboticsGameTests {
         a.setItem(5, new ItemStack(Blocks.STONE, 4));
         a.setItem(6, new ItemStack(Items.WHITE_BANNER));
         a.setItem(7, new ItemStack(Items.RED_DYE, 2));
+        a.setItem(8, new ItemStack(Items.WHITE_BANNER));
 
         String program = String.join("\n",
-                "from logistics import network, Slot",
+                "from logistics import network, Slot, Recipe",
                 "net = network()",
                 "stock = [net.interface('a'), net.interface('b')]",
                 "def count(name):",
@@ -1157,6 +1158,17 @@ public final class QboticsGameTests {
                 "    print('loom pressed', s.press(1))",
                 "    print('loom made', s.take(Slot(3), stock))",
                 "",
+                "# The same choices as recipes, with their buttons.",
+                "bricks = Recipe(sources=stock, destination=stock)",
+                "bricks.ingredient('stone', Slot(0)).button(chosen).result(Slot(1), 'stone_bricks', 1)",
+                "banner = Recipe(sources=stock, destination=stock)",
+                "banner.ingredient('white_banner', Slot(0)).ingredient('red_dye', Slot(1)).button(1, times=3).result(Slot(3), 'white_banner', 1)",
+                "print('buttons', bricks.buttons[0]['button'] == chosen, banner.buttons[0]['button'], banner.buttons[0]['times'])",
+                "with net.bus('cutter').open_screen() as s:",
+                "    print('bricks made', bricks.craft(2, s))",
+                "with net.bus('loom').open_screen() as s:",
+                "    print('banner made', banner.craft(1, s))",
+                "",
                 "print('final', count('netherite_sword'), count('iron_sword'), count('stone_bricks'), count('stone'), count('white_banner'), count('red_dye'))",
                 "");
         try {
@@ -1170,7 +1182,8 @@ public final class QboticsGameTests {
             helper.assertTrue(!screen.contains("Traceback"), "the program failed:\n" + screen);
             assertScreen(helper, computer, "smith slots [0, 1, 2, 3]", "smith made 1\n", "grind slots [0, 1, 2]", "grind made 1\n",
                     "cutter slots [0, 1]", "cutter chose True made 1\n", "loom slots [0, 1, 2, 3]", "loom pressed True", "loom made 1\n",
-                    "final 1 1 1 3 1 1\n");
+                    "buttons True 1 3\n", "bricks made {'minecraft:stone_bricks': 2}", "banner made {'minecraft:white_banner': 1}",
+                    "final 1 1 3 1 2 0\n");
         });
     }
 

@@ -15,7 +15,8 @@ public final class QboticsNeoForgeClient {
     public QboticsNeoForgeClient(IEventBus modBus) {
         // The probe's Slots mode: numbers on container screens, and sneak + scroll to change mode.
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ContainerScreenEvent.Render.Foreground event) ->
-                qbotics.client.SlotLabels.draw(event.getContainerScreen(), event.getGuiGraphics()));
+                qbotics.client.SlotLabels.draw(event.getContainerScreen(), event.getGuiGraphics(),
+                        event.getContainerScreen().getImageWidth(), event.getContainerScreen().getTopPos()));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.InputEvent.MouseScrollingEvent event) -> {
             if (qbotics.client.SlotLabels.scrolled(event.getScrollDeltaY())) {
                 event.setCanceled(true);

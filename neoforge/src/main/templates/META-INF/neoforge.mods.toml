@@ -23,3 +23,6 @@ Built with AI: most of this mod's design and code is AI-generated.
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
+
+[[mixins]]
+    config="qbotics.mixins.json"

@@ -457,7 +457,7 @@ with table.open_screen() as screen:               # closed at the end, even afte
 | `screen.put(slot, what=None, count=None, sources=..., need=None, wait=False)` | Moves into one slot from `sources`; returns how many. `what`, `count`, `need` and `wait` mean what they do in `move` |
 | `screen.take(slot, destinations, what=None, count=None)` | Moves out of one slot; returns how many. With no `count`, the whole slot |
 | `screen.source(slot)`, `screen.destination(slot)` | One slot as an end for `move` (section 6.4), with `only=` and `without=` as usual |
-| `screen.press(button)` | Presses a button on the screen, as a player clicking it. A stonecutter's or loom's choices are buttons 0, 1, 2… in the order shown, for what is in its slots now. Returns `False` if refused; some screens accept any number, so check the product slot |
+| `screen.press(button, times=1)` | Presses a button on the screen, as a player clicking it; `times` presses it that many times, for a screen with one button that steps through its outputs. Returns `False` if the last press was refused; some screens accept any number, so check the product slot |
 | `screen.close(leftovers=None)` | Closes it. Returns how many items had nowhere to go |
 
 **Slot numbers are the screen's.** A crafting table's screen holds its product (slot 0) and its
@@ -474,8 +474,17 @@ Tested vanilla screens and their slots:
 | Stonecutter | input 0, product 1; choose with `press` |
 | Loom | banner 0, dye 1, pattern item 2, product 3; choose with `press` |
 
-A stonecutter's list of choices changes with its input, so the simplest way to pick one is to
-try buttons until the product is the one you want:
+**Button numbers.** A screen's buttons aren't labelled the way its slots are, so the probe tells
+you each one when you click it: with the probe in Slots mode in your hand, click a button on
+any screen and its number shows above the screen for a moment and is written to your chat
+(only you see it), for example `[Probe] Button 2 on Stonecutter. In a program: screen.press(2)`.
+A stonecutter's or loom's choices are numbered 0, 1, 2… across the grid, top row first.
+
+If a click shows no number, that screen's button works some other way, and a program can't
+press it.
+
+A stonecutter's list of choices changes with its input, so a number found for stone isn't the
+same for granite. A program can also try buttons until the product is the one it wants:
 
 ```python
 with cutter.open_screen() as screen:
@@ -525,6 +534,7 @@ if blocks.can_craft(4):
 |---|---|
 | `Recipe(sources=None, destination=None)` | A new, empty recipe. Ingredients come from `sources`; products go to `destination` (each one end or a list) |
 | `recipe.ingredient(what, slot, amount=1)` | This name or filter, into this slot, this many each run. Returns the recipe, so calls can be chained |
+| `recipe.button(number, times=1)` | A button pressed each run, after the ingredients are in and before the product is taken: a stonecutter's or loom's choice. `times` presses it that many times, for a screen with one button that steps through its outputs. Call it again for more presses; they happen in the order added |
 | `recipe.result(slot, what=None, amount=None, destination=None)` | A slot the product is taken from. Call it once for each product slot. `what` and `amount` are checked after each run; `destination` sends this product somewhere other than the recipe's own |
 | `recipe.max_runs(sources=None)` | How many runs the sources can supply now |
 | `recipe.can_craft(runs=1)` | `True` if they hold enough for that many runs |
@@ -532,7 +542,21 @@ if blocks.can_craft(4):
 | `recipe.craft(runs=1, screen, wait=False)` | Does the runs on an open screen and returns what was made, as `{item: count}`. `wait=True` waits for missing ingredients |
 | `recipe.ingredients` | A dict: slot number to `{"what": ..., "amount": ...}` |
 | `recipe.results` | A dict: slot number to `{"what": ..., "amount": ..., "destination": ...}` |
+| `recipe.buttons` | A list of presses in order: `{"button": ..., "times": ...}` |
 | `recipe.sources`, `recipe.destination` | Plain attributes: read or change them |
+
+A recipe that chooses with a button, here a red pattern on a banner at the loom (click the
+pattern once with the probe in Slots mode to learn its number):
+
+```python
+banner = Recipe(sources=store, destination=store)
+banner.ingredient("white_banner", Slot(0)).ingredient("red_dye", Slot(1))
+banner.button(1)                                  # the pattern
+banner.result(Slot(3), "white_banner", 1)
+
+with net.bus("loom").open_screen() as screen:
+    banner.craft(1, screen)
+```
 
 If a run can't be finished (an ingredient runs out, the product isn't what the recipe says, or
 it has nowhere to go), `craft` raises `NetworkError`. What was already laid out goes back when
@@ -645,7 +669,7 @@ A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows
 | Mode | Right-click does |
 |---|---|
 | Labels | On a device: opens a pop-up with its name, a ready line of Python, its internal IP, hardware address and external address. Click a line to copy it. A box at the top names the device |
-| Slots | Blocks open as usual, and every container screen shows each slot's number. A screen with one inventory (a chest, a furnace) shows that inventory's own numbers, which plates use. A screen with several (a crafting table's grid and product) shows the screen's numbers, which a Bus working the screen uses (section 6.8) |
+| Slots | Blocks open as usual, and every container screen shows each slot's number. A screen with one inventory (a chest, a furnace) shows that inventory's own numbers, which plates use. A screen with several (a crafting table's grid and product) shows the screen's numbers, which a Bus working the screen uses (section 6.8). Clicking a button on a screen shows the button's number above the screen and writes it to your chat (section 6.8) |
 
 In either mode, hovering an item in any inventory shows the name programs use for it. For a
 bucket it also shows the fluid's name. Ctrl+C copies the name. Holding Shift lists the item's

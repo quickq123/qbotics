@@ -214,6 +214,29 @@ public final class ScreenshotRun {
             });
         });
         then(5, minecraft -> shot(minecraft, "09f-crafting-slots"));
+        // A stonecutter's button clicked with the probe in Slots mode: the number pops up, and goes to chat.
+        then(10, minecraft -> {
+            minecraft.player.closeContainer();
+            onServer(minecraft, player -> {
+                BlockPos at = base.offset(9, 0, -6);
+                player.level().setBlock(at, Blocks.STONECUTTER.defaultBlockState(), Block.UPDATE_ALL);
+                player.openMenu(player.level().getBlockState(at).getMenuProvider(player.level(), at));
+                player.containerMenu.getSlot(0).set(new ItemStack(Blocks.STONE, 4));
+                player.containerMenu.broadcastChanges();
+            });
+        });
+        then(10, minecraft -> {
+            // What the stonecutter's screen does when its third choice is clicked.
+            minecraft.player.containerMenu.clickMenuButton(minecraft.player, 2);
+            minecraft.gameMode.handleInventoryButtonClick(minecraft.player.containerMenu.containerId, 2);
+        });
+        then(5, minecraft -> shot(minecraft, "09g-button-number"));
+        then(5, minecraft -> {
+            minecraft.player.closeContainer();
+            minecraft.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false));
+        });
+        then(5, minecraft -> shot(minecraft, "09h-button-in-chat"));
+        then(5, minecraft -> minecraft.setScreen(null));
         // The Experience Interface's screen.
         then(10, minecraft -> {
             minecraft.player.closeContainer();

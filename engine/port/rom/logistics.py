@@ -346,12 +346,20 @@ class Screen:
             count = 1 << 20    # the whole slot: a take is never more than one slot holds
         return move(self.source(slot), destinations, what, count)
 
-    def press(self, button):
-        """Presses one of the screen's buttons, as a player clicking it. A stonecutter's or a
-        loom's choices are buttons 0, 1, 2... in the order the screen shows them, for what is
-        in its slots now. Returns False if the screen refused it. Some screens accept any
-        number, so look at the product slot to see what was chosen."""
-        return _call("screen_button", self.bus.mac, button)
+    def press(self, button, times=1):
+        """Presses one of the screen's buttons, as a player clicking it; times presses it
+        that many times, for a screen with one button that steps through its outputs. A
+        stonecutter's or a loom's choices are buttons 0, 1, 2... in the order the screen
+        shows them, for what is in its slots now. The probe in Slots mode tells you a
+        button's number when you click it. Returns False if the screen refused the last
+        press. Some screens accept any number, so look at the product slot to see what was
+        chosen."""
+        if not isinstance(times, int) or times < 1:
+            raise NetworkError("times= is how often to press the button: 1 or more, not %r." % (times,))
+        took = False
+        for _ in range(times):
+            took = _call("screen_button", self.bus.mac, button)
+        return took
 
     def close(self, leftovers=None):
         """Closes the screen. What the block hands back goes to leftovers (one destination
@@ -393,18 +401,40 @@ class Recipe:
             with table.open_screen() as screen:
                 blocks.craft(4, screen)
 
-    ingredients and results are ordinary dictionaries, keyed by slot number, and sources
-    and destination are ordinary attributes: read them or change them as you like."""
+    Screens where you choose what to make, such as a stonecutter or a loom, also need the
+    button for that choice, pressed after the ingredients are in:
+
+        bricks = Recipe(sources=store, destination=store)
+        bricks.ingredient("stone", Slot(0)).button(4).result(Slot(1), "stone_bricks", 1)
+
+    (The probe in Slots mode tells you a button's number when you click it.)
+
+    ingredients and results are ordinary dictionaries, keyed by slot number, buttons is an
+    ordinary list, and sources and destination are ordinary attributes: read them or change
+    them as you like."""
 
     def __init__(self, sources=None, destination=None):
         self.sources = sources            # one source or a list, as move() takes
         self.destination = destination    # one destination or a list
         self.ingredients = {}             # slot number -> {"what": name or filter, "amount": per run}
         self.results = {}                 # slot number -> {"what": name or None, "amount": per run or None, "destination": or None}
+        self.buttons = []                 # presses each run, in order, after the ingredients are in: {"button": n, "times": t}
 
     def ingredient(self, what, slot, amount=1):
         """Adds an ingredient: this name or filter, into this slot, this many per run."""
         self.ingredients[_aim(None, None, slot)[2]] = {"what": what, "amount": amount}
+        return self
+
+    def button(self, number, times=1):
+        """Adds a button press to each run, made after the ingredients are laid out and
+        before the product is taken: a stonecutter's or a loom's choice. times presses it
+        that many times, for a screen with one button that steps through its outputs. Call
+        it again for more presses; they are made in the order added."""
+        if not isinstance(number, int) or number < 0:
+            raise NetworkError("A button is a number from 0, as the probe shows when you click it; not %r." % (number,))
+        if not isinstance(times, int) or times < 1:
+            raise NetworkError("times= is how often to press the button: 1 or more, not %r." % (times,))
+        self.buttons.append({"button": number, "times": times})
         return self
 
     def result(self, slot, what=None, amount=None, destination=None):
@@ -450,8 +480,8 @@ class Recipe:
 
     def craft(self, runs=1, screen=None, wait=False, sources=None, destination=None):
         """Does the runs on an open screen and returns what was made, as a dictionary of
-        item name to how many. Each run lays the ingredients into their slots and takes
-        the results out. If a run can't be done it raises NetworkError; ingredients
+        item name to how many. Each run lays the ingredients into their slots, presses
+        the recipe's buttons, and takes the results out. If a run can't be done it raises NetworkError; ingredients
         already laid out go back when the screen closes. wait=True pauses for missing
         ingredients instead (a number waits that many seconds)."""
         if screen is None:
@@ -465,12 +495,14 @@ class Recipe:
             for slot in sorted(self.ingredients):
                 line = self.ingredients[slot]
                 screen.put(slot, line["what"], sources=sources, need=line["amount"], wait=wait)
+            for line in self.buttons:
+                screen.press(line["button"], line["times"])
             shown = {entry["slot"]: entry for entry in screen.contents()}
             for slot in sorted(self.results):
                 line = self.results[slot]
                 there = shown.get(slot)
                 if there is None:
-                    raise NetworkError("Run %d made nothing in slot %d. Is the recipe right for this block?" % (run + 1, slot))
+                    raise NetworkError("Run %d made nothing in slot %d. Is the recipe right for this block%s?" % (run + 1, slot, ", and its buttons" if self.buttons else ""))
                 if line["amount"] is not None and there["count"] < line["amount"]:
                     raise NetworkError("Run %d made %d in slot %d, not the %d the recipe says." % (run + 1, there["count"], slot, line["amount"]))
                 to = line["destination"] if line["destination"] is not None else destination
