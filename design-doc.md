@@ -1004,6 +1004,18 @@ if blocks.can_craft(4):                            # are there ingredients for f
 - **`recipe.result(slot, what=None, amount=None)`** names a slot the product is taken from. It can be called more than once, for machines that give several outputs. `what` and `amount` are optional: with them the run checks it got that; without, it takes whatever is there.
 - **`recipe.can_craft(runs=1)`** answers True or False: do the sources hold enough of every ingredient for that many runs? The same item in several slots is added up. It does not look at the machine, so it can't know whether the recipe is a real one or whether the destination has room.
 - **`recipe.craft(runs=1, screen)`** does the runs on an open screen: lays the ingredients into their slots, takes the product from the result slots to the destination, and repeats. If a run fails (an ingredient is missing, a result slot stays empty, the product has nowhere to go) it raises `NetworkError`; ingredients already placed go back when the screen closes, as for any screen session.
+- **Working out how many runs.** Some jobs start from what there is ("make as many as the stock allows"); others start from what is wanted ("I need 7, and each run gives 2"). Both need the recipe to be readable, not only runnable:
+  - `recipe.ingredients` and `recipe.results` are plain dictionaries, keyed by slot number. Each entry holds what was given: `{"what": "coal", "amount": 1}`, and for a result `{"what": "coal_block", "amount": 1}` with `None` where the name or amount was left out. A program can read them, loop over them, sort them, or change them.
+  - `recipe.max_runs()` answers how many runs the sources can supply now (0 if none). `can_craft(n)` is the same question as `max_runs() >= n`.
+  - `recipe.runs_for(count, slot=None)` answers how many runs give at least that many of the product: 4 runs for 7 items at 2 a run. It needs the result's `amount` to have been given; `slot` picks which result when there are several.
+  - `recipe.craft(...)` returns what it took out: a dictionary of item name to how many, so a program can check what a machine with several outputs actually produced.
+
+  ```python
+  runs = planks.runs_for(7)                  # 2 a run: 4 runs
+  runs = min(runs, planks.max_runs())        # ...or as many as there is wood for
+  made = planks.craft(runs, screen)          # {"minecraft:oak_planks": 8}
+  ```
+
 - **Slot numbers are the screen's own**, as the probe's Slots mode shows them on that screen. That is why the result's slot is named and not assumed: a crafting table's product is slot 0 and its grid 1 to 9, and another mod's machine will differ.
 - **Sources and destination** are given when the recipe is made. They are ordinary attributes, `recipe.sources` and `recipe.destination`, so a program can read or replace them at any time (`blocks.sources = other_parts`, `blocks.sources.append(chest.source())`), and either can be given for one call only (`blocks.craft(4, screen, destination=outbox)`). They are the same sources and destinations `move` uses: one or a list.
 - **Opening and closing.** `with bus.open_screen() as screen:` is the recommended form because the screen is closed, and leftovers returned, even if the program stops with an error. `screen = bus.open_screen()` ... `screen.close()` also works.
