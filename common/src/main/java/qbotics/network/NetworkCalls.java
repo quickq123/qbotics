@@ -101,7 +101,7 @@ public final class NetworkCalls {
                     if (!external.matches()) {
                         throw new CallError("'" + address + "' isn't an external address. They look like 100.64.0.12.");
                     }
-                    Far far = far(level, network, external.group(1));
+                    Far far = far(level, network, external.group(1), computerPos);
                     if (far.network() == null) {
                         throw new CallError("The antenna at " + external.group(1) + " isn't its network's router, so nothing behind it can be reached.");
                     }
@@ -217,6 +217,16 @@ public final class NetworkCalls {
                 if (!antenna.tune(args.get(1).getAsString())) {
                     throw new CallError("A frequency can use letters, digits, _ - and . (up to " + Addresses.MAX_NAME_LENGTH + " characters).");
                 }
+                return describe(level, network, antenna);
+            }
+            case "access": {
+                // Who may reach this network from outside: private, team or public.
+                AntennaBlockEntity antenna = router(network);
+                RadioNetwork.Access access = RadioNetwork.Access.parse(args.get(1).getAsString());
+                if (access == null) {
+                    throw new CallError("'" + args.get(1).getAsString() + "' isn't an access setting. Use private, team or public.");
+                }
+                antenna.setAccess(access);
                 return describe(level, network, antenna);
             }
             case "send":
@@ -516,7 +526,12 @@ public final class NetworkCalls {
     private record Far(AntennaBlockEntity antenna, ServerLevel level, CableNetwork network) {
     }
 
-    private static Far far(ServerLevel level, CableNetwork network, String ip) {
+    /** The owner of the computer that made a call, or null if nobody owns it. */
+    private static java.util.UUID ownerAt(ServerLevel level, BlockPos computerPos) {
+        return level.getBlockEntity(computerPos) instanceof qbotics.block.ComputerBlockEntity computer ? computer.owner() : null;
+    }
+
+    private static Far far(ServerLevel level, CableNetwork network, String ip, BlockPos computerPos) {
         AntennaBlockEntity near = network.gateway();
         if (near == null) {
             throw new CallError("Reaching an external address needs an antenna cabled to this computer.");
@@ -526,6 +541,10 @@ public final class NetworkCalls {
             throw new CallError("No antenna with the address " + ip + " can be reached. It may not exist, or its area isn't loaded.");
         }
         String problem = far == near ? null : RadioNetwork.linkProblem(near, far);
+        if (problem == null && far != near) {
+            // In range and on the same frequency; now, is this computer's owner let in?
+            problem = RadioNetwork.accessProblem(level.getServer(), far, ownerAt(level, computerPos));
+        }
         if (problem != null) {
             throw new CallError("Can't reach " + ip + ": " + problem + ".");
         }
@@ -559,7 +578,7 @@ public final class NetworkCalls {
         Matcher external = EXTERNAL.matcher(address);
         if (external.matches()) {
             String ip = external.group(1);
-            Far far = far(level, network, ip);
+            Far far = far(level, network, ip, computerPos);
             AntennaBlockEntity near = network.gateway();
             int port = Integer.parseInt(external.group(2));
             target = far.network() != null ? far.network().byHost(port - RadioNetwork.PORT_BASE) : null;
@@ -696,6 +715,7 @@ public final class NetworkCalls {
         }
         if (device instanceof AntennaBlockEntity antenna) {
             info.addProperty("frequency", antenna.frequency());
+            info.addProperty("access", antenna.access().word);
             info.addProperty("tier", antenna.tier().word);
             info.addProperty("range", antenna.tier() == RadioNetwork.Tier.INFINITE ? -1 : antenna.tier().radius);
             info.addProperty("router", antenna == gateway);

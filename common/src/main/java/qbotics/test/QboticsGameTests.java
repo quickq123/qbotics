@@ -913,6 +913,16 @@ public final class QboticsGameTests {
         other.tune("mine_ops");
         helper.assertTrue(RadioNetwork.linkProblem(antenna, other) == null, "the same frequency should link again");
 
+        // Access: private keeps other players' devices out, public lets anyone in; a null owner is "nobody".
+        java.util.UUID stranger = java.util.UUID.randomUUID();
+        var server = helper.getLevel().getServer();
+        helper.assertTrue(other.access() == RadioNetwork.Access.PRIVATE && RadioNetwork.accessProblem(server, other, null) == null
+                && RadioNetwork.accessProblem(server, other, stranger) != null, "a new antenna should be private");
+        other.setAccess(RadioNetwork.Access.TEAM);
+        helper.assertTrue(RadioNetwork.accessProblem(server, other, stranger) != null, "a stranger is not on the owner's team");
+        other.setAccess(RadioNetwork.Access.PUBLIC);
+        helper.assertTrue(RadioNetwork.accessProblem(server, other, stranger) == null, "a public antenna lets anyone in");
+
         // A broken antenna can't be reached any more.
         String gone = other.externalIp();
         helper.getLevel().destroyBlock(helper.absolutePos(otherPos), false);
@@ -982,6 +992,8 @@ public final class QboticsGameTests {
                 "r = network.receive(8)",
                 "print('reply', r.data, r.sender)",
                 "print([(d['address'], d['kind']) for d in network.scan('" + bAddress.replace(":1002", "") + "')])",
+                // A new antenna is private. Both of these have no owner, which counts as the same owner.
+                "print(radio.access)",
                 "radio.tune('other')",
                 "network.send('" + bAddress + "', 1)",
                 "network.send('100.64.200.1:1002', 1)",
@@ -992,7 +1004,7 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> {
             assertScreen(helper, a, "end\n");
             assertScreen(helper, b, "got 128 " + aAddress + "\n");
-            assertScreen(helper, a, "1002 short 24 1\n", "to myself\n", "None\n", "reply ['thanks', 2] " + bAddress + "\n",
+            assertScreen(helper, a, "1002 short 24 1\n", "private\n", "to myself\n", "None\n", "reply ['thanks', 2] " + bAddress + "\n",
                     "[('" + bAddress.replace(":1002", ":1001") + "', 'antenna'), ('" + bAddress + "', 'computer')]\n",
                     "that antenna is tuned to a different", "No antenna with the address 100.64.200.1 can be reached",
                     "Only computers receive messages; 192.168.1.1 is an antenna.", "end\n");

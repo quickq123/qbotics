@@ -87,7 +87,7 @@ public class AntennaBlock extends BaseEntityBlock {
             CableNetwork.at(serverLevel, pos);
             String reach = tier == RadioNetwork.Tier.INFINITE ? "unlimited" : tier.radius + " blocks";
             serverPlayer.sendOverlayMessage(Component.translatable("message.qbotics.antenna",
-                    CableBlock.describe(antenna), antenna.externalIp(), antenna.frequency(), reach));
+                    CableBlock.describe(antenna), antenna.externalIp(), antenna.frequency(), reach, antenna.access().word));
         }
         return InteractionResult.SUCCESS;
     }

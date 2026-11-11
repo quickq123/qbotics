@@ -19,6 +19,8 @@ public class AntennaBlockEntity extends DeviceBlockEntity {
     /** Its number on the radio network; 0 until the server has given it one. */
     private int externalNumber;
     private String frequency = RadioNetwork.DEFAULT_FREQUENCY;
+    /** Who may reach this antenna's network from outside. */
+    private RadioNetwork.Access access = RadioNetwork.Access.PRIVATE;
 
     public AntennaBlockEntity(BlockPos pos, BlockState state) {
         super(QboticsContent.ANTENNA_BLOCK_ENTITY.get(), pos, state);
@@ -39,6 +41,15 @@ public class AntennaBlockEntity extends DeviceBlockEntity {
 
     public String frequency() {
         return frequency;
+    }
+
+    public RadioNetwork.Access access() {
+        return access;
+    }
+
+    public void setAccess(RadioNetwork.Access wanted) {
+        access = wanted;
+        setChanged();
     }
 
     /** Frequencies follow the same rules as names; an unusable one leaves the antenna as it was. */
@@ -97,6 +108,7 @@ public class AntennaBlockEntity extends DeviceBlockEntity {
         super.saveAdditional(output);
         output.putInt("external", externalNumber);
         output.putString("frequency", frequency);
+        output.putString("access", access.word);
     }
 
     @Override
@@ -105,5 +117,7 @@ public class AntennaBlockEntity extends DeviceBlockEntity {
         externalNumber = input.getIntOr("external", 0);
         String saved = Addresses.cleanName(input.getStringOr("frequency", ""));
         frequency = saved.isEmpty() ? RadioNetwork.DEFAULT_FREQUENCY : saved;
+        RadioNetwork.Access savedAccess = RadioNetwork.Access.parse(input.getStringOr("access", ""));
+        access = savedAccess == null ? RadioNetwork.Access.PRIVATE : savedAccess;
     }
 }

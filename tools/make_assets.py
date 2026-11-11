@@ -184,7 +184,7 @@ write_json("assets/qbotics/lang/en_us.json", {
     "block.qbotics.antenna_short": "Short-Range Antenna",
     "block.qbotics.antenna_long": "Long-Range Antenna",
     "block.qbotics.antenna_infinite": "Infinite Antenna",
-    "message.qbotics.antenna": "%s  |  external %s  |  frequency %s  |  reach %s",
+    "message.qbotics.antenna": "%s  |  external %s  |  frequency %s  |  reach %s  |  %s",
     "container.qbotics.interface": "Filters / Items   %s",
     "message.qbotics.port": "%s, pointing at %s",
     "screen.qbotics.terminal": "Computer Terminal",

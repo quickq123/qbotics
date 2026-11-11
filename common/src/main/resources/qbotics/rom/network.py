@@ -118,6 +118,17 @@ class Radio:
         r = self._info["range"]
         return None if r < 0 else r
 
+    @property
+    def access(self):
+        """Who may reach this network from outside: "private" (the owner's devices only;
+        how every antenna starts), "team" (the owner's team) or "public" (anyone on the
+        same frequency and in range)."""
+        return self._get("access")
+
+    def set_access(self, access):
+        """Changes who may reach this network from outside: "private", "team" or "public"."""
+        self._info = _call("access", str(access))
+
     def tune(self, frequency):
         """Only antennas on the same frequency hear each other."""
         self._info = _call("tune", str(frequency))
