@@ -68,6 +68,7 @@ public final class QboticsGameTests {
             Map.entry("remote_login", QboticsGameTests::remoteLogin),
             Map.entry("experience_store", QboticsGameTests::experienceStore),
             Map.entry("test_stage", QboticsGameTests::testStage),
+            Map.entry("screen_access", QboticsGameTests::screenAccess),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -981,16 +982,17 @@ public final class QboticsGameTests {
         ServerLevel level = helper.getLevel();
         // High above the test's own space, so the stage's 15 by 9 blocks disturb nothing.
         BlockPos corner = helper.absolutePos(new BlockPos(0, 30, 0));
-        String built = qbotics.stage.TestStage.build(level, corner, null);
+        // Owned by someone, as the command makes it: a bus with no owner won't open screens.
+        String built = qbotics.stage.TestStage.build(level, corner, UUID.randomUUID());
         helper.assertTrue(built.contains("Stage built"), built);
         ComputerBlockEntity main = (ComputerBlockEntity) level.getBlockEntity(corner.offset(1, 0, 2));
         CableNetwork network = CableNetwork.at(level, main.getBlockPos());
         List<String> names = network.devices().stream().map(NetworkDevice::deviceName).sorted().toList();
-        helper.assertTrue(names.equals(List.of("battery", "big_tank", "chest", "furnace", "inbox", "machine", "main", "main_antenna", "outbox",
-                "store", "tanks", "xp")), "the main network should hold exactly the stage's devices, but had " + names);
+        helper.assertTrue(names.equals(List.of("battery", "big_tank", "chest", "crafter", "furnace", "inbox", "machine", "main", "main_antenna", "outbox",
+                "store", "tanks", "xp")),"the main network should hold exactly the stage's devices, but had " + names);
 
         ServerComputer computer = ComputerManager.get(level.getServer()).getOrStart(main);
-        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources")) {
+        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources", "8_crafting")) {
             computer.submitLine("run demos/" + demo + ".py");
         }
         computer.submitLine("pwd");
@@ -1001,10 +1003,71 @@ public final class QboticsGameTests {
             helper.assertTrue(!text.contains("Traceback") && !text.contains("Error"), "a demo failed:\n" + text);
             for (String expected : List.of("149 items; 32 are coal", "chest to furnace: 8", "moved to the store: 24", "5000 mB, 3000 of it water",
                     "battery now holds 250000 of 2000000", "Sent: True", "{'echo': {'hello': 'from main'}}", "experience_interface",
-                    "into the furnace: 4", "all but gold: 20", "As expected: Only 6 of the 50 needed", "Exactly 6 gold: 6")) {
+                    "into the furnace: 4", "all but gold: 20", "As expected: Only 6 of the 50 needed", "Exactly 6 gold: 6",
+                    "A log into the grid: 1", "Planks taken out: 4", "runs for 8 sticks: 2", "Made: {'minecraft:stick': 8}", "holds 8 sticks")) {
                 helper.assertTrue(text.contains(expected), "the demos should have printed '" + expected + "' but printed:\n" + text);
             }
         });
+    }
+
+    /**
+     * Screen access: a bus opens a crafting table's screen as its owner, a program works the
+     * slots, and what is left in them comes back when the screen closes. Then a Recipe.
+     */
+    private static void screenAccess(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.CRAFTING_TABLE);
+        CablePort bus = helper.getBlockEntity(new BlockPos(1, 1, 1), PortBlockEntity.class).port(Direction.EAST);
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Blocks.OAK_PLANKS, 8));
+        store.setItem(1, new ItemStack(Items.COAL, 20));
+
+        // A bus nobody owns has nobody to act for.
+        BlockPos computerAt = helper.absolutePos(new BlockPos(0, 1, 0));
+        String refused = qbotics.network.NetworkCalls.handle(level.getServer(), level.dimension(), computerAt, "[\"screen_open\",\"" + bus.mac() + "\"]");
+        helper.assertTrue(refused.contains("no owner to act for"), "a bus with no owner should not open screens: " + refused);
+        bus.onPlaced(UUID.randomUUID());
+        String mac = bus.mac();
+
+        for (String line : List.of(
+                "python",
+                "from logistics import network, move, Slot, Recipe",
+                "net = network()",
+                "table = net.bus()",
+                "store = net.interface()",
+                // By hand: two planks, one above the other, make four sticks.
+                "screen = table.open_screen()",
+                "print(len(screen.slots()), screen.put(Slot(1), 'oak_planks', sources=store), screen.put(Slot(4), 'oak_planks', sources=store))",
+                "print(sorted((e['slot'], e['item'], e['count']) for e in screen.contents()))",
+                "print(screen.take(Slot(0), store), store.count('stick'), store.count('oak_planks'))",
+                // Left in the grid when the screen closes: it comes back.
+                "print(screen.put(Slot(5), 'oak_planks', 3, sources=store), store.count('oak_planks'), screen.close(), store.count('oak_planks'))",
+                "screen.contents()",
+                // A recipe: nine coal make a block of coal.
+                "blocks = Recipe(sources=store, destination=store)",
+                "for n in range(1, 10): blocks.ingredient('coal', Slot(n))",
+                "",
+                "blocks.result(Slot(0), 'coal_block', 1)",
+                "print(blocks.max_runs(), blocks.can_craft(2), blocks.can_craft(3), blocks.runs_for(2), len(blocks.ingredients), blocks.results[0]['amount'])",
+                "with table.open_screen() as screen: print(blocks.craft(2, screen))",
+                "",
+                "print(store.count('coal'), store.count('coal_block'))",
+                // Not enough for another run: an error, and what was laid out comes back when the screen closes.
+                "with table.open_screen() as screen: blocks.craft(1, screen)",
+                "",
+                "print('after', store.count('coal'))")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer, "10 1 1\n",
+                "[(0, 'minecraft:stick', 4), (1, 'minecraft:oak_planks', 1), (4, 'minecraft:oak_p",
+                "4 4 6\n", "3 3 0 6\n", "This bus has no screen open", "2 True False 2 9 1\n", "{'minecraft:coal_block': 2}\n", "2 2\n",
+                "Only 0 of the 1 needed can be moved right now", "after 2\n"));
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */

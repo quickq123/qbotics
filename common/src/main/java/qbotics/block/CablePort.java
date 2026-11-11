@@ -47,6 +47,11 @@ public final class CablePort implements NetworkDevice {
         return deviceId;
     }
 
+    /** The player who put the plate on, or null if nobody did (a command, a machine). */
+    public @Nullable UUID owner() {
+        return owner;
+    }
+
     @Override
     public Kind kind() {
         Kind kind = CableBlock.plateKind(host.getBlockState(), side);

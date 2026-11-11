@@ -294,6 +294,8 @@ public final class ComputerManager {
         for (Consumer<MinecraftServer> message; (message = outbox.poll()) != null; ) {
             message.accept(server);
         }
+        qbotics.network.ScreenSessions.tick(server, session -> NetworkCalls.interfaces(
+                qbotics.network.CableNetwork.at(qbotics.network.ScreenSessions.levelOf(session), qbotics.network.ScreenSessions.busPosOf(session))));
         if (viewers.isEmpty()) {
             return;
         }

@@ -290,6 +290,52 @@ public final class NetworkCalls {
                 return new JsonPrimitive(send(level, network, computerPos, args.get(1).getAsString(), args.get(2).getAsString()));
             case "move":
                 return moveAll(level, network, args);
+            case "available": {
+                // How many of a name or filter a list of item sources could give between them.
+                List<End> sources = ends(network, args.get(1), "source");
+                String wanted = string(args, 2);
+                NameMatch<Item> match = wanted == null ? null : item(wanted);
+                long total = 0;
+                for (End end : sources) {
+                    ItemPort port = itemSource(level, end);
+                    java.util.function.Predicate<Item> own = endFilter(end, NetworkCalls::item);
+                    List<ItemStack> stacks = port.contents();
+                    for (int i = 0; i < stacks.size(); i++) {
+                        ItemStack stack = stacks.get(i);
+                        if (!stack.isEmpty() && (end.slot() < 0 || end.slot() == i) && (match == null || match.test(stack.getItem()))
+                                && own.test(stack.getItem())) {
+                            total += stack.getCount();
+                        }
+                    }
+                }
+                return new JsonPrimitive(total);
+            }
+            case "screen_open": {
+                CablePort bus = screenBus(byMac(network, args, 1));
+                if (bus.owner() == null) {
+                    throw new CallError("This bus has no owner to act for (it wasn't placed by a player), so it can't open screens.");
+                }
+                ScreenSessions.Session session = ScreenSessions.open(level, bus, bus.owner());
+                if (session == null) {
+                    String block = BuiltInRegistries.BLOCK.getKey(level.getBlockState(bus.targetPos()).getBlock()).toString();
+                    throw new CallError("The bus points at " + block + ", which opened no screen. It may have none, or its owner may not be allowed to use it here.");
+                }
+                return screenContents(session, true);
+            }
+            case "screen_contents":
+                return screenContents(openScreen(level, screenBus(byMac(network, args, 1))), false);
+            case "screen_close": {
+                CablePort bus = screenBus(byMac(network, args, 1));
+                // What the block hands back goes to the places named, or failing that to any interface on the network.
+                List<ItemPort> places = new ArrayList<>();
+                if (args.size() > 2 && args.get(2).isJsonArray() && !args.get(2).getAsJsonArray().isEmpty()) {
+                    for (End end : ends(network, args.get(2), "destination")) {
+                        places.add(itemDestination(level, end));
+                    }
+                }
+                places.addAll(interfaces(network));
+                return new JsonPrimitive(ScreenSessions.close(level.getServer(), bus.deviceId(), places));
+            }
             default:
                 throw new CallError("This computer doesn't know the call '" + method + "'.");
         }
@@ -356,6 +402,88 @@ public final class NetworkCalls {
         List<NameMatch<T>> without = names(end.written(), "without", parse);
         return thing -> (only.isEmpty() || only.stream().anyMatch(filter -> filter.test(thing)))
                 && without.stream().noneMatch(filter -> filter.test(thing));
+    }
+
+    // ---- screen access (design doc §11.0.2) --------------------------------------------------
+
+    private static CablePort screenBus(NetworkDevice device) {
+        if (device instanceof CablePort port && port.kind() == Kind.BUS && port.medium() == Medium.ITEM) {
+            return port;
+        }
+        throw new CallError("Only a bus can open the screen of the block it points at; this is " + article(device) + ".");
+    }
+
+    private static ScreenSessions.Session openScreen(ServerLevel level, CablePort bus) {
+        ScreenSessions.Session session = ScreenSessions.of(level, bus);
+        if (session == null) {
+            throw new CallError("This bus has no screen open. Open one first, with open_screen(); a screen left unused for a minute closes itself.");
+        }
+        return session;
+    }
+
+    /** Every interface on a network, as places for leftovers to go. */
+    public static List<ItemPort> interfaces(CableNetwork network) {
+        List<ItemPort> all = new ArrayList<>();
+        for (NetworkDevice device : network.devices()) {
+            if (device instanceof InterfaceBlockEntity store) {
+                all.add(store);
+            }
+        }
+        return all;
+    }
+
+    /** A screen's own slots: every one of them when it has just been opened, otherwise those that hold something. */
+    private static JsonArray screenContents(ScreenSessions.Session session, boolean all) {
+        JsonArray list = new JsonArray();
+        session.port(); // counts as using the screen
+        for (net.minecraft.world.inventory.Slot slot : session.slots()) {
+            ItemStack stack = slot.getItem();
+            if (all || !stack.isEmpty()) {
+                JsonObject entry = new JsonObject();
+                entry.addProperty("slot", slot.index);
+                if (stack.isEmpty()) {
+                    entry.add("item", JsonNull.INSTANCE);
+                } else {
+                    entry.addProperty("item", itemId(stack.getItem()));
+                }
+                entry.addProperty("count", stack.getCount());
+                list.add(entry);
+            }
+        }
+        return list;
+    }
+
+    /** True if an end of a move means "the screen this bus has open", not the container it points at. */
+    private static boolean onScreen(End end) {
+        return end.written().has("screen") && end.written().get("screen").getAsBoolean();
+    }
+
+    private static ItemPort itemSource(ServerLevel level, End end) {
+        if (onScreen(end)) {
+            return openScreen(level, screenBus(end.device())).port();
+        }
+        if (end.device() instanceof InterfaceBlockEntity store) {
+            return store;
+        }
+        if (end.device() instanceof CablePort plate && plate.medium() == Medium.ITEM && plate.kind() != Kind.OUTPUT) {
+            // With no face named, a source is the whole container, as contents() shows it.
+            return end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
+        }
+        throw notASource(end);
+    }
+
+    private static ItemPort itemDestination(ServerLevel level, End end) {
+        if (onScreen(end)) {
+            return openScreen(level, screenBus(end.device())).port();
+        }
+        if (end.device() instanceof InterfaceBlockEntity store) {
+            return store;
+        }
+        if (end.device() instanceof CablePort plate && plate.medium() == Medium.ITEM && plate.kind() != Kind.INPUT) {
+            // A slot number with no face counts slots across the whole container.
+            return end.slot() >= 0 && end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
+        }
+        throw notADestination(end);
     }
 
     private static Integer wholeNumber(JsonArray args, int index, String what) {
@@ -441,28 +569,12 @@ public final class NetworkCalls {
                 List<ItemPort> to = new ArrayList<>();
                 List<java.util.function.Predicate<Item>> passes = new ArrayList<>();
                 for (End end : sources) {
-                    ItemPort port;
-                    if (end.device() instanceof InterfaceBlockEntity store) {
-                        port = store;
-                    } else if (end.device() instanceof CablePort plate && plate.kind() != Kind.OUTPUT) {
-                        // With no face named, a source is the whole container, as contents() shows it.
-                        port = end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
-                    } else {
-                        throw notASource(end);
-                    }
+                    ItemPort port = itemSource(level, end);
                     checkSlot(end.slot(), port.contents().size(), end.label(), "slot");
                     from.add(port);
                 }
                 for (End end : destinations) {
-                    ItemPort port;
-                    if (end.device() instanceof InterfaceBlockEntity store) {
-                        port = store;
-                    } else if (end.device() instanceof CablePort plate && plate.kind() != Kind.INPUT) {
-                        // A slot number with no face counts slots across the whole container.
-                        port = end.slot() >= 0 && end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
-                    } else {
-                        throw notADestination(end);
-                    }
+                    ItemPort port = itemDestination(level, end);
                     checkSlot(end.slot(), port.contents().size(), end.label(), "slot");
                     to.add(port);
                 }

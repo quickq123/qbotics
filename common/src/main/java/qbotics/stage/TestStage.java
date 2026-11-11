@@ -46,8 +46,8 @@ import qbotics.network.RadioNetwork;
  * antenna, to try messages and remote login.
  *
  * <pre>
- *            chest furnace inbox outbox      tank       machine
- *   main  =    bus   bus   input output tanks fbus battery ebus  xp       (z = 2; plates point north)
+ *            chest furnace inbox outbox      tank       machine    crafting table
+ *   main  =    bus   bus   input output tanks fbus battery ebus  xp  bus  (z = 2; plates point north)
  *
  *   remote =  store  bus->chest                                           (z = 6)
  * </pre>
@@ -188,6 +188,10 @@ public final class TestStage {
         plate(11, 2, Kind.BUS, Medium.ENERGY, "machine");
 
         device(12, 0, 2, QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get(), "xp", ExperienceInterfaceBlockEntity.class).add(1395);
+
+        // A crafting table's slots exist only on its screen, which this bus opens as its owner.
+        set(13, 0, 1, Blocks.CRAFTING_TABLE.defaultBlockState());
+        plate(13, 2, Kind.BUS, Medium.ITEM, "crafter");
 
         // ---- the second network, along z = 6 ----
         ComputerBlockEntity remote = computer(1, 6, "remote");

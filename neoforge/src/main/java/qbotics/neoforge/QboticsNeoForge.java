@@ -299,6 +299,11 @@ public final class QboticsNeoForge {
             }
 
             @Override
+            public qbotics.network.ScreenSessions.Opened openScreenAs(ServerLevel level, BlockPos pos, Direction face, UUID owner, UUID bus) {
+                return StandIn.open(level, pos, face, owner, bus);
+            }
+
+            @Override
             public String modName(String modId) {
                 return net.neoforged.fml.ModList.get().getModContainerById(modId)
                         .map(mod -> mod.getModInfo().getDisplayName()).orElse(modId);

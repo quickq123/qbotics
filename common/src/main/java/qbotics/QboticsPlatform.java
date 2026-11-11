@@ -23,6 +23,16 @@ public interface QboticsPlatform {
      */
     @Nullable ItemPort itemPort(ServerLevel level, BlockPos pos, @Nullable Direction side);
 
+    /**
+     * Right-clicks a block as a stand-in for a player (the owner of a Bus), the way that player
+     * would, and returns the screen the block opened with the stand-in that holds it. Null if
+     * the block opened no screen, or a protection mod refused the stand-in.
+     *
+     * @param face the face of the block that is clicked
+     * @param bus  identifies the Bus, so that each Bus has a stand-in of its own
+     */
+    qbotics.network.ScreenSessions.@Nullable Opened openScreenAs(ServerLevel level, BlockPos pos, Direction face, java.util.UUID owner, java.util.UUID bus);
+
     /** The name players know a mod by ("Applied Energistics 2"), given its ID; the ID itself if it isn't known. */
     String modName(String modId);
 

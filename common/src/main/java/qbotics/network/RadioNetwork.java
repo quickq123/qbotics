@@ -195,11 +195,25 @@ public final class RadioNetwork {
         }
         if (access == Access.TEAM && owner != null && caller != null) {
             // Teams are the game's own (the /team command); they list players by name.
-            var mine = server.services().profileResolver().fetchById(owner).map(profile -> server.getScoreboard().getPlayersTeam(profile.name()));
-            var theirs = server.services().profileResolver().fetchById(caller).map(profile -> server.getScoreboard().getPlayersTeam(profile.name()));
-            return mine.isPresent() && theirs.isPresent() && mine.get() != null && mine.get() == theirs.get();
+            String ownerName = playerName(server, owner);
+            String callerName = playerName(server, caller);
+            var mine = ownerName == null ? null : server.getScoreboard().getPlayersTeam(ownerName);
+            var theirs = callerName == null ? null : server.getScoreboard().getPlayersTeam(callerName);
+            return mine != null && mine == theirs;
         }
         return false;
+    }
+
+    /**
+     * A player's name, from who is online or from the server's own record of who has played.
+     * Null if the server has never seen them. It never asks the internet, which could stall the game.
+     */
+    public static @Nullable String playerName(MinecraftServer server, java.util.UUID player) {
+        var online = server.getPlayerList().getPlayer(player);
+        if (online != null) {
+            return online.getGameProfile().name();
+        }
+        return server.services().nameToIdCache().get(player).map(net.minecraft.server.players.NameAndId::name).orElse(null);
     }
 
     /** Why two antennas can't talk, or null if they can (design doc §9.1). */

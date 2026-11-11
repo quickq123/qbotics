@@ -288,8 +288,192 @@ class Output(Port, _Takes):
     """Puts items into the container it points at. A destination for move()."""
 
 
+class _ScreenEnd(Destination):
+    # One slot of an open screen, as an end of a move.
+    def _spec(self):
+        spec = Source._spec(self)
+        spec["screen"] = True
+        return spec
+
+
+class Screen:
+    """The screen of the block a bus points at, opened as a player would open it. Its
+    slots are numbered as the screen numbers them (the probe's Slots mode shows them).
+
+    Use it in a with block, so it is closed even if the program stops with an error:
+
+        with table.open_screen() as screen:
+            screen.put(Slot(1), "oak_planks", sources=store)
+            screen.take(Slot(0), store)
+
+    Items exist in a screen only while it is open. When it closes, whatever the block hands
+    back goes to an interface; anything with nowhere to go is dropped at the bus."""
+
+    def __init__(self, bus, slots):
+        self.bus = bus
+        self._slots = [entry["slot"] for entry in slots]
+        self.open = True
+
+    def slots(self):
+        """The numbers of the screen's own slots."""
+        return list(self._slots)
+
+    def contents(self):
+        """What its slots hold now: a list of {"slot": 0, "item": "minecraft:stick", "count": 4}."""
+        return _call("screen_contents", self.bus.mac)
+
+    def source(self, slot, only=None, without=None):
+        """One slot of this screen as a source, for move()."""
+        return _ScreenEnd(self.bus, only, without, None, slot)
+
+    def destination(self, slot, only=None, without=None):
+        """One slot of this screen as a destination, for move()."""
+        return _ScreenEnd(self.bus, only, without, None, slot)
+
+    def put(self, slot, what=None, count=None, sources=None, need=None, wait=False):
+        """Moves items from sources into one slot of the screen; returns how many moved.
+        what, count, need and wait mean what they do in move()."""
+        if sources is None:
+            raise NetworkError("put() needs sources= to say where the items come from.")
+        return move(sources, self.destination(slot), what, count, need, wait)
+
+    def take(self, slot, destinations, what=None, count=None):
+        """Moves what is in one slot of the screen to destinations; returns how many moved.
+        Without count, all of it moves, even when what names one item. A product slot (a
+        crafting table's result) only gives its whole stack, and taking from it uses up the
+        ingredients, as it does for a player."""
+        if count is None:
+            count = 1 << 20    # the whole slot: a take is never more than one slot holds
+        return move(self.source(slot), destinations, what, count)
+
+    def close(self, leftovers=None):
+        """Closes the screen. What the block hands back goes to leftovers (one destination
+        or a list), then to any interface on the network. Returns how many items had
+        nowhere to go and were dropped at the bus."""
+        if not self.open:
+            return 0
+        self.open = False
+        return _call("screen_close", self.bus.mac, [] if leftovers is None else _ends(leftovers, Destination))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, kind, error, trace):
+        self.close()
+        return False
+
+
 class Bus(Port, _Reads, _Gives, _Takes):
     """An input and an output in one: a source and a destination for move()."""
+
+    def open_screen(self):
+        """Opens the screen of the block it points at, for blocks whose slots are only on
+        their screen (a crafting table) or that offer nothing else. Returns a Screen.
+        The bus acts for its owner, so it can open what its owner could."""
+        return Screen(self, _call("screen_open", self.mac))
+
+
+class Recipe:
+    """What goes into which slot of a screen, and which slots the product comes out of.
+    Fill it in once and use it many times:
+
+        blocks = Recipe(sources=store, destination=store)
+        for n in range(1, 10):                       # a crafting table's grid is slots 1 to 9
+            blocks.ingredient("coal", Slot(n))
+        blocks.result(Slot(0), "coal_block", 1)      # and its product is slot 0
+
+        if blocks.can_craft(4):
+            with table.open_screen() as screen:
+                blocks.craft(4, screen)
+
+    ingredients and results are ordinary dictionaries, keyed by slot number, and sources
+    and destination are ordinary attributes: read them or change them as you like."""
+
+    def __init__(self, sources=None, destination=None):
+        self.sources = sources            # one source or a list, as move() takes
+        self.destination = destination    # one destination or a list
+        self.ingredients = {}             # slot number -> {"what": name or filter, "amount": per run}
+        self.results = {}                 # slot number -> {"what": name or None, "amount": per run or None, "destination": or None}
+
+    def ingredient(self, what, slot, amount=1):
+        """Adds an ingredient: this name or filter, into this slot, this many per run."""
+        self.ingredients[_aim(None, None, slot)[2]] = {"what": what, "amount": amount}
+        return self
+
+    def result(self, slot, what=None, amount=None, destination=None):
+        """Names a slot the product is taken from. Call it once per output slot. what and
+        amount are optional: give them to have each run checked, and to let runs_for()
+        work. destination sends this result somewhere other than the recipe's own."""
+        self.results[_aim(None, None, slot)[2]] = {"what": what, "amount": amount, "destination": destination}
+        return self
+
+    def _needs(self):
+        # What one run uses: each name or filter, and how many of it over all its slots.
+        needs = {}
+        for line in self.ingredients.values():
+            needs[line["what"]] = needs.get(line["what"], 0) + line["amount"]
+        return needs
+
+    def max_runs(self, sources=None):
+        """How many runs the sources can supply right now."""
+        sources = self.sources if sources is None else sources
+        if sources is None:
+            raise NetworkError("This recipe has no sources. Give sources= when making it, or set recipe.sources.")
+        if not self.ingredients:
+            return 0
+        specs = _ends(sources, Source)
+        return min(_call("available", specs, what) // each for what, each in self._needs().items())
+
+    def can_craft(self, runs=1, sources=None):
+        """True if the sources hold enough of every ingredient for that many runs."""
+        return self.max_runs(sources) >= runs
+
+    def runs_for(self, count, slot=None):
+        """How many runs give at least count of the product. With several results, slot
+        says which. The result's amount must have been given."""
+        if slot is None:
+            if len(self.results) != 1:
+                raise NetworkError("This recipe has %d results. Say which one with slot=." % len(self.results))
+            slot = list(self.results)[0]
+        slot = _aim(None, None, slot)[2]
+        each = self.results[slot]["amount"]
+        if not each:
+            raise NetworkError("The result in slot %d has no amount, so runs can't be worked out. Give it one: recipe.result(Slot(%d), what, amount)." % (slot, slot))
+        return (count + each - 1) // each
+
+    def craft(self, runs=1, screen=None, wait=False, sources=None, destination=None):
+        """Does the runs on an open screen and returns what was made, as a dictionary of
+        item name to how many. Each run lays the ingredients into their slots and takes
+        the results out. If a run can't be done it raises NetworkError; ingredients
+        already laid out go back when the screen closes. wait=True pauses for missing
+        ingredients instead (a number waits that many seconds)."""
+        if screen is None:
+            raise NetworkError("craft() needs an open screen: with bus.open_screen() as screen: recipe.craft(1, screen)")
+        sources = self.sources if sources is None else sources
+        destination = self.destination if destination is None else destination
+        if sources is None or not self.results:
+            raise NetworkError("A recipe needs sources and at least one result() before it can be crafted.")
+        made = {}
+        for run in range(runs):
+            for slot in sorted(self.ingredients):
+                line = self.ingredients[slot]
+                screen.put(slot, line["what"], sources=sources, need=line["amount"], wait=wait)
+            shown = {entry["slot"]: entry for entry in screen.contents()}
+            for slot in sorted(self.results):
+                line = self.results[slot]
+                there = shown.get(slot)
+                if there is None:
+                    raise NetworkError("Run %d made nothing in slot %d. Is the recipe right for this block?" % (run + 1, slot))
+                if line["amount"] is not None and there["count"] < line["amount"]:
+                    raise NetworkError("Run %d made %d in slot %d, not the %d the recipe says." % (run + 1, there["count"], slot, line["amount"]))
+                to = line["destination"] if line["destination"] is not None else destination
+                if to is None:
+                    raise NetworkError("The result in slot %d has nowhere to go. Give the recipe a destination." % slot)
+                moved = screen.take(slot, to, line["what"])
+                if moved == 0:
+                    raise NetworkError("The %s in slot %d could not be taken out: it is not what the recipe names, or its destination has no room." % (there["item"], slot))
+                made[there["item"]] = made.get(there["item"], 0) + moved
+        return made
 
 
 # ---- fluid: amounts are in millibuckets (mB); 1000 is one bucket ----

@@ -29,10 +29,21 @@ public final class SlotLabels {
         if (minecraft.player == null || !ProbeItem.showsSlots(minecraft.player)) {
             return;
         }
+        java.util.Set<net.minecraft.world.Container> inventories = new java.util.HashSet<>();
+        for (Slot slot : screen.getMenu().slots) {
+            if (!(slot.container instanceof Inventory)) {
+                inventories.add(slot.container);
+            }
+        }
+        // One inventory on the screen (a chest, a furnace): its own slot numbers, which a plate
+        // reaching it directly uses. Several (a crafting table's grid and its result): the
+        // screen's numbers, which a bus working the screen uses. Our Interface's two rows are
+        // one row of filters over the slots they belong to, so both show the slot's number.
+        boolean byScreen = inventories.size() > 1 && !(screen.getMenu() instanceof qbotics.block.InterfaceMenu);
         for (Slot slot : screen.getMenu().slots) {
             // The player's own inventory isn't what a program reaches; only the block's slots are numbered.
             if (!(slot.container instanceof Inventory)) {
-                graphics.text(minecraft.font, String.valueOf(slot.getContainerSlot()), slot.x + 1, slot.y + 1, COLOUR, true);
+                graphics.text(minecraft.font, String.valueOf(byScreen ? slot.index : slot.getContainerSlot()), slot.x + 1, slot.y + 1, COLOUR, true);
             }
         }
     }

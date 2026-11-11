@@ -36,7 +36,7 @@ public final class Completer {
             "Exception", "IndexError", "KeyError", "OSError", "RuntimeError", "StopIteration", "TypeError", "ValueError");
     /** Modules a computer has, and what is in them. */
     private static final Map<String, List<String>> MODULES = Map.of(
-            "logistics", List.of("Face", "NetworkError", "Slot", "move", "network"),
+            "logistics", List.of("Face", "NetworkError", "Recipe", "Slot", "move", "network"),
             "network", List.of("Radio", "hostname", "ifconfig", "receive", "scan", "send"),
             "time", List.of("sleep", "sleep_ms", "ticks_diff", "ticks_ms", "ticks_us", "time"),
             "os", List.of("chdir", "getcwd", "listdir", "mkdir", "remove", "rename", "rmdir", "stat"),

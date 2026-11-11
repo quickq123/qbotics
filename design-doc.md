@@ -896,9 +896,11 @@ How every drop is caught, including when a block gives several different items:
 5. **Pin strength and direction.** Whether an output pin powers only the block it points at or also provides strong power through it, and whether one pin can be both read and driven.
 6. **Recipes** for the Pin and the Placer.
 
-### 11.0.2 Screen access: a Bus working a block's screen (planned, not built)
+### 11.0.2 Screen access: a Bus working a block's screen (built 2026-11-11)
 
-> **Status (2026-11-11): design only.** Decided by the project owner: this is a function of the Bus alone.
+> **Status (2026-11-11): built** for the crafting table, with a game test and a demo on the test stage; other screens (stonecutter, loom, smithing table, grindstone, other mods') are expected to work but not yet tried. Paying experience (anvil) is not built. Decided by the project owner: this is a function of the Bus alone. Player-facing details: `docs/reference.md` §6.8.
+>
+> **As built, differing from the rules below:** leftovers that no Interface will take are **dropped beside the Bus** rather than keeping the screen open, because a screen can't be held open forever (a stopped program, an unloaded chunk) and a drop is the one place they are certainly not lost. A screen unused for a minute closes itself. `put` names its `sources=`, and `take` its destinations, as `move` does.
 
 **Why.** A plate reaches a block's contents directly when the block keeps them in the world
 and offers them through the loader's standard access (§11.0). Some blocks don't. A crafting
@@ -927,7 +929,9 @@ Rules:
 
 First targets, to prove it: crafting table, stonecutter, loom, smithing table, grindstone.
 
-### 11.0.3 Acting for the owner: stand-in players and land claims (planned, not built)
+### 11.0.3 Acting for the owner: stand-in players and land claims (built for screen access)
+
+> **Status (2026-11-11):** the stand-in is built and used by screen access: a NeoForge stand-in player per Bus, with the owner's ID and (when the server knows it) name; never a lookup over the internet. Not yet tested against FTB Chunks.
 
 Screen access, the Placer and the Breaker all do things only a player normally does. Each
 does them as a **stand-in for the plate's owner**: an invisible player on the server that
@@ -984,7 +988,7 @@ moves between them:
 
 Details and examples: `docs/reference.md` §6.4.
 
-**Planned: recipes** (design agreed 2026-11-11; not built, because it needs the Bus's screen access, §11.0.2).
+**Recipes** (design agreed and built 2026-11-11; `docs/reference.md` §6.9).
 
 A recipe is an object a program fills in once and then uses many times. It says which slots
 of a screen get which ingredient, and which slots the product is taken from.
@@ -1503,14 +1507,14 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | `ssh <address>`: one computer's terminal drives another's (terminal only; files and editor stay local). Identity is the owner of the computer typed at. Teams are the game's scoreboard teams | Built; to confirm |
 | 2026-11-11 | Planned (§11.0.1): Logic Pin, Placer and Breaker as plates on cables. The Placer and Breaker also handle fluid, so there are no fluid versions. The Breaker breaks as the highest tool tier but never bedrock, holds nothing itself (the program names where the drops go, and it breaks only if every drop fits), and needs a diamond pickaxe in its recipe. The pin is a Logic Pin: redstone in and out, plus observer-like watching of the block it points at | Decided; not built |
 | 2026-11-11 | Crafting tables, anvils and smithing tables hold nothing in the world, so plates can't reach them directly; the vanilla Crafter can be reached, and needs a Logic Pin to trigger it | Noted |
-| 2026-11-11 | Planned (§11.0.2): screen access, a function of the Bus only: it opens a block's screen as a stand-in player and works its slots, best effort across mods | Decided; not built |
+| 2026-11-11 | Planned (§11.0.2): screen access, a function of the Bus only: it opens a block's screen as a stand-in player and works its slots, best effort across mods | Built 2026-11-11 |
 | 2026-11-11 | Planned (§11.0.3): screen access, the Placer and the Breaker act as a stand-in for the plate's owner, with the owner's rights and no more. Mods that block stand-in players block them; FTB Chunks is the claim mod to keep working | Decided; not built |
 | 2026-11-11 | Experience Interface: real experience only, unlimited, stored and taken by levels at the block, locked to owner, team or public; eight cables around a glass bottle. It never accepts liquid experience | Decided; built |
 | 2026-11-11 | A program that spends experience must name its source: an Experience Interface, or liquid experience (20 mB a point, assumed for all such fluids) in a Fluid Interface or behind a fluid plate. Liquid experience is only consumed, never converted | Decided; not built |
 | 2026-11-11 | `extract` and `insert` removed. Things move with `move(sources, destinations, ...)` between ends described by `source()` and `destination()`; nothing has to pass through an Interface (§11.0.5) | Decided; built |
 | 2026-11-11 | `move` returns how many moved (none is not an error); `need=` is all-or-nothing and raises; `wait=` pauses until the amount can be moved | Decided; built |
-| 2026-11-11 | Planned: a `Recipe` object: `ingredient(what, slot, amount)`, `result(slot)` (one or several), `can_craft(runs)` as a True/False check against sources, and `craft(runs, screen)` on an open Bus screen, raising if a run fails. Needs screen access | Decided; not built |
-| 2026-11-11 | A recipe result can name its own destination, to split a machine's outputs | Decided; not built |
+| 2026-11-11 | Planned: a `Recipe` object: `ingredient(what, slot, amount)`, `result(slot)` (one or several), `can_craft(runs)` as a True/False check against sources, and `craft(runs, screen)` on an open Bus screen, raising if a run fails. Needs screen access | Built 2026-11-11 |
+| 2026-11-11 | A recipe result can name its own destination, to split a machine's outputs | Built 2026-11-11 |
 | 2026-11-11 | Much later: a recipe viewer (JEI) hands the player ready-made `Recipe` code for a recipe | Idea; not designed |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |

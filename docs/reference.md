@@ -428,6 +428,92 @@ A program can read it, and `move` between two of them moves points (`move(bank, 
 | `bank.levels` | The level those points would take a player to from nothing |
 | `bank.lock` | `"private"`, `"team"` or `"public"` |
 
+### 6.8 Screens: a Bus working a block's screen
+
+Some blocks keep nothing in the world for a plate to reach. A crafting table's slots exist only
+on the screen of whoever has it open, and many other mods' machines are the same. For these, a
+**Bus** (only a Bus) can open the block's screen and work its slots.
+
+The Bus opens the screen as its **owner**, the player who put the plate on, the same way that
+player's right-click would. So a block, or a land-claim mod, that wouldn't let the owner in won't
+let the Bus in either. A Bus with no owner (placed by a command or a machine) can't open screens.
+
+```python
+from logistics import network, Slot
+net = network()
+store, table = net.interface("store"), net.bus("crafter")
+
+with table.open_screen() as screen:               # closed at the end, even after an error
+    screen.put(Slot(1), "oak_planks", sources=store)
+    screen.put(Slot(4), "oak_planks", sources=store)
+    print(screen.take(Slot(0), store))            # 4 sticks, into the store
+```
+
+| Call | Does |
+|---|---|
+| `bus.open_screen()` | Opens the screen of the block the Bus points at and returns a `Screen`. If this Bus already has one open, that one is returned |
+| `screen.slots()` | The numbers of the screen's own slots |
+| `screen.contents()` | What they hold: a list of `{"slot": 0, "item": "minecraft:stick", "count": 4}` |
+| `screen.put(slot, what=None, count=None, sources=..., need=None, wait=False)` | Moves into one slot from `sources`; returns how many. `what`, `count`, `need` and `wait` mean what they do in `move` |
+| `screen.take(slot, destinations, what=None, count=None)` | Moves out of one slot; returns how many. With no `count`, the whole slot |
+| `screen.source(slot)`, `screen.destination(slot)` | One slot as an end for `move` (section 6.4), with `only=` and `without=` as usual |
+| `screen.close(leftovers=None)` | Closes it. Returns how many items had nowhere to go |
+
+**Slot numbers are the screen's.** A crafting table's screen holds its product (slot 0) and its
+grid (1 to 9, left to right, top row first). Hold the probe in Slots mode (section 8) and open
+the block to see them.
+
+**A product slot** (the crafting table's slot 0) gives only its whole stack, and taking from it
+uses up the ingredients, as it does for a player. Nothing can be put into it.
+
+**Items on a screen exist only while it is open.** When it closes, the block hands back whatever
+was left in it, as it would to a player. That goes to `leftovers` if given (one destination or a
+list), then to any Interface on the network that will take it. Anything with nowhere to go is
+dropped beside the Bus, never destroyed. A screen left unused for a minute closes itself, so a
+program that stops half-way can't keep items locked in a grid. After it has closed, using the
+`Screen` raises `NetworkError`.
+
+It works through the same door a player uses, so most other mods' screens should work too.
+Where a mod refuses stand-in players, or does part of its work only in the player's own game,
+the call fails or does nothing.
+
+### 6.9 Recipes
+
+A `Recipe` says which slots of a screen get which ingredient, and which slot the product comes
+out of. Fill it in once; use it as often as you like.
+
+```python
+from logistics import network, Slot, Recipe
+net = network()
+store, table = net.interface("store"), net.bus("crafter")
+
+blocks = Recipe(sources=store, destination=store)
+for n in range(1, 10):
+    blocks.ingredient("coal", Slot(n))            # one coal in every grid slot
+blocks.result(Slot(0), "coal_block", 1)           # makes one block of coal, in slot 0
+
+if blocks.can_craft(4):
+    with table.open_screen() as screen:
+        print(blocks.craft(4, screen))            # {'minecraft:coal_block': 4}
+```
+
+| Call or attribute | Does |
+|---|---|
+| `Recipe(sources=None, destination=None)` | A new, empty recipe. Ingredients come from `sources`; products go to `destination` (each one end or a list) |
+| `recipe.ingredient(what, slot, amount=1)` | This name or filter, into this slot, this many each run. Returns the recipe, so calls can be chained |
+| `recipe.result(slot, what=None, amount=None, destination=None)` | A slot the product is taken from. Call it once for each product slot. `what` and `amount` are checked after each run; `destination` sends this product somewhere other than the recipe's own |
+| `recipe.max_runs(sources=None)` | How many runs the sources can supply now |
+| `recipe.can_craft(runs=1)` | `True` if they hold enough for that many runs |
+| `recipe.runs_for(count, slot=None)` | How many runs make at least `count` of the product. Needs the result's `amount` |
+| `recipe.craft(runs=1, screen, wait=False)` | Does the runs on an open screen and returns what was made, as `{item: count}`. `wait=True` waits for missing ingredients |
+| `recipe.ingredients` | A dict: slot number to `{"what": ..., "amount": ...}` |
+| `recipe.results` | A dict: slot number to `{"what": ..., "amount": ..., "destination": ...}` |
+| `recipe.sources`, `recipe.destination` | Plain attributes: read or change them |
+
+If a run can't be finished (an ingredient runs out, the product isn't what the recipe says, or
+it has nowhere to go), `craft` raises `NetworkError`. What was already laid out goes back when
+the screen closes, so with a `with` block nothing is lost.
+
 ---
 
 ## 7. The `network` module
@@ -535,7 +621,7 @@ A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows
 | Mode | Right-click does |
 |---|---|
 | Labels | On a device: opens a pop-up with its name, a ready line of Python, its internal IP, hardware address and external address. Click a line to copy it. A box at the top names the device |
-| Slots | Blocks open as usual, and every container screen shows each slot's number |
+| Slots | Blocks open as usual, and every container screen shows each slot's number. A screen with one inventory (a chest, a furnace) shows that inventory's own numbers, which plates use. A screen with several (a crafting table's grid and product) shows the screen's numbers, which a Bus working the screen uses (section 6.8) |
 
 In either mode, hovering an item in any inventory shows the name programs use for it. For a
 bucket it also shows the fluid's name. Ctrl+C copies the name. Holding Shift lists the item's
@@ -598,6 +684,7 @@ belongs to you.
 | A Fluid Interface; a Fluid Bus on a tank of water and lava | `tanks`, `big_tank` |
 | An Energy Interface; an Energy Bus on a charged cell | `battery`, `machine` |
 | An Experience Interface holding 30 levels' worth | `xp` |
+| A Bus on a crafting table | `crafter` |
 | A second computer on its own cables and antenna, with an Interface and a Bus on a chest | `remote`, `remote_store`, `remote_chest` |
 
 On `main`, `README.txt` lists all of this with the two computers' addresses, and `demos/`
@@ -612,6 +699,7 @@ holds one short program per feature:
 | `demos/5_radio.py` | Listing the other network, sending a message, reading the reply |
 | `demos/6_devices.py` | Every device on the network |
 | `demos/7_sources.py` | Sources and destinations: pools, keeping things back, exact amounts |
+| `demos/8_crafting.py` | Opening the crafting table's screen: planks by hand, then sticks with a `Recipe` |
 
 `remote` runs `demos/echo.py` from the start, which answers every message, so the radio demo
 works at once. Log in to it with the `ssh` line the README gives; Ctrl+C stops the echo.
