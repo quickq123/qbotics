@@ -2,6 +2,7 @@
   "parent": "minecraft:block/block",
   "textures": {
     "all": "qbotics:block/cable",
+    "core": "qbotics:block/cable_core",
     "particle": "qbotics:block/cable"
   },
   "elements": [
@@ -17,9 +18,6 @@
         6
       ],
       "faces": {
-        "north": {
-          "texture": "#all"
-        },
         "east": {
           "texture": "#all"
         },
@@ -31,6 +29,50 @@
         },
         "down": {
           "texture": "#all"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        5.98,
+        0
+      ],
+      "to": [
+        9,
+        10.02,
+        9
+      ],
+      "light_emission": 9,
+      "shade": false,
+      "faces": {
+        "up": {
+          "texture": "#core"
+        },
+        "down": {
+          "texture": "#core"
+        }
+      }
+    },
+    {
+      "from": [
+        5.98,
+        7,
+        0
+      ],
+      "to": [
+        10.02,
+        9,
+        9
+      ],
+      "light_emission": 9,
+      "shade": false,
+      "faces": {
+        "east": {
+          "texture": "#core"
+        },
+        "west": {
+          "texture": "#core"
         }
       }
     }

@@ -169,6 +169,7 @@ public final class ScreenshotRun {
         view("06-six-plates-other-side", new Vec3(0.6, 2.6, -5.4), new Vec3(2.5, 1.5, -3.5));
         view("07-working-setup", new Vec3(9.0, 3.6, 0.2), new Vec3(9.0, 0.7, -3.5));
         view("08-antennas", new Vec3(12.5, 2.8, -0.6), new Vec3(12.5, 1.2, -3.5));
+        view("08b-cable-shapes", new Vec3(3.5, 3.4, -4.6), new Vec3(3.5, 0.5, -7.0));
 
         // The screens.
         then(15, minecraft -> onServer(minecraft, player -> {
@@ -267,6 +268,11 @@ public final class ScreenshotRun {
         level.setBlock(base.offset(10, 0, -4), cable.withPlate(Kind.INPUT, Direction.EAST), Block.UPDATE_ALL);
         level.setBlock(base.offset(13, 0, -4), QboticsContent.ANTENNA_LONG_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(base.offset(14, 0, -4), QboticsContent.ANTENNA_INFINITE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        // Cable on its own: a straight run, a corner, a T, a lone piece, and one going up.
+        int[][] run = {{0, 0, -7}, {1, 0, -7}, {2, 0, -7}, {3, 0, -7}, {3, 0, -6}, {4, 0, -7}, {4, 1, -7}, {6, 0, -7}};
+        for (int[] at : run) {
+            level.setBlock(base.offset(at[0], at[1], at[2]), cable.defaultBlockState(), Block.UPDATE_ALL);
+        }
         // Blocks set like this skip the placement logic, so give every cable its arms now.
         for (int x = -2; x <= 16; x++) {
             for (int z = -8; z <= 4; z++) {

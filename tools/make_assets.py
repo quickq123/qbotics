@@ -49,6 +49,7 @@ def write_png(path, pixels):
 CASE = (216, 216, 216)
 CASE_LIGHT = (238, 238, 238)
 CASE_DARK = (172, 172, 172)
+CASE_SHADE = (206, 206, 206)   # barely darker than CASE
 EDGE = (128, 128, 130)
 VENT = (92, 92, 96)
 SCREEN = (16, 14, 16)
@@ -70,11 +71,10 @@ def case_base():
     for i in range(16):
         px[0][i] = EDGE if i in (0, 15) else px[0][i]
         px[15][i] = EDGE if i in (0, 15) else px[15][i]
-    # subtle speckle so it doesn't look flat
-    for (x, y) in [(3, 4), (11, 2), (6, 12), (13, 9), (2, 10), (9, 6), (12, 13), (5, 8)]:
-        px[y][x] = CASE_LIGHT
-    for (x, y) in [(4, 11), (10, 4), (7, 3), (13, 5), (3, 7), (9, 13)]:
-        px[y][x] = CASE_DARK
+    # Two faint brushed lines, as on the game's iron block. Anything busier reads as sand.
+    for y in (5, 10):
+        for x in range(1, 15):
+            px[y][x] = CASE_SHADE
     return px
 
 
@@ -179,56 +179,65 @@ SHEATH_DARK = (156, 156, 158)
 CORE_RED = RED
 
 
-def cable_texture():
-    """Iron-grey sheath with a redstone stripe; tiles along the cable's length."""
-    px = [[SHEATH for _ in range(16)] for _ in range(16)]
-    for y in range(16):
-        for x in range(16):
-            band = x % 4
-            if band == 0:
-                px[y][x] = SHEATH_LIGHT
-            elif band == 3:
-                px[y][x] = SHEATH_DARK
-            if y % 4 in (1, 2) and band in (1, 2):
-                px[y][x] = CORE_RED
-    return px
+def plain(colour):
+    return [[colour for _ in range(16)] for _ in range(16)]
 
 
-write_png("assets/qbotics/textures/block/cable.png", cable_texture())
+write_png("assets/qbotics/textures/block/cable.png", plain(SHEATH))
+write_png("assets/qbotics/textures/block/cable_core.png", plain(RED_BRIGHT))
 
-CABLE_TEXTURES = {"all": "qbotics:block/cable", "particle": "qbotics:block/cable"}
+CABLE_TEXTURES = {"all": "qbotics:block/cable", "core": "qbotics:block/cable_core", "particle": "qbotics:block/cable"}
+# How brightly the red core glows by itself, 0 to 15. Redstone is lit but not a lamp.
+CORE_GLOW = 9
+# How far the core stands out of the sheath, in pixels: just enough to be the surface that is seen.
+PROUD = 0.02
 
 
-def faces(*names):
-    return {name: {"texture": "#all"} for name in names}
+def faces(*names, texture="#all"):
+    return {name: {"texture": texture} for name in names}
 
 
-# The centre piece, always shown.
+def glow(x0, y0, z0, x1, y1, z1, *shown):
+    """A piece of the red core: it glows, and only the listed faces are drawn."""
+    return {"from": [x0, y0, z0], "to": [x1, y1, z1], "light_emission": CORE_GLOW, "shade": False,
+            "faces": faces(*shown, texture="#core")}
+
+
+LOW, HIGH = 6 - PROUD, 10 + PROUD
+
+
+def stripes(z0, z1):
+    """The core along a length of cable that runs along z: a red line down the middle two
+    pixels of each of its four faces, leaving the sheath's corners grey."""
+    return [glow(7, LOW, z0, 9, HIGH, z1, "up", "down"), glow(LOW, 7, z0, HIGH, 9, z1, "east", "west")]
+
+
+# The centre piece, always shown: grey, with the core showing as a red square in the middle
+# of each face. An arm on a side covers that side's square and runs its own red lines across.
 write_json("assets/qbotics/models/block/cable_core.json", {
     "parent": "minecraft:block/block",
     "textures": CABLE_TEXTURES,
-    "elements": [{
-        "from": [6, 6, 6], "to": [10, 10, 10],
-        "faces": faces("north", "south", "east", "west", "up", "down"),
-    }],
+    "elements": [
+        {"from": [6, 6, 6], "to": [10, 10, 10], "faces": faces("north", "south", "east", "west", "up", "down")},
+        glow(LOW, 7, 7, HIGH, 9, 9, "east", "west"),
+        glow(7, LOW, 7, 9, HIGH, 9, "up", "down"),
+        glow(7, 7, LOW, 9, 9, HIGH, "north", "south"),
+    ],
 })
-# An arm from the centre to the north face; the block state rotates it for other sides.
+# An arm from the centre to the north face; the block state rotates it for other sides. Its
+# red lines carry on across the centre piece (to z = 9), so a straight cable shows unbroken
+# lines and a corner shows them meeting.
 write_json("assets/qbotics/models/block/cable_side.json", {
     "parent": "minecraft:block/block",
     "textures": CABLE_TEXTURES,
-    "elements": [{
-        "from": [6, 6, 0], "to": [10, 10, 6],
-        "faces": faces("north", "east", "west", "up", "down"),
-    }],
+    "elements": [{"from": [6, 6, 0], "to": [10, 10, 6], "faces": faces("east", "west", "up", "down")}] + stripes(0, 9),
 })
 # In the hand and inventory: a straight length of cable.
 write_json("assets/qbotics/models/item/cable.json", {
     "parent": "minecraft:block/block",
     "textures": CABLE_TEXTURES,
-    "elements": [{
-        "from": [6, 6, 0], "to": [10, 10, 16],
-        "faces": faces("north", "south", "east", "west", "up", "down"),
-    }],
+    "elements": [{"from": [6, 6, 0], "to": [10, 10, 16], "faces": faces("north", "south", "east", "west", "up", "down")}]
+                + stripes(0, 16) + [glow(7, 7, -PROUD, 9, 9, 16 + PROUD, "north", "south")],
 })
 write_json("assets/qbotics/items/cable.json", {
     "model": {"type": "minecraft:model", "model": "qbotics:item/cable"},
@@ -398,12 +407,9 @@ def interface_top():
 
 
 def port_side():
-    """Plain casing with a cable-coloured band, so a plate reads as part of the network."""
-    px = case_base()
-    for x in range(1, 15):
-        px[7][x] = SHEATH_DARK
-        px[8][x] = CORE_RED if x % 4 in (1, 2) else SHEATH_DARK
-    return px
+    """Plain iron. A plate is built from small boxes, each showing only a corner of this
+    picture, so any line or border drawn here turns up as stray marks."""
+    return [[CASE for _ in range(16)] for _ in range(16)]
 
 
 def port_front():
