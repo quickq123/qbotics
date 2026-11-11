@@ -82,6 +82,10 @@ THE FLUID AND ENERGY STORES
  36. Right-click "battery" (Energy Interface): a gauge with the stored FE, and Charge and
      Drain slots. If a mod in the pack has a battery item, put one in each to try them.
 
+WATCHING
+ 37. In main:  run demos/11_watch.py  then open the stage's chest and move things in and out
+     for 30 seconds: each change is printed as it happens (slot, how many, what).
+
 REMOTE
- 37. In main:  ssh  followed by remote's address from README.txt. You are now typing on
+ 38. In main:  ssh  followed by remote's address from README.txt. You are now typing on
      remote; Ctrl+C stops its echo; exit comes back.

@@ -218,6 +218,76 @@ class _Takes:
         return Destination(self, only, without, face, slot)
 
 
+class Watch:
+    """Watches a container, or a store, for changes. Make one with a device's watch().
+
+        for change in chest.watch():          # sleeps until something changes
+            print(change["item"], change["was"], "->", change["now"])
+
+    Each change is a dictionary:
+        items:   {"slot": 3, "item": "minecraft:coal", "was": 5, "now": 12}
+        fluid:   {"tank": 0, "fluid": "minecraft:water", "was": 1000, "now": 0}
+        energy and experience: {"was": 2000, "now": 1500}
+    When one kind of item replaces another in a slot, that is two changes: the old one
+    going to 0, and the new one coming from 0.
+
+    Nothing is missed between looks: each look compares with the last one. A watch nobody
+    looks at for a minute ends; a computer can have 16 open at once."""
+
+    def __init__(self, device, face=None, what=None, every=0.25):
+        self.device = device
+        self.every = every    # seconds between looks while waiting
+        self._token = _call("watch_open", device.mac, face, what)
+
+    def changes(self):
+        """What has changed since the last look (or since the watch began), straight
+        away: a list, empty if nothing has."""
+        return _call("watch_poll", self._token)
+
+    def wait(self, timeout=None):
+        """Sleeps until something changes and returns the list of changes. With timeout (in
+        seconds), returns an empty list if nothing changes in that time. Ctrl+C stops it."""
+        started = time.ticks_ms()
+        while True:
+            found = self.changes()
+            if found:
+                return found
+            if timeout is not None and time.ticks_diff(time.ticks_ms(), started) >= timeout * 1000:
+                return []
+            time.sleep(self.every)
+
+    def __iter__(self):
+        # One change at a time, for ever: use it in a for loop, and break out when done.
+        while True:
+            for change in self.wait():
+                yield change
+
+    def close(self):
+        """Ends the watch. Not needed, but frees it at once."""
+        _call("watch_close", self._token)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, kind, error, trace):
+        self.close()
+        return False
+
+
+class _Watches:
+    # For devices whose contents can be read, and so watched.
+    def watch(self, what=None, face=None, every=0.25):
+        """Watches for changes, so a program can sleep until something arrives instead of
+        reading again and again. what= narrows it to some items or fluids (a name or
+        filter); face= to one face of the target. Returns a Watch:
+
+            for change in chest.watch("coal"):
+                print("coal in slot", change["slot"], "now", change["now"])
+
+            changes = chest.watch().wait(10)    # whatever changes in the next 10 seconds"""
+        return Watch(self, face, what, every)
+
+
 class Port(Device):
     """A plate on a cable that points at a container: an input, an output or a bus."""
 
@@ -236,7 +306,7 @@ class Port(Device):
         return self.refresh()._info["target"]
 
 
-class _Reads:
+class _Reads(_Watches):
     # For plates that can see what their target holds.
     def contents(self, face=None):
         """What the target holds, as seen through a face (or all of it, with no face)."""
@@ -251,7 +321,7 @@ class _Reads:
         return _call("count", self.mac, item, face, slot)
 
 
-class Interface(Device, _Gives, _Takes):
+class Interface(Device, _Gives, _Takes, _Watches):
     """Filtered storage: the network's chest. A source and a destination for move()."""
 
     def contents(self):
@@ -556,7 +626,7 @@ class Recipe:
 # ---- fluid: amounts are in millibuckets (mB); 1000 is one bucket ----
 
 
-class FluidInterface(Device, _Gives, _Takes):
+class FluidInterface(Device, _Gives, _Takes, _Watches):
     """The network's fluid store: four tanks of four buckets (4000 mB) each."""
 
     def contents(self):
@@ -583,7 +653,7 @@ class FluidInterface(Device, _Gives, _Takes):
         _call("set_filter", self.mac, tank, fluid)
 
 
-class _ReadsFluid:
+class _ReadsFluid(_Watches):
     def contents(self, face=None):
         """The target's tanks, as seen through a face (or all of them, with no face)."""
         return _call("contents", self.mac, face)
@@ -610,7 +680,7 @@ class FluidBus(Port, _ReadsFluid, _Gives, _Takes):
 # ---- energy: amounts are in FE, the unit mods share (also called RF) ----
 
 
-class EnergyInterface(Device, _Gives, _Takes):
+class EnergyInterface(Device, _Gives, _Takes, _Watches):
     """The network's energy store: it holds 2,000,000 FE."""
 
     @property
@@ -624,7 +694,7 @@ class EnergyInterface(Device, _Gives, _Takes):
         return self._info["capacity"]
 
 
-class _ReadsEnergy:
+class _ReadsEnergy(_Watches):
     def stored(self, face=None):
         """How much energy the target holds."""
         return _call("energy", self.mac, face)["stored"]
@@ -646,7 +716,7 @@ class EnergyBus(Port, _ReadsEnergy, _Gives, _Takes):
     """An energy input and an energy output in one."""
 
 
-class ExperienceInterface(Device, _Gives, _Takes):
+class ExperienceInterface(Device, _Gives, _Takes, _Watches):
     """The network's experience store. It holds real experience only, with no limit;
     players store and take levels at the block. move() between two of them moves points."""
 

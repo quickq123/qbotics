@@ -786,7 +786,7 @@ Mistakes raise `logistics.NetworkError` with a sentence saying what is wrong, fo
 - **A transfer moves up to the count asked for and returns how many moved.** Each step is tried out before it is carried out, so a full or unwilling destination can't duplicate or delete items. (First design said "all-or-nothing"; that made `extract(..., 64)` useless on a furnace holding 5 ingots.)
 - Items are matched by type. Stacks of one item that differ in other ways (damage, enchantments) all move, and keep their data.
 - **Throughput limits:** one call moves at most 576 items (nine stacks). Per-network transfers per tick are not limited yet (§15).
-- **Events:** buses can provide change events (`async for change in bus.watch()`), so scripts don't have to poll. Not built yet.
+- **Events:** built 2026-11-11 as `for change in bus.watch()` (no `async`: the engine has no asyncio, and a plain loop is easier for learners). The server keeps a snapshot per watch and returns only the differences, so nothing is missed between looks; a watch expires after a minute unused, 16 per computer. Works on every readable device: interfaces, inputs, buses, fluid, energy and experience. See `docs/reference.md` §6.4b.
 
 #### Tiered upgrades
 

@@ -378,6 +378,12 @@ public final class NetworkCalls {
                 }
                 return new JsonPrimitive(took);
             }
+            case "watch_open":
+                return Watches.open(level, network, computerPos, args);
+            case "watch_poll":
+                return Watches.poll(level, network, computerPos, args);
+            case "watch_close":
+                return Watches.close(args);
             case "look", "pin", "pin_set", "place", "pour", "break":
                 return WorldPlateCalls.call(method, level, network, args);
             case "screen_cost": {
@@ -969,7 +975,7 @@ public final class NetworkCalls {
         throw new CallError("Only a fluid interface, a fluid input or a fluid bus can list contents; this is " + article(device) + ".");
     }
 
-    private static EnergyPort energySource(ServerLevel level, NetworkDevice device, String faceWord) {
+    static EnergyPort energySource(ServerLevel level, NetworkDevice device, String faceWord) {
         if (device instanceof EnergyInterfaceBlockEntity store) {
             return store;
         }
@@ -1181,14 +1187,14 @@ public final class NetworkCalls {
     }
 
     /** Everything in the container a bus points at, whichever face it would go in or out through. */
-    private static ItemPort wholeTarget(ServerLevel level, CablePort port) {
+    static ItemPort wholeTarget(ServerLevel level, CablePort port) {
         BlockPos pos = port.targetPos();
         ItemPort whole = level.isLoaded(pos) ? Qbotics.platform().itemPort(level, pos, null) : null;
         return whole != null ? whole : target(level, port, null);
     }
 
     /** The container a bus or output points at, seen through a face. */
-    private static ItemPort target(ServerLevel level, CablePort port, String faceWord) {
+    static ItemPort target(ServerLevel level, CablePort port, String faceWord) {
         AccessFace face = faceWord == null ? port.accessFace() : face(faceWord);
         BlockPos pos = port.targetPos();
         Direction side = face.resolve(port.pointing());

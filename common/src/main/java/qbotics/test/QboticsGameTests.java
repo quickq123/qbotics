@@ -49,7 +49,7 @@ public final class QboticsGameTests {
      * a block) get more ticks than the usual 1,200: the test server runs ticks far faster than
      * 20 a second, so 1,200 can pass in a second and a half. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 20_000, "test_stage", 20_000);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 20_000, "test_stage", 20_000, "watching", 20_000);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -80,6 +80,7 @@ public final class QboticsGameTests {
             Map.entry("screen_experience", QboticsGameTests::screenExperience),
             Map.entry("world_plates", QboticsGameTests::worldPlates),
             Map.entry("store_screens", QboticsGameTests::storeScreens),
+            Map.entry("watching", QboticsGameTests::watching),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1455,6 +1456,67 @@ public final class QboticsGameTests {
             helper.assertTrue(cell.stored() == 1_500_000 && cell.batteries().getItem(0).is(Blocks.STONE.asItem()),
                     "stone in the charge slot should take nothing");
         });
+    }
+
+    /** Watching for changes: items in a chest (all, or one kind), fluid in a tank, energy in a store. */
+    private static void watching(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        setPort(helper, new BlockPos(1, 1, 1), Kind.BUS, Direction.EAST);
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.CHEST);
+        helper.setBlock(new BlockPos(0, 1, 1), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(0, 2, 1), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 0), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 2, 0), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        store.setDeviceName("store");
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Items.COAL, 10));
+        store.setItem(1, new ItemStack(Items.IRON_INGOT, 5));
+        qbotics.block.FluidInterfaceBlockEntity tankA = helper.getBlockEntity(new BlockPos(0, 1, 1), qbotics.block.FluidInterfaceBlockEntity.class);
+        tankA.setDeviceName("tank_a");
+        tankA.insert(net.minecraft.world.level.material.Fluids.WATER, 2000, false);
+        helper.getBlockEntity(new BlockPos(0, 2, 1), qbotics.block.FluidInterfaceBlockEntity.class).setDeviceName("tank_b");
+        qbotics.block.EnergyInterfaceBlockEntity cellA = helper.getBlockEntity(new BlockPos(2, 1, 0), qbotics.block.EnergyInterfaceBlockEntity.class);
+        cellA.setDeviceName("cell_a");
+        cellA.insert(10_000, false);
+        helper.getBlockEntity(new BlockPos(2, 2, 0), qbotics.block.EnergyInterfaceBlockEntity.class).setDeviceName("cell_b");
+
+        for (String line : List.of(
+                "python",
+                "from logistics import network, move",
+                "net = network()",
+                "store = net.interface('store')",
+                "chest = net.bus()",
+                "w = chest.watch()",
+                "print('none yet', w.changes())",
+                "move(store, chest, 'coal', 5)",
+                "c = w.changes()",
+                "print('coal in', len(c), c[0]['slot'], c[0]['item'], c[0]['was'], c[0]['now'])",
+                "iron = chest.watch('iron_ingot')",
+                "move(store, chest, 'coal', 2)",
+                "print('iron only', iron.changes(), len(w.changes()))",
+                "move(store, chest, 'iron_ingot', 3)",
+                "for change in iron: print('loop', change['item'], change['was'], change['now']); break",
+                "",
+                "print('w saw', len(w.changes()), 'then quiet', w.wait(0.2))",
+                "ft = net.fluid_interface('tank_b').watch()",
+                "move(net.fluid_interface('tank_a'), net.fluid_interface('tank_b'), 'water', 1000)",
+                "c = ft.changes()[0]",
+                "print('fluid', c['tank'], c['fluid'], c['was'], c['now'])",
+                "et = net.energy_interface('cell_b').watch()",
+                "move(net.energy_interface('cell_a'), net.energy_interface('cell_b'), count=500)",
+                "c = et.changes()[0]",
+                "print('energy', c['was'], c['now'])",
+                "w.close()",
+                "w.changes()")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer, "none yet []\n", "coal in 1 0 minecraft:coal 0 5\n",
+                "iron only [] 1\n", "loop minecraft:iron_ingot 0 3\n", "w saw 1 then quiet []\n",
+                "fluid 0 minecraft:water 0 1000\n", "energy 0 500\n", "This watch has ended"));
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */

@@ -362,6 +362,42 @@ move(fuel, furnace.destination(face=Face.LEFT), "charcoal", need=8, wait=True)  
 the same free slots, the check can be optimistic; if fewer than `need` then move, that is
 reported as an error saying how many did.
 
+### 6.4b Watching for changes
+
+Anything whose contents a program can read can be **watched**: interfaces, inputs and buses,
+and their fluid and energy versions, and the Experience Interface. A watch lets a program
+sleep until something changes, instead of reading the container again and again.
+
+```python
+for change in chest.watch():                 # sleeps until the chest changes
+    print(change["item"], change["was"], "->", change["now"])
+
+for change in chest.watch("#minecraft:logs"):   # only logs
+    move(chest.source(slot=change["slot"]), store)
+
+changes = tanks.watch().wait(10)             # whatever changes in the next 10 seconds
+```
+
+| Call | Does |
+|---|---|
+| `device.watch(what=None, face=None, every=0.25)` | Starts a watch. `what` narrows it to a name or filter; `face` to one face of a plate's target; `every` is how often it looks while waiting, in seconds |
+| `for change in watch:` | One change at a time, sleeping between them, for ever. `break` out when done |
+| `watch.wait(timeout=None)` | Sleeps until something changes and returns the list of changes; with a timeout in seconds, an empty list if nothing did |
+| `watch.changes()` | What changed since the last look, straight away; an empty list if nothing |
+| `watch.close()` | Ends it. Using it in a `with` block closes it at the end |
+
+Each change is a dictionary:
+
+| Watching | A change |
+|---|---|
+| Items | `{"slot": 3, "item": "minecraft:coal", "was": 5, "now": 12}` |
+| Fluid | `{"tank": 0, "fluid": "minecraft:water", "was": 1000, "now": 0}` |
+| Energy, experience | `{"was": 2000, "now": 1500}` |
+
+When one kind of item replaces another in a slot, that is two changes: the old one going to 0
+and the new one coming from 0. Nothing is missed between looks: each compares with the one
+before. A watch nobody looks at for a minute ends; a computer can have 16 at once.
+
 ### 6.5 Items
 
 **Interface** (`net.interface()`): nine slots. Every slot starts closed.
@@ -924,6 +960,7 @@ holds one short program per feature:
 | `demos/8_crafting.py` | Opening the crafting table's screen: planks by hand, then sticks with a `Recipe` |
 | `demos/9_world.py` | Blinking the lamp, placing a block and breaking it again |
 | `demos/10_levels.py` | Repairing on the anvil and enchanting a book, paid from `xp` |
+| `demos/11_watch.py` | Watches the chest for 30 seconds while you move things in and out by hand |
 
 `remote` runs `demos/echo.py` from the start, which answers every message, so the radio demo
 works at once. Log in to it with the `ssh` line the README gives; Ctrl+C stops the echo.
