@@ -257,12 +257,13 @@ public final class QboticsGameTests {
                 "cd lib",
                 "ls",
                 "cat nope.py",
-                "frobnicate")) {
+                "frobnicate", "runhi.py", "hi.py")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> assertScreen(helper, computer,
                 "/ $ run hi.py\nhi from file 42\n", "/lib $ ls\nhi.py", "no such file or folder",
-                "Unknown command: frobnicate", "\n/lib $"));
+                "Unknown command: frobnicate. Type help", "Unknown command: runhi.py. Did you mean: run hi.py ?",
+                "Unknown command: hi.py. To run a program, type: run hi.py", "\n/lib $"));
     }
 
     /** A scratchpad run happens on the computer, shares its Python variables, and leaves the terminal alone. */

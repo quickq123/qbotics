@@ -550,6 +550,26 @@ public final class ServerComputer {
             "Other:   clear   help       Ctrl+C stops a running program",
             "");
 
+    /** The shell's commands, longest first, for spotting one typed without its space. */
+    private static final List<String> COMMANDS = List.of("settings", "devices", "ifconfig", "python", "mkdir", "clear", "help",
+            "edit", "pwd", "cat", "run", "ssh", "ls", "cd", "rm", "mv", "cp", "py");
+
+    /**
+     * A hint for a line that isn't a command: the space a command lost ("run9_world.py" is
+     * "run 9_world.py"), or a program's name typed on its own. Otherwise, where to look.
+     */
+    private String suggestion(String typed) {
+        for (String command : COMMANDS) {
+            if (typed.length() > command.length() && typed.startsWith(command)) {
+                return "Did you mean: " + command + " " + typed.substring(command.length()) + " ?";
+            }
+        }
+        if (typed.endsWith(".py")) {
+            return "To run a program, type: run " + typed;
+        }
+        return "Type help for a list.";
+    }
+
     private void command(Computer computer, String line) throws InterruptedException {
         List<String> args = splitArguments(line);
         if (args.isEmpty()) {
@@ -603,7 +623,7 @@ public final class ServerComputer {
                         runFile(computer, args.getFirst());
                     }
                 }
-                default -> terminal.write("Unknown command: " + name + ". Type help for a list.\n");
+                default -> terminal.write("Unknown command: " + name + ". " + suggestion(name) + "\n");
             }
         } catch (FsException e) {
             terminal.write(describe(e, args.isEmpty() ? "" : args.getFirst()) + "\n");
