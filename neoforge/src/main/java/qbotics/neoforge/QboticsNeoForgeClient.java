@@ -21,6 +21,11 @@ public final class QboticsNeoForgeClient {
                 event.setCanceled(true);
             }
         });
+        // With a probe in hand, item tooltips show the name programs use; Ctrl+C copies it (see ItemNames).
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.ItemTooltipEvent event) ->
+                qbotics.client.ItemNames.tooltip(event.getItemStack(), event.getToolTip()));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ScreenEvent.KeyPressed.Pre event) ->
+                qbotics.client.ItemNames.keyPressed(event.getKeyCode()));
         // A plate's ring is coloured by what it carries (see PlateTints).
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.BlockTintSources event) ->
                 event.register(qbotics.client.PlateTints.sources(), QboticsNeoForge.cableBlock()));

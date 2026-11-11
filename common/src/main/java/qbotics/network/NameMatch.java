@@ -148,6 +148,61 @@ public final class NameMatch<T> implements Predicate<T> {
         return false;
     }
 
+    /**
+     * The real names closest to one that doesn't exist, best first: at most three, and only
+     * ones close enough to be worth offering. "iron_ore_raw" finds raw_iron and iron_ore.
+     */
+    public static <T> List<String> closest(Registry<T> registry, String wrong) {
+        String typed = wrong.toLowerCase(Locale.ROOT).strip();
+        String path = typed.substring(typed.indexOf(':') + 1);
+        List<String> words = List.of(path.split("_"));
+        record Scored(String name, int score) {
+        }
+        List<Scored> scored = new ArrayList<>();
+        for (Identifier id : registry.keySet()) {
+            String other = id.getPath();
+            // Two ways of being close: a few letters different, or the same words in another order or number.
+            int letters = distance(path, other, 3);
+            List<String> otherWords = List.of(other.split("_"));
+            long shared = words.stream().filter(otherWords::contains).count();
+            int wordScore = shared == 0 ? 99 : (int) (words.size() - shared + otherWords.size() - shared);
+            int score = Math.min(letters, shared >= 2 || (shared == 1 && otherWords.size() == 1) ? wordScore : 99);
+            if (score <= 2) {
+                scored.add(new Scored(id.toString(), score * 100 + Math.abs(other.length() - path.length())));
+            }
+        }
+        scored.sort(java.util.Comparator.comparingInt(Scored::score).thenComparing(Scored::name));
+        return scored.stream().limit(3).map(Scored::name).toList();
+    }
+
+    /** How many single-letter changes turn one word into the other; anything above the limit comes back as limit + 1. */
+    private static int distance(String a, String b, int limit) {
+        if (Math.abs(a.length() - b.length()) > limit) {
+            return limit + 1;
+        }
+        int[] previous = new int[b.length() + 1];
+        int[] current = new int[b.length() + 1];
+        for (int j = 0; j <= b.length(); j++) {
+            previous[j] = j;
+        }
+        for (int i = 1; i <= a.length(); i++) {
+            current[0] = i;
+            int best = current[0];
+            for (int j = 1; j <= b.length(); j++) {
+                int change = previous[j - 1] + (a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1);
+                current[j] = Math.min(change, Math.min(previous[j], current[j - 1]) + 1);
+                best = Math.min(best, current[j]);
+            }
+            if (best > limit) {
+                return limit + 1;
+            }
+            int[] swap = previous;
+            previous = current;
+            current = swap;
+        }
+        return Math.min(previous[b.length()], limit + 1);
+    }
+
     /** The filter as it was written. */
     public String text() {
         return text;

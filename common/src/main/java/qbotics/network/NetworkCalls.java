@@ -315,9 +315,13 @@ public final class NetworkCalls {
         }
         if (match.first() == null) {
             boolean plain = !text.matches(".*[\\s|*?@#$].*");
-            throw new CallError(plain ? "There is no " + what + " called '" + text + "'. " + Character.toUpperCase(what.charAt(0)) + what.substring(1)
-                    + " names look like " + examples + "."
-                    : "No " + what + " passes the filter '" + text + "'.");
+            if (!plain) {
+                throw new CallError("No " + what + " passes the filter '" + text + "'.");
+            }
+            List<String> near = NameMatch.closest(registry, text);
+            throw new CallError("There is no " + what + " called '" + text + "'. " + (near.isEmpty()
+                    ? Character.toUpperCase(what.charAt(0)) + what.substring(1) + " names look like " + examples + "."
+                    : "Did you mean " + String.join(near.size() == 2 ? " or " : ", ", near).replaceAll(", ([^,]+)$", " or $1") + "?"));
         }
         return match;
     }

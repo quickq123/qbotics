@@ -808,7 +808,14 @@ public final class QboticsGameTests {
         }
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "['#minecraft:logs', '#logs', '*_ore', 'coal | charcoal']\n", "12 12 26 8 13\n", "12 12 9 21\n",
-                    "NetworkError: No item passes the filter '@nosuchmod'.", "NetworkError: There is no item called 'irn_ingot'.", "left 5 5\n");
+                    "NetworkError: No item passes the filter '@nosuchmod'.", // (The whole message is longer than the terminal is wide, so it wraps; the start is enough here.)
+                    "NetworkError: There is no item called 'irn_ingot'. Did you mean", "left 5 5\n");
+            var items = net.minecraft.core.registries.BuiltInRegistries.ITEM;
+            helper.assertTrue(qbotics.network.NameMatch.closest(items, "iron_ore_raw").contains("minecraft:raw_iron")
+                    && qbotics.network.NameMatch.closest(items, "oak_plank").getFirst().equals("minecraft:oak_planks")
+                    && qbotics.network.NameMatch.closest(items, "zzzzqqqq").isEmpty(),
+                    "suggestions were " + qbotics.network.NameMatch.closest(items, "iron_ore_raw") + " and "
+                    + qbotics.network.NameMatch.closest(items, "oak_plank"));
             helper.assertTrue(store.getItem(0).is(Blocks.OAK_LOG.asItem()) && store.getItem(1).is(Blocks.BIRCH_LOG.asItem())
                     && store.getItem(2).is(Blocks.IRON_ORE.asItem()) && store.getItem(3).getCount() == 6 && chest.countItem(Blocks.OAK_PLANKS.asItem()) == 5,
                     "logs, ore and coal should be in the interface and the planks left behind");

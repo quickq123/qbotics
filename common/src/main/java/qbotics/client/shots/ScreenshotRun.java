@@ -204,6 +204,16 @@ public final class ScreenshotRun {
             }
         }));
         then(5, minecraft -> shot(minecraft, "09c-interface-slots"));
+        // With any probe in hand, an item's tooltip shows the name programs use. The mouse is
+        // put over the Interface's first stored stack (this needs the game's window to be in front).
+        then(10, minecraft -> {
+            var window = minecraft.getWindow();
+            double scale = window.getGuiScale();
+            double x = ((window.getGuiScaledWidth() - 176) / 2.0 + 8 + 8) * scale;
+            double y = ((window.getGuiScaledHeight() - 150) / 2.0 + 36 + 8) * scale;
+            org.lwjgl.glfw.GLFW.glfwSetCursorPos(window.handle(), x, y);
+        });
+        then(5, minecraft -> shot(minecraft, "09d-item-name-tooltip"));
         then(10, minecraft -> {
             minecraft.player.closeContainer();
             onServer(minecraft, player -> player.getInventory().setItem(0, ItemStack.EMPTY));
