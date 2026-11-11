@@ -70,6 +70,7 @@ public final class QboticsGameTests {
             Map.entry("test_stage", QboticsGameTests::testStage),
             Map.entry("screen_access", QboticsGameTests::screenAccess),
             Map.entry("vanilla_screens", QboticsGameTests::vanillaScreens),
+            Map.entry("screen_experience", QboticsGameTests::screenExperience),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1184,6 +1185,104 @@ public final class QboticsGameTests {
                     "cutter slots [0, 1]", "cutter chose True made 1\n", "loom slots [0, 1, 2, 3]", "loom pressed True", "loom made 1\n",
                     "buttons True 1 3\n", "bricks made {'minecraft:stone_bricks': 2}", "banner made {'minecraft:white_banner': 1}",
                     "final 1 1 3 1 2 0\n");
+        });
+    }
+
+    /**
+     * Paying levels on screens (design doc §11.0.4): the anvil charges when its product is
+     * taken, the enchanting table when an offer is pressed. Each is paid from a named
+     * Experience Interface, and only what the block really charges is taken.
+     */
+    private static void screenExperience(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 0), QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(0, 1, 1), QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.ENCHANTING_TABLE);
+        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        BlockPos cableAt = helper.absolutePos(new BlockPos(1, 1, 1));
+        CableBlock.attach(level, cableAt, Kind.BUS, Direction.UP);
+        // Resting on the cable, so it doesn't fall.
+        helper.setBlock(new BlockPos(1, 2, 1), Blocks.ANVIL);
+        PortBlockEntity plates = helper.getBlockEntity(new BlockPos(1, 1, 1), PortBlockEntity.class);
+        UUID owner = UUID.randomUUID();
+        Map.of(Direction.EAST, "table", Direction.UP, "anvil").forEach((side, name) -> {
+            CablePort plate = plates.port(side);
+            plate.onPlaced(owner);
+            plate.setDeviceName(name);
+        });
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        store.setDeviceName("store");
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        for (int i = 0; i < 2; i++) {
+            ItemStack sword = new ItemStack(Items.IRON_SWORD);
+            sword.setDamageValue(200);
+            store.setItem(i, sword);
+        }
+        store.setItem(2, new ItemStack(Items.BOOK));
+        store.setItem(3, new ItemStack(Items.LAPIS_LAZULI, 3));
+        qbotics.block.ExperienceInterfaceBlockEntity poor = helper.getBlockEntity(new BlockPos(2, 1, 0), qbotics.block.ExperienceInterfaceBlockEntity.class);
+        poor.setDeviceName("poor");
+        poor.add(1);
+        qbotics.block.ExperienceInterfaceBlockEntity bank = helper.getBlockEntity(new BlockPos(0, 1, 1), qbotics.block.ExperienceInterfaceBlockEntity.class);
+        bank.setDeviceName("bank");
+        bank.add(1000);
+
+        String program = String.join("\n",
+                "from logistics import network, Slot, NetworkError",
+                "net = network()",
+                "store = net.interface('store')",
+                "bank = net.experience_interface('bank')",
+                "poor = net.experience_interface('poor')",
+                "def points(levels):",
+                "    return levels * levels + 6 * levels    # the game's rule up to level 16",
+                "",
+                "with net.bus('anvil').open_screen() as s:",
+                "    s.put(Slot(0), 'iron_sword', sources=store)",
+                "    s.put(Slot(1), 'iron_sword', sources=store)",
+                "    cost = s.cost()",
+                "    print('anvil cost', cost > 0)",
+                "    try:",
+                "        s.take(Slot(2), store)",
+                "    except NetworkError as e:",
+                "        print('no xp:', e)",
+                "    s.xp = poor",
+                "    try:",
+                "        s.take(Slot(2), store)",
+                "    except NetworkError as e:",
+                "        print('too poor:', e)",
+                "    s.xp = [poor, bank]",
+                "    before = bank.points",
+                "    print('anvil took', s.take(Slot(2), store), before - bank.points == points(cost), poor.points)",
+                "",
+                "with net.bus('table').open_screen(xp=bank) as s:",
+                "    s.put(Slot(0), 'book', 1, sources=store)",
+                "    s.put(Slot(1), 'lapis_lazuli', 3, sources=store)",
+                "    costs = s.cost()",
+                "    print('offers', len(costs), costs[0] > 0)",
+                "    before = bank.points",
+                "    print('pressed', s.press(0))",
+                "    print('charged one level', before - bank.points == points(costs[0]) - points(costs[0] - 1))",
+                "    print('enchanted', [e['item'] for e in s.contents() if e['slot'] == 0])",
+                "    s.take(Slot(0), store)",
+                "",
+                "print('left', store.count('lapis_lazuli'), store.count('enchanted_book'), store.count('iron_sword'))",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/xp.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not write the test program", e);
+        }
+        computer.submitLine("run /xp.py");
+        helper.succeedWhen(() -> {
+            String screen = screen(computer);
+            helper.assertTrue(!screen.contains("Traceback"), "the program failed:\n" + screen);
+            assertScreen(helper, computer, "anvil cost True", "no xp: The anvil asks", "too poor: The anvil asks 2 levels: having them takes 16 points, but poor holds",
+                    "anvil took 1 True 1\n", "offers 3 True", "pressed True", "charged one level True",
+                    "enchanted ['minecraft:enchanted_book']", "left 2 1 1\n");
         });
     }
 

@@ -944,7 +944,7 @@ carries the owner's identity (the same player ID and name) and stands at the pla
 
 ### 11.0.4 Experience: the Experience Interface, and paying for things that cost levels
 
-> **Status (2026-11-11):** the Experience Interface block is **built**. Spending experience from a program is **planned**, with screen access (§11.0.2).
+> **Status (2026-11-11):** the Experience Interface block is **built**, and so is **paying for screens** (anvil, enchanting table) from an Experience Interface or liquid experience, with a game test for the Experience Interface. Liquid experience is untested: vanilla has no such fluid, so it waits for a play test with a mod that adds one. Player-facing details: `docs/reference.md` §6.8.
 
 **The Experience Interface** is a full block that joins a network like the other Interfaces.
 
@@ -957,7 +957,7 @@ carries the owner's identity (the same player ID and name) and stands at the pla
 
 **It never takes liquid experience.** Other mods' experience fluids each have their own rate. If a fluid could be poured in and taken out as levels, a fluid with a generous rate would be a way to print experience. So the block and fluids are kept apart.
 
-**Paying for an interaction (planned).** When a program does something that costs levels, such as using an anvil through a Bus's screen access, it must **say where the experience comes from**:
+**Paying for an interaction (built 2026-11-11).** When a program does something that costs levels, such as using an anvil through a Bus's screen access, it must **say where the experience comes from**:
 
 | Source named by the program | What is spent |
 |---|---|
@@ -1510,7 +1510,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | Planned (§11.0.2): screen access, a function of the Bus only: it opens a block's screen as a stand-in player and works its slots, best effort across mods | Built 2026-11-11 |
 | 2026-11-11 | Planned (§11.0.3): screen access, the Placer and the Breaker act as a stand-in for the plate's owner, with the owner's rights and no more. Mods that block stand-in players block them; FTB Chunks is the claim mod to keep working | Decided; not built |
 | 2026-11-11 | Experience Interface: real experience only, unlimited, stored and taken by levels at the block, locked to owner, team or public; eight cables around a glass bottle. It never accepts liquid experience | Decided; built |
-| 2026-11-11 | A program that spends experience must name its source: an Experience Interface, or liquid experience (20 mB a point, assumed for all such fluids) in a Fluid Interface or behind a fluid plate. Liquid experience is only consumed, never converted | Decided; not built |
+| 2026-11-11 | A program that spends experience must name its source: an Experience Interface, or liquid experience (20 mB a point, assumed for all such fluids) in a Fluid Interface or behind a fluid plate. Liquid experience is only consumed, never converted | Built 2026-11-11 |
 | 2026-11-11 | `extract` and `insert` removed. Things move with `move(sources, destinations, ...)` between ends described by `source()` and `destination()`; nothing has to pass through an Interface (§11.0.5) | Decided; built |
 | 2026-11-11 | `move` returns how many moved (none is not an error); `need=` is all-or-nothing and raises; `wait=` pauses until the amount can be moved | Decided; built |
 | 2026-11-11 | Planned: a `Recipe` object: `ingredient(what, slot, amount)`, `result(slot)` (one or several), `can_craft(runs)` as a True/False check against sources, and `craft(runs, screen)` on an open Bus screen, raising if a run fails. Needs screen access | Built 2026-11-11 |

@@ -48,6 +48,8 @@ public final class ScreenSessions {
         final BlockPos busPos;
         final ItemPort port;
         long lastUsed;
+        /** Where levels the screen asks for are paid from, as the program's latest call named them; empty for nowhere. */
+        List<Payer> payers = List.of();
 
         Session(Opened opened, ServerLevel level, BlockPos busPos) {
             this.player = opened.player();
@@ -79,6 +81,72 @@ public final class ScreenSessions {
             }
             return own;
         }
+    }
+
+    /**
+     * Somewhere a screen's experience costs are paid from (design doc §11.0.4): an Experience
+     * Interface, or liquid experience in a tank. Counted in points.
+     */
+    public interface Payer {
+        long points();
+
+        void take(long points);
+
+        String label();
+    }
+
+    /**
+     * Does something that costs levels, as a player with exactly the levels it asks would.
+     * The stand-in is lent that many levels from the first payer that has enough; afterwards
+     * whatever it spent is taken from that payer and it is left with nothing. A block that
+     * charges fewer levels than it asks to have (the enchanting table) costs only what it
+     * charges. Nothing is ever turned into experience a player could take.
+     *
+     * @param levels the levels the block asks the player to have; 0 or less runs the action as it is
+     * @param asks   says what is asking, for messages: "The anvil asks 5 levels"
+     */
+    static <T> T paying(Session session, int levels, String asks, java.util.function.Supplier<T> action) {
+        if (levels <= 0) {
+            return action.get();
+        }
+        long needed = qbotics.block.Experience.pointsAtLevel(levels);
+        Payer payer = null;
+        long most = 0;
+        for (Payer candidate : session.payers) {
+            long held = candidate.points();
+            most = Math.max(most, held);
+            if (held >= needed) {
+                payer = candidate;
+                break;
+            }
+        }
+        if (payer == null) {
+            if (session.payers.isEmpty()) {
+                throw new NetworkCalls.CallError(asks + ". Say where they come from: bus.open_screen(xp=bank), or screen.xp = bank,"
+                        + " with an Experience Interface or a tank of liquid experience.");
+            }
+            throw new NetworkCalls.CallError(asks + ": having them takes " + needed + " points, but "
+                    + (session.payers.size() == 1 ? session.payers.getFirst().label() + " holds " : "the most any source holds is ") + most + ".");
+        }
+        ServerPlayer player = session.player;
+        qbotics.block.Experience.setPoints(player, needed);
+        try {
+            return action.get();
+        } finally {
+            long spent = Math.max(0, needed - qbotics.block.Experience.pointsOf(player));
+            qbotics.block.Experience.setPoints(player, 0);
+            if (spent > 0) {
+                payer.take(spent);
+            }
+        }
+    }
+
+    /** The levels a screen asks before this slot's product may be taken: the anvil's cost; 0 elsewhere. */
+    static int levelsToTake(Session session, Slot slot) {
+        if (session.menu instanceof net.minecraft.world.inventory.AnvilMenu anvil && !slot.mayPlace(slot.getItem())) {
+            return anvil.getCost();
+        }
+        return 0;
     }
 
     private static final Map<MinecraftServer, Map<UUID, Session>> OPEN = new WeakHashMap<>();
@@ -248,6 +316,16 @@ public final class ScreenSessions {
             if (slot == null || max <= 0) {
                 return 0;
             }
+            int levels = slot.getItem().isEmpty() || !ItemStack.isSameItemSameComponents(slot.getItem(), like) ? 0 : levelsToTake(session, slot);
+            if (levels > 0) {
+                // The anvil's product: taken as a player with just the levels it asks, paid from the program's source.
+                return paying(session, levels, "The anvil asks " + levels + " level" + (levels == 1 ? "" : "s"),
+                        () -> takeFrom(slot, like, max, simulate));
+            }
+            return takeFrom(slot, like, max, simulate);
+        }
+
+        private int takeFrom(Slot slot, ItemStack like, int max, boolean simulate) {
             ItemStack held = slot.getItem();
             if (held.isEmpty() || !ItemStack.isSameItemSameComponents(held, like) || !slot.mayPickup(session.player)) {
                 return 0;

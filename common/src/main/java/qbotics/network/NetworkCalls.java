@@ -48,7 +48,7 @@ public final class NetworkCalls {
     }
 
     /** A mistake in the request, reported to the program as an exception it can read. */
-    private static final class CallError extends RuntimeException {
+    static final class CallError extends RuntimeException {
         CallError(String message) {
             super(message, null, false, false);
         }
@@ -335,9 +335,15 @@ public final class NetworkCalls {
                     throw new CallError("Buttons are numbered from 0; there is no number " + button + ".");
                 }
                 session.port(); // counts as using the screen
+                session.payers = payers(level, network, args.size() > 3 ? args.get(3) : null);
+                // The enchanting table's offers ask the player to have a level, and charge less than that.
+                int levels = session.menu instanceof net.minecraft.world.inventory.EnchantmentMenu table && button < 3 ? table.costs[button] : 0;
+                String asks = "Enchanting with button " + button + " asks for level " + levels + " (and uses " + (button + 1) + ")";
                 boolean took;
                 try {
-                    took = session.menu.clickMenuButton(session.player, button);
+                    took = ScreenSessions.paying(session, levels, asks, () -> session.menu.clickMenuButton(session.player, button));
+                } catch (CallError e) {
+                    throw e;
                 } catch (RuntimeException e) {
                     throw new CallError("The screen failed when button " + button + " was pressed.");
                 }
@@ -345,6 +351,22 @@ public final class NetworkCalls {
                     session.menu.broadcastChanges();
                 }
                 return new JsonPrimitive(took);
+            }
+            case "screen_cost": {
+                // What the screen asks in levels now: the anvil one number, the enchanting table one per offer.
+                ScreenSessions.Session session = openScreen(level, screenBus(byMac(network, args, 1)));
+                session.port();
+                if (session.menu instanceof net.minecraft.world.inventory.AnvilMenu anvil) {
+                    return new JsonPrimitive(anvil.getCost());
+                }
+                if (session.menu instanceof net.minecraft.world.inventory.EnchantmentMenu table) {
+                    JsonArray costs = new JsonArray();
+                    for (int cost : table.costs) {
+                        costs.add(cost);
+                    }
+                    return costs;
+                }
+                return JsonNull.INSTANCE;
             }
             case "screen_close": {
                 CablePort bus = screenBus(byMac(network, args, 1));
@@ -441,6 +463,87 @@ public final class NetworkCalls {
             throw new CallError("This bus has no screen open. Open one first, with open_screen(); a screen left unused for a minute closes itself.");
         }
         return session;
+    }
+
+    /** Fluids other mods mark as liquid experience. */
+    private static final net.minecraft.tags.TagKey<Fluid> LIQUID_EXPERIENCE = net.minecraft.tags.TagKey.create(
+            net.minecraft.core.registries.Registries.FLUID, net.minecraft.resources.Identifier.fromNamespaceAndPath("c", "experience"));
+    /** Assumed for every liquid experience for now (design doc §11.0.4). */
+    static final int MB_PER_POINT = 20;
+
+    /**
+     * Where a screen's level costs are paid from, as a program named them: Experience
+     * Interfaces, and fluid stores or plates holding liquid experience. Null or empty: nowhere.
+     */
+    private static List<ScreenSessions.Payer> payers(ServerLevel level, CableNetwork network, @org.jspecify.annotations.Nullable JsonElement written) {
+        if (written == null || !written.isJsonArray() || written.getAsJsonArray().isEmpty()) {
+            return List.of();
+        }
+        List<ScreenSessions.Payer> payers = new ArrayList<>();
+        for (End end : ends(network, written, "experience source")) {
+            String label = end.label();
+            if (end.device() instanceof qbotics.block.ExperienceInterfaceBlockEntity bank) {
+                payers.add(new ScreenSessions.Payer() {
+                    @Override
+                    public long points() {
+                        return bank.points();
+                    }
+
+                    @Override
+                    public void take(long points) {
+                        bank.take(points);
+                    }
+
+                    @Override
+                    public String label() {
+                        return label;
+                    }
+                });
+            } else if (end.device().medium() == Medium.FLUID && !(end.device() instanceof CablePort plate && plate.kind() == Kind.OUTPUT)) {
+                FluidPort tanks = fluidSource(level, end.device(), end.face());
+                payers.add(new ScreenSessions.Payer() {
+                    // Only liquid experience counts, and it is only ever used up, never turned back into levels.
+                    private List<Fluid> kinds() {
+                        List<Fluid> kinds = new ArrayList<>();
+                        for (FluidPort.Tank tank : tanks.tanks()) {
+                            if (tank.fluid() != null && tank.amount() > 0 && tank.fluid().is(LIQUID_EXPERIENCE) && !kinds.contains(tank.fluid())) {
+                                kinds.add(tank.fluid());
+                            }
+                        }
+                        return kinds;
+                    }
+
+                    @Override
+                    public long points() {
+                        long millibuckets = 0;
+                        for (Fluid kind : kinds()) {
+                            millibuckets += tanks.extract(kind, Integer.MAX_VALUE, true);
+                        }
+                        return millibuckets / MB_PER_POINT;
+                    }
+
+                    @Override
+                    public void take(long points) {
+                        long left = points * MB_PER_POINT;
+                        for (Fluid kind : kinds()) {
+                            if (left <= 0) {
+                                break;
+                            }
+                            left -= tanks.extract(kind, (int) Math.min(left, Integer.MAX_VALUE), false);
+                        }
+                    }
+
+                    @Override
+                    public String label() {
+                        return label;
+                    }
+                });
+            } else {
+                throw new CallError("Levels are paid from an Experience Interface, or from liquid experience in a fluid interface or behind a"
+                        + " fluid input or bus; " + label + " is " + article(end.device()) + ".");
+            }
+        }
+        return payers;
     }
 
     /** Every interface on a network, as places for leftovers to go. */
@@ -590,6 +693,12 @@ public final class NetworkCalls {
                 List<ItemPort> from = new ArrayList<>();
                 List<ItemPort> to = new ArrayList<>();
                 List<java.util.function.Predicate<Item>> passes = new ArrayList<>();
+                for (End end : sources) {
+                    if (onScreen(end)) {
+                        // Taking from a screen may cost levels (the anvil): paid from what this call names.
+                        openScreen(level, screenBus(end.device())).payers = payers(level, network, end.written().get("xp"));
+                    }
+                }
                 for (End end : sources) {
                     ItemPort port = itemSource(level, end);
                     checkSlot(end.slot(), port.contents().size(), end.label(), "slot");

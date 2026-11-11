@@ -496,6 +496,50 @@ with cutter.open_screen() as screen:
     screen.take(Slot(1), store)
 ```
 
+**Screens that cost levels.** An anvil charges levels when its product is taken out; an
+enchanting table charges when one of its offers is pressed. A program pays from a source it
+names, never from a player:
+
+```python
+bank = net.experience_interface("bank")
+
+with net.bus("anvil").open_screen(xp=bank) as screen:
+    screen.put(Slot(0), "iron_sword", sources=store)      # two worn swords...
+    screen.put(Slot(1), "iron_sword", sources=store)
+    print(screen.cost())                                  # ...asks 2 levels
+    screen.take(Slot(2), store)                           # repaired; the levels come from bank
+
+with net.bus("table").open_screen(xp=bank) as screen:
+    screen.put(Slot(0), "book", 1, sources=store)
+    screen.put(Slot(1), "lapis_lazuli", 3, sources=store)
+    print(screen.cost())                                  # [3, 6, 9]: buttons 0, 1 and 2
+    screen.press(2)                                       # the third offer
+    screen.take(Slot(0), store)
+```
+
+| Call or attribute | Does |
+|---|---|
+| `bus.open_screen(xp=None)` | `xp` says where levels are paid from |
+| `screen.xp` | The same, changeable at any time. `None` means nowhere: a step that costs levels raises `NetworkError` |
+| `screen.cost()` | What the screen asks now, in levels. An anvil: one number (0 when it has nothing to make). An enchanting table: a list of three, one per offer (0 where there is none). Other screens: `None` |
+
+What can pay:
+
+| Source | Spends |
+|---|---|
+| An Experience Interface | Its points |
+| A Fluid Interface, Fluid Input or Fluid Bus holding liquid experience | The fluid, at 20 mB a point. Only fluids other mods mark as liquid experience (the `c:experience` tag) count. It is only used up, never turned into levels anyone can take |
+| A list of these | The first one that holds enough |
+
+The Bus acts as a player who has exactly the levels the screen asks, and only what the block
+really charges is taken. A 2-level anvil job costs 16 points, the price of levels 0 to 2. An
+enchanting table offer at level 9 needs the source to hold level 9's worth (135 points), but
+takes only the third offer's 3 levels from the top: levels 6 to 9, 63 points. A player who
+has more levels than they need pays more for the same thing, so a Bus is never more
+expensive than a player.
+
+Not yet: renaming on the anvil.
+
 **A product slot** (the crafting table's slot 0) gives only its whole stack, and taking from it
 uses up the ingredients, as it does for a player. Nothing can be put into it.
 
@@ -532,7 +576,7 @@ if blocks.can_craft(4):
 
 | Call or attribute | Does |
 |---|---|
-| `Recipe(sources=None, destination=None)` | A new, empty recipe. Ingredients come from `sources`; products go to `destination` (each one end or a list) |
+| `Recipe(sources=None, destination=None, xp=None)` | A new, empty recipe. Ingredients come from `sources`; products go to `destination` (each one end or a list); levels the screen costs are paid from `xp`, or from the screen's own `xp` if left out |
 | `recipe.ingredient(what, slot, amount=1)` | This name or filter, into this slot, this many each run. Returns the recipe, so calls can be chained |
 | `recipe.button(number, times=1)` | A button pressed each run, after the ingredients are in and before the product is taken: a stonecutter's or loom's choice. `times` presses it that many times, for a screen with one button that steps through its outputs. Call it again for more presses; they happen in the order added |
 | `recipe.result(slot, what=None, amount=None, destination=None)` | A slot the product is taken from. Call it once for each product slot. `what` and `amount` are checked after each run; `destination` sends this product somewhere other than the recipe's own |
@@ -543,7 +587,7 @@ if blocks.can_craft(4):
 | `recipe.ingredients` | A dict: slot number to `{"what": ..., "amount": ...}` |
 | `recipe.results` | A dict: slot number to `{"what": ..., "amount": ..., "destination": ...}` |
 | `recipe.buttons` | A list of presses in order: `{"button": ..., "times": ...}` |
-| `recipe.sources`, `recipe.destination` | Plain attributes: read or change them |
+| `recipe.sources`, `recipe.destination`, `recipe.xp` | Plain attributes: read or change them |
 
 A recipe that chooses with a button, here a red pattern on a banner at the loom (click the
 pattern once with the probe in Slots mode to learn its number):

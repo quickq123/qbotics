@@ -289,10 +289,15 @@ class Output(Port, _Takes):
 
 
 class _ScreenEnd(Destination):
-    # One slot of an open screen, as an end of a move.
+    # One slot of an open screen, as an end of a move. It carries the screen's xp, so a
+    # take that costs levels (the anvil's product) is paid from it.
+    _screen = None
+
     def _spec(self):
         spec = Source._spec(self)
         spec["screen"] = True
+        if self._screen is not None:
+            spec["xp"] = self._screen._xp()
         return spec
 
 
@@ -307,12 +312,29 @@ class Screen:
             screen.take(Slot(0), store)
 
     Items exist in a screen only while it is open. When it closes, whatever the block hands
-    back goes to an interface; anything with nowhere to go is dropped at the bus."""
+    back goes to an interface; anything with nowhere to go is dropped at the bus.
 
-    def __init__(self, bus, slots):
+    A screen that costs levels (an anvil, an enchanting table) is paid from xp: an
+    Experience Interface, a fluid interface or fluid plate holding liquid experience, or a
+    list of those, tried in order. Give it when opening, open_screen(xp=bank), or set
+    screen.xp at any time. The bus acts as a player with exactly the levels asked, so only
+    what the block really charges is taken."""
+
+    def __init__(self, bus, slots, xp=None):
         self.bus = bus
         self._slots = [entry["slot"] for entry in slots]
         self.open = True
+        self.xp = xp
+
+    def _xp(self):
+        return None if self.xp is None else _ends(self.xp, Source)
+
+    def cost(self):
+        """What the screen asks in levels right now. An anvil: one number, for taking its
+        product (0 when it has nothing to make). An enchanting table: a list of three, one
+        for each offer, pressed as buttons 0, 1 and 2 (0 where there is no offer). Other
+        screens: None."""
+        return _call("screen_cost", self.bus.mac)
 
     def slots(self):
         """The numbers of the screen's own slots."""
@@ -324,7 +346,9 @@ class Screen:
 
     def source(self, slot, only=None, without=None):
         """One slot of this screen as a source, for move()."""
-        return _ScreenEnd(self.bus, only, without, None, slot)
+        end = _ScreenEnd(self.bus, only, without, None, slot)
+        end._screen = self
+        return end
 
     def destination(self, slot, only=None, without=None):
         """One slot of this screen as a destination, for move()."""
@@ -358,7 +382,7 @@ class Screen:
             raise NetworkError("times= is how often to press the button: 1 or more, not %r." % (times,))
         took = False
         for _ in range(times):
-            took = _call("screen_button", self.bus.mac, button)
+            took = _call("screen_button", self.bus.mac, button, self._xp())
         return took
 
     def close(self, leftovers=None):
@@ -381,11 +405,12 @@ class Screen:
 class Bus(Port, _Reads, _Gives, _Takes):
     """An input and an output in one: a source and a destination for move()."""
 
-    def open_screen(self):
+    def open_screen(self, xp=None):
         """Opens the screen of the block it points at, for blocks whose slots are only on
         their screen (a crafting table) or that offer nothing else. Returns a Screen.
-        The bus acts for its owner, so it can open what its owner could."""
-        return Screen(self, _call("screen_open", self.mac))
+        The bus acts for its owner, so it can open what its owner could. xp says where
+        levels are paid from, for screens that cost them (see Screen)."""
+        return Screen(self, _call("screen_open", self.mac), xp)
 
 
 class Recipe:
@@ -413,9 +438,10 @@ class Recipe:
     ordinary list, and sources and destination are ordinary attributes: read them or change
     them as you like."""
 
-    def __init__(self, sources=None, destination=None):
+    def __init__(self, sources=None, destination=None, xp=None):
         self.sources = sources            # one source or a list, as move() takes
         self.destination = destination    # one destination or a list
+        self.xp = xp                      # where levels are paid from; None uses the screen's
         self.ingredients = {}             # slot number -> {"what": name or filter, "amount": per run}
         self.results = {}                 # slot number -> {"what": name or None, "amount": per run or None, "destination": or None}
         self.buttons = []                 # presses each run, in order, after the ingredients are in: {"button": n, "times": t}
@@ -481,9 +507,21 @@ class Recipe:
     def craft(self, runs=1, screen=None, wait=False, sources=None, destination=None):
         """Does the runs on an open screen and returns what was made, as a dictionary of
         item name to how many. Each run lays the ingredients into their slots, presses
-        the recipe's buttons, and takes the results out. If a run can't be done it raises NetworkError; ingredients
-        already laid out go back when the screen closes. wait=True pauses for missing
-        ingredients instead (a number waits that many seconds)."""
+        the recipe's buttons, and takes the results out. If a run can't be done it raises
+        NetworkError; ingredients already laid out go back when the screen closes.
+        wait=True pauses for missing ingredients instead (a number waits that many
+        seconds). Levels the screen costs are paid from the recipe's xp, or if it has
+        none, from the screen's."""
+        if screen is None or self.xp is None:
+            return self._craft(runs, screen, wait, sources, destination)
+        before = screen.xp
+        screen.xp = self.xp
+        try:
+            return self._craft(runs, screen, wait, sources, destination)
+        finally:
+            screen.xp = before
+
+    def _craft(self, runs, screen, wait, sources, destination):
         if screen is None:
             raise NetworkError("craft() needs an open screen: with bus.open_screen() as screen: recipe.craft(1, screen)")
         sources = self.sources if sources is None else sources
