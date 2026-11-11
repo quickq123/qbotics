@@ -698,6 +698,14 @@ Blocks joined by the mod's own **cables** form a **network**. A computer on the 
 > - Breaking: aim at a plate and break, and only that plate comes off. Aim at the cable itself and the cable breaks, dropping every plate. (The mining time is the cable's either way.)
 > - Text below that says "Input block" for the filtered storage means the Interface.
 >
+> **Fluid and energy (built 2026-11-10):**
+> - **Fluid Interface**: a full block with four tanks of four buckets (4,000 mB) each. A tank takes any fluid while empty, then only more of the same. A bucket fills or empties it by hand.
+> - **Energy Interface**: a full block holding 2,000,000 FE (the unit mods share, also called RF).
+> - Both are open to other mods' pipes and cables through the loader's standard fluid and energy APIs, and the plates reach other mods' tanks and machines the same way.
+> - **Fluid and Energy versions of Input, Output and Bus**: the same plates and shapes, with a coloured collar and face ring: red for items, blue for fluid, yellow for energy.
+> - In Python the device kinds are `fluid_interface`, `fluid_input`, `fluid_output`, `fluid_bus` and the same four after `energy_`, with matching `net.fluid_bus()`-style lookups. Fluid amounts are millibuckets (1,000 is a bucket); energy amounts are FE. One call moves at most 16 buckets or 2,000,000 FE.
+> - Not built: fluid filters, flow rates or limits per tick, fluids that carry extra data (they are handled by plain kind only), and any screen for the two stores (right-click shows their contents as a line of text).
+>
 > **Changed from the first design: there is no controller block.** The computer plugs straight into the cable. Reasons: one less block to craft and explain before a learner's first program moves an item; the network needs no stored state of its own (it is worked out from the cables, and each block remembers its own address); and limits can count the item blocks themselves. A controller can come back later if something needs a single owner per network, such as wireless bridging (§9.2), which still assumes one.
 
 **How blocks join a network**
@@ -1268,7 +1276,9 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | The filtered storage block is the Interface; Input is a directional device that extracts from what it points at | Decided |
 | 2026-11-10 | Input, Output and Bus are plates sharing a cable's block, in the style of Applied Energistics | Decided |
 | 2026-11-10 | A cable carries up to six plates, one per side (for tight spaces) | Decided |
-| 2026-11-10 | Plates are block-state values on the cable (15,625 states) for now. **Move to a model built in code before fluid and energy plates are added**: more plate kinds would multiply the states (9 values a side is 531,441) | Decided |
+| 2026-11-10 | Plates are block-state values on the cable (15,625 states). Fluid and energy plates did **not** need a model built in code after all: what a plate carries is kept by the cable and only colours the plate (a tint), so the state count is unchanged. A model built in code is still the route if plates ever need different shapes per medium | Built; to confirm |
+| 2026-11-10 | Fluid Interface (4 tanks x 4 buckets), Energy Interface (2,000,000 FE), and fluid and energy Input, Output and Bus | Decided |
+| 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |
 | 2026-11-10 | Look: whitish iron with redstone red; the plates carry no arrows because their shapes show direction | Decided |
@@ -1328,7 +1338,9 @@ All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G
 | **Interface** | ` C ` / `CXC` / ` C ` | `X` = chest |
 | **Input** | ` C ` / `CXC` / ` C ` | `X` = hopper |
 | **Output** | ` C ` / `CXC` / ` C ` | `X` = dropper |
-| **Bus** | ` C ` / `CXC` / ` C ` | `X` = observer |
+| **Bus** | Input + Output (any arrangement) | |
+| **Fluid Interface, Fluid Input, Fluid Output, Fluid Bus** | The item version + a bucket (any arrangement) | A Fluid Bus can also be made from a Fluid Input + a Fluid Output |
+| **Energy Interface, Energy Input, Energy Output, Energy Bus** | The item version + a block of redstone (any arrangement) | An Energy Bus can also be made from an Energy Input + an Energy Output |
 | **Network Probe** | `R` / `C` / `I` (one column) | Redstone, cable, iron ingot |
 | **Short-Range Antenna** | `T` / `I` / `C` (one column) | Redstone torch, iron ingot, cable |
 | **Long-Range Antenna** | `D` / `A` / `C` (one column) | Diamond, short-range antenna, cable |

@@ -163,6 +163,8 @@ public final class ScreenshotRun {
         // Everything, then each part closer up.
         view("01-overview", new Vec3(6.5, 6.5, 8.5), new Vec3(6.5, 0.5, -2.0));
         view("02-plates-front", new Vec3(2.5, 2.4, 3.0), new Vec3(2.5, 1.5, 0.5));
+        view("02b-fluid-and-energy-plates", new Vec3(5.5, 3.4, 1.4), new Vec3(5.5, 1.4, -2.0));
+        view("02c-stores", new Vec3(13.5, 2.4, 1.0), new Vec3(13.5, 0.6, -2.0));
         view("03-plates-side", new Vec3(8.5, 2.4, 3.2), new Vec3(8.5, 1.5, 0.5));
         view("04-plates-above", new Vec3(5.5, 5.0, 2.5), new Vec3(5.5, 1.5, 0.5));
         view("05-six-plates", new Vec3(4.3, 3.0, -1.7), new Vec3(2.5, 1.5, -3.5));
@@ -215,8 +217,8 @@ public final class ScreenshotRun {
                     new ItemStack(QboticsContent.CABLE_BLOCK.get()),
                     new ItemStack(QboticsContent.INTERFACE_BLOCK.get()),
                     new ItemStack(QboticsContent.plateItem(Kind.INPUT, qbotics.network.Medium.ITEM)),
-                    new ItemStack(QboticsContent.plateItem(Kind.OUTPUT, qbotics.network.Medium.ITEM)),
-                    new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM)),
+                    new ItemStack(QboticsContent.plateItem(Kind.OUTPUT, qbotics.network.Medium.FLUID)),
+                    new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ENERGY)),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("screen"))),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("motherboard"))),
                 };
@@ -279,6 +281,18 @@ public final class ScreenshotRun {
         level.setBlock(base.offset(10, 0, -4), cable.withPlate(Kind.INPUT, Direction.EAST), Block.UPDATE_ALL);
         level.setBlock(base.offset(13, 0, -4), QboticsContent.ANTENNA_LONG_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(base.offset(14, 0, -4), QboticsContent.ANTENNA_INFINITE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        // The fluid and energy plates (their collars and rings are blue and yellow), and the two stores.
+        qbotics.network.Medium[] media = {qbotics.network.Medium.FLUID, qbotics.network.Medium.ENERGY};
+        for (int m = 0; m < media.length; m++) {
+            for (int i = 0; i < kinds.length; i++) {
+                BlockPos at = base.offset(m * 6 + i * 2, 1, -2);
+                level.setBlock(at, cable.defaultBlockState(), Block.UPDATE_ALL);
+                CableBlock.attach(level, at, kinds[i], media[m], Direction.SOUTH);
+                CableBlock.attach(level, at, kinds[i], media[m], Direction.UP);
+            }
+        }
+        level.setBlock(base.offset(12, 0, -2), QboticsContent.FLUID_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        level.setBlock(base.offset(14, 0, -2), QboticsContent.ENERGY_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         // Cable on its own: a straight run, a corner, a T, a lone piece, and one going up.
         int[][] run = {{0, 0, -7}, {1, 0, -7}, {2, 0, -7}, {3, 0, -7}, {3, 0, -6}, {4, 0, -7}, {4, 1, -7}, {6, 0, -7}};
         for (int[] at : run) {
