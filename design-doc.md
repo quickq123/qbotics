@@ -990,7 +990,7 @@ A recipe is an object a program fills in once and then uses many times. It says 
 of a screen get which ingredient, and which slots the product is taken from.
 
 ```python
-blocks = Recipe(sources=parts, output=store)       # where ingredients come from, where products go
+blocks = Recipe(sources=parts, destination=store)  # where ingredients come from, where products go
 for n in range(1, 10):                             # a crafting table's grid is slots 1 to 9
     blocks.ingredient("coal", Slot(n), amount=1)
 blocks.result(Slot(0))                             # ...and its product appears in slot 0
@@ -1002,10 +1002,10 @@ if blocks.can_craft(4):                            # are there ingredients for f
 
 - **`recipe.ingredient(what, slot, amount=1)`** adds one line to the recipe: this name or filter, into this slot, this many per run. The lines are kept in a dictionary by slot, so setting a slot again replaces it.
 - **`recipe.result(slot, what=None, amount=None)`** names a slot the product is taken from. It can be called more than once, for machines that give several outputs. `what` and `amount` are optional: with them the run checks it got that; without, it takes whatever is there.
-- **`recipe.can_craft(runs=1)`** answers True or False: do the sources hold enough of every ingredient for that many runs? The same item in several slots is added up. It does not look at the machine, so it can't know whether the recipe is a real one or whether the output has room.
-- **`recipe.craft(runs=1, screen)`** does the runs on an open screen: lays the ingredients into their slots, takes the product from the result slots to the output, and repeats. If a run fails (an ingredient is missing, a result slot stays empty, the product has nowhere to go) it raises `NetworkError`; ingredients already placed go back when the screen closes, as for any screen session.
+- **`recipe.can_craft(runs=1)`** answers True or False: do the sources hold enough of every ingredient for that many runs? The same item in several slots is added up. It does not look at the machine, so it can't know whether the recipe is a real one or whether the destination has room.
+- **`recipe.craft(runs=1, screen)`** does the runs on an open screen: lays the ingredients into their slots, takes the product from the result slots to the destination, and repeats. If a run fails (an ingredient is missing, a result slot stays empty, the product has nowhere to go) it raises `NetworkError`; ingredients already placed go back when the screen closes, as for any screen session.
 - **Slot numbers are the screen's own**, as the probe's Slots mode shows them on that screen. That is why the result's slot is named and not assumed: a crafting table's product is slot 0 and its grid 1 to 9, and another mod's machine will differ.
-- **Sources and output** are given when the recipe is made and can be changed for one call. They are the same sources and destinations `move` uses.
+- **Sources and destination** are given when the recipe is made. They are ordinary attributes, `recipe.sources` and `recipe.destination`, so a program can read or replace them at any time (`blocks.sources = other_parts`, `blocks.sources.append(chest.source())`), and either can be given for one call only (`blocks.craft(4, screen, destination=outbox)`). They are the same sources and destinations `move` uses: one or a list.
 - **Opening and closing.** `with bus.open_screen() as screen:` is the recommended form because the screen is closed, and leftovers returned, even if the program stops with an error. `screen = bus.open_screen()` ... `screen.close()` also works.
 - **Waiting.** `recipe.craft(4, screen, wait=True)` pauses for missing ingredients instead of failing, in the way `move(..., need=, wait=)` does.
 
