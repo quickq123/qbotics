@@ -567,6 +567,20 @@ public final class QboticsGameTests {
         helper.assertTrue(taken.getItem() instanceof qbotics.block.PlateItem && plate.isRemoved() && !second.isRemoved()
                 && CableBlock.plateKind(helper.getBlockState(cablePos), Direction.UP) == Kind.INPUT
                 && networkAt(helper, computerPos).devices().size() == 3, "taking one plate off should leave the other working");
+        // Breaking while aiming at a plate takes off only that plate. Here a player stands west of a cable and looks east at it.
+        BlockPos alonePos = new BlockPos(2, 2, 0); // inside the test's walls, with clear air to its west
+        helper.setBlock(alonePos, QboticsContent.CABLE_BLOCK.get().withPlate(Kind.OUTPUT, Direction.WEST));
+        BlockPos aloneAt = helper.absolutePos(alonePos);
+        player.snapTo(aloneAt.getX() - 1.5, aloneAt.getY() + 0.5 - player.getEyeHeight(), aloneAt.getZ() + 0.5, -90.0f, 0.0f);
+        player.setYHeadRot(-90.0f);
+        helper.assertTrue(CableBlock.plateAimedAt(helper.getBlockState(alonePos), aloneAt, player) == Direction.WEST,
+                "the player should be aiming at the west plate");
+        helper.assertTrue(CableBlock.breakPlateInstead(helper.getBlockState(alonePos), level, aloneAt, player)
+                && helper.getBlockState(alonePos).getBlock() instanceof CableBlock && !CableBlock.hasPlates(helper.getBlockState(alonePos)),
+                "breaking at the plate should leave the cable without it");
+        helper.assertTrue(!CableBlock.breakPlateInstead(helper.getBlockState(alonePos), level, aloneAt, player),
+                "with no plate aimed at, the cable itself breaks as usual");
+
         CableBlock.detach(level, helper.absolutePos(cablePos), Direction.UP);
         helper.assertTrue(!CableBlock.hasPlates(helper.getBlockState(cablePos)) && level.getBlockEntity(helper.absolutePos(cablePos)) == null
                 && networkAt(helper, computerPos).devices().size() == 2, "taking the last plate off should leave a bare cable and two devices");

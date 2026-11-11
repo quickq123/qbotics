@@ -315,6 +315,39 @@ public class CableBlock extends Block implements EntityBlock {
     }
 
     /**
+     * The plate a player is looking at on this cable, or null if they are looking at the
+     * cable itself (or somewhere else). Breaking uses it: aimed at a plate, only that plate
+     * comes off.
+     */
+    public static @Nullable Direction plateAimedAt(BlockState state, BlockPos pos, Player player) {
+        if (!hasPlates(state)) {
+            return null;
+        }
+        return player.pick(player.blockInteractionRange(), 1.0f, false) instanceof BlockHitResult hit && hit.getBlockPos().equals(pos)
+                ? plateAt(state, pos, hit) : null;
+    }
+
+    /**
+     * A player has finished breaking this cable. If they were aiming at a plate, only that
+     * plate breaks off and this returns true: the cable and its other plates must stay.
+     * Each loader calls this from its own "block broken by a player" hook.
+     */
+    public static boolean breakPlateInstead(BlockState state, Level level, BlockPos pos, Player player) {
+        Direction direction = plateAimedAt(state, pos, player);
+        if (direction == null) {
+            return false;
+        }
+        if (!level.isClientSide()) {
+            ItemStack plate = detach(level, pos, direction);
+            if (!player.hasInfiniteMaterials()) {
+                Block.popResource(level, pos, plate);
+            }
+            level.playSound(null, pos, net.minecraft.sounds.SoundEvents.METAL_BREAK, net.minecraft.sounds.SoundSource.BLOCKS, 1.0f, 1.0f);
+        }
+        return true;
+    }
+
+    /**
      * Right-click a plate with an empty hand to read its addresses and what it points at;
      * sneak and right-click to take that plate off.
      */
