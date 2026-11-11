@@ -41,7 +41,8 @@ public final class ComputerManager {
     private static Engine engine;
 
     private final Semaphore cpu = new Semaphore(WORKER_CORES, true);
-    private final Map<UUID, ServerComputer> computers = new HashMap<>();
+    /** Read by computers' own threads too (an ssh session looks the other computer up), so it must be safe for that. */
+    private final Map<UUID, ServerComputer> computers = new java.util.concurrent.ConcurrentHashMap<>();
     private final Path drivesFolder;
     /** Player UUID -> the terminal that player has open. */
     private final Map<UUID, Viewing> viewers = new HashMap<>();
@@ -120,6 +121,11 @@ public final class ComputerManager {
                     Qbotics.platform().sendToPlayer(target, new IdePayloads.ScratchResult(deviceId, runId, ok, output));
                 }
             });
+        }
+
+        @Override
+        public ServerComputer running(UUID deviceId) {
+            return computers.get(deviceId);
         }
 
         @Override
@@ -244,7 +250,7 @@ public final class ComputerManager {
         UUID deviceId = block.deviceId();
         ServerComputer computer = getOrStart(block);
         viewers.put(player.getUUID(), new Viewing(deviceId, player.level().dimension(), block.getBlockPos()));
-        Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(deviceId, true, computer.terminal().full()));
+        Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(deviceId, true, computer.asShown(computer.shownTerminal().full())));
     }
 
     /** The player closed the screen. */
@@ -291,11 +297,23 @@ public final class ComputerManager {
         if (viewers.isEmpty()) {
             return;
         }
+        // What each watched computer shows is its own terminal, or, during an ssh session, the
+        // terminal of the computer it is logged in to. A terminal hands out its new lines only
+        // once, so each is asked once a tick however many computers are showing it.
         Map<UUID, TerminalStatePayload> changed = new HashMap<>();
+        Map<Terminal, Terminal.State> taken = new HashMap<>();
         for (Viewing viewing : viewers.values()) {
-            ServerComputer computer = computers.get(viewing.deviceId());
-            if (computer != null && !changed.containsKey(viewing.deviceId()) && computer.terminal().isDirty()) {
-                changed.put(viewing.deviceId(), new TerminalStatePayload(viewing.deviceId(), false, computer.terminal().takeUpdate()));
+            UUID id = viewing.deviceId();
+            ServerComputer computer = computers.get(id);
+            if (computer == null || changed.containsKey(id)) {
+                continue;
+            }
+            Terminal shown = computer.shownTerminal();
+            if (computer.takeViewChanged()) {
+                // A session began or ended: send the whole of what is now shown.
+                changed.put(id, new TerminalStatePayload(id, false, computer.asShown(shown.full())));
+            } else if (taken.containsKey(shown) || shown.isDirty()) {
+                changed.put(id, new TerminalStatePayload(id, false, computer.asShown(taken.computeIfAbsent(shown, Terminal::takeUpdate))));
             }
         }
         for (Iterator<Map.Entry<UUID, Viewing>> it = viewers.entrySet().iterator(); it.hasNext(); ) {

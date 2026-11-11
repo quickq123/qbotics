@@ -65,6 +65,7 @@ public final class QboticsGameTests {
             Map.entry("slots_and_faces", QboticsGameTests::slotsAndFaces),
             Map.entry("name_filters", QboticsGameTests::nameFilters),
             Map.entry("computer_settings", QboticsGameTests::computerSettings),
+            Map.entry("remote_login", QboticsGameTests::remoteLogin),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -823,6 +824,76 @@ public final class QboticsGameTests {
             // A slot open for a tag takes any item with that tag, and nothing else.
             helper.assertTrue(store.canPlaceItem(0, new ItemStack(Blocks.SPRUCE_LOG)) && !store.canPlaceItem(0, new ItemStack(Items.COAL))
                     && store.canPlaceItem(3, new ItemStack(Items.CHARCOAL)), "slot filters should follow the tag and the alternatives");
+        });
+    }
+
+    /**
+     * ssh: one computer's terminal drives another's. The other computer decides who gets in:
+     * its owner's computers, or anyone with the password, or nobody.
+     */
+    private static void remoteLogin(GameTestHelper helper) {
+        ServerComputer a = startAt(helper, new BlockPos(0, 1, 0));
+        BlockPos otherPos = new BlockPos(1, 1, 0);
+        helper.setBlock(otherPos, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity other = helper.getBlockEntity(otherPos, ComputerBlockEntity.class);
+        other.setDeviceName("beta");
+        // ssh switches the other computer on; this fetches the same running computer to watch its screen.
+        ServerComputer b = ComputerManager.get(helper.getLevel().getServer()).getOrStart(other);
+        java.util.function.BiFunction<String, String, Integer> times = (text, part) -> text.split(java.util.regex.Pattern.quote(part), -1).length - 1;
+
+        a.submitLine("ssh beta");
+        // Each step waits for the screens to show the one before: the two computers run on their own threads.
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            String local = screen(a);
+            String remote = screen(b);
+            if (step[0] == 0 && remote.contains("[ssh] login from 192.168.1.")) {
+                a.submitLine("mkdir made_from_afar");
+                a.submitLine("pwd");
+                step[0] = 1;
+            }
+            if (step[0] == 1 && remote.contains("$ pwd\n/\n")) {
+                a.submitLine("exit");
+                step[0] = 2;
+            }
+            if (step[0] == 2 && local.contains("Connection to beta closed.")) {
+                // Nobody: remote login switched off.
+                other.setRemoteLogin(ComputerBlockEntity.RemoteLogin.OFF);
+                a.submitLine("ssh beta");
+                step[0] = 3;
+            }
+            if (step[0] == 3 && local.contains("doesn't allow remote login")) {
+                // Another player's computer, owner-only: refused.
+                other.setOwner(UUID.randomUUID());
+                other.setRemoteLogin(ComputerBlockEntity.RemoteLogin.OWNER);
+                a.submitLine("ssh beta");
+                step[0] = 4;
+            }
+            if (step[0] == 4 && local.contains("only lets its owner's computers log in")) {
+                // With a password set, the wrong one is refused and the right one gets in.
+                other.setPassword("open sesame");
+                other.setRemoteLogin(ComputerBlockEntity.RemoteLogin.PASSWORD);
+                a.submitLine("ssh beta");
+                a.submitLine("guess");
+                step[0] = 5;
+            }
+            if (step[0] == 5 && local.contains("Wrong password.")) {
+                a.submitLine("ssh beta");
+                a.submitLine("open sesame");
+                step[0] = 6;
+            }
+            if (step[0] == 6 && times.apply(remote, "[ssh] login from") == 2) {
+                a.submitLine("exit");
+                step[0] = 7;
+            }
+            helper.assertTrue(step[0] == 7 && times.apply(screen(a), "Connection to beta closed.") == 2,
+                    "stopped at step " + step[0] + "; this computer's screen:\n" + local + "\nthe other's:\n" + remote);
+            helper.assertTrue(!local.contains("guess") && !local.contains("open sesame"), "a typed password must not be written out:\n" + local);
+            try {
+                b.drive().call(qbotics.engine.HostFileSystem.STAT, "/made_from_afar", new byte[0]);
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                helper.fail("the folder should have been made on the other computer's drive");
+            }
         });
     }
 

@@ -42,6 +42,9 @@ public final class ServerComputer {
         void scratchResult(UUID deviceId, UUID player, int runId, boolean ok, String output);
 
         void openInEditor(UUID deviceId, String path);
+
+        /** Another computer that is switched on, or null. Used by ssh. */
+        ServerComputer running(UUID deviceId);
     }
 
     private sealed interface Job {
@@ -256,9 +259,143 @@ public final class ServerComputer {
         }
     }
 
+    // ---- remote login (ssh) ------------------------------------------------------------------
+
+    /** True while this computer sits at its shell prompt, waiting for a command. */
+    private volatile boolean atShellPrompt;
+    /** During an ssh session from this computer: the computer it is logged in to. */
+    private volatile ServerComputer sshRemote;
+    /** Set when a session begins or ends, so players watching get the whole new screen. */
+    private volatile boolean viewChanged;
+    private volatile int sshSessions;
+
+    /** The terminal a player looking at this computer should see. */
+    Terminal shownTerminal() {
+        ServerComputer remote = sshRemote;
+        return remote == null ? terminal : remote.terminal;
+    }
+
+    boolean takeViewChanged() {
+        boolean changed = viewChanged;
+        viewChanged = false;
+        return changed;
+    }
+
+    /**
+     * A terminal state, marked so the player's game can tell this computer's own screen
+     * from another computer's shown during a session, and one session from the next.
+     */
+    Terminal.State asShown(Terminal.State state) {
+        return sshRemote == null ? state : new Terminal.State(state.epoch() + sshSessions * 1_000_003, state.scrolledStart(),
+                state.scrolled(), state.lines(), state.cursorX(), state.cursorY());
+    }
+
+    private String sshProblem = "";
+
+    /** Asks the game something about the network, from this computer's own thread. Null (with sshProblem set) if it said no. */
+    private JsonObject askWorld(Object... request) throws InterruptedException {
+        com.google.gson.JsonArray call = new com.google.gson.JsonArray();
+        for (Object part : request) {
+            call.add(part == null ? com.google.gson.JsonNull.INSTANCE : new com.google.gson.JsonPrimitive(part.toString()));
+        }
+        try {
+            JsonObject reply = com.google.gson.JsonParser.parseString(
+                    worldCalls.apply(call.toString()).get(10, java.util.concurrent.TimeUnit.SECONDS)).getAsJsonObject();
+            if (reply.has("e")) {
+                sshProblem = reply.get("e").getAsString();
+                return null;
+            }
+            return reply.getAsJsonObject("r");
+        } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException | RuntimeException e) {
+            sshProblem = "The game didn't answer.";
+            return null;
+        }
+    }
+
+    /**
+     * "ssh address": this computer's terminal becomes the other computer's, until "exit".
+     * Whether the other computer can be reached, and whether it lets this one in, is decided
+     * by the game (NetworkCalls): first the antennas, then the computer's own settings.
+     */
+    private void ssh(String address) throws InterruptedException {
+        JsonObject opened = askWorld("ssh_open", address, null);
+        if (opened != null && opened.has("need_password")) {
+            terminal.write("Password: ");
+            Job typed = jobs.take();
+            terminal.write("\n"); // what was typed is not written out
+            if (!(typed instanceof Line password)) {
+                return;
+            }
+            opened = askWorld("ssh_open", address, password.text());
+        }
+        if (opened == null) {
+            terminal.write(sshProblem + "\n");
+            return;
+        }
+        UUID remoteId = UUID.fromString(opened.get("id").getAsString());
+        String label = opened.get("label").getAsString();
+        ServerComputer remote = listener.running(remoteId);
+        if (remote == null || remote == this) {
+            terminal.write("Could not connect to " + label + ".\n");
+            return;
+        }
+        // If this login switched the other computer on, let it finish starting: it clears its screen as it does.
+        for (int waited = 0; waited < 100 && remote.vm == null && !remote.shutDown; waited++) {
+            Thread.sleep(50);
+        }
+        // Both ends see that someone has come in.
+        remote.terminal.write("\n[ssh] login from " + opened.get("from").getAsString() + "\n");
+        if (remote.atShellPrompt) {
+            remote.submitLine(""); // brings its prompt back under the notice
+        }
+        sshSessions++;
+        sshRemote = remote;
+        viewChanged = true;
+        String ending = "Connection to " + label + " closed.";
+        try {
+            while (!shutDown) {
+                Job job = jobs.take();
+                if (listener.running(remoteId) != remote) {
+                    ending = "Connection to " + label + " lost: that computer is gone.";
+                    break;
+                }
+                switch (job) {
+                    case Line line -> {
+                        String text = line.text().strip();
+                        if ((text.equals("exit") || text.equals("logout")) && remote.atShellPrompt) {
+                            return;
+                        }
+                        // The link is checked again each time: an antenna may have been retuned, moved or made private.
+                        if (askWorld("ssh_reach", address, null) == null) {
+                            ending = "Connection to " + label + " lost: " + sshProblem;
+                            return;
+                        }
+                        remote.submitLine(line.text());
+                    }
+                    case Interrupt ignored -> remote.interrupt();
+                    case Scratch scratch -> listener.scratchResult(deviceId, scratch.player(), scratch.runId(), false,
+                            "The scratchpad runs on this computer, which is in an ssh session. Type exit in the terminal first.\n");
+                    case RunFile ignored -> {
+                        // The editor's files are this computer's; the session is the other one's. Nothing to run there.
+                    }
+                }
+            }
+        } finally {
+            sshRemote = null;
+            viewChanged = true;
+            terminal.write(ending + "\n");
+        }
+    }
+
     private void shell(Computer computer) throws InterruptedException {
         while (!shutDown) {
-            Job job = nextJob(computer, cwd + " $ ");
+            atShellPrompt = true;
+            Job job;
+            try {
+                job = nextJob(computer, cwd + " $ ");
+            } finally {
+                atShellPrompt = false;
+            }
             switch (job) {
                 case Line line -> {
                     terminal.write(line.text() + "\n");
@@ -409,6 +546,7 @@ public final class ServerComputer {
             "         settings           this computer's name, remote login and antenna",
             "Network: devices            list the blocks cabled to this computer",
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
+            "         ssh <address>      use another computer's terminal from here; exit returns",
             "Other:   clear   help       Ctrl+C stops a running program",
             "");
 
@@ -450,6 +588,12 @@ public final class ServerComputer {
                 case "edit" -> listener.openInEditor(deviceId, path(args, 0, name));
                 case "settings" -> listener.openInEditor(deviceId, ComputerSettings.PATH);
                 case "run" -> runFile(computer, path(args, 0, name));
+                case "ssh" -> {
+                    if (args.isEmpty()) {
+                        throw new UsageException("Usage: ssh <name or address>   (for example: ssh smelter, or ssh 100.64.0.12:1005)");
+                    }
+                    ssh(args.getFirst());
+                }
                 case "devices", "ifconfig" -> runPython(computer,
                         "import logistics\nlogistics._print_devices(" + (args.isEmpty() ? "" : pyString(args.getFirst())) + ")");
                 case "python", "py" -> {

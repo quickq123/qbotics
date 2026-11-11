@@ -526,7 +526,7 @@ radio.tune("mine-ops")
   - Data is anything JSON can hold (text, numbers, lists, dicts), up to 4,096 characters.
   - Right-clicking an antenna shows its addresses, frequency and reach.
 
-**Not built yet:** access modes and frequency ownership (§9.1; every frequency is public for now), `async` receiving, reaching item blocks behind another antenna, antennas as upgrades fitted to computers and Qbots, wireless bridging (§9.2), in-game HTTP and names.
+**Built since:** antenna access modes (private, team, public), the computer settings page and `ssh` (see `docs/reference.md` §1.5, §7.3, §7.4). **Not built yet:** frequency ownership, `async` receiving, reaching item blocks behind another antenna, antennas as upgrades fitted to computers and Qbots, wireless bridging (§9.2), in-game HTTP and names.
 
 #### In-game HTTP and names
 
@@ -1286,6 +1286,9 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Item and fluid filters follow JEI's search words (`@mod`, `#tag` or `$tag`, wildcards, `-not`, `a \| b`) | Decided |
 | 2026-11-10 | `docs/reference.md` is the running player reference (commands, Python calls, filters, probe, limits), updated with every player-facing feature; it is the source for a later help page | Decided |
 | 2026-11-10 | Finding an item's name: the probe adds it to item tooltips (Ctrl+C copies, Shift lists tags), and a wrong name in a program suggests the closest real ones | Built; to confirm |
+| 2026-11-10 | Reaching a network from outside has two gates. First the antenna's access (private by default, team, public), which covers messages, device listing and login. Then, for login, the computer's own remote-login setting (owner by default, password, off) | Decided |
+| 2026-11-10 | Each computer has a settings page, opened from the top left into the editor as JSON: name, remote login and password, antenna access and frequency. It is not a drive file, so programs can't read the password; only a salted hash is stored | Decided |
+| 2026-11-10 | `ssh <address>`: one computer's terminal drives another's (terminal only; files and editor stay local). Identity is the owner of the computer typed at. Teams are the game's scoreboard teams | Built; to confirm |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |

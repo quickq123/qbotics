@@ -234,6 +234,15 @@ public final class ScreenshotRun {
             }
         }));
         then(5, minecraft -> shot(minecraft, "11-computer-screen"));
+        // The Settings page, opened as the button at the top left does, then an ssh session to a second computer.
+        then(25, minecraft -> onServer(minecraft, player -> typeAt(player, "settings")));
+        then(5, minecraft -> shot(minecraft, "11b-settings-page"));
+        then(60, minecraft -> onServer(minecraft, player -> typeAt(player, "ssh workshop")));
+        then(30, minecraft -> onServer(minecraft, player -> typeAt(player, "mkdir made_over_ssh")));
+        then(30, minecraft -> onServer(minecraft, player -> typeAt(player, "ls")));
+        then(5, minecraft -> shot(minecraft, "11c-ssh-session"));
+        then(30, minecraft -> onServer(minecraft, player -> typeAt(player, "exit")));
+        then(5, minecraft -> shot(minecraft, "11d-after-ssh"));
         then(10, minecraft -> minecraft.setScreen(null));
 
         // The same cables at night, to see how much the red core glows by itself.
@@ -268,6 +277,13 @@ public final class ScreenshotRun {
     }
 
     // ---- the scene ----------------------------------------------------------------------
+
+    /** Types a line at the scene's first computer, as a player at its terminal would. */
+    private static void typeAt(ServerPlayer player, String line) {
+        if (player.level().getBlockEntity(base.offset(6, 0, -4)) instanceof ComputerBlockEntity computer) {
+            ComputerManager.get(player.level().getServer()).getOrStart(computer).submitLine(line);
+        }
+    }
 
     private static void command(ServerPlayer player, String command) {
         MinecraftServer server = player.level().getServer();
@@ -332,6 +348,11 @@ public final class ScreenshotRun {
         int[][] run = {{0, 0, -7}, {1, 0, -7}, {2, 0, -7}, {3, 0, -7}, {3, 0, -6}, {4, 0, -7}, {4, 1, -7}, {6, 0, -7}};
         for (int[] at : run) {
             level.setBlock(base.offset(at[0], at[1], at[2]), cable.defaultBlockState(), Block.UPDATE_ALL);
+        }
+        // A second computer on the same cables, to log in to.
+        level.setBlock(base.offset(7, 0, -5), QboticsContent.COMPUTER_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        if (level.getBlockEntity(base.offset(7, 0, -5)) instanceof ComputerBlockEntity workshop) {
+            workshop.setDeviceName("workshop");
         }
         // Blocks set like this skip the placement logic, so give every cable its arms now.
         for (int x = -2; x <= 16; x++) {

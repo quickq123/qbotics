@@ -219,6 +219,63 @@ public final class NetworkCalls {
                 }
                 return describe(level, network, antenna);
             }
+            case "ssh_open":
+            case "ssh_reach": {
+                // Gate one, the network: can that computer be reached at all (cables, or antennas that let this owner in)?
+                String address = args.get(1).getAsString();
+                NetworkDevice found;
+                String from;
+                Matcher external = EXTERNAL.matcher(address);
+                if (external.matches()) {
+                    Far far = far(level, network, external.group(1), computerPos);
+                    int port = Integer.parseInt(external.group(2));
+                    found = far.network() != null ? far.network().byHost(port - RadioNetwork.PORT_BASE) : null;
+                    if (found == null) {
+                        throw new CallError("Nothing is on port " + port + " of " + external.group(1) + ".");
+                    }
+                    from = network.gateway().externalIp();
+                } else {
+                    found = find(network, address, null);
+                    from = CableNetwork.at(level, computerPos).devices().stream()
+                            .filter(device -> device.getBlockPos().equals(computerPos)).map(NetworkDevice::ip).findFirst().orElse("this network");
+                }
+                if (!(found instanceof qbotics.block.ComputerBlockEntity remote)) {
+                    throw new CallError("ssh connects to computers; " + address + " is " + article(found) + ".");
+                }
+                if (remote.getLevel() == level && remote.getBlockPos().equals(computerPos)) {
+                    throw new CallError("That is this computer.");
+                }
+                JsonObject session = new JsonObject();
+                if (method.equals("ssh_open")) {
+                    // Gate two, the computer: does its own setting let this computer's owner in?
+                    boolean owner = java.util.Objects.equals(ownerAt(level, computerPos), remote.owner());
+                    switch (remote.remoteLogin()) {
+                        case OFF -> throw new CallError("That computer doesn't allow remote login. Its Settings page can change that.");
+                        case OWNER -> {
+                            if (!owner) {
+                                throw new CallError("That computer only lets its owner's computers log in. Its Settings page can allow a password instead.");
+                            }
+                        }
+                        case PASSWORD -> {
+                            if (!owner) {
+                                String password = string(args, 2);
+                                if (password == null) {
+                                    session.addProperty("need_password", true);
+                                    return session;
+                                }
+                                if (!remote.checkPassword(password)) {
+                                    throw new CallError("Wrong password.");
+                                }
+                            }
+                        }
+                    }
+                    ComputerManager.get(level.getServer()).getOrStart(remote); // switch it on if nobody has yet
+                }
+                session.addProperty("id", remote.deviceId().toString());
+                session.addProperty("label", remote.deviceName().isEmpty() ? address : remote.deviceName());
+                session.addProperty("from", from);
+                return session;
+            }
             case "access": {
                 // Who may reach this network from outside: private, team or public.
                 AntennaBlockEntity antenna = router(network);

@@ -146,6 +146,12 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
         return owner;
     }
 
+    /** Hands the computer to another player (or to nobody). Its identity and files stay as they are. */
+    public void setOwner(@Nullable UUID newOwner) {
+        owner = newOwner;
+        setChanged();
+    }
+
     @Override
     public Kind kind() {
         return Kind.COMPUTER;

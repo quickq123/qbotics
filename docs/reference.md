@@ -45,6 +45,8 @@ terminal below, and an optional Python scratchpad on the right.
 | `python` | The Python prompt. `exit()` returns to the terminal |
 | `devices` | Lists the devices on this computer's network (also `ifconfig`) |
 | `devices <external IP>` | Lists the devices behind another antenna |
+| `ssh <name or address>` | Uses another computer's terminal from this one (section 7.4). `exit` returns |
+| `settings` | Opens this computer's settings page (section 1.5) |
 | `clear` | Clears the terminal |
 
 Names with spaces go in double quotes: `run "my program.py"`.
@@ -84,6 +86,25 @@ Resting the mouse on a function name shows how to call it and what it does.
 
 A box for trying a few lines of Python. Ctrl+Enter runs it. It shares variables with the
 terminal's Python prompt. `input()` does not work there.
+
+### 1.5 The settings page
+
+The **Settings** button at the top left (or the `settings` command) opens the computer's
+settings in the editor, as a JSON file. Change a value and save with Ctrl+S. Lines whose name
+starts with `_` are notes and are ignored. A value that isn't allowed is refused with a
+message, and nothing is changed.
+
+| Setting | Values | Meaning |
+|---|---|---|
+| `name` | text | What the computer is called on its network |
+| `remote_login.allow` | `"owner"`, `"password"`, `"off"` | Who may log in with `ssh`. `owner`: only computers placed by the same player (how every computer starts). `password`: those, and anyone who gives the password. `off`: nobody |
+| `remote_login.password` | text | Type a new one to set it. It is shown as `********` once set and is never shown again; empty removes it |
+| `antenna.access` | `"private"`, `"team"`, `"public"` | Who may reach this network by radio (section 7.3). Only shown when an antenna is cabled in |
+| `antenna.frequency` | text | The antenna's frequency |
+
+`ip` and `antenna.external_ip` are shown for reference and can't be changed there.
+
+The page is not a file on the drive, so programs can't read it.
 
 ---
 
@@ -409,17 +430,57 @@ A computer receives only while it is switched on. Computers start when first ope
 | `radio.external_ip` | The address other networks reach this one by |
 | `radio.frequency` | The frequency it is tuned to |
 | `radio.tune(frequency)` | Changes it. Only antennas on the same frequency hear each other |
+| `radio.access` | Who may reach this network from outside: `"private"`, `"team"` or `"public"` |
+| `radio.set_access(access)` | Changes it |
 | `radio.tier` | `"short"`, `"long"` or `"infinite"` |
 | `radio.range` | Reach in blocks; `None` for infinite |
 
 Two antennas can talk when they are on the same frequency and within the larger of their two
 ranges. Height does not count. Across dimensions, both must be Infinite.
 
+The antenna being reached also decides who it lets in. This applies to messages, to listing
+devices and to `ssh`:
+
+| Access | Lets in |
+|---|---|
+| `private` | Only devices placed by the antenna's owner. Every antenna starts like this |
+| `team` | The owner's devices, and those of players on the owner's team (the game's `/team`) |
+| `public` | Anyone on the same frequency and in range |
+
+Devices on the same cables never need an antenna and are not affected by this.
+
 | Antenna | Reach |
 |---|---|
 | Short-Range | 24 blocks |
 | Long-Range | 100 blocks |
 | Infinite | Any distance, any dimension |
+
+### 7.4 Remote login: `ssh`
+
+```
+/ $ ssh workshop
+/ $ ssh 100.64.0.12:1005
+```
+
+Typed in a computer's terminal, `ssh` turns that terminal into the other computer's: what you
+type runs there and its screen is shown here. `exit` (or `logout`) at the other computer's
+prompt ends the session. Ctrl+C stops the program running there.
+
+Two things decide whether you get in:
+
+1. **The network.** The other computer must be on the same cables, or behind an antenna that
+   is on your frequency, in range, and whose access setting lets your computer's owner in.
+2. **The computer.** Its `remote_login` setting (section 1.5) must allow you: by default only
+   computers of the same owner; with `password`, anyone who types the right one.
+
+Things to know:
+
+- Who you are is decided by who owns the computer you are typing at.
+- The other computer is switched on if it wasn't. It shows a notice when someone logs in.
+- The files and the editor stay this computer's. Only the terminal is the other one's.
+- The link is checked each time you enter a line. If an antenna has been retuned, moved out
+  of range or made private, the session ends.
+- A password is visible while you type it, though it isn't written to the terminal afterwards.
 
 ---
 
