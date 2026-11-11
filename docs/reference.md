@@ -83,6 +83,10 @@ Resting the mouse on a function name shows how to call it and what it does.
 | Ctrl+C | Copies the selection; with nothing selected, stops the program |
 | Ctrl+V | Pastes; each pasted line is entered |
 | Right-click | Copy, Copy All, Paste, Select All |
+| Click on the line being typed | Puts the cursor there |
+| Left, Right | Moves the cursor along the line; with Ctrl, a word at a time |
+| Home, End | The start or end of the line (End also returns to the prompt if scrolled back) |
+| Backspace, Delete | Deletes before or after the cursor; with Ctrl, a word |
 | Up, Down | Earlier commands |
 | Page Up, Page Down, wheel | Scrolls back through output. End returns |
 

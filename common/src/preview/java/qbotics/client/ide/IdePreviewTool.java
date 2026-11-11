@@ -76,6 +76,31 @@ public final class IdePreviewTool {
             big.view.charTyped(c);
         }
         big.shot("5-terminal-focused");
+        // Fixing a typo in the middle of the line: Home, three to the right, a space.
+        big.key(InputConstants.KEY_ESCAPE, 0);
+        for (int i = 0; i < "run miner.py".length(); i++) {
+            big.key(InputConstants.KEY_BACKSPACE, 0);
+        }
+        for (char c : "run9_world.py".toCharArray()) {
+            big.view.charTyped(c);
+        }
+        big.key(InputConstants.KEY_HOME, 0);
+        for (int i = 0; i < 3; i++) {
+            big.key(InputConstants.KEY_RIGHT, 0);
+        }
+        big.view.charTyped(' ');
+        big.key(InputConstants.KEY_RIGHT, 2);              // Ctrl+Right: past the next word
+        big.shot("5b-terminal-cursor-mid-line");
+        big.key(InputConstants.KEY_RETURN, 0);
+        // Clicking on the line puts the cursor there: here, between "run 9_" and "world.py".
+        for (char c : "run 9_world.py".toCharArray()) {
+            big.view.charTyped(c);
+        }
+        big.key(InputConstants.KEY_LEFT, 2);               // Ctrl+Left: to the start of the word
+        big.shot("5c-terminal-cursor-on-a-character");
+        big.click(168 + 10 * Ui.CELL_W + 2, 518, IdeView.LEFT_BUTTON);
+        big.view.charTyped('X');
+        big.key(InputConstants.KEY_RETURN, 0);
 
         // Find and replace, autocomplete, and a terminal that has been scrolled back and made taller.
         Scene tools = new Scene(960, 540, 2);
@@ -437,6 +462,9 @@ public final class IdePreviewTool {
 
         @Override
         public void terminalInput(byte action, String line) {
+            if (action == qbotics.net.TerminalInputPayload.LINE) {
+                System.out.println("Entered in the terminal: [" + line + "]");
+            }
         }
 
         @Override

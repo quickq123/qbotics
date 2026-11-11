@@ -974,14 +974,20 @@ final class IdeView {
         // The line being typed starts at the server's cursor, just after the prompt.
         int cursorRow = scrollback.size() + session.terminalCursorY - first;
         if (cursorRow >= 0 && cursorRow < rows) {
-            int room = Math.max(1, Terminal.COLS - session.terminalCursorX - 1);
             StringBuilder input = session.terminalInput;
-            String shown = input.length() <= room ? input.toString() : input.substring(input.length() - room);
+            int start = inputWindowStart();
+            String shown = input.substring(start, Math.min(input.length(), start + inputRoom()));
             int inputX = left + session.terminalCursorX * Ui.CELL_W;
             int inputY = top + cursorRow * Ui.CELL_H;
             ui.mono(shown, inputX, inputY, Ui.TEXT_BRIGHT);
             if (focused && cursorOn) {
-                ui.fill(inputX + shown.length() * Ui.CELL_W, inputY, Ui.CELL_W - 1, Ui.CELL_H - 1, 0xC0D4D4D4);
+                int at = inputX + (session.terminalInputCursor - start) * Ui.CELL_W;
+                if (session.terminalInputCursor < input.length()) {
+                    // On a character: a thin bar before it, so the character stays readable.
+                    ui.fill(at, inputY, 1, Ui.CELL_H - 1, 0xF0E8E8E8);
+                } else {
+                    ui.fill(at, inputY, Ui.CELL_W - 1, Ui.CELL_H - 1, 0xC0D4D4D4);
+                }
             }
         }
         ui.unclip();
@@ -990,6 +996,48 @@ final class IdeView {
             int thumbTop = (height - thumb) * first / (total - rows);
             ui.fill(r.right() - 4, top + thumbTop, 3, thumb, 0x60FFFFFF);
         }
+    }
+
+    /** How many characters of the line being typed fit after the prompt. */
+    private int inputRoom() {
+        return Math.max(1, Terminal.COLS - session.terminalCursorX - 1);
+    }
+
+    /** The first character of the line being typed that is shown: a long line scrolls to keep the cursor in view. */
+    private int inputWindowStart() {
+        int length = session.terminalInput.length();
+        int room = inputRoom();
+        if (length < room) {
+            return 0;
+        }
+        return Math.clamp(session.terminalInputCursor - room + 1, 0, length - room + 1);
+    }
+
+    /** Moves the cursor in the line being typed, keeping it within the line. */
+    private void inputCursorTo(int position) {
+        session.terminalInputCursor = Math.clamp(position, 0, session.terminalInput.length());
+    }
+
+    /** Where a word starts or ends, from the cursor, for Ctrl with the arrow keys and Backspace. */
+    private int inputWordEdge(int direction) {
+        StringBuilder input = session.terminalInput;
+        int at = session.terminalInputCursor;
+        if (direction < 0) {
+            while (at > 0 && input.charAt(at - 1) == ' ') {
+                at--;
+            }
+            while (at > 0 && input.charAt(at - 1) != ' ') {
+                at--;
+            }
+        } else {
+            while (at < input.length() && input.charAt(at) == ' ') {
+                at++;
+            }
+            while (at < input.length() && input.charAt(at) != ' ') {
+                at++;
+            }
+        }
+        return at;
     }
 
     /** How many rows of text fit in the terminal panel. */
@@ -1019,6 +1067,7 @@ final class IdeView {
                 terminalCopy();
             } else if (!event.hasShiftDown()) {
                 input.setLength(0);
+                session.terminalInputCursor = 0;
                 backend.terminalInput(TerminalInputPayload.INTERRUPT, "");
             }
         } else if (event.isPaste()) {
@@ -1027,15 +1076,31 @@ final class IdeView {
             switch (event.key()) {
                 case InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> terminalEnter();
                 case InputConstants.KEY_BACKSPACE -> {
-                    if (!input.isEmpty()) {
-                        input.setLength(input.length() - 1);
+                    // Ctrl+Backspace takes the word before the cursor; Backspace, one character.
+                    int from = event.hasControlDown() ? inputWordEdge(-1) : session.terminalInputCursor - 1;
+                    if (from >= 0 && from < session.terminalInputCursor) {
+                        input.delete(from, session.terminalInputCursor);
+                        session.terminalInputCursor = from;
                     }
                 }
+                case InputConstants.KEY_DELETE -> {
+                    int to = event.hasControlDown() ? inputWordEdge(1) : session.terminalInputCursor + 1;
+                    if (to <= input.length() && to > session.terminalInputCursor) {
+                        input.delete(session.terminalInputCursor, to);
+                    }
+                }
+                case InputConstants.KEY_LEFT -> inputCursorTo(event.hasControlDown() ? inputWordEdge(-1) : session.terminalInputCursor - 1);
+                case InputConstants.KEY_RIGHT -> inputCursorTo(event.hasControlDown() ? inputWordEdge(1) : session.terminalInputCursor + 1);
+                case InputConstants.KEY_HOME -> inputCursorTo(0);
                 case InputConstants.KEY_UP -> terminalRecall(-1);
                 case InputConstants.KEY_DOWN -> terminalRecall(1);
                 case InputConstants.KEY_PAGEUP -> session.terminalScroll += Math.max(1, terminalRows() - 1);
                 case InputConstants.KEY_PAGEDOWN -> session.terminalScroll = Math.max(0, session.terminalScroll - Math.max(1, terminalRows() - 1));
-                case InputConstants.KEY_END -> session.terminalScroll = 0;
+                case InputConstants.KEY_END -> {
+                    // To the end of the line, and back down to the prompt if scrolled up.
+                    inputCursorTo(input.length());
+                    session.terminalScroll = 0;
+                }
                 default -> {
                 }
             }
@@ -1057,12 +1122,16 @@ final class IdeView {
         session.terminalSelection = null;
         session.terminalScroll = 0; // typing brings the prompt back into view
         int room = TerminalInputPayload.MAX_LINE_LENGTH - session.terminalInput.length();
-        session.terminalInput.append(text, 0, Math.min(room, text.length()));
+        String added = text.substring(0, Math.max(0, Math.min(room, text.length())));
+        int at = Math.clamp(session.terminalInputCursor, 0, session.terminalInput.length());
+        session.terminalInput.insert(at, added);
+        session.terminalInputCursor = at + added.length();
     }
 
     private void terminalEnter() {
         String line = session.terminalInput.toString();
         session.terminalInput.setLength(0);
+        session.terminalInputCursor = 0;
         List<String> history = session.terminalHistory;
         if (!line.isBlank() && (history.isEmpty() || !history.getLast().equals(line))) {
             history.add(line);
@@ -1082,6 +1151,7 @@ final class IdeView {
         if (session.terminalHistoryIndex < history.size()) {
             session.terminalInput.append(history.get(session.terminalHistoryIndex));
         }
+        session.terminalInputCursor = session.terminalInput.length();
     }
 
     // ---- selecting and copying terminal text ---------------------------------------
@@ -1204,6 +1274,10 @@ final class IdeView {
         } else {
             session.terminalSelection = new int[] {cell[0], cell[1], cell[0], cell[1]};
             drag = Drag.TERMINAL_TEXT;
+            if (cell[0] == session.terminalScrollback.size() + session.terminalCursorY && cell[1] >= session.terminalCursorX) {
+                // On the line being typed: the cursor goes where the click was.
+                inputCursorTo(cell[1] - session.terminalCursorX + inputWindowStart());
+            }
         }
     }
     // ---- scratchpad --------------------------------------------------------------

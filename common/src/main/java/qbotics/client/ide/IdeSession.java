@@ -102,6 +102,8 @@ final class IdeSession {
     /** Height of the terminal panel, set by dragging its top edge; 0 = the default. */
     int terminalHeight;
     final StringBuilder terminalInput = new StringBuilder();
+    /** Where in the line being typed the cursor is: 0 is before its first character. */
+    int terminalInputCursor;
     /** Commands entered earlier, recalled with the Up and Down keys. */
     final List<String> terminalHistory = new ArrayList<>();
     int terminalHistoryIndex;
