@@ -204,6 +204,16 @@ public final class ScreenshotRun {
             }
         }));
         then(5, minecraft -> shot(minecraft, "09c-interface-slots"));
+        // A crafting table: several inventories on one screen, so the screen's own numbers (product 0, grid 1 to 9).
+        then(10, minecraft -> {
+            minecraft.player.closeContainer();
+            onServer(minecraft, player -> {
+                BlockPos at = base.offset(9, 0, -6);
+                player.level().setBlock(at, Blocks.CRAFTING_TABLE.defaultBlockState(), Block.UPDATE_ALL);
+                player.openMenu(player.level().getBlockState(at).getMenuProvider(player.level(), at));
+            });
+        });
+        then(5, minecraft -> shot(minecraft, "09f-crafting-slots"));
         // The Experience Interface's screen.
         then(10, minecraft -> {
             minecraft.player.closeContainer();
