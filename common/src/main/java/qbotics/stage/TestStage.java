@@ -50,6 +50,7 @@ import qbotics.network.RadioNetwork;
  *   main  =    bus   bus   input output tanks fbus battery ebus  xp  bus  (z = 2; plates point north)
  *                        pin   .  placer  .                                (z = 3: a pin on a lamp south of it,
  *                        lamp    (space) breaker                            z = 4: a placer and a breaker on one space)
+ *                                              anvil  enchanting table        (z = 4, each worked by a bus at z = 3)
  *
  *   remote =  store  bus->chest                                           (z = 6)
  * </pre>
@@ -173,6 +174,14 @@ public final class TestStage {
         chest.setItem(3, new ItemStack(Items.RAW_IRON, 24));
         chest.setItem(4, new ItemStack(Blocks.COBBLESTONE, 64));
         chest.setItem(9, new ItemStack(Items.IRON_INGOT, 5));
+        // For the anvil and the enchanting table: two worn swords, a book and lapis.
+        for (int slot = 10; slot <= 11; slot++) {
+            ItemStack sword = new ItemStack(Items.IRON_SWORD);
+            sword.setDamageValue(150);
+            chest.setItem(slot, sword);
+        }
+        chest.setItem(12, new ItemStack(Items.BOOK, 3));
+        chest.setItem(13, new ItemStack(Items.LAPIS_LAZULI, 9));
         plate(4, 2, Kind.BUS, Medium.ITEM, "chest");
 
         set(5, 0, 1, Blocks.FURNACE.defaultBlockState());
@@ -212,6 +221,15 @@ public final class TestStage {
         worldPlate(5, 3, Kind.PIN, Direction.SOUTH, "lamp");
         worldPlate(7, 3, Kind.PLACER, Direction.SOUTH, "placer");
         worldPlate(8, 4, Kind.BREAKER, Direction.WEST, "breaker");
+
+        // Screens that cost levels, paid from xp: a Bus on an anvil and one on an enchanting table.
+        for (int x = 9; x <= 12; x++) {
+            set(x, 0, 3, cable.defaultBlockState());
+        }
+        set(10, 0, 4, Blocks.ANVIL.defaultBlockState());
+        set(12, 0, 4, Blocks.ENCHANTING_TABLE.defaultBlockState());
+        worldPlate(10, 3, Kind.BUS, Direction.SOUTH, "anvil");
+        worldPlate(12, 3, Kind.BUS, Direction.SOUTH, "enchanter");
 
         // ---- the second network, along z = 6 ----
         ComputerBlockEntity remote = computer(1, 6, "remote");

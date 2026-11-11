@@ -1,0 +1,77 @@
+QBOTICS PLAY-TEST CHECKLIST
+Work down the list; each step says what should happen. Note anything that doesn't, looks
+wrong or feels awkward, and the step number.
+
+START
+  1. From g:\MinecraftMods run:   gradlew :neoforge:runPlaytest
+     The game opens straight into the "Qbotics Playtest" world (creative, flat), with the
+     test stage built beside you. JEI, FTB Chunks and Functional Storage are loaded too.
+     (A fresh world: the old one was cleared because plates are now saved differently.)
+  2. Find the two computers. The far one with every device beside it is "main"; the near
+     one is "remote". Right-click main.
+
+THE COMPUTER
+  3. Type:  cat README.txt          It lists every device on the stage and every demo.
+  4. Type:  devices                 All of main's devices, with addresses.
+  5. Type:  settings                The settings page opens in the editor (top left).
+  6. Try copy and paste in the terminal (select text, Ctrl+C, Ctrl+V).
+
+THE DEMOS (type each, e.g.  run demos/1_items.py )
+  7. 1_items.py      Moves raw iron and coal into the furnace. Run it again later: ingots
+                     come out into the store.
+  8. 2_filters.py    Counts by tag, wildcard and mod; moves logs to the store.
+  9. 3_fluid.py      Water and lava move between the tanks.
+ 10. 4_energy.py     Energy moves between the battery and the machine.
+ 11. 5_radio.py      Lists remote's devices and gets a reply from remote's echo program.
+ 12. 6_devices.py    A table of every device.
+ 13. 7_sources.py    Pools of sources, keeping gold back, exact amounts.
+ 14. 8_crafting.py   The crafting table makes planks, then sticks with a Recipe.
+ 15. 9_world.py      NEW. The lamp blinks three times; cobblestone appears in the space
+                     beside the placer, then the breaker breaks it into the store.
+ 16. 10_levels.py    NEW. The anvil repairs two worn swords and the enchanting table
+                     enchants a book; the xp block pays (watch its levels drop).
+
+THE NEW PLATES BY HAND
+ 17. Find the Logic Pin, Placer and Breaker in the Qbotics creative tab. Each has its own
+     look: a slim pin with a red contact, a deep placer, a heavy breaker with teeth.
+ 18. Put a Logic Pin on a cable next to a redstone lamp, and some redstone dust next to the
+     pin's face. The dust should join to the pin, and to no other part of the cable.
+ 19. In main's terminal, type  python  then:
+         from logistics import network
+         net = network()
+         pin = net.pin("lamp")
+         pin.write(15)            the stage's lamp lights
+         pin.write(0)             it goes out
+         pin.mode = "input"
+         pin.read()               0; attach a lever to the lamp, switch it on, read again: 15
+         pin.wait_for("block")    then change the lamp (break it, replace it): returns True
+ 20. Point a Placer at grass or flowing water: it should place there. Point one at a solid
+     block: place() should refuse and say why.
+ 21. Point a Breaker at obsidian (with a store as the destination): it takes about eight
+     seconds. At bedrock: it refuses.
+ 22. Fill the store so it has no room, then break something: nothing breaks, and the error
+     names the item that had no room.
+ 23. Break a chest holding a few items with a Breaker: the chest and everything in it arrive
+     in the store (it has nine slots, so keep it to a few kinds).
+ 24. Pour water next to a cable: the water flows around the cable, not through it.
+ 25. Sneak and right-click a plate to take it off; break while looking at one plate on a
+     busy cable: only that plate comes off.
+
+THE PROBE
+ 26. Right-click any device with the Network Probe: a pop-up with copyable lines.
+ 27. Sneak and scroll to switch to Slots mode, then open a chest, a furnace and a crafting
+     table: each slot shows its number.
+ 28. In Slots mode, open a stonecutter with stone in it and click a choice: "Button n" shows
+     above the screen, and the same line appears in chat.
+
+OTHER MODS
+ 29. JEI: hover an item; the probe tooltip still shows the name programs use (Ctrl+C copies).
+ 30. Functional Storage: put a drawer next to a cable with a Bus on it; try
+     net.bus("...").contents() and move() into and out of it.
+ 31. FTB Chunks: claim a chunk, then try the Placer and Breaker inside and outside the claim.
+     (In this test game everything is owned by the same player, "Dev", so the claim will
+     allow it; a second player is needed to test a refusal.)
+
+REMOTE
+ 32. In main:  ssh  followed by remote's address from README.txt. You are now typing on
+     remote; Ctrl+C stops its echo; exit comes back.

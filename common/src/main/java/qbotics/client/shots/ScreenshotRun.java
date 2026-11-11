@@ -308,6 +308,7 @@ public final class ScreenshotRun {
                 qbotics.stage.TestStage.build(player.level(), base.offset(0, 0, 8), player.getUUID())));
         view("15-test-stage", new Vec3(7.0, 7.5, 21.5), new Vec3(7.0, 0.5, 11.5));
         view("16-test-stage-main-row", new Vec3(7.0, 3.2, 13.6), new Vec3(7.0, 0.6, 9.6));
+        view("16b-test-stage-back-row", new Vec3(8.5, 3.4, 16.5), new Vec3(8.5, 0.4, 12.0));
 
         // The items, as the hotbar and the hand draw them.
         then(10, minecraft -> {

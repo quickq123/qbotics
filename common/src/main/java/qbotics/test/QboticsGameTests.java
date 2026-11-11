@@ -1001,11 +1001,11 @@ public final class QboticsGameTests {
         ComputerBlockEntity main = (ComputerBlockEntity) level.getBlockEntity(corner.offset(1, 0, 2));
         CableNetwork network = CableNetwork.at(level, main.getBlockPos());
         List<String> names = network.devices().stream().map(NetworkDevice::deviceName).sorted().toList();
-        helper.assertTrue(names.equals(List.of("battery", "big_tank", "breaker", "chest", "crafter", "furnace", "inbox", "lamp", "machine", "main", "main_antenna",
-                "outbox", "placer", "store", "tanks", "xp")),"the main network should hold exactly the stage's devices, but had " + names);
+        helper.assertTrue(names.equals(List.of("anvil", "battery", "big_tank", "breaker", "chest", "crafter", "enchanter", "furnace", "inbox", "lamp", "machine",
+                "main", "main_antenna", "outbox", "placer", "store", "tanks", "xp")),"the main network should hold exactly the stage's devices, but had " + names);
 
         ServerComputer computer = ComputerManager.get(level.getServer()).getOrStart(main);
-        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources", "8_crafting", "9_world")) {
+        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources", "8_crafting", "9_world", "10_levels")) {
             computer.submitLine("run demos/" + demo + ".py");
         }
         computer.submitLine("pwd");
@@ -1014,12 +1014,13 @@ public final class QboticsGameTests {
             String text = String.join("\n", state.scrolled()) + "\n" + String.join("\n", state.lines());
             helper.assertTrue(text.contains("$ pwd"), "the demos are still running; so far:\n" + text);
             helper.assertTrue(!text.contains("Traceback") && !text.contains("Error"), "a demo failed:\n" + text);
-            for (String expected : List.of("149 items; 32 are coal", "chest to furnace: 8", "moved to the store: 24", "5000 mB, 3000 of it water",
+            for (String expected : List.of("163 items; 32 are coal", "chest to furnace: 8", "moved to the store: 24", "5000 mB, 3000 of it water",
                     "battery now holds 250000 of 2000000", "Sent: True", "{'echo': {'hello': 'from main'}}", "experience_interface",
                     "into the furnace: 4", "all but gold: 20", "As expected: Only 6 of the 50 needed", "Exactly 6 gold: 6",
                     "A log into the grid: 1", "Planks taken out: 4", "runs for 8 sticks: 2", "Made: {'minecraft:stick': 8}", "holds 8 sticks",
                     "The lamp blinked three times.", "Placed: minecraft:cobblestone", "In front of the breaker: minecraft:cobblestone",
-                    "Broke it and got: {'minecraft:cobblestone': 1}")) {
+                    "Broke it and got: {'minecraft:cobblestone': 1}",
+                    "Repaired: 1\n", "Enchanted: 1\n")) {
                 helper.assertTrue(text.contains(expected), "the demos should have printed '" + expected + "' but printed:\n" + text);
             }
         });

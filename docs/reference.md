@@ -880,6 +880,7 @@ belongs to you.
 | A Bus on a crafting table | `crafter` |
 | A Logic Pin on a redstone lamp | `lamp` |
 | A Placer and a Breaker facing the same empty space | `placer`, `breaker` |
+| Buses on an anvil and an enchanting table (the chest holds two worn swords, books and lapis for them) | `anvil`, `enchanter` |
 | A second computer on its own cables and antenna, with an Interface and a Bus on a chest | `remote`, `remote_store`, `remote_chest` |
 
 On `main`, `README.txt` lists all of this with the two computers' addresses, and `demos/`
@@ -896,6 +897,7 @@ holds one short program per feature:
 | `demos/7_sources.py` | Sources and destinations: pools, keeping things back, exact amounts |
 | `demos/8_crafting.py` | Opening the crafting table's screen: planks by hand, then sticks with a `Recipe` |
 | `demos/9_world.py` | Blinking the lamp, placing a block and breaking it again |
+| `demos/10_levels.py` | Repairing on the anvil and enchanting a book, paid from `xp` |
 
 `remote` runs `demos/echo.py` from the start, which answers every message, so the radio demo
 works at once. Log in to it with the `ssh` line the README gives; Ctrl+C stops the echo.
