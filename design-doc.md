@@ -815,7 +815,7 @@ The same model as items, on the same cable network:
 
 Open: whether one Output can feed several targets.
 
-### 11.0.1 World plates: Redstone Pin, Placer and Breaker (planned, not built)
+### 11.0.1 World plates: Logic Pin, Placer and Breaker (planned, not built)
 
 > **Status (2026-11-11): design only.** Asked for by the project owner; nothing here is built.
 
@@ -826,11 +826,11 @@ on the world.
 
 | Plate | What a program does with it |
 |---|---|
-| **Redstone Pin** | Reads and drives redstone on the side it points at, the way a microcontroller's pin does. |
+| **Logic Pin** | Reads and drives redstone on the side it points at, the way a microcontroller's pin does, and notices when the block there changes, the way an observer does. |
 | **Placer** | Places a block, or pours a fluid, into the space in front of it. |
 | **Breaker** | Breaks the block in front of it, or takes up the fluid there. |
 
-#### Redstone Pin
+#### Logic Pin
 
 A pin is configured by the program, as on a microcontroller, so one plate covers every use:
 
@@ -838,6 +838,9 @@ A pin is configured by the program, as on a microcontroller, so one plate covers
 - **Level**: 0 to 15, not only on and off, so analogue signals (comparators, daylight sensors) can be read and written.
 - **Pulses**: an output can be set for a number of ticks and then drop back by itself, so a program can clock a Crafter or a piston without having to stay awake to switch it off.
 - **Events**: an input can wake a waiting program when its level changes (rising, falling or any change), instead of the program polling.
+- **Observing**: like an observer, it notices when the block it points at changes: a crop growing a stage, a door opening, a furnace lighting, a block being placed or removed. A program can read what the block is and its state, and can wait for the next change. Unlike an observer it can say what changed, not only that something did.
+
+It is called a Logic Pin, not a redstone pin, because it does both jobs: redstone signals and watching blocks.
 
 Sketch of the Python, to be settled when it is built:
 
@@ -849,6 +852,10 @@ pin.pulse(4)             # on for 4 ticks, then off
 pin.mode = "input"
 level = pin.read()       # 0 to 15
 pin.wait_for("rising")   # sleep until the signal goes from 0 to above 0
+
+crop = net.pin("wheat")
+crop.block()             # {"block": "minecraft:wheat", "state": {"age": "7"}}
+crop.wait_for("change")  # sleep until the block or its state changes
 ```
 
 A cable can carry up to six pins, which gives a computer several independent lines from one
@@ -865,18 +872,26 @@ send the redstone pulse that makes it craft.
 
 #### Breaker
 
-- Breaks the block in front of it and sends the drops to the network's Interfaces.
-- Breaks as the **highest tier of tool**: anything a player could break, at that tool's speed, but **never bedrock** (or anything else the game makes unbreakable).
-- Has **one inventory slot** of its own. Proposed use: it holds a tool, and the tool's enchantments (Fortune, Silk Touch, Efficiency) apply to what is broken. To be confirmed; the alternative is that the slot holds drops waiting for room in an Interface.
+- Breaks the block in front of it as the **highest tier of tool**: anything a player could break, at that tool's speed, but **never bedrock** (or anything else the game makes unbreakable).
+- Holds nothing itself: **no slot and no buffer** (decided 2026-11-11, replacing the earlier one-slot idea).
+- **The program must say where the drops go**: an Interface, or an Output or Bus (whose target then receives them). With no destination the Breaker does nothing and says why.
 - Also takes up fluid: pointed at a fluid source, it removes it and sends a bucket's worth to a Fluid Interface. There is no separate fluid version.
 - **Recipe must include a diamond pickaxe**, to match its strength.
+
+How every drop is caught, including when a block gives several different items:
+
+- Drops never fall into the world. The Breaker works out what the block gives, then hands those exact stacks to the destination, as an ordinary transfer does.
+- It is all or nothing. Before breaking, it checks that **every** stack has somewhere to go. If any one doesn't (no slot open for it, or no room), the block is not broken and the error names the item that had nowhere to go. So a block that gives two different items needs a destination that takes both.
+- The drops are decided once per block and remembered until that block changes. Without this a program could keep trying until chance gave it the drop it wanted (flint from gravel, say).
+- A container is broken together with its contents: they count as drops and must fit too.
+- Not caught: experience, and other blocks that fall as a result (a torch on the broken block, sand above it). Those behave as in the ordinary game.
 
 #### Things to decide before building
 
 1. **A model built in code comes first.** Each side of a cable is at present a block-state value, one of five (nothing, an arm, Input, Output, Bus), giving 15,625 states. Three more plate kinds make eight values and 262,144 states, which is too many. These plates therefore depend on moving the cable to a model built in code (decision log, 2026-11-10), with plates kept by the cable instead of in its block state.
 2. **Protected land.** A Breaker and a Placer change the world on a player's behalf. They should act as their owner for the purposes of claim and protection mods, and refuse where the owner could not build. The owner is already recorded for every plate.
 3. **Limits.** How fast a Breaker works (the tool's real speed is proposed), whether breaking and placing cost energy from an Energy Interface, and per-player caps (§5, §15).
-4. **Breaker's slot**: tool or buffer (above).
+4. **Enchantments.** With no tool slot, a Breaker has no Fortune or Silk Touch. Whether that is wanted later (as separate plates, an upgrade, or a setting) is open.
 5. **Pin strength and direction.** Whether an output pin powers only the block it points at or also provides strong power through it, and whether one pin can be both read and driven.
 6. **Recipes** for the Pin and the Placer.
 
@@ -1205,7 +1220,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 7a | Item blocks, brought forward: cable networks, internal addresses (§9.3), Input, Output, Bus with access faces, the `logistics` module. **Built 2026-11-10, not yet played** (§11.0) | A program can move items between containers |
 | 7 | Rest of the logistics network: filter and face GUI, tier upgrades, throughput limits, change events; wireless bridging (§9.2); drive bays (§17.6) | Inventory and machine automation |
 | 7b | Fluid and energy logistics (§11.0) | Full factory automation |
-| 7b | World plates (§11.0.1): the cable's model built in code, then Redstone Pin, Placer and Breaker | Programs that sense and change the world: redstone logic, auto-crafting, mining and building in place |
+| 7b | World plates (§11.0.1): the cable's model built in code, then Logic Pin, Placer and Breaker | Programs that sense and change the world: redstone logic, auto-crafting, mining and building in place |
 | 8 | Uplink (with all §13 protections), then Git import/export (§17.5) | Real-internet access; moving code between worlds |
 | 9 | Web panels v1: engine evaluation, HTML/CSS v1 coverage, sync protocol, events | Flagship UI |
 | 10 | Web panels v2: JS sandbox, `<canvas>`, grid, animations | Full web development |
@@ -1355,8 +1370,8 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Reaching a network from outside has two gates. First the antenna's access (private by default, team, public), which covers messages, device listing and login. Then, for login, the computer's own remote-login setting (owner by default, password, off) | Decided |
 | 2026-11-10 | Each computer has a settings page, opened from the top left into the editor as JSON: name, remote login and password, antenna access and frequency. It is not a drive file, so programs can't read the password; only a salted hash is stored | Decided |
 | 2026-11-10 | `ssh <address>`: one computer's terminal drives another's (terminal only; files and editor stay local). Identity is the owner of the computer typed at. Teams are the game's scoreboard teams | Built; to confirm |
-| 2026-11-11 | Planned (§11.0.1): Redstone Pin, Placer and Breaker as plates on cables. The Placer and Breaker also handle fluid, so there are no fluid versions. The Breaker breaks as the highest tool tier but never bedrock, has one inventory slot, and needs a diamond pickaxe in its recipe | Decided; not built |
-| 2026-11-11 | Crafting tables, anvils and smithing tables hold nothing in the world, so plates can't reach them; the vanilla Crafter can be reached, and needs a Redstone Pin to trigger it | Noted |
+| 2026-11-11 | Planned (§11.0.1): Logic Pin, Placer and Breaker as plates on cables. The Placer and Breaker also handle fluid, so there are no fluid versions. The Breaker breaks as the highest tool tier but never bedrock, holds nothing itself (the program names where the drops go, and it breaks only if every drop fits), and needs a diamond pickaxe in its recipe. The pin is a Logic Pin: redstone in and out, plus observer-like watching of the block it points at | Decided; not built |
+| 2026-11-11 | Crafting tables, anvils and smithing tables hold nothing in the world, so plates can't reach them; the vanilla Crafter can be reached, and needs a Logic Pin to trigger it | Noted |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |
