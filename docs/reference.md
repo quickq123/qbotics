@@ -157,6 +157,8 @@ With an antenna on the network, each device can also be reached from other netwo
 | `energy_interface` | Energy storage: 2,000,000 FE |
 | `energy_input`, `energy_output`, `energy_bus` | Energy plates |
 | `experience_interface` | Experience storage, with no limit |
+| `pin` | A Logic Pin: a redstone line in or out, and an eye on a block |
+| `placer`, `breaker` | Plates that place blocks and fluid, or break them |
 
 Plates share a cable's block, one per side, and point at the block next to that side. Their
 colour says what they carry: white for items, blue-grey for fluid, red for energy.
@@ -611,6 +613,95 @@ If a run can't be finished (an ingredient runs out, the product isn't what the r
 it has nowhere to go), `craft` raises `NetworkError`. What was already laid out goes back when
 the screen closes, so with a `with` block nothing is lost.
 
+### 6.10 World plates: Logic Pin, Placer and Breaker
+
+Three more plates that go on cables like the others, one per side. Instead of reaching into a
+container, they act on the block they point at. Each is a device with a name and addresses,
+found with `net.pin()`, `net.placer()` and `net.breaker()`.
+
+All three can say what is in front of them:
+
+| Call or attribute | Gives |
+|---|---|
+| `plate.block()` | `{"block": "minecraft:wheat", "state": {"age": "7"}, "air": False, "fluid": None}`. State values are text (`"true"`, `"7"`), as the game writes them. `fluid` names a fluid in that space, or is `None` |
+| `plate.target` | Just the block's name |
+
+**Logic Pin** (`net.pin()`). One redstone line, like a pin on a microcontroller, and an eye on
+the block it points at, like an observer.
+
+```python
+door = net.pin("door")
+door.write(15)              # power it at full strength; write(0) switches it off
+door.pulse(4)               # on for 4 ticks (a fifth of a second), then off by itself
+
+sensor = net.pin("sensor")  # a new pin reads
+if sensor.read() > 0:
+    print("powered")
+sensor.wait_for("rising")   # sleep until the signal comes on
+
+crop = net.pin("wheat")
+crop.wait_for("block")      # sleep until the wheat grows a stage
+print(crop.block()["state"]["age"])
+```
+
+| Call or attribute | Does |
+|---|---|
+| `pin.mode` | `"input"` or `"output"`. Set it to change; `write()` and `pulse()` make it an output |
+| `pin.read()` | The level, 0 to 15: what arrives as an input, or what it drives as an output |
+| `pin.write(level)` | Drives a level, 0 to 15 (`True` and `False` mean 15 and 0) |
+| `pin.pulse(ticks=2, level=15)` | Drives a level for some ticks (20 a second), then drops to 0 by itself |
+| `pin.wait_for(what="change", timeout=None)` | Sleeps until `"rising"` (the signal comes on), `"falling"` (goes off), `"change"` (its level changes at all) or `"block"` (the block it points at, or its state, changes). Returns `True`, or `False` if `timeout` seconds pass first |
+
+- As an output, a pin powers the block it points at **strongly**, as a lever powers the block it
+  is on, so the signal also reaches through that block. Redstone dust joins to a pin.
+- Signals are read only while the pin is an input; as an output it would only read its own.
+- Nothing is missed between looks: even a pulse too short to see is counted.
+
+**Placer** (`net.placer()`). Puts something into the space in front of it, as its owner would.
+The space must be air, or hold something that gives way (grass, flowing water).
+
+```python
+placer.place("cobblestone", sources=store)    # one item from the sources, placed
+placer.pour("water", sources=tanks)           # a bucket's worth (1000 mB), poured as a source
+```
+
+| Call | Does |
+|---|---|
+| `placer.place(what=None, sources=...)` | Takes one item from `sources` (one source or a list) and places it. `what` is a name or filter; left out, the first block found is placed. Returns the item's name. If it can't be placed (it can't stand there, or its owner may not build there), it goes back where it came from and `NetworkError` says so |
+| `placer.pour(fluid=None, sources=...)` | Takes 1000 mB from a fluid interface, fluid input or fluid bus and pours it. Returns the fluid's name |
+
+**Breaker** (`net.breaker()`). Breaks the block in front of it and holds nothing itself:
+
+```python
+got = breaker.break_block(to=store)    # {"minecraft:cobblestone": 1}
+```
+
+| Call | Does |
+|---|---|
+| `breaker.break_block(to)` | Breaks the block in front, taking as long as the right tool would, and returns what it got: `{name: count}`. `to` is one destination or a list: interfaces, outputs or buses for items; fluid ones for fluid |
+
+- It breaks as the best **unenchanted netherite** tool for the block would (pickaxe, axe, shovel,
+  hoe or sword), at that tool's speed: cobblestone takes about a third of a second, obsidian
+  about eight seconds. It never breaks bedrock, or anything else the game makes unbreakable.
+- **All or nothing.** Every drop must have somewhere to go before the block breaks. If one
+  doesn't, nothing breaks and `NetworkError` names the item that had no room. A container breaks
+  with its contents, which count as drops (a shulker box keeps them inside itself, as usual).
+- Drops are worked out once for a block and kept until that block changes, so breaking can't be
+  retried until chance gives a better drop.
+- Pointed at a fluid's **source**, it takes it up: 1000 mB into a fluid destination.
+- Not caught: experience, and blocks that fall as a result (a torch on the broken block).
+- No Fortune or Silk Touch.
+
+**Acting for the owner.** The Placer and Breaker act as the player who put them on (section
+6.8), so they can't build or break where that player couldn't: in someone else's land claim,
+say. A plate with no owner can't place or break at all.
+
+**Cables and fluids.** Cables count as solid to water and lava, which flow around them rather
+than washing them away.
+
+**Recipes:** four cables around an observer (Logic Pin), a dispenser (Placer) or a diamond
+pickaxe (Breaker).
+
 ---
 
 ## 7. The `network` module
@@ -787,6 +878,8 @@ belongs to you.
 | An Energy Interface; an Energy Bus on a charged cell | `battery`, `machine` |
 | An Experience Interface holding 30 levels' worth | `xp` |
 | A Bus on a crafting table | `crafter` |
+| A Logic Pin on a redstone lamp | `lamp` |
+| A Placer and a Breaker facing the same empty space | `placer`, `breaker` |
 | A second computer on its own cables and antenna, with an Interface and a Bus on a chest | `remote`, `remote_store`, `remote_chest` |
 
 On `main`, `README.txt` lists all of this with the two computers' addresses, and `demos/`
@@ -802,6 +895,7 @@ holds one short program per feature:
 | `demos/6_devices.py` | Every device on the network |
 | `demos/7_sources.py` | Sources and destinations: pools, keeping things back, exact amounts |
 | `demos/8_crafting.py` | Opening the crafting table's screen: planks by hand, then sticks with a `Recipe` |
+| `demos/9_world.py` | Blinking the lamp, placing a block and breaking it again |
 
 `remote` runs `demos/echo.py` from the start, which answers every message, so the radio demo
 works at once. Log in to it with the `ssh` line the README gives; Ctrl+C stops the echo.

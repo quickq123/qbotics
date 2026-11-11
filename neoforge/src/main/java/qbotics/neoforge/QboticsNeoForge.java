@@ -77,6 +77,8 @@ public final class QboticsNeoForge {
     private static final DeferredItem<BlockItem> COMPUTER_ITEM = ITEMS.registerSimpleBlockItem(COMPUTER);
     private static final DeferredBlock<CableBlock> CABLE = BLOCKS.registerBlock("cable", NeoForgeCableBlock::new,
             properties -> properties.mapColor(MapColor.METAL).strength(0.5f).sound(SoundType.METAL).noOcclusion()
+                    // Counted as solid so that flowing water and lava go around it rather than washing it away.
+                    .forceSolidOn()
                     // Its shape depends on the plates its block entity keeps, not only its state.
                     .dynamicShape());
     private static final DeferredItem<BlockItem> CABLE_ITEM = ITEMS.registerSimpleBlockItem(CABLE);
@@ -94,6 +96,13 @@ public final class QboticsNeoForge {
             properties -> new PlateItem(NetworkDevice.Kind.OUTPUT, qbotics.network.Medium.ITEM, properties));
     private static final DeferredItem<PlateItem> BUS_ITEM = ITEMS.registerItem("bus",
             properties -> new PlateItem(NetworkDevice.Kind.BUS, qbotics.network.Medium.ITEM, properties));
+    // World plates (design doc §11.0.1): each handles what it needs itself, so there are no fluid or energy versions.
+    private static final DeferredItem<PlateItem> PIN_ITEM = ITEMS.registerItem("pin",
+            properties -> new PlateItem(NetworkDevice.Kind.PIN, qbotics.network.Medium.ITEM, properties));
+    private static final DeferredItem<PlateItem> PLACER_ITEM = ITEMS.registerItem("placer",
+            properties -> new PlateItem(NetworkDevice.Kind.PLACER, qbotics.network.Medium.ITEM, properties));
+    private static final DeferredItem<PlateItem> BREAKER_ITEM = ITEMS.registerItem("breaker",
+            properties -> new PlateItem(NetworkDevice.Kind.BREAKER, qbotics.network.Medium.ITEM, properties));
     private static final DeferredItem<PlateItem> FLUID_INPUT_ITEM = ITEMS.registerItem("fluid_input",
             properties -> new PlateItem(NetworkDevice.Kind.INPUT, qbotics.network.Medium.FLUID, properties));
     private static final DeferredItem<PlateItem> FLUID_OUTPUT_ITEM = ITEMS.registerItem("fluid_output",
@@ -180,6 +189,9 @@ public final class QboticsNeoForge {
                         output.accept(ENERGY_INPUT_ITEM.get());
                         output.accept(ENERGY_OUTPUT_ITEM.get());
                         output.accept(ENERGY_BUS_ITEM.get());
+                        output.accept(PIN_ITEM.get());
+                        output.accept(PLACER_ITEM.get());
+                        output.accept(BREAKER_ITEM.get());
                         output.accept(ANTENNA_SHORT_ITEM.get());
                         output.accept(ANTENNA_LONG_ITEM.get());
                         output.accept(ANTENNA_INFINITE_ITEM.get());
@@ -216,6 +228,9 @@ public final class QboticsNeoForge {
         QboticsContent.PROBE_ITEM = PROBE_ITEM;
         QboticsContent.PLATE_ITEMS = java.util.Map.ofEntries(
                 java.util.Map.entry("input", INPUT_ITEM),
+                java.util.Map.entry("pin", PIN_ITEM),
+                java.util.Map.entry("placer", PLACER_ITEM),
+                java.util.Map.entry("breaker", BREAKER_ITEM),
                 java.util.Map.entry("output", OUTPUT_ITEM),
                 java.util.Map.entry("bus", BUS_ITEM),
                 java.util.Map.entry("fluid_input", FLUID_INPUT_ITEM),
@@ -306,6 +321,28 @@ public final class QboticsNeoForge {
             }
 
             @Override
+            public net.minecraft.server.level.ServerPlayer standIn(ServerLevel level, UUID owner, UUID plate, BlockPos at, Direction facing) {
+                return StandIn.at(level, owner, plate, at, facing);
+            }
+
+            @Override
+            public boolean mayBreak(ServerLevel level, net.minecraft.server.level.ServerPlayer player, BlockPos pos) {
+                return !net.neoforged.neoforge.common.CommonHooks.fireBlockBreak(level, net.minecraft.world.level.GameType.SURVIVAL, player, pos,
+                        level.getBlockState(pos)).isCanceled();
+            }
+
+            @Override
+            public boolean placeChecked(ServerLevel level, net.minecraft.server.level.ServerPlayer player, BlockPos pos, Direction face, Runnable place) {
+                net.neoforged.neoforge.common.util.BlockSnapshot before = net.neoforged.neoforge.common.util.BlockSnapshot.create(level.dimension(), level, pos);
+                place.run();
+                if (net.neoforged.neoforge.event.EventHooks.onBlockPlace(player, before, face)) {
+                    before.restore(net.minecraft.world.level.block.Block.UPDATE_ALL);
+                    return false;
+                }
+                return true;
+            }
+
+            @Override
             public String modName(String modId) {
                 return net.neoforged.fml.ModList.get().getModContainerById(modId)
                         .map(mod -> mod.getModInfo().getDisplayName()).orElse(modId);
@@ -392,7 +429,7 @@ public final class QboticsNeoForge {
             for (String name : QboticsGameTests.ALL.keySet()) {
                 event.registerTest(Qbotics.id(name), new FunctionGameTestInstance(
                         ResourceKey.create(Registries.TEST_FUNCTION, Qbotics.id(name)),
-                        new TestData<>(environment, Qbotics.id("empty"), 1200, 0, true)));
+                        new TestData<>(environment, Qbotics.id("empty"), QboticsGameTests.TICK_LIMITS.getOrDefault(name, 1200), 0, true)));
             }
         });
     }

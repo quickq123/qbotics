@@ -192,7 +192,46 @@ public class CableBlock extends Block implements EntityBlock {
     @Override
     protected BlockState updateShape(BlockState state, LevelReader level, ScheduledTickAccess ticks, BlockPos pos,
             Direction directionToNeighbour, BlockPos neighbourPos, BlockState neighbourState, RandomSource random) {
+        // A block changing its state tells its neighbours this way even when it sends no block
+        // update (a crop growing): this is how an observer notices, and so how a Logic Pin does.
+        if (level instanceof Level world && !world.isClientSide() && plateKind(level, pos, directionToNeighbour) == NetworkDevice.Kind.PIN
+                && world.getBlockEntity(pos) instanceof PortBlockEntity host) {
+            WorldPlates.sense(world, host.port(directionToNeighbour));
+        }
         return connect(state, level, pos, directionToNeighbour);
+    }
+
+    // ---- redstone, for Logic Pins (design doc §11.0.1) ----------------------------------
+
+    /** Any cable may carry a Logic Pin; those without one give no signal. */
+    @Override
+    protected boolean isSignalSource(BlockState state) {
+        return true;
+    }
+
+    /** {@code direction} points from the block asking towards this cable. */
+    @Override
+    protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
+        return WorldPlates.signalOut(level, pos, direction.getOpposite());
+    }
+
+    /** A pin powers the block it points at strongly, as a lever does the block it is on. */
+    @Override
+    protected int getDirectSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
+        return WorldPlates.signalOut(level, pos, direction.getOpposite());
+    }
+
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block,
+            net.minecraft.world.level.redstone.@Nullable Orientation orientation, boolean movedByPiston) {
+        super.neighborChanged(state, level, pos, block, orientation, movedByPiston);
+        WorldPlates.sense(level, pos);
+    }
+
+    /** Scheduled when a pin starts a pulse: ends it. */
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        WorldPlates.endPulses(level, pos);
     }
 
     private static BlockState connect(BlockState cable, BlockGetter level, BlockPos pos, Direction direction) {
@@ -251,6 +290,11 @@ public class CableBlock extends Block implements EntityBlock {
         BlockState changed = withConnections(level, pos, state);
         level.setBlock(pos, changed, Block.UPDATE_ALL);
         CableNetwork.changed();
+        if (kind == NetworkDevice.Kind.PIN) {
+            WorldPlates.sense(level, port); // what it sees now is where it starts counting from
+            // Redstone dust beside it may now join to it.
+            changed.updateNeighbourShapes(level, pos, Block.UPDATE_ALL);
+        }
         level.sendBlockUpdated(pos, state, changed, Block.UPDATE_ALL); // tells players' games about the plate
         return port;
     }
@@ -265,11 +309,18 @@ public class CableBlock extends Block implements EntityBlock {
         ItemStack plate = plateItem(direction, host);
         // Forget the plate before the arms are worked out again, so it isn't mistaken for one that is still there.
         // The holder stays, empty if this was the last plate: players' games are told about it as it changes.
+        boolean pin = host.kindAt(direction) == NetworkDevice.Kind.PIN;
         host.forget(direction);
         BlockState changed = withConnections(level, pos, state);
         level.setBlock(pos, changed, Block.UPDATE_ALL);
         level.sendBlockUpdated(pos, state, changed, Block.UPDATE_ALL);
         CableNetwork.changed();
+        if (pin) {
+            // Its signal is gone, and redstone dust that joined to it lets go.
+            level.updateNeighborsAt(pos, changed.getBlock(), null);
+            level.updateNeighborsAt(pos.relative(direction), changed.getBlock(), null);
+            changed.updateNeighbourShapes(level, pos, Block.UPDATE_ALL);
+        }
         return plate;
     }
 

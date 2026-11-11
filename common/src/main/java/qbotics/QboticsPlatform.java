@@ -33,6 +33,25 @@ public interface QboticsPlatform {
      */
     qbotics.network.ScreenSessions.@Nullable Opened openScreenAs(ServerLevel level, BlockPos pos, Direction face, java.util.UUID owner, java.util.UUID bus);
 
+    /**
+     * The stand-in player for a plate's owner (design doc §11.0.3): one per plate, standing at
+     * the plate's cable and facing the block it points at, with nothing in its hands.
+     *
+     * @param plate identifies the plate, so that each has a stand-in of its own
+     */
+    net.minecraft.server.level.ServerPlayer standIn(ServerLevel level, java.util.UUID owner, java.util.UUID plate, BlockPos at, Direction facing);
+
+    /** True if protection (a land claim, spawn protection) lets this player break the block at a position. */
+    boolean mayBreak(ServerLevel level, net.minecraft.server.level.ServerPlayer player, BlockPos pos);
+
+    /**
+     * Places something by running {@code place}, then asks protection whether this player may
+     * have placed it; if not, puts back what was there and returns false.
+     *
+     * @param face the face it was placed against
+     */
+    boolean placeChecked(ServerLevel level, net.minecraft.server.level.ServerPlayer player, BlockPos pos, Direction face, Runnable place);
+
     /** The name players know a mod by ("Applied Energistics 2"), given its ID; the ID itself if it isn't known. */
     String modName(String modId);
 

@@ -1,0 +1,12 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "qbotics:block/plate_pin_down",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": -592138
+      }
+    ]
+  }
+}

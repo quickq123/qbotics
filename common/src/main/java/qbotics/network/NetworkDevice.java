@@ -10,7 +10,9 @@ import net.minecraft.core.Direction;
  */
 public interface NetworkDevice {
     enum Kind {
-        COMPUTER("computer"), ANTENNA("antenna"), INTERFACE("interface"), INPUT("input"), OUTPUT("output"), BUS("bus");
+        COMPUTER("computer"), ANTENNA("antenna"), INTERFACE("interface"), INPUT("input"), OUTPUT("output"), BUS("bus"),
+        /** World plates (design doc §11.0.1): redstone and watching, placing, breaking. */
+        PIN("pin"), PLACER("placer"), BREAKER("breaker");
 
         /** The word Python programs and messages use. */
         public final String word;
@@ -21,6 +23,11 @@ public interface NetworkDevice {
 
         /** True for the kinds that are plates on a cable. */
         public boolean isPlate() {
+            return this == INPUT || this == OUTPUT || this == BUS || this == PIN || this == PLACER || this == BREAKER;
+        }
+
+        /** True for the plates that move things between containers, in each medium. */
+        public boolean isLogistics() {
             return this == INPUT || this == OUTPUT || this == BUS;
         }
 

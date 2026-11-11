@@ -137,7 +137,7 @@ public final class NetworkCalls {
                 if (device instanceof InterfaceBlockEntity input) {
                     return contents(input);
                 }
-                if (device instanceof CablePort port && port.kind() != Kind.OUTPUT) {
+                if (device instanceof CablePort port && port.gives()) {
                     // With no face named, an input or bus reads the whole container, not only what one face shows.
                     String faceWord = string(args, 2);
                     return contents(faceWord == null ? wholeTarget(level, port) : target(level, port, faceWord));
@@ -173,7 +173,7 @@ public final class NetworkCalls {
                 List<ItemStack> stacks;
                 if (device instanceof InterfaceBlockEntity store) {
                     stacks = store.contents();
-                } else if (device instanceof CablePort port && port.medium() == Medium.ITEM && port.kind() != Kind.OUTPUT) {
+                } else if (device instanceof CablePort port && port.medium() == Medium.ITEM && port.gives()) {
                     stacks = (string(args, 3) == null ? wholeTarget(level, port) : target(level, port, string(args, 3))).contents();
                 } else {
                     throw new CallError("Only an interface, an input or a bus can count what is there; this is " + article(device) + ".");
@@ -352,6 +352,8 @@ public final class NetworkCalls {
                 }
                 return new JsonPrimitive(took);
             }
+            case "look", "pin", "pin_set", "place", "pour", "break":
+                return WorldPlateCalls.call(method, level, network, args);
             case "screen_cost": {
                 // What the screen asks in levels now: the anvil one number, the enchanting table one per offer.
                 ScreenSessions.Session session = openScreen(level, screenBus(byMac(network, args, 1)));
@@ -394,13 +396,13 @@ public final class NetworkCalls {
      * One end of a move, as the program described it: a device, and optionally a face and a
      * slot (or tank) to work through, and lists of what it will and won't pass.
      */
-    private record End(NetworkDevice device, String face, int slot, JsonObject written) {
+    record End(NetworkDevice device, String face, int slot, JsonObject written) {
         String label() {
             return device.deviceName().isEmpty() ? device.ip() : device.deviceName();
         }
     }
 
-    private static List<End> ends(CableNetwork network, JsonElement written, String what) {
+    static List<End> ends(CableNetwork network, JsonElement written, String what) {
         JsonArray list = written.getAsJsonArray();
         if (list.isEmpty()) {
             throw new CallError("A move needs at least one " + what + ".");
@@ -441,7 +443,7 @@ public final class NetworkCalls {
     }
 
     /** What one end lets through: anything in its "only" list (or anything, if that is empty) that is not in its "without" list. */
-    private static <T> java.util.function.Predicate<T> endFilter(End end, java.util.function.Function<String, NameMatch<T>> parse) {
+    static <T> java.util.function.Predicate<T> endFilter(End end, java.util.function.Function<String, NameMatch<T>> parse) {
         List<NameMatch<T>> only = names(end.written(), "only", parse);
         List<NameMatch<T>> without = names(end.written(), "without", parse);
         return thing -> (only.isEmpty() || only.stream().anyMatch(filter -> filter.test(thing)))
@@ -499,7 +501,7 @@ public final class NetworkCalls {
                         return label;
                     }
                 });
-            } else if (end.device().medium() == Medium.FLUID && !(end.device() instanceof CablePort plate && plate.kind() == Kind.OUTPUT)) {
+            } else if (end.device().medium() == Medium.FLUID && !(end.device() instanceof CablePort plate && !plate.gives())) {
                 FluidPort tanks = fluidSource(level, end.device(), end.face());
                 payers.add(new ScreenSessions.Payer() {
                     // Only liquid experience counts, and it is only ever used up, never turned back into levels.
@@ -583,35 +585,35 @@ public final class NetworkCalls {
         return end.written().has("screen") && end.written().get("screen").getAsBoolean();
     }
 
-    private static ItemPort itemSource(ServerLevel level, End end) {
+    static ItemPort itemSource(ServerLevel level, End end) {
         if (onScreen(end)) {
             return openScreen(level, screenBus(end.device())).port();
         }
         if (end.device() instanceof InterfaceBlockEntity store) {
             return store;
         }
-        if (end.device() instanceof CablePort plate && plate.medium() == Medium.ITEM && plate.kind() != Kind.OUTPUT) {
+        if (end.device() instanceof CablePort plate && plate.medium() == Medium.ITEM && plate.gives()) {
             // With no face named, a source is the whole container, as contents() shows it.
             return end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
         }
         throw notASource(end);
     }
 
-    private static ItemPort itemDestination(ServerLevel level, End end) {
+    static ItemPort itemDestination(ServerLevel level, End end) {
         if (onScreen(end)) {
             return openScreen(level, screenBus(end.device())).port();
         }
         if (end.device() instanceof InterfaceBlockEntity store) {
             return store;
         }
-        if (end.device() instanceof CablePort plate && plate.medium() == Medium.ITEM && plate.kind() != Kind.INPUT) {
+        if (end.device() instanceof CablePort plate && plate.medium() == Medium.ITEM && plate.takes()) {
             // A slot number with no face counts slots across the whole container.
             return end.slot() >= 0 && end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
         }
         throw notADestination(end);
     }
 
-    private static Integer wholeNumber(JsonArray args, int index, String what) {
+    static Integer wholeNumber(JsonArray args, int index, String what) {
         if (index >= args.size() || args.get(index).isJsonNull()) {
             return null;
         }
@@ -727,7 +729,7 @@ public final class NetworkCalls {
                 List<FluidPort> to = new ArrayList<>();
                 List<java.util.function.Predicate<Fluid>> passes = new ArrayList<>();
                 for (End end : sources) {
-                    if (end.device() instanceof CablePort plate && plate.kind() == Kind.OUTPUT) {
+                    if (end.device() instanceof CablePort plate && !plate.gives()) {
                         throw notASource(end);
                     }
                     FluidPort port = fluidSource(level, end.device(), end.face());
@@ -738,7 +740,7 @@ public final class NetworkCalls {
                     FluidPort port;
                     if (end.device() instanceof FluidInterfaceBlockEntity store) {
                         port = store;
-                    } else if (end.device() instanceof CablePort plate && plate.kind() != Kind.INPUT) {
+                    } else if (end.device() instanceof CablePort plate && plate.takes()) {
                         port = fluidTarget(level, plate, end.face(), end.slot() >= 0);
                     } else {
                         throw notADestination(end);
@@ -765,7 +767,7 @@ public final class NetworkCalls {
                 List<EnergyPort> from = new ArrayList<>();
                 List<EnergyPort> to = new ArrayList<>();
                 for (End end : sources) {
-                    if (end.device() instanceof CablePort plate && plate.kind() == Kind.OUTPUT) {
+                    if (end.device() instanceof CablePort plate && !plate.gives()) {
                         throw notASource(end);
                     }
                     from.add(energySource(level, end.device(), end.face()));
@@ -773,7 +775,7 @@ public final class NetworkCalls {
                 for (End end : destinations) {
                     if (end.device() instanceof EnergyInterfaceBlockEntity store) {
                         to.add(store);
-                    } else if (end.device() instanceof CablePort plate && plate.kind() != Kind.INPUT) {
+                    } else if (end.device() instanceof CablePort plate && plate.takes()) {
                         to.add(energyTarget(level, plate, end.face(), false));
                     } else {
                         throw notADestination(end);
@@ -862,7 +864,7 @@ public final class NetworkCalls {
     private static final int MAX_ENERGY_PER_CALL = EnergyInterfaceBlockEntity.CAPACITY;
 
     /** The fluid for an ID such as "minecraft:water"; "water" alone means the same. */
-    private static NameMatch<Fluid> fluid(String id) {
+    static NameMatch<Fluid> fluid(String id) {
         return match(BuiltInRegistries.FLUID, id, "fluid", "minecraft:water or minecraft:lava");
     }
 
@@ -900,7 +902,7 @@ public final class NetworkCalls {
         return (faceWord == null ? port.accessFace() : face(faceWord)).resolve(port.pointing());
     }
 
-    private static FluidPort fluidTarget(ServerLevel level, CablePort port, String faceWord, boolean whole) {
+    static FluidPort fluidTarget(ServerLevel level, CablePort port, String faceWord, boolean whole) {
         BlockPos pos = port.targetPos();
         FluidPort target = null;
         if (level.isLoaded(pos)) {
@@ -931,11 +933,11 @@ public final class NetworkCalls {
     }
 
     /** What a fluid device reads: a fluid interface's own tanks, or the tanks an input or bus points at. */
-    private static FluidPort fluidSource(ServerLevel level, NetworkDevice device, String faceWord) {
+    static FluidPort fluidSource(ServerLevel level, NetworkDevice device, String faceWord) {
         if (device instanceof FluidInterfaceBlockEntity store) {
             return store;
         }
-        if (device instanceof CablePort port && port.kind() != Kind.OUTPUT) {
+        if (device instanceof CablePort port && port.gives()) {
             return fluidTarget(level, port, faceWord, true);
         }
         throw new CallError("Only a fluid interface, a fluid input or a fluid bus can list contents; this is " + article(device) + ".");
@@ -945,7 +947,7 @@ public final class NetworkCalls {
         if (device instanceof EnergyInterfaceBlockEntity store) {
             return store;
         }
-        if (device instanceof CablePort port && port.medium() == Medium.ENERGY && port.kind() != Kind.OUTPUT) {
+        if (device instanceof CablePort port && port.medium() == Medium.ENERGY && port.gives()) {
             return energyTarget(level, port, faceWord, true);
         }
         throw new CallError("Only an energy interface, an energy input or an energy bus can say how much energy there is; this is "
@@ -1074,11 +1076,11 @@ public final class NetworkCalls {
 
     // ---- looking things up -----------------------------------------------------------
 
-    private static String string(JsonArray args, int index) {
+    static String string(JsonArray args, int index) {
         return index >= args.size() || args.get(index).isJsonNull() ? null : args.get(index).getAsString();
     }
 
-    private static NetworkDevice byMac(CableNetwork network, JsonArray args, int index) {
+    static NetworkDevice byMac(CableNetwork network, JsonArray args, int index) {
         NetworkDevice device = network.byMac(args.get(index).getAsString());
         if (device == null) {
             throw new CallError("The device " + args.get(index).getAsString() + " is no longer on this network.");
@@ -1112,7 +1114,7 @@ public final class NetworkCalls {
         throw new CallError(matches.size() + " devices are named '" + key + "'. Use an address, or rename one.");
     }
 
-    private static String article(NetworkDevice device) {
+    static String article(NetworkDevice device) {
         return article(device.kindWord().replace('_', ' '));
     }
 
@@ -1144,11 +1146,11 @@ public final class NetworkCalls {
 
     /** The item for an ID such as "minecraft:coal"; "coal" alone means the same. */
     /** The item, or the filter of items, for what a program wrote: "minecraft:coal", "coal", "#minecraft:logs", "@create". */
-    private static NameMatch<Item> item(String id) {
+    static NameMatch<Item> item(String id) {
         return match(BuiltInRegistries.ITEM, id, "item", "minecraft:iron_ingot");
     }
 
-    private static String itemId(Item item) {
+    static String itemId(Item item) {
         return BuiltInRegistries.ITEM.getKey(item).toString();
     }
 

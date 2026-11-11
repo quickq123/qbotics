@@ -48,6 +48,29 @@ final class StandIn extends FakePlayer {
         });
     }
 
+    /**
+     * The stand-in for a plate (a Placer or a Breaker), standing at the plate's cable and
+     * facing the block it points at, with empty hands.
+     */
+    static StandIn at(ServerLevel level, UUID owner, UUID plate, BlockPos cable, Direction facing) {
+        StandIn player = of(level, owner, plate);
+        if (!player.getGameProfile().id().equals(owner)) {
+            BY_OWNER.get(level).remove(plate);
+            player = of(level, owner, plate);
+        }
+        player.containerMenu = player.inventoryMenu;
+        Vec3 centre = Vec3.atCenterOf(cable);
+        player.setPos(centre.x, centre.y - player.getEyeHeight(), centre.z);
+        // Looking straight at the target, so that blocks placed by it face as a player's would.
+        float yaw = facing.getAxis().isHorizontal() ? facing.toYRot() : player.getYRot();
+        float pitch = facing == Direction.UP ? -90.0f : facing == Direction.DOWN ? 90.0f : 0.0f;
+        player.setYRot(yaw);
+        player.setYHeadRot(yaw);
+        player.setXRot(pitch);
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        return player;
+    }
+
     @Override
     public OptionalInt openMenu(@Nullable MenuProvider provider, @Nullable Consumer<RegistryFriendlyByteBuf> extraData) {
         offered = provider;

@@ -145,6 +145,9 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.input": "Input",
     "item.qbotics.output": "Output",
     "item.qbotics.bus": "Bus",
+    "item.qbotics.pin": "Logic Pin",
+    "item.qbotics.placer": "Placer",
+    "item.qbotics.breaker": "Breaker",
     "block.qbotics.experience_interface": "Experience Interface",
     "screen.qbotics.xp.holds": "Holds %s points: enough to take a new player to level %s",
     "screen.qbotics.xp.you": "You are level %s",
@@ -490,6 +493,40 @@ write_png("assets/qbotics/textures/block/interface_side.png", interface_side())
 write_png("assets/qbotics/textures/block/interface_top.png", interface_top())
 write_png("assets/qbotics/textures/block/port_side.png", port_side())
 write_png("assets/qbotics/textures/block/plate_front.png", port_front())
+
+
+def pin_front():
+    """A Logic Pin's face: a redstone-red contact in an iron frame."""
+    px = port_front()
+    for y in range(6, 10):
+        for x in range(6, 10):
+            px[y][x] = RED_BRIGHT if (x, y) in ((6, 6), (7, 6), (6, 7)) else RED
+    return px
+
+
+def placer_front():
+    """A Placer's face: an open mouth with a lighter rim, where blocks come out."""
+    px = port_front()
+    for y in range(4, 12):
+        for x in range(4, 12):
+            if x in (4, 11) or y in (4, 11):
+                px[y][x] = CASE_LIGHT
+    return px
+
+
+def breaker_front():
+    """A Breaker's face: a dark opening crossed by grinding teeth."""
+    px = port_front()
+    for y in range(4, 12):
+        for x in range(4, 12):
+            if (x + y) % 4 == 0:
+                px[y][x] = CASE_DARK
+    return px
+
+
+write_png("assets/qbotics/textures/block/pin_front.png", pin_front())
+write_png("assets/qbotics/textures/block/placer_front.png", placer_front())
+write_png("assets/qbotics/textures/block/breaker_front.png", breaker_front())
 write_png("assets/qbotics/textures/block/plate_ring.png", [[(255, 255, 255)] * 16 for _ in range(16)])
 # The fluid store shows four tanks; the energy store shows one tall cell.
 write_png("assets/qbotics/textures/block/fluid_interface_side.png",
@@ -536,7 +573,14 @@ PLATE_BOXES = {
     "input": [(3, 3, 0, 13, 13, 2), (5, 5, 2, 11, 11, 4), (6, 6, 4, 10, 10, 6)],
     "output": [(6, 6, 0, 10, 10, 2), (5, 5, 2, 11, 11, 4), (4, 4, 4, 12, 12, 6)],
     "bus": [(2, 2, 0, 14, 14, 2), (4, 4, 2, 12, 12, 4), (6, 6, 4, 10, 10, 6)],
+    # The world plates (design doc §11.0.1): a slim pin, a deep placer, a heavy breaker.
+    "pin": [(5, 5, 0, 11, 11, 1), (6, 6, 1, 10, 10, 3), (7, 7, 3, 9, 9, 6)],
+    "placer": [(3, 3, 0, 13, 13, 3), (5, 5, 3, 11, 11, 5), (6, 6, 5, 10, 10, 6)],
+    "breaker": [(2, 2, 0, 14, 14, 1), (3, 3, 1, 13, 13, 4), (6, 6, 4, 10, 10, 6)],
 }
+# Plates that act on the world have one version, with a face of their own; the rest come
+# in item, fluid and energy versions and share a face.
+WORLD_PLATES = ("pin", "placer", "breaker")
 PLATE_TURNS = {"north": {}, "east": {"y": 90}, "south": {"y": 180}, "west": {"y": 270}, "up": {"x": 270}, "down": {"x": 90}}
 # The game numbers the six sides like this. A plate on a side takes its colour from the
 # colour source with that side's number (see PlateTints.java), so each side needs its own model.
@@ -579,7 +623,7 @@ for plate, boxes in PLATE_BOXES.items():
             "textures": {
                 "particle": "qbotics:block/port_side",
                 "side": "qbotics:block/port_side",
-                "front": "qbotics:block/plate_front",
+                "front": "qbotics:block/%s_front" % plate if plate in WORLD_PLATES else "qbotics:block/plate_front",
                 "ring": "qbotics:block/plate_ring",
             },
             "elements": plate_elements(boxes, number),
@@ -588,7 +632,7 @@ for plate, boxes in PLATE_BOXES.items():
         # model built in code (CableModels.java) adds each one, turned by PLATE_TURNS[side].
     # In the hand and inventory the plate is shown on its own, in its medium's colour. It uses
     # the "down" model, whose colour is number 0: the first (and only) tint an item lists.
-    for prefix, colour in MEDIA.items():
+    for prefix, colour in ({"": MEDIA[""]} if plate in WORLD_PLATES else MEDIA).items():
         write_json("assets/qbotics/items/%s%s.json" % (prefix, plate), {
             "model": {"type": "minecraft:model", "model": "qbotics:block/plate_%s_down" % plate,
                       "tints": [{"type": "minecraft:constant", "value": tint_value(colour)}]},
@@ -625,6 +669,11 @@ for name, heart in (("interface", "minecraft:chest"), ("input", "minecraft:hoppe
     write_json("data/qbotics/recipe/%s.json" % name, shaped(
         [" C ", "CHC", " C "], {"C": "qbotics:cable", "H": heart}, "qbotics:%s" % name))
 write_json("data/qbotics/recipe/bus.json", shapeless(["qbotics:input", "qbotics:output"], "qbotics:bus"))
+# The world plates, the same way: an observer for the pin that watches, a dispenser for the
+# placer, and for the breaker a diamond pickaxe, to match what it can break.
+for name, heart in (("pin", "minecraft:observer"), ("placer", "minecraft:dispenser"), ("breaker", "minecraft:diamond_pickaxe")):
+    write_json("data/qbotics/recipe/%s.json" % name, shaped(
+        [" C ", "CHC", " C "], {"C": "qbotics:cable", "H": heart}, "qbotics:%s" % name))
 # The fluid version of anything is the item version and a bucket; the energy version, the
 # item version and a block of redstone. A fluid or energy bus can also be made from its own
 # input and output.

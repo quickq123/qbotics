@@ -48,6 +48,8 @@ import qbotics.network.RadioNetwork;
  * <pre>
  *            chest furnace inbox outbox      tank       machine    crafting table
  *   main  =    bus   bus   input output tanks fbus battery ebus  xp  bus  (z = 2; plates point north)
+ *                        pin   .  placer  .                                (z = 3: a pin on a lamp south of it,
+ *                        lamp    (space) breaker                            z = 4: a placer and a breaker on one space)
  *
  *   remote =  store  bus->chest                                           (z = 6)
  * </pre>
@@ -110,6 +112,13 @@ public final class TestStage {
     private void plate(int x, int z, Kind kind, Medium medium, String name) {
         set(x, 0, z, cable.defaultBlockState());
         CablePort port = CableBlock.attach(level, at(x, 0, z), kind, medium, Direction.NORTH);
+        port.onPlaced(owner);
+        port.setDeviceName(name);
+    }
+
+    /** A plate put on the cable already at (x, 0, z), pointing one way. */
+    private void worldPlate(int x, int z, Kind kind, Direction pointing, String name) {
+        CablePort port = CableBlock.attach(level, at(x, 0, z), kind, pointing);
         port.onPlaced(owner);
         port.setDeviceName(name);
     }
@@ -192,6 +201,17 @@ public final class TestStage {
         // A crafting table's slots exist only on its screen, which this bus opens as its owner.
         set(13, 0, 1, Blocks.CRAFTING_TABLE.defaultBlockState());
         plate(13, 2, Kind.BUS, Medium.ITEM, "crafter");
+
+        // The world plates, on cables behind the main row (z = 3 and 4): a Logic Pin on a lamp,
+        // and a Placer and a Breaker facing the same empty space from two sides.
+        for (int x = 5; x <= 8; x++) {
+            set(x, 0, 3, cable.defaultBlockState());
+        }
+        set(8, 0, 4, cable.defaultBlockState());
+        set(5, 0, 4, Blocks.REDSTONE_LAMP.defaultBlockState());
+        worldPlate(5, 3, Kind.PIN, Direction.SOUTH, "lamp");
+        worldPlate(7, 3, Kind.PLACER, Direction.SOUTH, "placer");
+        worldPlate(8, 4, Kind.BREAKER, Direction.WEST, "breaker");
 
         // ---- the second network, along z = 6 ----
         ComputerBlockEntity remote = computer(1, 6, "remote");

@@ -1,0 +1,185 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "qbotics:block/port_side",
+    "side": "qbotics:block/port_side",
+    "front": "qbotics:block/placer_front",
+    "ring": "qbotics:block/plate_ring"
+  },
+  "elements": [
+    {
+      "from": [
+        3,
+        3,
+        0
+      ],
+      "to": [
+        13,
+        13,
+        3
+      ],
+      "faces": {
+        "north": {
+          "texture": "#front"
+        },
+        "south": {
+          "texture": "#side"
+        },
+        "east": {
+          "texture": "#side"
+        },
+        "west": {
+          "texture": "#side"
+        },
+        "up": {
+          "texture": "#side"
+        },
+        "down": {
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5,
+        3
+      ],
+      "to": [
+        11,
+        11,
+        5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#ring",
+          "tintindex": 3
+        },
+        "south": {
+          "texture": "#ring",
+          "tintindex": 3
+        },
+        "east": {
+          "texture": "#ring",
+          "tintindex": 3
+        },
+        "west": {
+          "texture": "#ring",
+          "tintindex": 3
+        },
+        "up": {
+          "texture": "#ring",
+          "tintindex": 3
+        },
+        "down": {
+          "texture": "#ring",
+          "tintindex": 3
+        }
+      }
+    },
+    {
+      "from": [
+        6,
+        6,
+        5
+      ],
+      "to": [
+        10,
+        10,
+        6
+      ],
+      "faces": {
+        "north": {
+          "texture": "#side"
+        },
+        "south": {
+          "texture": "#side"
+        },
+        "east": {
+          "texture": "#side"
+        },
+        "west": {
+          "texture": "#side"
+        },
+        "up": {
+          "texture": "#side"
+        },
+        "down": {
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5,
+        -0.02
+      ],
+      "to": [
+        11,
+        6,
+        0.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#ring",
+          "tintindex": 3
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        10,
+        -0.02
+      ],
+      "to": [
+        11,
+        11,
+        0.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#ring",
+          "tintindex": 3
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        5,
+        -0.02
+      ],
+      "to": [
+        6,
+        11,
+        0.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#ring",
+          "tintindex": 3
+        }
+      }
+    },
+    {
+      "from": [
+        10,
+        5,
+        -0.02
+      ],
+      "to": [
+        11,
+        11,
+        0.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#ring",
+          "tintindex": 3
+        }
+      }
+    }
+  ]
+}

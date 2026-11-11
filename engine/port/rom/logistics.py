@@ -654,7 +654,139 @@ class ExperienceInterface(Device, _Gives, _Takes):
         return self.refresh()._info["lock"]
 
 
+class _WorldPlate(Device):
+    # A plate that acts on the world in front of it rather than on a container.
+
+    @property
+    def target(self):
+        """The block it points at, e.g. "minecraft:stone"."""
+        return self.block()["block"]
+
+    def block(self):
+        """The block it points at, and its state:
+        {"block": "minecraft:wheat", "state": {"age": "7"}, "air": False, "fluid": None}.
+        fluid names the fluid in that space ("minecraft:water"), or is None."""
+        return _call("look", self.mac)
+
+
+class Pin(_WorldPlate):
+    """A Logic Pin: one redstone line, in or out, and an eye on the block it points at.
+
+        door = net.pin("door")
+        door.write(15)              # power it, full strength
+        door.pulse(4)               # on for 4 ticks (a fifth of a second), then off
+        sensor = net.pin("sensor")  # a new pin reads
+        if sensor.read() > 0: ...
+        sensor.wait_for("rising")   # sleep until its signal comes on
+
+    As an output it powers the block it points at strongly, as a lever powers the block it
+    is on, so the signal also reaches through that block. Redstone dust joins to it."""
+
+    def _state(self):
+        return _call("pin", self.mac)
+
+    @property
+    def mode(self):
+        """"input" (it reads) or "output" (it drives). Set it to change. A new pin reads."""
+        return self._state()["mode"]
+
+    @mode.setter
+    def mode(self, mode):
+        _call("pin_set", self.mac, mode, None, None)
+
+    def read(self):
+        """The signal level, 0 to 15: what arrives from the block it points at, or as an
+        output, the level it drives."""
+        return self._state()["level"]
+
+    def write(self, level):
+        """Drives a level, 0 to 15 (0 is off), and makes the pin an output. True and False
+        work as 15 and 0."""
+        if level is True:
+            level = 15
+        elif level is False:
+            level = 0
+        _call("pin_set", self.mac, "output", level, None)
+
+    def pulse(self, ticks=2, level=15):
+        """Drives a level for some ticks (20 a second), then drops to 0 by itself, so a
+        program can clock a machine without staying awake to switch it off."""
+        _call("pin_set", self.mac, "output", level, ticks)
+
+    def wait_for(self, what="change", timeout=None):
+        """Sleeps until something happens, and returns True; with timeout (in seconds),
+        returns False if it doesn't happen in that time. Ctrl+C stops the wait.
+        what is one of:
+            "rising"   the signal comes on (from 0 to more)
+            "falling"  the signal goes off (to 0)
+            "change"   the signal's level changes at all
+            "block"    the block it points at changes, or its state does (a crop grows a
+                       stage, a door opens, a furnace lights), as an observer would see
+        Signals are read only while the pin is an input. Nothing is missed between
+        looks: even a pulse too short to see counts."""
+        key = {"rising": "rising", "falling": "falling", "change": "changes", "block": "blocks"}.get(what)
+        if key is None:
+            raise NetworkError('wait_for() takes "rising", "falling", "change" or "block", not %r.' % (what,))
+        before = self._state()[key]
+        started = time.ticks_ms()
+        while True:
+            time.sleep(0.05)
+            if self._state()[key] != before:
+                return True
+            if timeout is not None and time.ticks_diff(time.ticks_ms(), started) >= timeout * 1000:
+                return False
+
+
+class Placer(_WorldPlate):
+    """A Placer: puts a block, or pours a fluid, into the space in front of it, as its
+    owner would. The space must be empty, or hold something that gives way (grass,
+    flowing water); it does nothing, and says why, if it is taken.
+
+        placer.place("cobblestone", sources=store)
+        placer.pour("water", sources=tanks)"""
+
+    def place(self, what=None, sources=None):
+        """Takes one item from sources (one source or a list) and places it. what is a
+        name or filter; left out, the first block found is placed. Returns the item's
+        name. Items the owner couldn't place there go back where they came from."""
+        if sources is None:
+            raise NetworkError("place() needs sources= to say where the block comes from.")
+        return _call("place", self.mac, _ends(sources, Source), what)["placed"]
+
+    def pour(self, fluid=None, sources=None):
+        """Takes a bucket's worth (1000 mB) of fluid from sources and pours it as a source
+        block. Returns the fluid's name."""
+        if sources is None:
+            raise NetworkError("pour() needs sources= to say where the fluid comes from.")
+        return _call("pour", self.mac, _ends(sources, Source), fluid)["poured"]
+
+
+class Breaker(_WorldPlate):
+    """A Breaker: breaks the block in front of it, as the best tool for that block would
+    (a netherite pickaxe, axe, shovel, hoe or sword, unenchanted), but never bedrock or
+    anything else that can't be broken. It holds nothing itself:
+
+        got = breaker.break_block(to=store)    # {"minecraft:cobblestone": 1}
+
+    Every drop must have somewhere to go before the block breaks; if one doesn't, nothing
+    breaks and NetworkError names it. A container breaks with its contents, which count
+    as drops. Pointed at a fluid's source, it takes it up into a fluid store instead."""
+
+    def break_block(self, to):
+        """Breaks the block in front, waiting as long as breaking it takes, and returns
+        what it got: {name: count}. to is one destination or a list: interfaces, outputs
+        or buses for items, fluid ones for fluid."""
+        ends = _ends(to, Destination)
+        while True:
+            reply = _call("break", self.mac, ends)
+            if "wait" not in reply:
+                return reply["got"]
+            # The game counts in ticks (20 a second when it keeps up); look again soon.
+            time.sleep(min(reply["wait"] / 20, 0.1))
+
+
 _KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus,
+          "pin": Pin, "placer": Placer, "breaker": Breaker,
           "fluid_interface": FluidInterface, "fluid_input": FluidInput, "fluid_output": FluidOutput, "fluid_bus": FluidBus,
           "energy_interface": EnergyInterface, "energy_input": EnergyInput, "energy_output": EnergyOutput,
           "energy_bus": EnergyBus, "experience_interface": ExperienceInterface}
@@ -726,6 +858,22 @@ class Network:
     def experience_interface(self, key=None):
         """An experience interface by name or address; with no argument, the network's only one."""
         return _wrap(_call("find", key, "experience_interface"))
+
+    def pin(self, key=None):
+        """A logic pin by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "pin"))
+
+    def placer(self, key=None):
+        """A placer by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "placer"))
+
+    def breaker(self, key=None):
+        """A breaker by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "breaker"))
+
+    def pins(self):
+        """Every logic pin on the network."""
+        return self.devices("pin")
 
     def interfaces(self):
         """Every interface on the network."""

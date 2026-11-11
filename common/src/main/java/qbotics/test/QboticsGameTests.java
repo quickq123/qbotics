@@ -44,6 +44,13 @@ public final class QboticsGameTests {
     private static final BlockPos POS = new BlockPos(1, 1, 1);
 
     /** Test name -> test body. Each runs in the "qbotics:empty" structure. */
+    /**
+     * Tests whose programs wait in real time (a pin waiting for a change, a breaker working at
+     * a block) get more ticks than the usual 1,200: the test server runs ticks far faster than
+     * 20 a second, so 1,200 can pass in a second and a half. A test still ends as soon as it passes.
+     */
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 20_000, "test_stage", 20_000);
+
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
             Map.entry("cable_connects", QboticsGameTests::cableConnects),
@@ -71,6 +78,7 @@ public final class QboticsGameTests {
             Map.entry("screen_access", QboticsGameTests::screenAccess),
             Map.entry("vanilla_screens", QboticsGameTests::vanillaScreens),
             Map.entry("screen_experience", QboticsGameTests::screenExperience),
+            Map.entry("world_plates", QboticsGameTests::worldPlates),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -993,11 +1001,11 @@ public final class QboticsGameTests {
         ComputerBlockEntity main = (ComputerBlockEntity) level.getBlockEntity(corner.offset(1, 0, 2));
         CableNetwork network = CableNetwork.at(level, main.getBlockPos());
         List<String> names = network.devices().stream().map(NetworkDevice::deviceName).sorted().toList();
-        helper.assertTrue(names.equals(List.of("battery", "big_tank", "chest", "crafter", "furnace", "inbox", "machine", "main", "main_antenna", "outbox",
-                "store", "tanks", "xp")),"the main network should hold exactly the stage's devices, but had " + names);
+        helper.assertTrue(names.equals(List.of("battery", "big_tank", "breaker", "chest", "crafter", "furnace", "inbox", "lamp", "machine", "main", "main_antenna",
+                "outbox", "placer", "store", "tanks", "xp")),"the main network should hold exactly the stage's devices, but had " + names);
 
         ServerComputer computer = ComputerManager.get(level.getServer()).getOrStart(main);
-        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources", "8_crafting")) {
+        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources", "8_crafting", "9_world")) {
             computer.submitLine("run demos/" + demo + ".py");
         }
         computer.submitLine("pwd");
@@ -1009,7 +1017,9 @@ public final class QboticsGameTests {
             for (String expected : List.of("149 items; 32 are coal", "chest to furnace: 8", "moved to the store: 24", "5000 mB, 3000 of it water",
                     "battery now holds 250000 of 2000000", "Sent: True", "{'echo': {'hello': 'from main'}}", "experience_interface",
                     "into the furnace: 4", "all but gold: 20", "As expected: Only 6 of the 50 needed", "Exactly 6 gold: 6",
-                    "A log into the grid: 1", "Planks taken out: 4", "runs for 8 sticks: 2", "Made: {'minecraft:stick': 8}", "holds 8 sticks")) {
+                    "A log into the grid: 1", "Planks taken out: 4", "runs for 8 sticks: 2", "Made: {'minecraft:stick': 8}", "holds 8 sticks",
+                    "The lamp blinked three times.", "Placed: minecraft:cobblestone", "In front of the breaker: minecraft:cobblestone",
+                    "Broke it and got: {'minecraft:cobblestone': 1}")) {
                 helper.assertTrue(text.contains(expected), "the demos should have printed '" + expected + "' but printed:\n" + text);
             }
         });
@@ -1286,6 +1296,98 @@ public final class QboticsGameTests {
             assertScreen(helper, computer, "anvil cost True", "no xp: The anvil asks", "too poor: The anvil asks 2 levels: having them takes 16 points, but poor holds",
                     "anvil took 1 True 1\n", "offers 3 True", "pressed True", "charged one level True",
                     "enchanted ['minecraft:enchanted_book']", "left 2 1 1\n");
+        });
+    }
+
+    /**
+     * The world plates (design doc §11.0.1): a Logic Pin powering a lamp and another reading
+     * a redstone block, a Placer placing and pouring, and a Breaker facing the same space
+     * breaking what was placed and taking up what was poured.
+     */
+    private static void worldPlates(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(0, 1, 1), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 2, 1), Blocks.REDSTONE_LAMP);
+        helper.setBlock(new BlockPos(0, 1, 2), Blocks.REDSTONE_BLOCK);
+        helper.setBlock(new BlockPos(2, 1, 0), Blocks.STONE); // keeps poured water from running off
+        for (BlockPos cable : List.of(new BlockPos(1, 1, 1), new BlockPos(1, 1, 2), new BlockPos(2, 1, 2))) {
+            helper.setBlock(cable, QboticsContent.CABLE_BLOCK.get());
+        }
+        UUID owner = UUID.randomUUID();
+        record Plate(BlockPos at, Kind kind, Direction side, String name) {
+        }
+        for (Plate plate : List.of(new Plate(new BlockPos(1, 1, 1), Kind.PIN, Direction.UP, "lamp"),
+                new Plate(new BlockPos(1, 1, 1), Kind.PLACER, Direction.EAST, "placer"),
+                new Plate(new BlockPos(1, 1, 2), Kind.PIN, Direction.WEST, "sensor"),
+                new Plate(new BlockPos(2, 1, 2), Kind.BREAKER, Direction.NORTH, "breaker"))) {
+            CablePort port = CableBlock.attach(level, helper.absolutePos(plate.at()), plate.kind(), plate.side());
+            port.onPlaced(owner);
+            port.setDeviceName(plate.name());
+        }
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        store.setDeviceName("store");
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Blocks.COBBLESTONE, 4));
+        qbotics.block.FluidInterfaceBlockEntity tanks = helper.getBlockEntity(new BlockPos(0, 1, 1), qbotics.block.FluidInterfaceBlockEntity.class);
+        tanks.setDeviceName("tanks");
+        tanks.insert(net.minecraft.world.level.material.Fluids.WATER, 2000, false);
+
+        String program = String.join("\n",
+                "import time",
+                "from logistics import network, NetworkError",
+                "net = network()",
+                "store = net.interface('store')",
+                "tanks = net.fluid_interface('tanks')",
+                "lamp = net.pin('lamp')",
+                "sensor = net.pin('sensor')",
+                "placer = net.placer()",
+                "breaker = net.breaker()",
+                "def lit():",
+                "    return lamp.block()['state']['lit']",
+                "",
+                "print('sensor', sensor.mode, sensor.read())",
+                "lamp.write(15)",
+                "print('lamp on', lit(), lamp.mode, lamp.read())",
+                "lamp.write(0)",
+                "while lit() == 'true':    # a lamp goes out a few ticks after its power (states are text)",
+                "    time.sleep(0.05)",
+                "print('lamp off', lit())",
+                "lamp.pulse(200)    # long enough that it can't end before the wait starts",
+                "print('pulse', lit())",
+                "print('pulse over', lamp.wait_for('block', 60), lit())",
+                "",
+                "print(placer.place('cobblestone', sources=store), placer.target)",
+                "try:",
+                "    placer.place('cobblestone', sources=store)",
+                "except NetworkError as e:",
+                "    print('taken:', e)",
+                "print('broke', breaker.break_block(store))",
+                "print('poured', placer.pour('water', sources=tanks), placer.block()['fluid'])",
+                "print('took', breaker.break_block(tanks), tanks.amount('water'))",
+                "try:",
+                "    breaker.break_block(store)",
+                "except NetworkError as e:",
+                "    print('nothing:', e)",
+                "print('stone', store.count('cobblestone'))",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/plates.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not write the test program", e);
+        }
+        computer.submitLine("run /plates.py");
+        helper.succeedWhen(() -> {
+            String screen = screen(computer);
+            helper.assertTrue(!screen.contains("Traceback"), "the program failed:\n" + screen);
+            assertScreen(helper, computer, "sensor input 15\n", "lamp on true output 15\n", "lamp off false\n", "pulse true\n",
+                    "pulse over True false\n", "minecraft:cobblestone minecraft:cobblestone\n",
+                    "taken: The space in front of the placer is taken by minecraft:cobblestone", "broke {'minecraft:cobblestone': 1}\n",
+                    "poured minecraft:water minecraft:water\n", "took {'minecraft:water': 1000} 2000\n",
+                    "nothing: There is nothing in front of the breaker to break.", "stone 4\n");
         });
     }
 

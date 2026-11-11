@@ -166,6 +166,7 @@ public final class ScreenshotRun {
         view("02b-fluid-and-energy-plates", new Vec3(5.5, 3.4, 1.4), new Vec3(5.5, 1.4, -2.0));
         view("02c-stores", new Vec3(13.5, 2.4, 1.0), new Vec3(13.5, 0.6, -2.0));
         view("03-plates-side", new Vec3(8.5, 2.4, 3.2), new Vec3(8.5, 1.5, 0.5));
+        view("03b-world-plates", new Vec3(14.5, 2.6, 3.6), new Vec3(14.5, 0.8, 0.5));
         view("04-plates-above", new Vec3(5.5, 5.0, 2.5), new Vec3(5.5, 1.5, 0.5));
         view("05-six-plates", new Vec3(4.3, 3.0, -1.7), new Vec3(2.5, 1.5, -3.5));
         view("06-six-plates-other-side", new Vec3(0.6, 2.6, -5.4), new Vec3(2.5, 1.5, -3.5));
@@ -376,6 +377,12 @@ public final class ScreenshotRun {
             plated(level, base.offset(i * 2, 1, 0), kinds[i], Direction.SOUTH);
             plated(level, base.offset(6 + i * 2, 1, 0), kinds[i], Direction.EAST);
         }
+        // The world plates: a Logic Pin with redstone dust joined to it, a Placer and a Breaker.
+        plated(level, base.offset(12, 0, 0), Kind.PIN, Direction.SOUTH);
+        level.setBlock(base.offset(12, 0, 1), Blocks.REDSTONE_WIRE.defaultBlockState(), Block.UPDATE_ALL);
+        level.setBlock(base.offset(12, 0, 2), Blocks.REDSTONE_WIRE.defaultBlockState(), Block.UPDATE_ALL);
+        plated(level, base.offset(14, 1, 0), Kind.PLACER, Direction.SOUTH);
+        plated(level, base.offset(16, 1, 0), Kind.BREAKER, Direction.SOUTH);
         // One cable carrying a plate on every side.
         Kind[] around = {Kind.OUTPUT, Kind.INPUT, Kind.INPUT, Kind.OUTPUT, Kind.BUS, Kind.BUS};
         level.setBlock(base.offset(2, 1, -4), cable.defaultBlockState(), Block.UPDATE_ALL);

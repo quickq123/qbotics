@@ -27,4 +27,14 @@ public class NeoForgeCableBlock extends CableBlock {
         }
         return super.onDestroyedByPlayer(state, level, pos, player, tool, willHarvest, fluid);
     }
+
+    /**
+     * Redstone dust joins to a cable only where it carries a Logic Pin. {@code direction}
+     * points from the dust towards the cable.
+     */
+    @Override
+    public boolean canConnectRedstone(BlockState state, net.minecraft.world.level.BlockGetter level, BlockPos pos,
+            net.minecraft.core.@org.jspecify.annotations.Nullable Direction direction) {
+        return direction != null && qbotics.block.WorldPlates.pinOn(level, pos, direction.getOpposite());
+    }
 }

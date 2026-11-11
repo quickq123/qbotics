@@ -816,9 +816,16 @@ The same model as items, on the same cable network:
 
 Open: whether one Output can feed several targets.
 
-### 11.0.1 World plates: Logic Pin, Placer and Breaker (planned, not built)
+### 11.0.1 World plates: Logic Pin, Placer and Breaker (built 2026-11-11)
 
-> **Status (2026-11-11): design only.** Asked for by the project owner; nothing here is built.
+> **Status (2026-11-11): built**, with a game test (`world_plates`) and a demo on the test stage. Player-facing details: `docs/reference.md` §6.10. The open questions below were settled with these defaults, all open to change:
+>
+> - **Pin power:** an output pin powers the block it points at strongly (as a lever does), so it reaches through that block. One pin either reads or drives, not both; it reads only as an input. Redstone dust joins to a pin and to no other part of a cable.
+> - **Pin events:** `wait_for("rising" | "falling" | "change" | "block")`. The server counts each event as it happens, so a program polling for them misses nothing.
+> - **Breaker speed:** the real speed of the right unenchanted netherite tool. No energy cost and no per-player caps yet. No Fortune or Silk Touch.
+> - **Placer:** places by using the item on the space as its owner would, so placement rules, block facing and protection all apply. With no item named, it places the first block it finds. Pouring uses the fluid's bucket, so water evaporates in the Nether as it would for a player.
+> - **Recipes (placeholders):** four cables around an observer (Logic Pin), a dispenser (Placer) or a diamond pickaxe (Breaker).
+> - **Cables became solid to fluids**, so water and lava flow around them instead of washing them away.
 
 Three more plates. Like Input, Output and Bus they are items that attach to a cable, one per
 side, pointing at the block next to that side, and each is a device on the network with its
@@ -1517,6 +1524,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | `move` returns how many moved (none is not an error); `need=` is all-or-nothing and raises; `wait=` pauses until the amount can be moved | Decided; built |
 | 2026-11-11 | Planned: a `Recipe` object: `ingredient(what, slot, amount)`, `result(slot)` (one or several), `can_craft(runs)` as a True/False check against sources, and `craft(runs, screen)` on an open Bus screen, raising if a run fails. Needs screen access | Built 2026-11-11 |
 | 2026-11-11 | A recipe result can name its own destination, to split a machine's outputs | Built 2026-11-11 |
+| 2026-11-11 | Logic Pin, Placer and Breaker built (§11.0.1), with the defaults listed there: strong power from an output pin, `wait_for` on counted events, netherite-tool speed for the Breaker, and placeholder recipes. Cables are now solid to fluids | Built 2026-11-11 |
 | 2026-11-11 | The cable's model is built in code: the block state keeps only the arms, and every cable has a block entity that keeps its plates (kind, medium, identity), which the model reads when drawing. Clears the way for the Logic Pin, Placer and Breaker (§11.0.1). Plates from worlds saved before this are dropped | Built 2026-11-11 |
 | 2026-11-11 | Much later: a recipe viewer (JEI) hands the player ready-made `Recipe` code for a recipe | Idea; not designed |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
@@ -1586,3 +1594,6 @@ All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G
 | **Short-Range Antenna** | `T` / `I` / `C` (one column) | Redstone torch, iron ingot, cable |
 | **Long-Range Antenna** | `D` / `A` / `C` (one column) | Diamond, short-range antenna, cable |
 | **Infinite Antenna** | `E` / `A` / `C` (one column) | Eye of ender, long-range antenna, cable |
+| **Logic Pin** | ` C ` / `CXC` / ` C ` | `X` = observer |
+| **Placer** | ` C ` / `CXC` / ` C ` | `X` = dispenser |
+| **Breaker** | ` C ` / `CXC` / ` C ` | `X` = diamond pickaxe |

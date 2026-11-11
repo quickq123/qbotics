@@ -131,6 +131,11 @@ public class PortBlockEntity extends BlockEntity {
             child.putString("face", port.accessFace.word());
             child.putString("medium", port.medium.word);
             child.putString("kind", port.kind.word);
+            if (port.kind == NetworkDevice.Kind.PIN) {
+                child.putBoolean("pin_output", port.pinOutput);
+                child.putInt("pin_level", port.pinLevel);
+                child.putLong("pulse_until", port.pulseUntil);
+            }
         }
     }
 
@@ -156,6 +161,9 @@ public class PortBlockEntity extends BlockEntity {
             AccessFace face = AccessFace.parse(child.getStringOr("face", ""));
             port.accessFace = face == null ? AccessFace.NEAR : face;
             port.medium = Medium.parse(child.getStringOr("medium", ""));
+            port.pinOutput = child.getBooleanOr("pin_output", false);
+            port.pinLevel = Math.clamp(child.getIntOr("pin_level", 0), 0, 15);
+            port.pulseUntil = child.getLongOr("pulse_until", 0L);
             ports.put(side, port);
         }
         lookChanged();
