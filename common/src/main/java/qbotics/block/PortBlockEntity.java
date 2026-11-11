@@ -8,7 +8,10 @@ import net.minecraft.world.level.storage.ValueOutput;
 import qbotics.QboticsContent;
 import qbotics.network.AccessFace;
 
-/** A bus or an output: it holds nothing itself, and acts on the container it points at. */
+/**
+ * An input, output or bus: a plate on a cable (see {@link CableBlock}). It holds nothing
+ * itself, and acts on the container it points at.
+ */
 public class PortBlockEntity extends DeviceBlockEntity {
     /** The face used when a program doesn't name one. */
     private AccessFace accessFace = AccessFace.NEAR;
@@ -19,13 +22,14 @@ public class PortBlockEntity extends DeviceBlockEntity {
 
     @Override
     public Kind kind() {
-        return getBlockState().getBlock() instanceof PortBlock port ? port.kind() : Kind.BUS;
+        Kind kind = getBlockState().getBlock() instanceof CableBlock ? getBlockState().getValue(CableBlock.PLATE).kind : null;
+        return kind == null ? Kind.BUS : kind;
     }
 
     /** The direction from this block to its target. */
     public Direction pointing() {
-        BlockState state = getBlockState();
-        return state.hasProperty(PortBlock.FACING) ? state.getValue(PortBlock.FACING) : Direction.NORTH;
+        Direction side = CableBlock.plateSide(getBlockState());
+        return side == null ? Direction.NORTH : side;
     }
 
     public BlockPos targetPos() {

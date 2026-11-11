@@ -14,7 +14,7 @@ import qbotics.QboticsContent;
 
 /**
  * The Input block's screen: a row of nine filter sockets above the row of nine slots they
- * belong to, above the player's inventory. {@code qbotics.client.InputScreen} draws it.
+ * belong to, above the player's inventory. {@code qbotics.client.InterfaceScreen} draws it.
  *
  * <p>The top row holds no items. Clicking one of its sockets with an item in hand sets the
  * filter of the slot below to that item (the item stays in hand); clicking with an empty
@@ -24,27 +24,27 @@ import qbotics.QboticsContent;
  * <p>The same class runs on the server, where it works on the real block, and in the
  * player's game, where it works on a copy the server keeps up to date.
  */
-public class InputMenu extends AbstractContainerMenu {
-    public static final int SLOTS = InputBlockEntity.SLOTS;
+public class InterfaceMenu extends AbstractContainerMenu {
+    public static final int SLOTS = InterfaceBlockEntity.SLOTS;
 
     /** The real block on the server; null in the player's game. */
-    private final @Nullable InputBlockEntity input;
+    private final @Nullable InterfaceBlockEntity input;
     private final Container items;
     /** One of each filter's item, so there is something to draw in the top row. */
     private final SimpleContainer shown = new SimpleContainer(SLOTS);
 
     /** On the server. */
-    public InputMenu(int containerId, Inventory inventory, InputBlockEntity input) {
+    public InterfaceMenu(int containerId, Inventory inventory, InterfaceBlockEntity input) {
         this(containerId, inventory, input, input);
     }
 
     /** In the player's game. */
-    public InputMenu(int containerId, Inventory inventory) {
+    public InterfaceMenu(int containerId, Inventory inventory) {
         this(containerId, inventory, new SimpleContainer(SLOTS), null);
     }
 
-    private InputMenu(int containerId, Inventory inventory, Container items, @Nullable InputBlockEntity input) {
-        super(QboticsContent.INPUT_MENU.get(), containerId);
+    private InterfaceMenu(int containerId, Inventory inventory, Container items, @Nullable InterfaceBlockEntity input) {
+        super(QboticsContent.INTERFACE_MENU.get(), containerId);
         this.input = input;
         this.items = items;
         items.startOpen(inventory.player);

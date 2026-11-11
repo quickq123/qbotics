@@ -436,6 +436,7 @@ public final class Docs {
                 String called = match.group(1);
                 String made = switch (called) {
                     case "network" -> "Network";
+                    case "interface" -> "Interface";
                     case "input" -> "Input";
                     case "output" -> "Output";
                     case "bus" -> "Bus";

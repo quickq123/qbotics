@@ -57,6 +57,183 @@
         "model": "qbotics:block/cable_side",
         "x": 90
       }
+    },
+    {
+      "when": {
+        "plate": "input",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_input"
+      }
+    },
+    {
+      "when": {
+        "plate": "input",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_input",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "plate": "input",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_input",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "plate": "input",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_input",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "plate": "input",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_input",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "plate": "input",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_input",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "plate": "output",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_output"
+      }
+    },
+    {
+      "when": {
+        "plate": "output",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_output",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "plate": "output",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_output",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "plate": "output",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_output",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "plate": "output",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_output",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "plate": "output",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_output",
+        "x": 90
+      }
+    },
+    {
+      "when": {
+        "plate": "bus",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_bus"
+      }
+    },
+    {
+      "when": {
+        "plate": "bus",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_bus",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "plate": "bus",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_bus",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "plate": "bus",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_bus",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "plate": "bus",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_bus",
+        "x": 270
+      }
+    },
+    {
+      "when": {
+        "plate": "bus",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "qbotics:block/plate_bus",
+        "x": 90
+      }
     }
   ]
 }

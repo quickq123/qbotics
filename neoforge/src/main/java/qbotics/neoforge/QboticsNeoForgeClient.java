@@ -14,7 +14,7 @@ import qbotics.net.TerminalStatePayload;
 public final class QboticsNeoForgeClient {
     public QboticsNeoForgeClient(IEventBus modBus) {
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) ->
-                event.register(QboticsNeoForge.INPUT_MENU.get(), qbotics.client.InputScreen::new));
+                event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new));
         modBus.addListener((RegisterClientPayloadHandlersEvent event) -> {
             event.register(TerminalStatePayload.TYPE, (payload, context) -> ClientIde.onTerminalState(payload));
             event.register(IdePayloads.FileResponse.TYPE, (payload, context) -> ClientIde.onFileResponse(payload));

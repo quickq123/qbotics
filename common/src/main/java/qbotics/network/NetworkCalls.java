@@ -24,7 +24,7 @@ import net.minecraft.world.level.Level;
 import qbotics.Qbotics;
 import qbotics.computer.ComputerManager;
 import qbotics.block.AntennaBlockEntity;
-import qbotics.block.InputBlockEntity;
+import qbotics.block.InterfaceBlockEntity;
 import qbotics.block.PortBlockEntity;
 import qbotics.network.NetworkDevice.Kind;
 
@@ -124,30 +124,30 @@ public final class NetworkCalls {
             }
             case "contents": {
                 NetworkDevice device = byMac(network, args, 1);
-                if (device instanceof InputBlockEntity input) {
+                if (device instanceof InterfaceBlockEntity input) {
                     return contents(input);
                 }
-                if (device instanceof PortBlockEntity port && port.kind() == Kind.BUS) {
-                    // With no face named, a bus reads the whole container, not only what one face shows.
+                if (device instanceof PortBlockEntity port && port.kind() != Kind.OUTPUT) {
+                    // With no face named, an input or bus reads the whole container, not only what one face shows.
                     String faceWord = string(args, 2);
                     return contents(faceWord == null ? wholeTarget(level, port) : target(level, port, faceWord));
                 }
-                throw new CallError("Only an input or a bus can list contents; this is " + article(device.kind()) + ".");
+                throw new CallError("Only an interface, an input or a bus can list contents; this is " + article(device.kind()) + ".");
             }
             case "filters": {
-                InputBlockEntity input = input(byMac(network, args, 1));
+                InterfaceBlockEntity input = input(byMac(network, args, 1));
                 JsonArray list = new JsonArray();
-                for (int slot = 0; slot < InputBlockEntity.SLOTS; slot++) {
+                for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
                     Item filter = input.filter(slot);
                     list.add(filter == null ? JsonNull.INSTANCE : new JsonPrimitive(itemId(filter)));
                 }
                 return list;
             }
             case "set_filter": {
-                InputBlockEntity input = input(byMac(network, args, 1));
+                InterfaceBlockEntity input = input(byMac(network, args, 1));
                 int slot = args.get(2).getAsInt();
-                if (slot < 0 || slot >= InputBlockEntity.SLOTS) {
-                    throw new CallError("This input has slots 0 to " + (InputBlockEntity.SLOTS - 1) + "; there is no slot " + slot + ".");
+                if (slot < 0 || slot >= InterfaceBlockEntity.SLOTS) {
+                    throw new CallError("This interface has slots 0 to " + (InterfaceBlockEntity.SLOTS - 1) + "; there is no slot " + slot + ".");
                 }
                 String item = string(args, 3);
                 input.setFilter(slot, item == null ? null : item(item));
@@ -178,14 +178,17 @@ public final class NetworkCalls {
     }
 
     /**
-     * insert: from inputs, through a bus or output, into its target.
-     * extract: out of a bus's target, into inputs.
-     * Arguments: device MAC, item, count, the other end's MAC (or null for any input), face (or null).
+     * insert: from interfaces, through an output or bus, into its target.
+     * extract: out of an input's or bus's target, into interfaces.
+     * Arguments: device MAC, item, count, the other end's MAC (or null for any interface), face (or null).
      */
     private static int move(ServerLevel level, CableNetwork network, boolean insert, JsonArray args) {
         PortBlockEntity port = port(byMac(network, args, 1));
-        if (!insert && port.kind() != Kind.BUS) {
-            throw new CallError("An output can only put items in. Use a bus to take items out.");
+        if (!insert && port.kind() == Kind.OUTPUT) {
+            throw new CallError("An output can only put items in. Use an input or a bus to take items out.");
+        }
+        if (insert && port.kind() == Kind.INPUT) {
+            throw new CallError("An input can only take items out. Use an output or a bus to put items in.");
         }
         Item item = item(args.get(2).getAsString());
         int count = args.get(3).getAsInt();
@@ -193,23 +196,23 @@ public final class NetworkCalls {
             throw new CallError("The count must be 1 or more, not " + count + ".");
         }
         count = Math.min(count, MAX_ITEMS_PER_CALL);
-        List<InputBlockEntity> inputs = new ArrayList<>();
+        List<InterfaceBlockEntity> inputs = new ArrayList<>();
         String other = string(args, 4);
         if (other != null) {
             inputs.add(input(byMac(network, args, 4)));
         } else {
             for (NetworkDevice device : network.devices()) {
-                if (device instanceof InputBlockEntity input) {
+                if (device instanceof InterfaceBlockEntity input) {
                     inputs.add(input);
                 }
             }
             if (inputs.isEmpty()) {
-                throw new CallError("There is no input block on this network to " + (insert ? "take items from." : "put items into."));
+                throw new CallError("There is no interface on this network to " + (insert ? "take items from." : "put items into."));
             }
         }
         ItemPort target = target(level, port, string(args, 5));
         int moved = 0;
-        for (InputBlockEntity input : inputs) {
+        for (InterfaceBlockEntity input : inputs) {
             if (moved >= count) {
                 break;
             }
@@ -339,18 +342,18 @@ public final class NetworkCalls {
         return ("aeiou".indexOf(word.charAt(0)) >= 0 ? "an " : "a ") + word;
     }
 
-    private static InputBlockEntity input(NetworkDevice device) {
-        if (device instanceof InputBlockEntity input) {
+    private static InterfaceBlockEntity input(NetworkDevice device) {
+        if (device instanceof InterfaceBlockEntity input) {
             return input;
         }
-        throw new CallError("That needs an input block; this is " + article(device.kind()) + ".");
+        throw new CallError("That needs an interface; this is " + article(device.kind()) + ".");
     }
 
     private static PortBlockEntity port(NetworkDevice device) {
         if (device instanceof PortBlockEntity port) {
             return port;
         }
-        throw new CallError("That needs a bus or an output; this is " + article(device.kind()) + ".");
+        throw new CallError("That needs an input, an output or a bus; this is " + article(device.kind()) + ".");
     }
 
     private static AccessFace face(String word) {
@@ -418,8 +421,8 @@ public final class NetworkCalls {
         } else if (device instanceof PortBlockEntity port) {
             info.addProperty("face", port.accessFace().word());
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
-        } else if (device instanceof InputBlockEntity) {
-            info.addProperty("slots", InputBlockEntity.SLOTS);
+        } else if (device instanceof InterfaceBlockEntity) {
+            info.addProperty("slots", InterfaceBlockEntity.SLOTS);
         }
         return info;
     }

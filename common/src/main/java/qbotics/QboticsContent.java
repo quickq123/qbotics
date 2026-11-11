@@ -9,9 +9,8 @@ import qbotics.block.AntennaBlockEntity;
 import qbotics.block.CableBlock;
 import qbotics.block.ComputerBlock;
 import qbotics.block.ComputerBlockEntity;
-import qbotics.block.InputBlock;
-import qbotics.block.InputBlockEntity;
-import qbotics.block.PortBlock;
+import qbotics.block.InterfaceBlock;
+import qbotics.block.InterfaceBlockEntity;
 import qbotics.block.PortBlockEntity;
 
 /**
@@ -22,13 +21,13 @@ public final class QboticsContent {
     public static Supplier<ComputerBlock> COMPUTER_BLOCK;
     public static Supplier<BlockEntityType<ComputerBlockEntity>> COMPUTER_BLOCK_ENTITY;
     public static Supplier<CableBlock> CABLE_BLOCK;
-    public static Supplier<InputBlock> INPUT_BLOCK;
-    public static Supplier<PortBlock> OUTPUT_BLOCK;
-    public static Supplier<PortBlock> BUS_BLOCK;
-    public static Supplier<BlockEntityType<InputBlockEntity>> INPUT_BLOCK_ENTITY;
+    public static Supplier<InterfaceBlock> INTERFACE_BLOCK;
+    /** The Input, Output and Bus plates, as the items a player holds. They go on cables. */
+    public static java.util.Map<qbotics.network.NetworkDevice.Kind, Supplier<? extends net.minecraft.world.item.Item>> PLATE_ITEMS;
+    public static Supplier<BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY;
     /** The Input block's screen of filters and slots. */
-    public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.InputMenu>> INPUT_MENU;
-    /** Shared by the bus and the output. */
+    public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU;
+    /** A cable's plate: an input, an output or a bus. */
     public static Supplier<BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY;
     public static Supplier<AntennaBlock> ANTENNA_SHORT_BLOCK;
     public static Supplier<AntennaBlock> ANTENNA_LONG_BLOCK;

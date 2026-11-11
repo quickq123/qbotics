@@ -136,14 +136,17 @@ write_json("assets/qbotics/lang/en_us.json", {
     "block.qbotics.computer": "Computer",
     "block.qbotics.cable": "Cable",
     "itemGroup.qbotics": "Qbotics",
-    "block.qbotics.input": "Input",
-    "block.qbotics.output": "Output",
-    "block.qbotics.bus": "Bus",
+    "block.qbotics.interface": "Interface",
+    "item.qbotics.input": "Input",
+    "item.qbotics.output": "Output",
+    "item.qbotics.bus": "Bus",
+    "message.qbotics.plate_taken": "That cable already carries a plate.",
+    "message.qbotics.plate_needs_cable": "A plate goes on a cable: you need a cable in your inventory.",
     "block.qbotics.antenna_short": "Short-Range Antenna",
     "block.qbotics.antenna_long": "Long-Range Antenna",
     "block.qbotics.antenna_infinite": "Infinite Antenna",
     "message.qbotics.antenna": "%s  |  external %s  |  frequency %s  |  reach %s",
-    "container.qbotics.input": "Filters / Items   %s",
+    "container.qbotics.interface": "Filters / Items   %s",
     "message.qbotics.port": "%s, pointing at %s",
     "screen.qbotics.terminal": "Computer Terminal",
 })
@@ -218,17 +221,7 @@ def arm(side, **rotation):
     return {"when": {side: "true"}, "apply": apply}
 
 
-write_json("assets/qbotics/blockstates/cable.json", {
-    "multipart": [
-        {"apply": {"model": "qbotics:block/cable_core"}},
-        arm("north"),
-        arm("east", y=90),
-        arm("south", y=180),
-        arm("west", y=270),
-        arm("up", x=270),
-        arm("down", x=90),
-    ],
-})
+# (The cable's block state is written further down, with the plates it can carry.)
 
 # ---- data: recipes, drops, tags -------------------------------------------------
 
@@ -286,22 +279,22 @@ write_json("data/qbotics/loot_table/blocks/cable.json", drops_itself("qbotics:ca
 
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
-    "values": ["qbotics:computer", "qbotics:cable", "qbotics:input", "qbotics:output", "qbotics:bus",
+    "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
-    "values": ["qbotics:cable", "qbotics:computer", "qbotics:input", "qbotics:output", "qbotics:bus",
+    "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
 })
-# ---- item blocks: input, output, bus (design doc §11.0) ---------------------------
+# ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 
 ARROW_IN = (110, 224, 124)
 ARROW_OUT = (240, 160, 60)
 
 
-def input_side():
+def interface_side():
     """Nine small slots, like the block's nine filtered slots."""
     px = case_base()
     for gy in range(3):
@@ -312,7 +305,7 @@ def input_side():
     return px
 
 
-def input_top():
+def interface_top():
     """A hatch items drop into."""
     px = case_base()
     for y in range(3, 13):
@@ -325,7 +318,7 @@ def input_top():
 
 
 def port_side():
-    """Plain casing with a cable-coloured band, so the block reads as part of the network."""
+    """Plain casing with a cable-coloured band, so a plate reads as part of the network."""
     px = case_base()
     for x in range(1, 15):
         px[7][x] = SHEATH_DARK
@@ -344,66 +337,88 @@ def port_front(colours):
     return px
 
 
-# Output: one arrow pointing in to the target. Bus: arrows both ways.
+# Output: an orange arrow. Input: the same arrow in green, pointing the other way. Bus: both.
 OUTPUT_MARKS = {(7, 5): ARROW_OUT, (8, 5): ARROW_OUT, (6, 6): ARROW_OUT, (9, 6): ARROW_OUT,
                 (7, 7): ARROW_OUT, (8, 7): ARROW_OUT, (7, 8): ARROW_OUT, (8, 8): ARROW_OUT,
                 (7, 9): ARROW_OUT, (8, 9): ARROW_OUT, (7, 10): ARROW_OUT, (8, 10): ARROW_OUT}
+INPUT_MARKS = {(x, 15 - y): ARROW_IN for (x, y) in OUTPUT_MARKS}
 BUS_MARKS = {(5, 5): ARROW_OUT, (6, 5): ARROW_OUT, (5, 6): ARROW_OUT, (6, 6): ARROW_OUT, (5, 7): ARROW_OUT,
              (6, 7): ARROW_OUT, (4, 8): ARROW_OUT, (7, 8): ARROW_OUT, (5, 9): ARROW_OUT, (6, 9): ARROW_OUT,
              (9, 6): ARROW_IN, (10, 6): ARROW_IN, (8, 7): ARROW_IN, (11, 7): ARROW_IN, (9, 8): ARROW_IN,
              (10, 8): ARROW_IN, (9, 9): ARROW_IN, (10, 9): ARROW_IN, (9, 10): ARROW_IN, (10, 10): ARROW_IN}
 
-write_png("assets/qbotics/textures/block/input_side.png", input_side())
-write_png("assets/qbotics/textures/block/input_top.png", input_top())
+write_png("assets/qbotics/textures/block/interface_side.png", interface_side())
+write_png("assets/qbotics/textures/block/interface_top.png", interface_top())
 write_png("assets/qbotics/textures/block/port_side.png", port_side())
+write_png("assets/qbotics/textures/block/input_front.png", port_front(INPUT_MARKS))
 write_png("assets/qbotics/textures/block/output_front.png", port_front(OUTPUT_MARKS))
 write_png("assets/qbotics/textures/block/bus_front.png", port_front(BUS_MARKS))
 
-write_json("assets/qbotics/models/block/input.json", {
+write_json("assets/qbotics/models/block/interface.json", {
     "parent": "minecraft:block/cube_column",
-    "textures": {"end": "qbotics:block/input_top", "side": "qbotics:block/input_side"},
+    "textures": {"end": "qbotics:block/interface_top", "side": "qbotics:block/interface_side"},
 })
-write_json("assets/qbotics/blockstates/input.json", {"variants": {"": {"model": "qbotics:block/input"}}})
-write_json("assets/qbotics/items/input.json", {
-    "model": {"type": "minecraft:model", "model": "qbotics:block/input"},
+write_json("assets/qbotics/blockstates/interface.json", {"variants": {"": {"model": "qbotics:block/interface"}}})
+write_json("assets/qbotics/items/interface.json", {
+    "model": {"type": "minecraft:model", "model": "qbotics:block/interface"},
 })
 
-for port in ("output", "bus"):
-    # The model's north face is the front; the block state turns it to wherever the block points.
-    write_json("assets/qbotics/models/block/%s.json" % port, {
-        "parent": "minecraft:block/cube",
+# Each plate is three stacked boxes between the cable (at z = 6) and the block it points at
+# (at z = 0), drawn pointing north. The shapes follow a convention players know from other
+# logistics mods: an input has a wide mouth, an output a narrow nozzle, a bus a flat panel.
+PLATE_BOXES = {
+    "input": [(3, 3, 0, 13, 13, 2), (5, 5, 2, 11, 11, 4), (6, 6, 4, 10, 10, 6)],
+    "output": [(6, 6, 0, 10, 10, 2), (5, 5, 2, 11, 11, 4), (4, 4, 4, 12, 12, 6)],
+    "bus": [(2, 2, 0, 14, 14, 2), (4, 4, 2, 12, 12, 4), (6, 6, 4, 10, 10, 6)],
+}
+PLATE_TURNS = {"north": {}, "east": {"y": 90}, "south": {"y": 180}, "west": {"y": 270}, "up": {"x": 270}, "down": {"x": 90}}
+
+
+def plate_element(index, box):
+    x0, y0, z0, x1, y1, z1 = box
+    faces = {side: {"texture": "#side"} for side in ("north", "south", "east", "west", "up", "down")}
+    if index == 0:
+        faces["north"] = {"texture": "#front"}
+    return {"from": [x0, y0, z0], "to": [x1, y1, z1], "faces": faces}
+
+
+cable_parts = [
+    {"apply": {"model": "qbotics:block/cable_core"}},
+    arm("north"),
+    arm("east", y=90),
+    arm("south", y=180),
+    arm("west", y=270),
+    arm("up", x=270),
+    arm("down", x=90),
+]
+for plate, boxes in PLATE_BOXES.items():
+    write_json("assets/qbotics/models/block/plate_%s.json" % plate, {
+        "parent": "minecraft:block/block",
         "textures": {
             "particle": "qbotics:block/port_side",
-            "north": "qbotics:block/%s_front" % port,
-            "south": "qbotics:block/port_side",
-            "east": "qbotics:block/port_side",
-            "west": "qbotics:block/port_side",
-            "up": "qbotics:block/port_side",
-            "down": "qbotics:block/port_side",
+            "side": "qbotics:block/port_side",
+            "front": "qbotics:block/%s_front" % plate,
         },
+        "elements": [plate_element(i, box) for i, box in enumerate(boxes)],
     })
-    model = {"model": "qbotics:block/%s" % port}
-    write_json("assets/qbotics/blockstates/%s.json" % port, {
-        "variants": {
-            "facing=north": model,
-            "facing=east": dict(model, y=90),
-            "facing=south": dict(model, y=180),
-            "facing=west": dict(model, y=270),
-            "facing=up": dict(model, x=270),
-            "facing=down": dict(model, x=90),
-        },
+    # In the hand and inventory the plate is shown on its own.
+    write_json("assets/qbotics/items/%s.json" % plate, {
+        "model": {"type": "minecraft:model", "model": "qbotics:block/plate_%s" % plate},
     })
-    write_json("assets/qbotics/items/%s.json" % port, {
-        "model": {"type": "minecraft:model", "model": "qbotics:block/%s" % port},
-    })
+    for facing, turn in PLATE_TURNS.items():
+        cable_parts.append({"when": {"plate": plate, "facing": facing},
+                            "apply": dict({"model": "qbotics:block/plate_%s" % plate}, **turn)})
+# Written here, after the plates, because a cable's look includes the plate it carries.
+write_json("assets/qbotics/blockstates/cable.json", {"multipart": cable_parts})
 
 # Placeholder recipes (design doc §20): four cables around the vanilla block each one resembles.
-for name, heart in (("input", "minecraft:chest"), ("output", "minecraft:dropper"), ("bus", "minecraft:hopper")):
+for name, heart in (("interface", "minecraft:chest"), ("input", "minecraft:hopper"),
+                    ("output", "minecraft:dropper"), ("bus", "minecraft:observer")):
     write_json("data/qbotics/recipe/%s.json" % name, shaped(
         [" C ", "CHC", " C "], {"C": "qbotics:cable", "H": heart}, "qbotics:%s" % name))
-    # A device named in an anvil keeps its name when broken.
-    write_json("data/qbotics/loot_table/blocks/%s.json" % name,
-               drops_itself("qbotics:%s" % name, copy_components=["minecraft:custom_name"]))
+# A device named in an anvil keeps its name when broken.
+write_json("data/qbotics/loot_table/blocks/interface.json",
+           drops_itself("qbotics:interface", copy_components=["minecraft:custom_name"]))
 
 
 # ---- antennas: one model, a different coloured tip per range tier (design doc §9.1) ----

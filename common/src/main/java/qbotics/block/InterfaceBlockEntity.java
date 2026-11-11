@@ -28,7 +28,7 @@ import qbotics.network.ItemPort;
  * slot accepts only the item its filter names, and holds up to one stack of it. Hoppers
  * and other mods' pipes can put items in (where a filter allows) and take them out.
  */
-public class InputBlockEntity extends DeviceBlockEntity implements Container, MenuProvider, ItemPort {
+public class InterfaceBlockEntity extends DeviceBlockEntity implements Container, MenuProvider, ItemPort {
     /** Basic tier (design doc §11.0, tiered upgrades). */
     public static final int SLOTS = 9;
 
@@ -36,13 +36,13 @@ public class InputBlockEntity extends DeviceBlockEntity implements Container, Me
     /** What each slot accepts; null means the slot is closed. */
     private final @Nullable Item[] filters = new Item[SLOTS];
 
-    public InputBlockEntity(BlockPos pos, BlockState state) {
-        super(QboticsContent.INPUT_BLOCK_ENTITY.get(), pos, state);
+    public InterfaceBlockEntity(BlockPos pos, BlockState state) {
+        super(QboticsContent.INTERFACE_BLOCK_ENTITY.get(), pos, state);
     }
 
     @Override
     public Kind kind() {
-        return Kind.INPUT;
+        return Kind.INTERFACE;
     }
 
     public @Nullable Item filter(int slot) {
@@ -178,12 +178,12 @@ public class InputBlockEntity extends DeviceBlockEntity implements Container, Me
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.qbotics.input", deviceName().isEmpty() ? ip() : deviceName());
+        return Component.translatable("container.qbotics.interface", deviceName().isEmpty() ? ip() : deviceName());
     }
 
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
-        return new InputMenu(containerId, inventory, this);
+        return new InterfaceMenu(containerId, inventory, this);
     }
 
     // ---- saving ------------------------------------------------------------------------

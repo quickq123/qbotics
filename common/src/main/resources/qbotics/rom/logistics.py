@@ -2,7 +2,7 @@
 #
 #     from logistics import network, Face
 #     net = network()
-#     furnace = net.bus("furnace")
+#     furnace = net.bus("furnace")      # a bus plate on a cable, pointing at a furnace
 #     furnace.insert("minecraft:raw_iron", 16, face=Face.TOP)
 #
 # Every call here is answered by the game on its next tick (a twentieth of a second).
@@ -55,7 +55,7 @@ class Device:
         self.ip = info["ip"]        # internal address on this network, e.g. "192.168.1.4"
         self.mac = info["mac"]      # hardware address; never changes while the block stays placed
         self.name = info["name"]    # "" if it has no name
-        self.kind = info["kind"]    # "computer", "input", "output" or "bus"
+        self.kind = info["kind"]    # "computer", "antenna", "interface", "input", "output" or "bus"
         self._info = info
 
     def rename(self, name):
@@ -72,8 +72,9 @@ class Device:
         return "<%s%s %s %s>" % (self.kind, name, self.ip, self.mac)
 
 
-class Input(Device):
-    """Filtered storage that buses and outputs draw from and deliver to."""
+class Interface(Device):
+    """Filtered storage: the network's chest. Inputs and buses deliver to it;
+    outputs and buses draw from it."""
 
     def contents(self):
         """What it holds: a list of {"slot": 0, "item": "minecraft:coal", "count": 12}."""
@@ -98,13 +99,8 @@ class Input(Device):
         return self._info["slots"]
 
 
-class Output(Device):
-    """Puts items from inputs into the container it points at."""
-
-    def insert(self, item, count=1, source=None, face=None):
-        """Moves up to count of an item from an input (any input, unless source says
-        which) into the target. Returns how many moved; 0 if none could."""
-        return _call("insert", self.mac, item, count, _mac(source), face)
+class Port(Device):
+    """A plate on a cable that points at a container: an input, an output or a bus."""
 
     def set_face(self, face):
         """Sets the face used when a call doesn't name one."""
@@ -120,13 +116,22 @@ class Output(Device):
         """The block it points at, e.g. "minecraft:furnace"."""
         return self.refresh()._info["target"]
 
+    def _contents(self, face):
+        return _call("contents", self.mac, face)
 
-class Bus(Output):
-    """An output that can also read its target's contents and take items out."""
+    def _extract(self, item, count, dest, face):
+        return _call("extract", self.mac, item, count, _mac(dest), face)
+
+    def _insert(self, item, count, source, face):
+        return _call("insert", self.mac, item, count, _mac(source), face)
+
+
+class Input(Port):
+    """Takes items out of the container it points at, into the network's interfaces."""
 
     def contents(self, face=None):
-        """What the target holds, as seen through a face."""
-        return _call("contents", self.mac, face)
+        """What the target holds, as seen through a face (or all of it, with no face)."""
+        return self._contents(face)
 
     def count(self, item=None, face=None):
         """How many of an item the target holds (or of everything, with no item)."""
@@ -134,16 +139,48 @@ class Bus(Output):
         return sum(e["count"] for e in self.contents(face) if item is None or e["item"] == item)
 
     def extract(self, item, count=1, dest=None, face=None):
-        """Moves up to count of an item out of the target into an input (any input
-        with a slot open for it, unless dest says which). Returns how many moved."""
-        return _call("extract", self.mac, item, count, _mac(dest), face)
+        """Moves up to count of an item out of the target into an interface (any
+        interface with a slot open for it, unless dest says which). Returns how many moved."""
+        return self._extract(item, count, dest, face)
+
+
+class Output(Port):
+    """Puts items from the network's interfaces into the container it points at."""
+
+    def insert(self, item, count=1, source=None, face=None):
+        """Moves up to count of an item from an interface (any interface, unless source
+        says which) into the target. Returns how many moved; 0 if none could."""
+        return self._insert(item, count, source, face)
+
+
+class Bus(Port):
+    """An input and an output in one: reads its target, takes items out and puts items in."""
+
+    def contents(self, face=None):
+        """What the target holds, as seen through a face (or all of it, with no face)."""
+        return self._contents(face)
+
+    def count(self, item=None, face=None):
+        """How many of an item the target holds (or of everything, with no item)."""
+        item = _full_name(item)
+        return sum(e["count"] for e in self.contents(face) if item is None or e["item"] == item)
+
+    def extract(self, item, count=1, dest=None, face=None):
+        """Moves up to count of an item out of the target into an interface (any
+        interface with a slot open for it, unless dest says which). Returns how many moved."""
+        return self._extract(item, count, dest, face)
+
+    def insert(self, item, count=1, source=None, face=None):
+        """Moves up to count of an item from an interface (any interface, unless source
+        says which) into the target. Returns how many moved; 0 if none could."""
+        return self._insert(item, count, source, face)
 
 
 def _full_name(item):
     return item if item is None or ":" in item else "minecraft:" + item
 
 
-_KINDS = {"input": Input, "output": Output, "bus": Bus}
+_KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus}
 
 
 def _wrap(info):
@@ -161,6 +198,10 @@ class Network:
         """A device by name, IP address or hardware address."""
         return _wrap(_call("find", key, None))
 
+    def interface(self, key=None):
+        """An interface by name or address; with no argument, the network's only interface."""
+        return _wrap(_call("find", key, "interface"))
+
     def input(self, key=None):
         """An input by name or address; with no argument, the network's only input."""
         return _wrap(_call("find", key, "input"))
@@ -172,6 +213,10 @@ class Network:
     def bus(self, key=None):
         """A bus by name or address; with no argument, the network's only bus."""
         return _wrap(_call("find", key, "bus"))
+
+    def interfaces(self):
+        """Every interface on the network."""
+        return self.devices("interface")
 
     def inputs(self):
         """Every input on the network."""
@@ -193,7 +238,7 @@ class Network:
 
 def network():
     """The cable network this computer is on. Ask it for its blocks:
-    net.input(), net.output(), net.bus(), net.devices()."""
+    net.interface(), net.input(), net.output(), net.bus(), net.devices()."""
     return Network()
 
 

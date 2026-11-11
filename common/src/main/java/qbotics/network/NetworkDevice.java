@@ -10,7 +10,7 @@ import net.minecraft.core.Direction;
  */
 public interface NetworkDevice {
     enum Kind {
-        COMPUTER("computer"), ANTENNA("antenna"), INPUT("input"), OUTPUT("output"), BUS("bus");
+        COMPUTER("computer"), ANTENNA("antenna"), INTERFACE("interface"), INPUT("input"), OUTPUT("output"), BUS("bus");
 
         /** The word Python programs and messages use. */
         public final String word;

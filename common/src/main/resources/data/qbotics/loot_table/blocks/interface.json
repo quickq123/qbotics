@@ -11,7 +11,7 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "qbotics:input",
+          "name": "qbotics:interface",
           "functions": [
             {
               "function": "minecraft:copy_components",
@@ -26,5 +26,5 @@
       "rolls": 1.0
     }
   ],
-  "random_sequence": "qbotics:blocks/input"
+  "random_sequence": "qbotics:blocks/interface"
 }

@@ -3,9 +3,7 @@
   "values": [
     "qbotics:computer",
     "qbotics:cable",
-    "qbotics:input",
-    "qbotics:output",
-    "qbotics:bus",
+    "qbotics:interface",
     "qbotics:antenna_short",
     "qbotics:antenna_long",
     "qbotics:antenna_infinite"

@@ -19,15 +19,15 @@ import org.jspecify.annotations.Nullable;
 import qbotics.network.CableNetwork;
 
 /** The Input block: filtered storage that the whole network can draw from. Right-click shows its slots. */
-public class InputBlock extends BaseEntityBlock {
-    public static final MapCodec<InputBlock> CODEC = simpleCodec(InputBlock::new);
+public class InterfaceBlock extends BaseEntityBlock {
+    public static final MapCodec<InterfaceBlock> CODEC = simpleCodec(InterfaceBlock::new);
 
-    public InputBlock(BlockBehaviour.Properties properties) {
+    public InterfaceBlock(BlockBehaviour.Properties properties) {
         super(properties);
     }
 
     @Override
-    protected MapCodec<InputBlock> codec() {
+    protected MapCodec<InterfaceBlock> codec() {
         return CODEC;
     }
 
@@ -38,13 +38,13 @@ public class InputBlock extends BaseEntityBlock {
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new InputBlockEntity(pos, state);
+        return new InterfaceBlockEntity(pos, state);
     }
 
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof InputBlockEntity input) {
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof InterfaceBlockEntity input) {
             input.onPlaced(placer instanceof Player player ? player.getUUID() : null);
         }
     }
@@ -52,7 +52,7 @@ public class InputBlock extends BaseEntityBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (player instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel
-                && level.getBlockEntity(pos) instanceof InputBlockEntity input) {
+                && level.getBlockEntity(pos) instanceof InterfaceBlockEntity input) {
             CableNetwork.at(serverLevel, pos); // makes sure it has an address to show in the title
             serverPlayer.openMenu(input);
         }

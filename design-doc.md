@@ -689,6 +689,13 @@ Blocks joined by the mod's own **cables** form a **network**. A computer on the 
 
 > **Status (2026-11-10): the item blocks are built, not yet played.** Cables, network discovery, addresses (§9.3), the Input, Output and Bus blocks and the `logistics` Python module exist and are covered by in-game tests. The Input's screen has a row of filters above its row of slots: click a filter slot holding an item to set it, or with an empty hand to close it (the filter row is drawn as darker sockets). Not built yet: a screen for setting a bus's or output's face by hand, tier upgrades, throughput limits, change events (`watch()`), wireless bridging, fluids and energy.
 >
+> **Changed 2026-11-10 (after the first play test), decided by the project owner:**
+> - The filtered storage block is now the **Interface** (`net.interface()`), leaving room for fluid and energy interfaces later.
+> - **Input** is a new directional device: it takes items out of the container it points at, into Interfaces. Later it will be able to pull on its own.
+> - **Input, Output and Bus are plates on cables**, not blocks: they share the cable's block, in the way players know from Applied Energistics and Refined Storage. Click the container with the plate in hand; it goes on the cable in front of that face (a cable from the inventory is placed if there is none). Sneak and right-click with an empty hand takes it off.
+> - Limit for now: **one plate per cable block**. Several plates on one cable need a model built in code; a second plate goes on the next cable along.
+> - Text below that says "Input block" for the filtered storage means the Interface.
+>
 > **Changed from the first design: there is no controller block.** The computer plugs straight into the cable. Reasons: one less block to craft and explain before a learner's first program moves an item; the network needs no stored state of its own (it is worked out from the cables, and each block remembers its own address); and limits can count the item blocks themselves. A controller can come back later if something needs a single owner per network, such as wireless bridging (§9.2), which still assumes one.
 
 **How blocks join a network**
@@ -703,9 +710,10 @@ Blocks joined by the mod's own **cables** form a **network**. A computer on the 
 | Block | Role |
 |---|---|
 | **Cable** | Connects network blocks into one network. Cheap and passive. |
-| **Input block** | Chest-like storage. **Every slot starts closed.** Code sets which item each slot accepts (a GUI for this comes later; right-clicking today opens a plain nine-slot view that enforces the filters and lets the player take items out); each slot holds **up to one stack**. Several slots can accept the **same item**, for bulk, or **different items**, for recipes. Other mods' pipes, hoppers and machines can insert through the loader's standard item API, but only into slots open for that item. |
-| **Output block** | Takes items **from any Input on the network** and inserts them into the block it faces, as directed by code. |
-| **Bus** | Attached to any container: chests, furnaces, other mods' machines. **Reads** its contents, and can **extract** items into an Input or **insert** items from an Input, over the network. |
+| **Interface** (a full block; called "Input block" before 2026-11-10) | Chest-like storage. **Every slot starts closed.** Code sets which item each slot accepts (a GUI for this comes later; right-clicking today opens a plain nine-slot view that enforces the filters and lets the player take items out); each slot holds **up to one stack**. Several slots can accept the **same item**, for bulk, or **different items**, for recipes. Other mods' pipes, hoppers and machines can insert through the loader's standard item API, but only into slots open for that item. |
+| **Input** (plate on a cable) | **Reads** the container it points at and **extracts** items from it into an Interface, as directed by code. |
+| **Output** (plate on a cable) | Takes items **from any Interface on the network** and inserts them into the container it points at, as directed by code. |
+| **Bus** (plate on a cable) | An Input and an Output in one, for any container: chests, furnaces, other mods' machines. **Reads** its contents, and can **extract** items into an Interface or **insert** items from an Interface, over the network. |
 
 #### Why chest-like Input slots
 
@@ -729,7 +737,7 @@ from logistics import network, Face
 
 net = network()                          # the cable network this computer is on
 smelter = net.bus("furnace_bus")         # by name, IP address or hardware address
-inbox = net.input()                      # no argument: the network's only Input
+inbox = net.interface()                  # no argument: the network's only Interface
 
 # open Input slots for the items they should accept
 inbox.set_slot_filter(0, "minecraft:raw_iron")
@@ -746,8 +754,8 @@ print(net.devices())                     # [<computer 192.168.1.2 02:..>, <input
 
 | Call | What it does |
 |---|---|
-| `net.devices()`, `net.inputs()`, `net.outputs()`, `net.buses()` | Lists of devices, in address order |
-| `net.device(key)`, `net.input(key)`, `net.output(key)`, `net.bus(key)` | One device by name, IP or hardware address. With no key: the only one of its kind, or an error saying how many there are |
+| `net.devices()`, `net.interfaces()`, `net.inputs()`, `net.outputs()`, `net.buses()` | Lists of devices, in address order |
+| `net.device(key)`, `net.interface(key)`, `net.input(key)`, `net.output(key)`, `net.bus(key)` | One device by name, IP or hardware address. With no key: the only one of its kind, or an error saying how many there are |
 | `net.me` | This computer |
 | `device.name`, `.ip`, `.mac`, `.kind`, `device.rename(name)`, `device.refresh()` | Identity. The values are as they were when the device was looked up |
 | `input.contents()`, `input.count(item)`, `input.filters()`, `input.set_slot_filter(slot, item or None)` | The Input's own slots |
@@ -1253,6 +1261,9 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Outputs and Buses point at the block they were placed against; they don't join the network through that side (§11.0) | Built; to confirm |
 | 2026-11-10 | A device's port on its antenna is 1000 + the last number of its internal IP, instead of ports handed out in order (§9.3) | Built; to confirm |
 | 2026-11-10 | Computers on one cable network can message each other without an antenna; an antenna is needed only to reach another network (§9.3) | Built; to confirm |
+| 2026-11-10 | The filtered storage block is the Interface; Input is a directional device that extracts from what it points at | Decided |
+| 2026-11-10 | Input, Output and Bus are plates sharing a cable's block, in the style of Applied Energistics | Decided |
+| 2026-11-10 | One plate per cable block for now (kept as block states so no model code is needed) | Built; to confirm |
 
 ---
 
@@ -1303,9 +1314,10 @@ All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G
 
 | Result | Pattern | Middle |
 |---|---|---|
-| **Input** | ` C ` / `CXC` / ` C ` | `X` = chest |
+| **Interface** | ` C ` / `CXC` / ` C ` | `X` = chest |
+| **Input** | ` C ` / `CXC` / ` C ` | `X` = hopper |
 | **Output** | ` C ` / `CXC` / ` C ` | `X` = dropper |
-| **Bus** | ` C ` / `CXC` / ` C ` | `X` = hopper |
+| **Bus** | ` C ` / `CXC` / ` C ` | `X` = observer |
 | **Short-Range Antenna** | `T` / `I` / `C` (one column) | Redstone torch, iron ingot, cable |
 | **Long-Range Antenna** | `D` / `A` / `C` (one column) | Diamond, short-range antenna, cable |
 | **Infinite Antenna** | `E` / `A` / `C` (one column) | Eye of ender, long-range antenna, cable |

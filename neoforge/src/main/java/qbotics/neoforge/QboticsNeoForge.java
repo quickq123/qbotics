@@ -45,11 +45,12 @@ import qbotics.block.CableBlock;
 import qbotics.network.RadioNetwork;
 import qbotics.block.ComputerBlock;
 import qbotics.block.ComputerBlockEntity;
-import qbotics.block.InputBlock;
-import qbotics.block.InputBlockEntity;
-import qbotics.block.PortBlock;
+import qbotics.block.InterfaceBlock;
+import qbotics.block.InterfaceBlockEntity;
+import qbotics.block.PlateItem;
 import qbotics.block.PortBlockEntity;
 import qbotics.network.ItemPort;
+import qbotics.network.NetworkDevice;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -81,24 +82,22 @@ public final class QboticsNeoForge {
             BLOCK_ENTITY_TYPES.register("computer", () -> new BlockEntityType<>(ComputerBlockEntity::new, COMPUTER.get()));
 
     // The item blocks (design doc §11.0).
-    private static final DeferredBlock<InputBlock> INPUT = BLOCKS.registerBlock("input", InputBlock::new,
+    private static final DeferredBlock<InterfaceBlock> INTERFACE = BLOCKS.registerBlock("interface", InterfaceBlock::new,
             properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
-    private static final DeferredItem<BlockItem> INPUT_ITEM = ITEMS.registerSimpleBlockItem(INPUT);
-    private static final DeferredBlock<PortBlock> OUTPUT = BLOCKS.registerBlock("output", PortBlock::output,
-            properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
-    private static final DeferredItem<BlockItem> OUTPUT_ITEM = ITEMS.registerSimpleBlockItem(OUTPUT);
-    private static final DeferredBlock<PortBlock> BUS = BLOCKS.registerBlock("bus", PortBlock::bus,
-            properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
-    private static final DeferredItem<BlockItem> BUS_ITEM = ITEMS.registerSimpleBlockItem(BUS);
-    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InputBlockEntity>> INPUT_BLOCK_ENTITY =
-            BLOCK_ENTITY_TYPES.register("input", () -> new BlockEntityType<>(InputBlockEntity::new, INPUT.get()));
+    private static final DeferredItem<BlockItem> INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(INTERFACE);
+    // Plates that go on cables: no blocks of their own.
+    private static final DeferredItem<PlateItem> INPUT_ITEM = ITEMS.registerItem("input", properties -> new PlateItem(NetworkDevice.Kind.INPUT, properties));
+    private static final DeferredItem<PlateItem> OUTPUT_ITEM = ITEMS.registerItem("output", properties -> new PlateItem(NetworkDevice.Kind.OUTPUT, properties));
+    private static final DeferredItem<PlateItem> BUS_ITEM = ITEMS.registerItem("bus", properties -> new PlateItem(NetworkDevice.Kind.BUS, properties));
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("interface", () -> new BlockEntityType<>(InterfaceBlockEntity::new, INTERFACE.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY =
-            BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, OUTPUT.get(), BUS.get()));
+            BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, CABLE.get()));
 
     private static final DeferredRegister<net.minecraft.world.inventory.MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, Qbotics.MOD_ID);
-    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InputMenu>> INPUT_MENU =
-            MENUS.register("input", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
-                    (containerId, inventory, data) -> new qbotics.block.InputMenu(containerId, inventory)));
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU =
+            MENUS.register("interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.block.InterfaceMenu(containerId, inventory)));
 
     // Antennas, one block per range tier (design doc §9.1).
     private static final DeferredBlock<AntennaBlock> ANTENNA_SHORT = antenna("antenna_short", RadioNetwork.Tier.SHORT);
@@ -125,6 +124,7 @@ public final class QboticsNeoForge {
                     .displayItems((parameters, output) -> {
                         output.accept(COMPUTER_ITEM.get());
                         output.accept(CABLE_ITEM.get());
+                        output.accept(INTERFACE_ITEM.get());
                         output.accept(INPUT_ITEM.get());
                         output.accept(OUTPUT_ITEM.get());
                         output.accept(BUS_ITEM.get());
@@ -145,11 +145,11 @@ public final class QboticsNeoForge {
         QboticsContent.COMPUTER_BLOCK_ENTITY = COMPUTER_BLOCK_ENTITY;
         QboticsContent.CABLE_BLOCK = CABLE;
         QboticsContent.DRIVE_ID = DRIVE_ID;
-        QboticsContent.INPUT_BLOCK = INPUT;
-        QboticsContent.OUTPUT_BLOCK = OUTPUT;
-        QboticsContent.BUS_BLOCK = BUS;
-        QboticsContent.INPUT_BLOCK_ENTITY = INPUT_BLOCK_ENTITY;
-        QboticsContent.INPUT_MENU = INPUT_MENU;
+        QboticsContent.INTERFACE_BLOCK = INTERFACE;
+        QboticsContent.PLATE_ITEMS = java.util.Map.of(NetworkDevice.Kind.INPUT, INPUT_ITEM,
+                NetworkDevice.Kind.OUTPUT, OUTPUT_ITEM, NetworkDevice.Kind.BUS, BUS_ITEM);
+        QboticsContent.INTERFACE_BLOCK_ENTITY = INTERFACE_BLOCK_ENTITY;
+        QboticsContent.INTERFACE_MENU = INTERFACE_MENU;
         QboticsContent.PORT_BLOCK_ENTITY = PORT_BLOCK_ENTITY;
         QboticsContent.ANTENNA_SHORT_BLOCK = ANTENNA_SHORT;
         QboticsContent.ANTENNA_LONG_BLOCK = ANTENNA_LONG;
@@ -165,7 +165,7 @@ public final class QboticsNeoForge {
         MENUS.register(modBus);
         // Hoppers and other mods' pipes see the Input block as an ordinary (filtered) inventory.
         modBus.addListener((RegisterCapabilitiesEvent event) -> event.registerBlockEntity(
-                Capabilities.Item.BLOCK, INPUT_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input)));
+                Capabilities.Item.BLOCK, INTERFACE_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input)));
         if (Boolean.getBoolean("qbotics.gameTests")) {
             registerGameTests(modBus);
         }
