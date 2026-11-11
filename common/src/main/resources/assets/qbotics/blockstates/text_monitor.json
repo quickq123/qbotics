@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "qbotics:block/text_monitor"
+    },
+    "facing=east": {
+      "model": "qbotics:block/text_monitor",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "qbotics:block/text_monitor",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "qbotics:block/text_monitor",
+      "y": 270
+    }
+  }
+}

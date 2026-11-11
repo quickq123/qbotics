@@ -395,6 +395,27 @@ public final class NetworkCalls {
                 qbotics.block.WorldPlates.sense(level, pin); // starts from what is there now
                 return JsonNull.INSTANCE;
             }
+            case "display_open": {
+                // ["display_open", mac]: a handle for drawing on a monitor or panel (see Displays.drawFast).
+                NetworkDevice device = byMac(network, args, 1);
+                if (!(device instanceof qbotics.block.DisplayBlockEntity display) || display.content() == null) {
+                    throw new CallError("Only a text monitor or a control panel can be drawn on; this is " + article(device) + ".");
+                }
+                qbotics.computer.ServerComputer computer = runningAt(level, computerPos);
+                JsonObject opened = display.describe();
+                opened.addProperty("handle", qbotics.display.Displays.open(level, computerPos, computer.deviceId(), display));
+                return opened;
+            }
+            case "display_listen": {
+                // ["display_listen", mac, session]: this computer wants the display's touches pushed to it.
+                NetworkDevice device = byMac(network, args, 1);
+                if (!(device instanceof qbotics.block.DisplayBlockEntity display)) {
+                    throw new CallError("Only a text monitor or a control panel is touched; this is " + article(device) + ".");
+                }
+                qbotics.computer.ServerComputer computer = runningAt(level, computerPos);
+                qbotics.display.Displays.listen(display, computer.deviceId(), args.get(2).getAsInt());
+                return JsonNull.INSTANCE;
+            }
             case "program": {
                 NetworkDevice device = byMac(network, args, 1);
                 if (!(device instanceof qbotics.block.ProgrammerBlockEntity programmer)) {
@@ -1273,6 +1294,8 @@ public final class NetworkCalls {
         } else if (device instanceof CablePort port) {
             info.addProperty("face", port.accessFace().word());
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
+        } else if (device instanceof qbotics.block.DisplayBlockEntity display) {
+            display.describe().entrySet().forEach(entry -> info.add(entry.getKey(), entry.getValue()));
         } else if (device instanceof qbotics.block.ProgrammerBlockEntity programmer) {
             info.addProperty("status", programmer.status());
             info.addProperty("has_drive", programmer.mediaId() != null);

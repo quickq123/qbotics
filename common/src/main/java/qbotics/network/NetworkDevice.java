@@ -16,7 +16,9 @@ public interface NetworkDevice {
         /** Holds hard drives, which every computer on its network sees under /net (design doc §17.6). */
         DRIVE_BAY("drive_bay"),
         /** Copies programs from its hard drive onto the computer in front of it (design doc §5.4). */
-        PROGRAMMER("programmer");
+        PROGRAMMER("programmer"),
+        /** Displays (design doc §10): a Text Monitor's character grid, a Control Panel's widgets. */
+        MONITOR("monitor"), PANEL("panel");
 
         /** The word Python programs and messages use. */
         public final String word;
@@ -77,6 +79,14 @@ public interface NetworkDevice {
 
     /** False for a side that doesn't join the network: the side a bus or output points at its target. */
     default boolean connectsOn(Direction side) {
+        return true;
+    }
+
+    /**
+     * False for a block that joins the network but isn't a device on it: a part of a screen
+     * of several blocks, whose top-left block is the device.
+     */
+    default boolean listed() {
         return true;
     }
 

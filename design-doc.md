@@ -566,6 +566,8 @@ The gateway runs **inside the mod**, on the Minecraft server, or on the built-in
 
 ## 10. Displays
 
+> **Status (2026-11-11): Text Monitors and Control Panels built** (`docs/reference.md` §7c). Decided by the project owner: two blocks (Text Monitor, Control Panel); blocks of one kind side by side join into one screen up to 8x6 blocks (rectangles from the top left; the screen's identity and content survive growing and shrinking); reached over the network (`net.monitor()`, `net.panel()`), not by computer side; touched by right-clicking the face, with sneak + right-click for a close-up view where sliders drag. Drawing calls run at once on the computer's thread through a handle checked once a second, rather than one tick per call. Text: 15x10 characters per block at scale 1 (0.5 to 5), 16 dye colours. Panel: 4x4 cells per block; widgets button, toggle, slider, gauge, lamp, label, readout, graph. Clicks reach programs through the events module. Not yet: display limits, themes, dial, number input, item display, bound actions, upright (floor or ceiling) screens.
+
 ### 10.1 Tiers
 
 | Device | Content | Server cost | Learning step |
@@ -1360,7 +1362,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 1b (as built) | **Built 2026-11-11, changed by the project owner:** hard drives instead of floppies, in a Drive Bay (§17.6) rather than a one-disk drive. A Hard Drive (4 MB, files kept under `media/<id>/` and travelling with the item) goes in one of a bay's four sockets; every computer on the bay's cable network sees it as `/net/<bay>/<drive>/`. Not yet: per-bay permissions (read-only, owner/team/public), mounting over an antenna, the duplicate-drive rule of §17.1, the programmer block | |
 | 2 | `machine.Pin` redstone, events, timers. **Events and timers built 2026-11-11** as the `events` module (timers, pin edges and block changes, container changes, messages; one `run()` loop; the game pushes pin events and messages into a per-computer queue). Redstone goes through the Logic Pin (§11.0.1) rather than the computer's own sides; `machine.Pin` on the computer itself is not built | Embedded circuits |
 | 3 | Ownership registry, limits, bricked state, boot queue. **Built 2026-11-11** for computers and antennas (`docs/reference.md` §9b): a server-wide registry saved with the world, per-type limits from `qbotics-server.toml` with operators exempt, bricked placement over the limit or by machines (dark screen, off the network, files kept), right-click reactivation (once a second per player), grandfathering, a boot queue for computers that were on (dimension, owner round-robin, distance, coordinates), a `shutdown` command, and `/qbotics limits`. The programmer block (§5.4) built 2026-11-11 for computers (§9e). Not yet: ranks and team pooling (§5.6), boot priority | Performance controls (early on purpose) |
-| 4 | Text monitors, then control surfaces (§10.2) | Displays foundation; cheap control panels |
+| 4 | Text monitors, then control surfaces (§10.2). **Built 2026-11-11** (`docs/reference.md` §7c); limits and themes to follow | Displays foundation; cheap control panels |
 | 5 | Qbots: movement, six-side sensing and actions, filtered inventory, tool use, self chunk loading, parking, programmer-block activation of inert Qbots (§5.4) | Qbot experience |
 | 6a | Antennas, brought forward: three range tiers, external addresses, ports, frequencies, messages between computers (§9.3). **Built 2026-11-10, not yet played** | Computers in separate bases can talk |
 | 6 | Antennas (tiers, frequencies, access modes), in-game network, pseudo-DNS, in-game HTTP | Radio |
@@ -1563,7 +1565,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 
 **Later features**
 8. HTML/CSS engine: which existing engine (if any) to build on, after checking its flexbox and grid support (§10.3).
-9. Initial control surface widget set and grid sizes per monitor size (§10.2).
+9. ~~Initial control surface widget set and grid sizes per monitor size (§10.2).~~ Decided 2026-11-11: 4x4 cells per block; button, toggle, slider, gauge, lamp, label, readout, graph first (§10 status).
 10. Gateway: support TLS directly, or only recommend a reverse proxy (§9.5)?
 11. Ranks and teams (§5.6; low priority).
 12. Peripheral API and adapters, only if a real need appears (§11; lowest priority).

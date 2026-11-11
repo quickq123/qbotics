@@ -79,7 +79,7 @@ public final class CableNetwork {
         while (!queue.isEmpty()) {
             BlockPos pos = queue.poll();
             NetworkDevice device = deviceAt(level, pos);
-            if (device != null) {
+            if (device != null && device.listed()) {
                 found.add(device);
             }
             // A cable's plates are devices too, sharing the cable's position.

@@ -16,6 +16,8 @@ Contents
 5. [Faces and slots](#5-faces-and-slots)
 6. [The `logistics` module: items, fluid, energy](#6-the-logistics-module)
 7. [The `network` module: messages and antennas](#7-the-network-module)
+   - [7b. The `events` module](#7b-the-events-module-running-code-when-things-happen)
+   - [7c. Displays: Text Monitors and Control Panels](#7c-displays-text-monitors-and-control-panels)
 8. [The Network Probe](#8-the-network-probe)
 9. [Limits](#9-limits)
 10. [Errors](#10-errors)
@@ -169,6 +171,8 @@ With an antenna on the network, each device can also be reached from other netwo
 | `pin` | A Logic Pin: a redstone line in or out, and an eye on a block |
 | `placer`, `breaker` | Plates that place blocks and fluid, or break them |
 | `drive_bay` | Holds hard drives; every computer on its network sees them under `/net` |
+| `programmer` | Puts programs from its hard drive onto the computer in front of it |
+| `monitor`, `panel` | A Text Monitor or a Control Panel: a screen, of one block or several (section 7c) |
 
 Plates share a cable's block, one per side, and point at the block next to that side. Their
 colour says what they carry: white for items, blue-grey for fluid, red for energy.
@@ -900,6 +904,7 @@ events.run()                                        # until events.stop() or Ctr
 | `events.on_pin(pin, what, function)` | Runs the function when a Logic Pin sees `"rising"`, `"falling"`, `"change"` or `"block"` (section 6.10). The function gets an event with `.name`, `.event`, `.level` and `.block` |
 | `events.on_change(device, function, what=None)` | Runs the function for each change to what a device holds (section 6.4b). `device` can also be a watch |
 | `events.on_message(function)` | Runs the function for each message from another computer: it gets `.sender` and `.data`. While `run()` is going, messages come here rather than to `network.receive()` |
+| `events.on_touch(display, function)` | Runs the function when a player touches a monitor or panel (section 7c). Widgets have their own `on_press` and `on_change` |
 | `events.run()` | Handles everything above until `events.stop()` or Ctrl+C |
 | `events.stop()` | Makes `run()` return once the function running now has finished |
 | `events.clear()` | Forgets every timer and handler |
@@ -913,6 +918,166 @@ events.run()                                        # until events.stop() or Ctr
   repeating timer carries on from now rather than running several times to catch up.
 - Each program started with `run` starts with no handlers. After `run()` returns, the
   handlers stay set up, so it can be called again.
+
+---
+
+## 7c. Displays: Text Monitors and Control Panels
+
+Two blocks show what a program draws:
+- A **Text Monitor** is a grid of characters, each with its own text and background colour.
+- A **Control Panel** holds ready-made widgets that players can press and slide: buttons,
+  toggles, sliders, gauges, lamps, labels, readouts and graphs.
+
+Both are devices on a cable network (or touching a computer), found like any other device:
+
+```python
+from logistics import network
+net = network()
+mon = net.monitor("status")      # by name; net.monitor() if the network has only one
+panel = net.panel("reactor")
+```
+
+### 7c.1 Placing them: screens of several blocks
+
+- A display faces the player who places it. Placed against the face side of another of the same
+  kind, it faces the same way, to grow the screen.
+- **Blocks of one kind, side by side and facing the same way, join into one screen**, up to
+  **8 blocks wide and 6 high**. A bigger group, or one that isn't a rectangle, is split into
+  rectangles from the top left: each takes as many blocks across as it can, then as many full
+  rows down as it can.
+- A screen is **one device** on the network, whatever its size. Its name and address belong to
+  the screen, not to a block: adding blocks or breaking one keeps them (and what it shows), as
+  long as part of the screen is left. Two screens that join keep the bigger one's.
+- The probe, used on any block of a screen, names the whole screen.
+- The screen's face doesn't join the network; its other sides do.
+- Screens light themselves, so they read the same by day and night.
+
+### 7c.2 Touching them
+
+- **Right-click** a screen to touch it: a panel's button is pressed, its toggle flipped, and a
+  slider jumps to where you clicked. Any item can be in your hand, except a block (which is
+  placed) and the probe.
+- **Sneak and right-click with an empty hand** for a **close-up view**: the screen as large as
+  the window allows. Click to touch, drag a slider. Escape (or walking more than 12 blocks away)
+  closes it.
+- What the touch does reaches a program through the events module (section 7b): see
+  `on_press`, `on_change` and `on_touch` below.
+
+### 7c.3 Drawing
+
+**Drawing happens at once.** Unlike other calls on the network, a program doesn't wait for the
+game's next tick: writing a hundred lines takes a moment, not five seconds. Players within 64
+blocks see changes up to ten times a second.
+
+What a screen shows is kept with the world, and stays when the program that drew it stops.
+
+### 7c.4 Text Monitor
+
+At text scale 1, each block holds **15 columns and 10 rows** (a 3x2 screen: 45 by 20).
+Columns and rows count from 0 at the top left.
+
+| Call | Does |
+|---|---|
+| `mon.print(*things)` | Writes a line at the cursor, as `print()` does: long lines wrap, and the screen scrolls up at the bottom |
+| `mon.write(text)` | Writes at the cursor and moves it on, without wrapping (what runs off the right is cut). `"\n"` starts the next row |
+| `mon.write_at(x, y, text, color=None, background=None)` | Writes at column x, row y. The cursor doesn't move |
+| `mon.set_cursor(x, y)`, `mon.cursor()` | Moves the cursor; where it is, as `(x, y)` |
+| `mon.color(text=None, background=None)` | The colours writing uses from now on. `None` leaves one as it is |
+| `mon.clear(background=None)` | Blanks the screen, and puts the cursor at the top left |
+| `mon.clear_line(y=None)` | Blanks the cursor's row, or row y |
+| `mon.fill(x, y, width, height, background, char=" ")` | Fills a rectangle of cells: bars and boxes |
+| `mon.scroll(lines=1)` | Moves everything up (down, if negative) |
+| `mon.size()` | `(columns, rows)` |
+| `mon.scale` | The text size, from 0.5 (twice as many columns and rows) to 5, in steps of 0.5. Changing it keeps what fits |
+| `mon.on_touch(function)` | Runs the function when a player touches the screen: it gets `.x` and `.y` (the character cell) and `.player` |
+
+**Colours** are names or numbers 0 to 15: `white`, `orange`, `magenta`, `light_blue`,
+`yellow`, `lime`, `pink`, `gray`, `light_gray`, `cyan`, `purple`, `blue`, `brown`, `green`,
+`red`, `black` (the dye colours, in their order). Text starts white on black.
+
+```python
+mon.clear()
+mon.fill(0, 0, 45, 1, "blue")
+mon.write_at(1, 0, "STORAGE", "white", "blue")
+for row, stack in enumerate(net.interface("store").contents()):
+    mon.write_at(1, 2 + row, stack["item"], "light_gray")
+    mon.write_at(30, 2 + row, str(stack["count"]), "lime")
+```
+
+### 7c.5 Control Panel
+
+A panel is a grid of cells, **four to a block each way** (a 2x2 panel: 8 by 8). A widget is
+placed with `at=(x, y)`, its top-left cell, and `span=(w, h)`, its size in cells. A widget placed
+later is drawn over one placed before.
+
+| Widget | Made with | Its value |
+|---|---|---|
+| Button | `panel.button(label, at, span=(2, 1), color=None)` | The number of presses isn't kept; use `on_press` |
+| Toggle | `panel.toggle(label, at, span=(2, 1), on=False, color=None)` | On or off: `.on` |
+| Slider | `panel.slider(label, min=0, max=100, at, span=(4, 1), value=None, step=1, unit="", color=None)` | `.value`, in steps of `step` (0 for any value). Taller than wide, it stands upright |
+| Gauge | `panel.gauge(label, min=0, max=100, at, span=(4, 1), value=0, unit="", color=None)` | `.value`, shown as a bar. Taller than wide, it fills upwards |
+| Lamp | `panel.lamp(label, at, span=(2, 1), on=False, color="red")` | On or off: `.on` |
+| Label | `panel.label(text, at, span=(4, 1), color=None)` | Text. Two or more cells high, short text is drawn large |
+| Readout | `panel.readout(label, at, span=(2, 2), value=0, unit="", color=None)` | `.value`, shown as a number |
+| Graph | `panel.graph(label, at, span=(4, 2), min=0, max=0, unit="", color=None)` | `graph.add(value)` adds a point; it shows the last 60. With `min` and `max` equal, it scales itself |
+
+Every widget has:
+
+| | |
+|---|---|
+| `widget.value` | Its value, read or set (a toggle or lamp: 1 for on, 0 for off) |
+| `widget.on` | For a toggle or a lamp: `True` or `False`, read or set |
+| `widget.label` | Its label, read or set |
+| `widget.set(label=, color=, value=, min=, max=, step=, unit=, at=, span=)` | Changes several things at once |
+| `widget.remove()` | Takes it off the panel |
+| `widget.on_press(function)` | For a button: runs the function when a player presses it. It gets `.player` |
+| `widget.on_change(function)` | For a toggle or a slider: runs the function when a player changes it. It gets `.value` and `.player` |
+
+And the panel: `panel.clear()` takes every widget off; `panel.size()` is `(columns, rows)`;
+`panel.on_touch(function)` runs for every press and change on it (the event has `.widget`, the
+widget's number, and `.label`).
+
+`on_press`, `on_change` and `on_touch` need `events.run()` (section 7b) and can be used as
+decorators:
+
+```python
+import events
+from logistics import network
+net = network()
+panel = net.panel("reactor")
+panel.clear()
+panel.label("Reactor 1", at=(0, 0), span=(8, 1), color="yellow")
+pump = panel.toggle("Pump", at=(0, 1), span=(3, 1))
+scram = panel.button("SCRAM", at=(6, 1), span=(2, 1), color="red")
+speed = panel.slider("Speed", 0, 100, at=(0, 2), span=(5, 1), unit="%")
+power = panel.gauge("Power", 0, 2000000, unit="FE", at=(0, 3), span=(5, 1))
+load = panel.graph("Stored", at=(0, 4), span=(8, 4))
+
+@pump.on_change
+def pump_changed(event):
+    net.pin("pump").write(15 if event.value else 0)
+
+@scram.on_press
+def stop_everything(event):
+    print(event.player, "pressed SCRAM")
+    events.stop()
+
+@events.every(1)
+def update():
+    stored = net.energy_interface().stored()
+    power.value = stored
+    load.add(stored)
+
+events.run()
+```
+
+### 7c.6 Not yet
+
+Display limits per player (section 9b counts computers and antennas only), themes, and widgets
+bound straight to an action without code are planned but not built.
+
+**Recipes (placeholders):** Text Monitor (makes 2): `III` / `ISI` / `ICI` (iron, a screen, a
+cable). Control Panel (makes 2): `BLB` / `ISI` / `ICI` (stone buttons and a lever over the same).
 
 ---
 

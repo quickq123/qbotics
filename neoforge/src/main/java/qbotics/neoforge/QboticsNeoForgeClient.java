@@ -43,6 +43,9 @@ public final class QboticsNeoForgeClient {
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientTickEvent.Post event) ->
                     qbotics.client.shots.PlaytestStart.tick(net.minecraft.client.Minecraft.getInstance()));
         }
+        // What Text Monitors and Control Panels show, drawn on their faces.
+        modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
+                event.registerBlockEntityRenderer(QboticsNeoForge.DISPLAY_BLOCK_ENTITY.get(), NeoDisplayRenderer::new));
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) -> {
             event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new);
             event.register(QboticsNeoForge.FLUID_INTERFACE_MENU.get(), qbotics.client.FluidInterfaceScreen::new);
@@ -56,6 +59,9 @@ public final class QboticsNeoForgeClient {
             event.register(IdePayloads.ScratchResult.TYPE, (payload, context) -> ClientIde.onScratchResult(payload));
             event.register(IdePayloads.OpenFile.TYPE, (payload, context) -> ClientIde.onOpenFile(payload));
             event.register(IdePayloads.OpenEditor.TYPE, (payload, context) -> ClientIde.onOpenEditor(payload));
+            event.register(qbotics.net.DisplayPayloads.Text.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onText(payload));
+            event.register(qbotics.net.DisplayPayloads.Panel.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onPanel(payload));
+            event.register(qbotics.net.DisplayPayloads.OpenCloseUp.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onOpenCloseUp(payload));
             event.register(qbotics.net.ProbePayloads.Info.TYPE, (payload, context) -> qbotics.client.ProbeScreen.show(payload));
             event.register(qbotics.net.XpPayloads.Info.TYPE, (payload, context) -> qbotics.client.XpScreen.show(payload));
         });

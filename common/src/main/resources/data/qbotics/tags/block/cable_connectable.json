@@ -11,6 +11,8 @@
     "qbotics:antenna_long",
     "qbotics:antenna_infinite",
     "qbotics:drive_bay",
-    "qbotics:programmer"
+    "qbotics:programmer",
+    "qbotics:text_monitor",
+    "qbotics:control_panel"
   ]
 }

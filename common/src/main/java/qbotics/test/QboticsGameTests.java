@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000, "displays", 200_000);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -87,6 +87,7 @@ public final class QboticsGameTests {
             Map.entry("drive_bays", QboticsGameTests::driveBays),
             Map.entry("pip_from_remote", QboticsGameTests::pipFromRemote),
             Map.entry("programmer_block", QboticsGameTests::programmerBlock),
+            Map.entry("displays", QboticsGameTests::displays),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1860,6 +1861,95 @@ public final class QboticsGameTests {
                 helper.assertTrue(programmed != null, "the programmed computer should be running");
                 assertScreen(helper, programmed, "basic installed");
             });
+        });
+    }
+
+    /**
+     * Text Monitors and Control Panels (design doc §10): four monitors make one 2x2 screen (one
+     * device on the network); a program writes on it and changes its text scale; a panel's
+     * widgets are made and set, and a player's touches reach the program's handlers through
+     * events.run(). Breaking the screen's top-left block hands its identity and text on.
+     */
+    private static void displays(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        net.minecraft.world.level.block.state.BlockState monitor = QboticsContent.TEXT_MONITOR_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.NORTH);
+        net.minecraft.world.level.block.state.BlockState panel = QboticsContent.CONTROL_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH);
+        for (BlockPos pos : List.of(new BlockPos(0, 1, 0), new BlockPos(1, 1, 0), new BlockPos(0, 2, 0), new BlockPos(1, 2, 0))) {
+            helper.setBlock(pos, monitor);
+        }
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 1));
+        helper.setBlock(new BlockPos(0, 1, 2), panel);
+        helper.setBlock(new BlockPos(1, 1, 2), panel);
+        // Facing north, the screen's right is west: its top-left block is the top one furthest east.
+        qbotics.block.DisplayBlockEntity screen = helper.getBlockEntity(new BlockPos(1, 2, 0), qbotics.block.DisplayBlockEntity.class);
+        helper.assertTrue(screen.isOrigin() && screen.screenWidth() == 2 && screen.screenHeight() == 2,
+                "four monitors should make one 2x2 screen, at " + screen.col() + "," + screen.row() + " of " + screen.screenWidth() + "x" + screen.screenHeight());
+        qbotics.block.DisplayBlockEntity panelScreen = helper.getBlockEntity(new BlockPos(0, 1, 2), qbotics.block.DisplayBlockEntity.class);
+        helper.assertTrue(panelScreen.isOrigin() && panelScreen.screenWidth() == 2, "the two panels should make one 2x1 panel");
+        long monitors = networkAt(helper, new BlockPos(0, 1, 1)).devices().stream().filter(d -> d.kind() == Kind.MONITOR).count();
+        helper.assertTrue(monitors == 1, "the screen should be one device on the network, not " + monitors);
+        String mac = screen.mac();
+
+        String program = String.join("\n",
+                "import events",
+                "from logistics import network",
+                "net = network()",
+                "mon = net.monitor()",
+                "mon.clear()",
+                "print('size', mon.size())",
+                "mon.print('hello monitor')",
+                "mon.write_at(0, 5, 'status: ok', 'lime')",
+                "mon.scale = 2",
+                "print('scaled', mon.size(), mon.scale)",
+                "p = net.panel()",
+                "p.clear()",
+                "print('grid', p.size())",
+                "t = p.toggle('Pump', at=(0, 0), span=(2, 1))",
+                "b = p.button('Go', at=(4, 0), span=(2, 1))",
+                "g = p.gauge('Power', 0, 1000, unit='FE', at=(0, 1), span=(8, 1))",
+                "g.value = 640",
+                "print('gauge', g.value)",
+                "@t.on_change",
+                "def pump(e):",
+                "    print('pump', e.value)",
+                "@b.on_press",
+                "def go(e):",
+                "    print('pressed by', e.player)",
+                "    events.stop()",
+                "events.run()",
+                "print('done', t.on)",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/t.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not write the test program", e);
+        }
+        computer.submitLine("run /t.py");
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        boolean[] touched = {false};
+        helper.succeedWhen(() -> {
+            // Once the program is listening, a player flips the toggle, then presses the button.
+            qbotics.display.ScreenContent controls = panelScreen.content();
+            helper.assertTrue(controls != null && !controls.listeners().isEmpty(), "the program should be listening");
+            if (!touched[0]) {
+                touched[0] = true;
+                qbotics.display.Displays.touched(level, panelScreen, 0.1, 0.1, player);   // the toggle: cells 0-1 of 8
+                qbotics.display.Displays.touched(level, panelScreen, 0.6, 0.1, player);   // the button: cells 4-5
+            }
+            assertScreen(helper, computer, "size (30, 20)\n", "scaled (15, 10) 2.0\n", "grid (8, 4)\n", "gauge 640.0\n", "pump 1.0\n",
+                    "pressed by ", "done True\n");
+            qbotics.display.TextScreen text = (qbotics.display.TextScreen) screen.content();
+            List<qbotics.display.TextScreen.Row> rows = text.rowsSince(0);
+            helper.assertTrue(rows.get(0).text().startsWith("hello monitor") && rows.get(5).text().startsWith("status: ok"),
+                    "the monitor should show what was written: " + rows.get(0).text() + " / " + rows.get(5).text());
+            // Breaking the top-left block: the screen's identity and text go to the block beside it.
+            helper.setBlock(new BlockPos(1, 2, 0), Blocks.AIR);
+            qbotics.block.DisplayBlockEntity heir = helper.getBlockEntity(new BlockPos(0, 2, 0), qbotics.block.DisplayBlockEntity.class);
+            helper.assertTrue(heir.isOrigin() && heir.mac().equals(mac) && heir.content() == text && heir.screenHeight() == 2,
+                    "the screen should keep its address and text in the block beside it");
+            helper.assertTrue(text.rowsSince(0).get(0).text().startsWith("hello"), "and still show what it did");
         });
     }
 

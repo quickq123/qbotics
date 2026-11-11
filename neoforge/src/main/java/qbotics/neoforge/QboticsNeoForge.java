@@ -96,6 +96,13 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<qbotics.block.ProgrammerBlock> PROGRAMMER = BLOCKS.registerBlock("programmer", qbotics.block.ProgrammerBlock::new,
             properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> PROGRAMMER_ITEM = ITEMS.registerSimpleBlockItem(PROGRAMMER);
+    // Displays (design doc §10): screens join side by side, so they glow and don't block light oddly.
+    private static final DeferredBlock<qbotics.block.DisplayBlock> TEXT_MONITOR = BLOCKS.registerBlock("text_monitor", qbotics.block.DisplayBlock::monitor,
+            properties -> properties.mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.METAL).lightLevel(state -> 4));
+    private static final DeferredItem<BlockItem> TEXT_MONITOR_ITEM = ITEMS.registerSimpleBlockItem(TEXT_MONITOR);
+    private static final DeferredBlock<qbotics.block.DisplayBlock> CONTROL_PANEL = BLOCKS.registerBlock("control_panel", qbotics.block.DisplayBlock::panel,
+            properties -> properties.mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.METAL).lightLevel(state -> 4));
+    private static final DeferredItem<BlockItem> CONTROL_PANEL_ITEM = ITEMS.registerSimpleBlockItem(CONTROL_PANEL);
     private static final DeferredItem<qbotics.block.HardDriveItem> HARD_DRIVE_ITEM = ITEMS.registerItem("hard_drive", qbotics.block.HardDriveItem::new);
     // Plates that go on cables: no blocks of their own.
     private static final DeferredItem<PlateItem> INPUT_ITEM = ITEMS.registerItem("input",
@@ -143,6 +150,8 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("energy_interface",
                     () -> new BlockEntityType<>(qbotics.block.EnergyInterfaceBlockEntity::new, ENERGY_INTERFACE.get()));
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.DisplayBlockEntity>> DISPLAY_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("display", () -> new BlockEntityType<>(qbotics.block.DisplayBlockEntity::new, TEXT_MONITOR.get(), CONTROL_PANEL.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.ProgrammerBlockEntity>> PROGRAMMER_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("programmer", () -> new BlockEntityType<>(qbotics.block.ProgrammerBlockEntity::new, PROGRAMMER.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.DriveBayBlockEntity>> DRIVE_BAY_BLOCK_ENTITY =
@@ -223,6 +232,8 @@ public final class QboticsNeoForge {
                         output.accept(DRIVE_BAY_ITEM.get());
                         output.accept(HARD_DRIVE_ITEM.get());
                         output.accept(PROGRAMMER_ITEM.get());
+                        output.accept(TEXT_MONITOR_ITEM.get());
+                        output.accept(CONTROL_PANEL_ITEM.get());
                         output.accept(SCREEN_ITEM.get());
                         output.accept(MOTHERBOARD_ITEM.get());
                     })
@@ -261,6 +272,9 @@ public final class QboticsNeoForge {
         QboticsContent.MEDIA_ID = MEDIA_ID;
         QboticsContent.DRIVE_BAY_BLOCK_ENTITY = DRIVE_BAY_BLOCK_ENTITY;
         QboticsContent.PROGRAMMER_BLOCK_ENTITY = PROGRAMMER_BLOCK_ENTITY;
+        QboticsContent.DISPLAY_BLOCK_ENTITY = DISPLAY_BLOCK_ENTITY;
+        QboticsContent.TEXT_MONITOR_BLOCK = TEXT_MONITOR;
+        QboticsContent.CONTROL_PANEL_BLOCK = CONTROL_PANEL;
         QboticsContent.PROGRAMMER_MENU = PROGRAMMER_MENU;
         QboticsContent.DRIVE_BAY_MENU = DRIVE_BAY_MENU;
         QboticsContent.PROBE_MODE = PROBE_MODE;
@@ -494,6 +508,14 @@ public final class QboticsNeoForge {
                 .playToClient(IdePayloads.ScratchResult.TYPE, IdePayloads.ScratchResult.STREAM_CODEC)
                 .playToClient(IdePayloads.OpenFile.TYPE, IdePayloads.OpenFile.STREAM_CODEC)
                 .playToClient(IdePayloads.OpenEditor.TYPE, IdePayloads.OpenEditor.STREAM_CODEC)
+                .playToClient(qbotics.net.DisplayPayloads.Text.TYPE, qbotics.net.DisplayPayloads.Text.STREAM_CODEC)
+                .playToClient(qbotics.net.DisplayPayloads.Panel.TYPE, qbotics.net.DisplayPayloads.Panel.STREAM_CODEC)
+                .playToClient(qbotics.net.DisplayPayloads.OpenCloseUp.TYPE, qbotics.net.DisplayPayloads.OpenCloseUp.STREAM_CODEC)
+                .playToServer(qbotics.net.DisplayPayloads.Touch.TYPE, qbotics.net.DisplayPayloads.Touch.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.display.Displays.onCloseUpTouch(player, payload);
+                    }
+                })
                 .playToClient(qbotics.net.XpPayloads.Info.TYPE, qbotics.net.XpPayloads.Info.STREAM_CODEC)
                 .playToServer(qbotics.net.XpPayloads.Action.TYPE, qbotics.net.XpPayloads.Action.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {

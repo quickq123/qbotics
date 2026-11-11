@@ -139,3 +139,23 @@ PROGRAMMER (build this one yourself, from the creative tab)
  56. On a computer cabled to a Programmer:  python , then
      from logistics import network ;  p = network().programmer() ;  print(p.status) ;
      p.program("basic") .
+
+DISPLAYS (build these yourself, from the creative tab)
+ 57. Place six Text Monitors in a 3 wide, 2 high wall (place each against the face side of the
+     last so they all face the same way). They join into one screen. Cable a computer to the
+     back of it. Probe any block of it: it is one "monitor"; name it "wall".
+ 58. In the computer:  python , then  from logistics import network ;  mon = network().monitor() ;
+     mon.size()  (45, 20) ;  mon.print("hello")  a few times ;
+     mon.write_at(0, 5, "status: ok", "lime", "blue") ;  mon.scale = 2 ;  mon.scale = 0.5 .
+ 59. Break one corner block, then put it back: the screen keeps its name "wall" and the text
+     in its top rows (rows the screen lost while smaller are blank again).
+ 60. Place four Control Panels in a 2x2 square beside the computer (cabled). In python:
+     p = network().panel() ;  t = p.toggle("Pump", at=(0, 0), span=(3, 1)) ;
+     g = p.gauge("Power", 0, 100, at=(0, 1), span=(8, 1)) ;  g.value = 70 ;
+     s = p.slider("Speed", 0, 10, at=(0, 2), span=(8, 1)) ;  b = p.button("Go", at=(4, 0)) .
+ 61. Right-click the toggle and the slider on the block: they change. Sneak + right-click with
+     an empty hand: the close-up view. Drag the slider there. Back in python:  t.on ,  s.value .
+ 62. A program that answers:  import events , then
+     b.on_press(lambda e: print("pressed by", e.player)) ,  events.after(30, events.stop) ,
+     events.run()  and press Go a few times within 30 seconds.
+ 63. Look at the screens at night (/time set midnight): they light themselves.

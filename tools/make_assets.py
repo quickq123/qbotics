@@ -169,6 +169,11 @@ write_json("assets/qbotics/lang/en_us.json", {
     "screen.qbotics.edit_files": "Edit files",
     "screen.qbotics.programmer_hint": "Redstone on: installs that",
     "screen.qbotics.programmer_hint2": "level's program (programs.txt)",
+    "block.qbotics.text_monitor": "Text Monitor",
+    "block.qbotics.control_panel": "Control Panel",
+    "screen.qbotics.close_up": "Close-up",
+    "screen.qbotics.close_up_waiting": "Waiting for the screen...",
+    "screen.qbotics.close_up_hint": "Click to touch; drag a slider. Esc closes.",
     "item.qbotics.hard_drive": "Hard Drive",
     "item.qbotics.hard_drive.blank": "Blank, %s MB. Put it in a Drive Bay to use it.",
     "item.qbotics.hard_drive.used": "Holds files (%s MB). In a Drive Bay, computers on its network see them in /net.",
@@ -450,13 +455,15 @@ write_json("data/qbotics/loot_table/blocks/cable.json", drops_itself("qbotics:ca
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
     "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
-               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer"],
+               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
+               "qbotics:text_monitor", "qbotics:control_panel"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
     "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
-               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer"],
+               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
+               "qbotics:text_monitor", "qbotics:control_panel"],
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 
@@ -679,6 +686,40 @@ write_json("assets/qbotics/items/programmer.json", {
     "model": {"type": "minecraft:model", "model": "qbotics:block/programmer"},
 })
 write_png("assets/qbotics/textures/item/hard_drive.png", hard_drive())
+
+
+# ---- displays (design doc §10): a dark face that the game draws the screen onto ----
+PANEL_FACE = (27, 31, 36)
+
+
+def display_front(inside):
+    """A screen to the edges, with a one-pixel frame: side by side, they read as one screen."""
+    px = [[inside for _ in range(16)] for _ in range(16)]
+    for i in range(16):
+        px[0][i] = px[15][i] = px[i][0] = px[i][15] = SCREEN_EDGE
+    return px
+
+
+write_png("assets/qbotics/textures/block/text_monitor_front.png", display_front(SCREEN))
+write_png("assets/qbotics/textures/block/control_panel_front.png", display_front(PANEL_FACE))
+write_png("assets/qbotics/textures/block/display_side.png", case_base())
+# The screen is north in the model, turned to face the way the block does.
+DISPLAY_TURNS = {"north": {}, "east": {"y": 90}, "south": {"y": 180}, "west": {"y": 270}}
+for display in ("text_monitor", "control_panel"):
+    write_json("assets/qbotics/models/block/%s.json" % display, {
+        "parent": "minecraft:block/cube",
+        "textures": {
+            "particle": "qbotics:block/display_side",
+            "north": "qbotics:block/%s_front" % display,
+            "south": "qbotics:block/display_side", "east": "qbotics:block/display_side",
+            "west": "qbotics:block/display_side", "up": "qbotics:block/display_side", "down": "qbotics:block/display_side",
+        },
+    })
+    write_json("assets/qbotics/blockstates/%s.json" % display, {"variants": {
+        "facing=%s" % facing: dict({"model": "qbotics:block/%s" % display}, **turn) for facing, turn in DISPLAY_TURNS.items()}})
+    write_json("assets/qbotics/items/%s.json" % display, {
+        "model": {"type": "minecraft:model", "model": "qbotics:block/%s" % display},
+    })
 write_json("assets/qbotics/models/block/drive_bay.json", {
     "parent": "minecraft:block/cube_column",
     "textures": {"end": "qbotics:block/interface_top", "side": "qbotics:block/drive_bay_front"},
@@ -828,6 +869,15 @@ write_json("data/qbotics/recipe/programmer.json", shaped(
     [" C ", "CMC", " C "], {"C": "qbotics:cable", "M": "qbotics:motherboard"}, "qbotics:programmer"))
 write_json("data/qbotics/loot_table/blocks/programmer.json",
            drops_itself("qbotics:programmer", copy_components=["minecraft:custom_name"]))
+# Placeholders: a Text Monitor is a screen in iron, over a cable; a Control Panel adds a button and a lever.
+write_json("data/qbotics/recipe/text_monitor.json", shaped(
+    ["III", "ISI", "ICI"], {"I": "minecraft:iron_ingot", "S": "qbotics:screen", "C": "qbotics:cable"}, "qbotics:text_monitor", 2))
+write_json("data/qbotics/recipe/control_panel.json", shaped(
+    ["BLB", "ISI", "ICI"], {"B": "minecraft:stone_button", "L": "minecraft:lever", "I": "minecraft:iron_ingot",
+                            "S": "qbotics:screen", "C": "qbotics:cable"}, "qbotics:control_panel", 2))
+for display in ("text_monitor", "control_panel"):
+    write_json("data/qbotics/loot_table/blocks/%s.json" % display,
+               drops_itself("qbotics:%s" % display, copy_components=["minecraft:custom_name"]))
 write_json("data/qbotics/loot_table/blocks/drive_bay.json",
            drops_itself("qbotics:drive_bay", copy_components=["minecraft:custom_name"]))
 write_json("data/qbotics/loot_table/blocks/interface.json",

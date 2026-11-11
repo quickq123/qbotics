@@ -85,6 +85,10 @@ public class ProbeItem extends Item {
         if (side >= 0 && side < 6) {
             return level.getBlockEntity(pos) instanceof PortBlockEntity host ? host.port(Direction.from3DDataValue(side)) : null;
         }
+        // Any block of a screen stands for the screen, whose identity is in its top-left block.
+        if (level.getBlockEntity(pos) instanceof DisplayBlockEntity) {
+            return qbotics.display.Displays.screenOf(level, pos);
+        }
         return level.getBlockEntity(pos) instanceof NetworkDevice device && !device.isRemoved() ? device : null;
     }
 

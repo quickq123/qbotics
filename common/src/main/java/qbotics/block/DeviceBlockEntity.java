@@ -50,6 +50,27 @@ public abstract class DeviceBlockEntity extends BlockEntity implements NetworkDe
         return deviceId;
     }
 
+    /**
+     * Takes over another block's identity: its ID (so its hardware address), owner, name and
+     * internal address. A screen made of several blocks keeps its identity in its top-left
+     * block, and hands it on when that block changes.
+     */
+    protected void takeIdentity(DeviceBlockEntity from) {
+        deviceId = from.deviceId();
+        owner = from.owner;
+        name = from.name;
+        hostNumber = from.hostNumber;
+        setChanged();
+    }
+
+    /** A new identity of its own, keeping its owner: for a block that gave its identity away. */
+    protected void freshIdentity() {
+        deviceId = UUID.randomUUID();
+        name = "";
+        hostNumber = 0;
+        setChanged();
+    }
+
     /** Gives the device an owner it lacked (a player claiming one a machine placed). */
     public void claim(UUID newOwner) {
         owner = newOwner;

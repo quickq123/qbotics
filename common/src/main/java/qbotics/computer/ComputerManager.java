@@ -132,8 +132,13 @@ public final class ComputerManager {
         }
         ResourceKey<Level> dimension = block.getLevel().dimension();
         BlockPos pos = block.getBlockPos().immutable();
+        UUID computerId = block.deviceId();
         ServerComputer computer = new ServerComputer(block.deviceId(), block.driveId(), driveFolder(block.driveId()), cpu, listener,
                 call -> {
+                    // Drawing on a display it holds a handle for is done at once, on the computer's own thread.
+                    if (call.startsWith(qbotics.display.Displays.DRAW_PREFIX)) {
+                        return CompletableFuture.completedFuture(qbotics.display.Displays.drawFast(computerId, call));
+                    }
                     // Asked on the computer's thread; answered on the server thread at the next tick.
                     CompletableFuture<String> answer = new CompletableFuture<>();
                     outbox.add(server -> answer.complete(NetworkCalls.handle(server, dimension, pos, call)));
@@ -476,6 +481,7 @@ public final class ComputerManager {
             message.accept(server);
         }
         bootSome(server);
+        qbotics.display.Displays.tick(server);
         if (server.getTickCount() % 10 == 0) {
             updateMounts(server);
         }

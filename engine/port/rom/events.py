@@ -31,6 +31,7 @@ _timers = []      # Timer objects
 _pins = []        # (mac, what, function)
 _watches = []     # (Watch, function)
 _messages = []    # functions
+_displays = []    # (mac, widget number or None, "press", "change" or "touch", function)
 _stopping = False
 _waiting = None   # the request for the next event, while one is outstanding
 # How often watched containers are looked at while running, in milliseconds.
@@ -126,6 +127,20 @@ def on_message(function=None):
     return function
 
 
+def _on_display(mac, widget, what, function):
+    # Called by display's on_press, on_change and on_touch.
+    _displays.append((mac, widget, what, function))
+
+
+def on_touch(display, function=None):
+    """Runs a function when a player touches a text monitor or a control panel. The same as
+    display.on_touch(function)."""
+    if function is None:
+        return lambda f: (on_touch(display, f), f)[1]
+    _on_display(_mac(display), None, "touch", function)
+    return function
+
+
 def stop():
     """Makes run() return, once whatever is running now has finished."""
     global _stopping
@@ -138,6 +153,7 @@ def clear():
     del _pins[:]
     del _watches[:]
     del _messages[:]
+    del _displays[:]
 
 
 def _next_event(wait_ms):
@@ -160,6 +176,10 @@ def _dispatch(info):
         for mac, what, function in _pins:
             if info["mac"] == mac and info["event"] == what:
                 function(Event(info))
+    elif kind == "panel" or kind == "touch":
+        for mac, widget, what, function in _displays:
+            if info["mac"] == mac and (what == "touch" or (widget == info["widget"] and what == info["event"])):
+                function(Event(info))
     elif kind == "message":
         from network import Message
         message = Message(info["sender"], json.loads(info["data"]))
@@ -172,9 +192,10 @@ def run():
     are due, and the functions given to on_pin, on_change and on_message as things happen.
     It sleeps in between, so a waiting program costs the game nothing."""
     global _stopping, _waiting
-    if not (_timers or _pins or _watches or _messages):
+    if not (_timers or _pins or _watches or _messages or _displays):
         raise NetworkError("There is nothing to wait for. Set up something first: events.every(), "
-                           "events.on_pin(), events.on_change() or events.on_message().")
+                           "events.on_pin(), events.on_change(), events.on_message(), or a display's on_press, "
+                           "on_change or on_touch.")
     _stopping = False
     _waiting = None
     session = _call("events_start", bool(_messages))
@@ -182,6 +203,10 @@ def run():
     for mac, what, function in _pins:
         if mac not in signed:
             _call("pin_listen", mac, session)
+            signed.append(mac)
+    for mac, widget, what, function in _displays:
+        if mac not in signed:
+            _call("display_listen", mac, session)
             signed.append(mac)
     next_look = time.ticks_ms()
     try:
@@ -208,7 +233,7 @@ def run():
                         function(change)
                         if _stopping:
                             return
-            if not (_timers or _pins or _watches or _messages):
+            if not (_timers or _pins or _watches or _messages or _displays):
                 return   # nothing is left to wait for
             # Sleep until the next timer, the next look, or an event the game pushes.
             wait = 1000

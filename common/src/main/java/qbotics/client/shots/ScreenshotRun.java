@@ -367,6 +367,27 @@ public final class ScreenshotRun {
         then(5, minecraft -> shot(minecraft, "11d-after-ssh"));
         then(10, minecraft -> minecraft.setScreen(null));
 
+        // Displays: a 3x2 Text Monitor wall and a 2x2 Control Panel, filled in as a program would.
+        then(20, minecraft -> onServer(minecraft, ScreenshotRun::buildDisplays));
+        view("17-displays", new Vec3(22.5, 1.6, 5.2), new Vec3(22.5, 1.0, 0.5));
+        view("17b-control-panel", new Vec3(25.0, 1.4, 2.6), new Vec3(25.0, 1.0, 0.5));
+        then(10, minecraft -> {
+            minecraft.options.hideGui = false;
+            onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(base.offset(24, 1, 0)) instanceof qbotics.block.DisplayBlockEntity panel) {
+                    qbotics.display.Displays.openCloseUp(player, panel);
+                }
+            });
+        });
+        then(10, minecraft -> shot(minecraft, "17c-panel-close-up"));
+        then(5, minecraft -> {
+            minecraft.setScreen(null);
+            minecraft.options.hideGui = true;
+        });
+        then(10, minecraft -> onServer(minecraft, player -> command(player, "time set midnight")));
+        view("17d-displays-at-night", new Vec3(22.5, 1.6, 5.2), new Vec3(22.5, 1.0, 0.5));
+        then(10, minecraft -> onServer(minecraft, player -> command(player, "time set noon")));
+
         // The same cables at night, to see how much the red core glows by itself.
         then(40, minecraft -> onServer(minecraft, player -> command(player, "time set midnight")));
         view("13-cables-at-night", new Vec3(3.5, 3.4, -4.6), new Vec3(3.5, 0.5, -7.0));
@@ -406,6 +427,84 @@ public final class ScreenshotRun {
     }
 
     // ---- the scene ----------------------------------------------------------------------
+
+    /** A drawing call on a display, as a program makes it. */
+    private static void draw(qbotics.display.ScreenContent content, String method, Object... args) {
+        com.google.gson.JsonArray list = new com.google.gson.JsonArray();
+        for (Object arg : args) {
+            list.add(arg == null ? com.google.gson.JsonNull.INSTANCE : arg instanceof com.google.gson.JsonElement json ? json
+                    : arg instanceof Number number ? new com.google.gson.JsonPrimitive(number) : new com.google.gson.JsonPrimitive(arg.toString()));
+        }
+        content.op(method, list);
+    }
+
+    private static com.google.gson.JsonObject widget(String type, String label, int x, int y, int w, int h, Object... more) {
+        com.google.gson.JsonObject spec = new com.google.gson.JsonObject();
+        spec.addProperty("type", type);
+        spec.addProperty("label", label);
+        spec.addProperty("x", x);
+        spec.addProperty("y", y);
+        spec.addProperty("w", w);
+        spec.addProperty("h", h);
+        for (int i = 0; i + 1 < more.length; i += 2) {
+            if (more[i + 1] instanceof Number number) {
+                spec.addProperty((String) more[i], number);
+            } else {
+                spec.addProperty((String) more[i], more[i + 1].toString());
+            }
+        }
+        return spec;
+    }
+
+    private static void buildDisplays(ServerPlayer player) {
+        var level = player.level();
+        BlockState monitor = QboticsContent.TEXT_MONITOR_BLOCK.get().defaultBlockState().setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH);
+        BlockState panel = QboticsContent.CONTROL_PANEL_BLOCK.get().defaultBlockState().setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH);
+        for (int y = 0; y < 2; y++) {
+            for (int x = 0; x < 3; x++) {
+                level.setBlock(base.offset(20 + x, y, 0), monitor, Block.UPDATE_ALL);
+            }
+            for (int x = 0; x < 2; x++) {
+                level.setBlock(base.offset(24 + x, y, 0), panel, Block.UPDATE_ALL);
+            }
+        }
+        // Facing south, a screen's right is east: the top-left blocks are the westmost of the top row.
+        if (level.getBlockEntity(base.offset(20, 1, 0)) instanceof qbotics.block.DisplayBlockEntity wall && wall.content() != null) {
+            var text = wall.content();
+            draw(text, "clear", "black");
+            draw(text, "fill", 0, 0, 45, 1, "blue");
+            draw(text, "write_at", 1, 0, "STORAGE REPORT", "white", "blue");
+            draw(text, "write_at", 33, 0, "day 12 06:40", "light_blue", "blue");
+            String[][] rows = {{"Iron ingot", "1,984", "lime"}, {"Copper ingot", "612", "lime"}, {"Coal", "48", "yellow"},
+                {"Redstone", "3,201", "lime"}, {"Diamond", "7", "orange"}, {"Raw gold", "0", "red"}};
+            for (int i = 0; i < rows.length; i++) {
+                draw(text, "write_at", 1, 2 + i, rows[i][0], "light_gray", null);
+                draw(text, "write_at", 16, 2 + i, rows[i][1], rows[i][2], null);
+                int bar = Math.min(24, rows[i][1].replace(",", "").length() * 5);
+                draw(text, "fill", 22, 2 + i, bar, 1, rows[i][2], " ");
+            }
+            draw(text, "write_at", 1, 9, "> furnace 2: smelting raw iron", "white", null);
+            draw(text, "write_at", 1, 10, "> crafter: out of sticks", "orange", null);
+            draw(text, "write_at", 1, 18, "Touch an item for details", "gray", null);
+        }
+        if (level.getBlockEntity(base.offset(24, 1, 0)) instanceof qbotics.block.DisplayBlockEntity controls && controls.content() != null) {
+            var c = controls.content();
+            draw(c, "clear");
+            draw(c, "add", widget("label", "Reactor 1", 0, 0, 8, 1, "color", "yellow"));
+            draw(c, "add", widget("toggle", "Pump", 0, 1, 3, 1, "value", 1));
+            draw(c, "add", widget("lamp", "Overheat", 3, 1, 3, 1, "value", 1, "color", "red"));
+            draw(c, "add", widget("button", "SCRAM", 6, 1, 2, 1, "color", "red"));
+            draw(c, "add", widget("slider", "Speed", 0, 2, 5, 1, "min", 0, "max", 100, "step", 1, "value", 60, "unit", "%"));
+            draw(c, "add", widget("readout", "Temp", 5, 2, 3, 2, "value", 412, "unit", "C"));
+            draw(c, "add", widget("gauge", "Power", 0, 3, 5, 1, "min", 0, "max", 1000, "value", 640, "unit", "FE"));
+            draw(c, "add", widget("graph", "Load", 0, 4, 8, 4, "min", 0, "max", 100));
+            for (int i = 0; i < 60; i++) {
+                com.google.gson.JsonObject point = new com.google.gson.JsonObject();
+                point.addProperty("value", 50 + 30 * Math.sin(i / 6.0) + (i % 7) * 2);
+                draw(c, "set", 8, point);
+            }
+        }
+    }
 
     /** Types a line at the scene's first computer, as a player at its terminal would. */
     private static void typeAt(ServerPlayer player, String line) {

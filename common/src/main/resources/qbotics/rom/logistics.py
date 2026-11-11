@@ -915,6 +915,9 @@ _KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus, 
 
 
 def _wrap(info):
+    if info["kind"] in ("monitor", "panel"):
+        import display     # the display module brings its own classes
+        return (display.Monitor if info["kind"] == "monitor" else display.Panel)(info)
     return _KINDS.get(info["kind"], Device)(info)
 
 
@@ -980,6 +983,24 @@ class Network:
     def experience_interface(self, key=None):
         """An experience interface by name or address; with no argument, the network's only one."""
         return _wrap(_call("find", key, "experience_interface"))
+
+    def monitor(self, key=None):
+        """A text monitor by name or address; with no argument, the network's only one.
+        See the display module for what it can do."""
+        return _wrap(_call("find", key, "monitor"))
+
+    def panel(self, key=None):
+        """A control panel by name or address; with no argument, the network's only one.
+        See the display module for what it can do."""
+        return _wrap(_call("find", key, "panel"))
+
+    def monitors(self):
+        """Every text monitor on the network."""
+        return self.devices("monitor")
+
+    def panels(self):
+        """Every control panel on the network."""
+        return self.devices("panel")
 
     def programmer(self, key=None):
         """A programmer by name or address; with no argument, the network's only one."""
