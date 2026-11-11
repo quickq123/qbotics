@@ -85,6 +85,7 @@ public final class QboticsGameTests {
             Map.entry("events_module", QboticsGameTests::eventsModule),
             Map.entry("limits_and_boot", QboticsGameTests::limitsAndBoot),
             Map.entry("drive_bays", QboticsGameTests::driveBays),
+            Map.entry("pip_from_remote", QboticsGameTests::pipFromRemote),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1015,6 +1016,7 @@ public final class QboticsGameTests {
         for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources", "8_crafting", "9_world", "10_levels", "13_drives")) {
             computer.submitLine("run demos/" + demo + ".py");
         }
+        computer.submitLine("pip install -r requirements.txt");
         computer.submitLine("pwd");
         helper.succeedWhen(() -> {
             Terminal.State state = computer.terminal().full();
@@ -1027,7 +1029,8 @@ public final class QboticsGameTests {
                     "A log into the grid: 1", "Planks taken out: 4", "runs for 8 sticks: 2", "Made: {'minecraft:stick': 8}", "holds 8 sticks",
                     "The lamp blinked three times.", "Placed: minecraft:cobblestone", "In front of the breaker: minecraft:cobblestone",
                     "Broke it and got: {'minecraft:cobblestone': 1}",
-                    "Repaired: 1\n", "Enchanted: 1\n", "Drives in the bay: ['drive2', 'lib']", "hello, main, from the shared drive")) {
+                    "Repaired: 1\n", "Enchanted: 1\n", "Drives in the bay: ['drive2', 'lib']", "hello, main, from the shared drive",
+                    "installed stock (2 files)\ninstalled greetings (1 file)")) {
                 helper.assertTrue(text.contains(expected), "the demos should have printed '" + expected + "' but printed:\n" + text);
             }
         });
@@ -1709,6 +1712,60 @@ public final class QboticsGameTests {
             // Taken out, a drive's folder goes from /net on the next look.
             bay.drives().setItem(2, ItemStack.EMPTY);
         });
+    }
+
+    /**
+     * pip from a remote repository: a Drive Bay on another network, reached by radio, holds a
+     * drive of packages; a requirements.txt here installs them (and what they need) into /lib.
+     */
+    private static void pipFromRemote(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos here = new BlockPos(0, 1, 0);
+        ServerComputer computer = startAt(helper, here);
+        helper.setBlock(here.above(), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        // The repository: a bay and its antenna, a network of their own.
+        BlockPos bayPos = new BlockPos(2, 1, 2);
+        helper.setBlock(bayPos, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(qbotics.Qbotics.id("drive_bay")));
+        helper.setBlock(bayPos.above(), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        qbotics.block.DriveBayBlockEntity bay = helper.getBlockEntity(bayPos, qbotics.block.DriveBayBlockEntity.class);
+        bay.setDeviceName("repo");
+        ItemStack lib = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("hard_drive")));
+        lib.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("lib"));
+        bay.drives().setItem(0, lib);
+        qbotics.engine.HostFileSystem drive = ComputerManager.get(level.getServer()).mediaFiles(bay.drives().getItem(0).get(QboticsContent.MEDIA_ID.get()));
+        networkAt(helper, here);
+        networkAt(helper, bayPos);
+        String repoIp = helper.getBlockEntity(bayPos.above(), AntennaBlockEntity.class).externalIp();
+        try {
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/greetings.py",
+                    "def hello(name):\n    return 'hello, ' + name + ', from the repo'\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            drive.call(qbotics.engine.HostFileSystem.MKDIR, "/tools", new byte[0]);
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/tools/__init__.py",
+                    "from greetings import hello\nVERSION = 3\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/tools/requirements.txt", "greetings\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/requirements.txt",
+                    ("# what this computer needs\n--source " + repoIp + "/repo/lib\ntools\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not set up the repository", e);
+        }
+
+        for (String line : List.of(
+                "pip available --source " + repoIp + "/repo/lib",
+                "pip install -r requirements.txt",
+                "pip list",
+                "pip install nothere --source " + repoIp + "/repo/lib",
+                "pip install greetings --source repo/lib",
+                "python",
+                "import tools",
+                "print(tools.VERSION, tools.hello('main'))",
+                "exit()",
+                "pip uninstall greetings",
+                "pip list")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer, "/repo/lib\ngreetings\ntools\n", "installed tools (2 files)\ninstalled greetings (1 file)\n",
+                "$ pip list\ngreetings\ntools\n", "There is no package called nothere", "There is no drive bay called repo on this network",
+                "3 hello, main, from the repo\n", "removed greetings\n", "$ pip list\ntools\n"));
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */

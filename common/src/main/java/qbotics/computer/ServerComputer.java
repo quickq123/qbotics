@@ -648,6 +648,7 @@ public final class ServerComputer {
             "Editor:  edit <file>        open a file in the editor",
             "         settings           this computer's name, remote login and antenna",
             "Network: devices            list the blocks cabled to this computer",
+            "         pip install -r requirements.txt   install libraries from a hard drive (pip help)",
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
             "         ssh <address>      use another computer's terminal from here; exit returns",
             "Other:   clear   help       Ctrl+C stops a running program",
@@ -655,7 +656,7 @@ public final class ServerComputer {
             "");
 
     /** The shell's commands, longest first, for spotting one typed without its space. */
-    private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "ifconfig", "python", "mkdir", "clear", "help",
+    private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "pip", "ifconfig", "python", "mkdir", "clear", "help",
             "edit", "pwd", "cat", "run", "ssh", "ls", "cd", "rm", "mv", "cp", "py");
 
     /**
@@ -721,6 +722,14 @@ public final class ServerComputer {
                         throw new UsageException("Usage: ssh <name or address>   (for example: ssh smelter, or ssh 100.64.0.12:1005)");
                     }
                     ssh(args.getFirst());
+                }
+                case "pip" -> {
+                    // Installs libraries from a hard drive, here or on another network (pip.py in the ROM).
+                    StringBuilder list = new StringBuilder("[");
+                    for (String arg : args) {
+                        list.append(pyString(arg)).append(',');
+                    }
+                    runPython(computer, "import pip\npip.main(" + list.append(']') + ")");
                 }
                 case "devices", "ifconfig" -> runPython(computer,
                         "import logistics\nlogistics._print_devices(" + (args.isEmpty() ? "" : pyString(args.getFirst())) + ")");

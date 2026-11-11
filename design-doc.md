@@ -1443,7 +1443,7 @@ Moves code between worlds and teaches real Git and GitHub habits.
 
 ### 17.6 Drive bays (shared program storage)
 
-> **Status (2026-11-11): built** for cable networks (`docs/reference.md` §9c): four hard-drive sockets; each drive is mounted as `/net/<bay>/<drive>/` (the design below had one folder per bay; with several drives per bay, each gets its own folder under it). Not yet: antenna mounting, per-bay permissions, file locking, version history.
+> **Status (2026-11-11): built** for cable networks (`docs/reference.md` §9c), and as **package repositories over radio** (§9d): `pip install -r requirements.txt` copies packages from a drive on this or another network (read-only across the radio, same access rules as messages) into `/lib`, which is on the import path; packages may list their own requirements. Not yet: versions, writing to another network's drives: four hard-drive sockets; each drive is mounted as `/net/<bay>/<drive>/` (the design below had one folder per bay; with several drives per bay, each gets its own folder under it). Not yet: antenna mounting, per-bay permissions, file locking, version history.
 
 A block that holds several **hard drives**, like the drive bays in Applied Energistics and Refined Storage, and gives a base **shared program storage**: an internal code repository.
 

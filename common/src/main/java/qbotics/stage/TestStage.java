@@ -130,16 +130,24 @@ public final class TestStage {
     }
 
     private static void write(ServerComputer computer, String path, String text) {
+        write(computer.drive(), path, text);
+    }
+
+    private static void write(HostFileSystem files, String path, String text) {
         try {
-            computer.drive().call(HostFileSystem.WRITE, path, text.getBytes(StandardCharsets.UTF_8));
+            files.call(HostFileSystem.WRITE, path, text.getBytes(StandardCharsets.UTF_8));
         } catch (HostFileSystem.FsException e) {
             Qbotics.LOGGER.warn("Test stage: could not write {} (error {})", path, e.errno);
         }
     }
 
     private static void folder(ServerComputer computer, String path) {
+        folder(computer.drive(), path);
+    }
+
+    private static void folder(HostFileSystem files, String path) {
         try {
-            computer.drive().call(HostFileSystem.MKDIR, path, new byte[0]);
+            files.call(HostFileSystem.MKDIR, path, new byte[0]);
         } catch (HostFileSystem.FsException e) {
             // Already there from an earlier build of the stage.
         }
@@ -252,6 +260,12 @@ public final class TestStage {
         remoteChest.setItem(0, new ItemStack(Items.DIAMOND, 3));
         remoteChest.setItem(1, new ItemStack(Items.BREAD, 12));
         plate(4, 6, Kind.BUS, Medium.ITEM, "remote_chest");
+        // A package repository on the remote network: a Drive Bay "repo" with a drive "lib".
+        qbotics.block.DriveBayBlockEntity repo = device(5, 0, 6, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(Qbotics.id("drive_bay")),
+                "repo", qbotics.block.DriveBayBlockEntity.class);
+        ItemStack packages = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("hard_drive")));
+        packages.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("lib"));
+        repo.drives().setItem(0, packages);
 
         // Blocks set like this skip the placement logic, so give every cable its arms now.
         for (int x = 0; x < WIDTH; x++) {
@@ -277,6 +291,16 @@ public final class TestStage {
             write(mainComputer, "/demos/" + file[0], file[1]);
         }
         write(mainComputer, "/README.txt", StageDemos.readme(mainAddress, remoteAddress));
+        // The repository's packages, and main's list of what it needs from there.
+        qbotics.engine.HostFileSystem repoFiles = manager.mediaFiles(repo.drives().getItem(0).get(QboticsContent.MEDIA_ID.get()));
+        for (String[] file : StageDemos.REPO_FILES) {
+            if (file[0].contains("/")) {
+                folder(repoFiles, "/" + file[0].substring(0, file[0].indexOf('/')));
+            }
+            write(repoFiles, "/" + file[0], file[1]);
+        }
+        String remoteIp = remoteAntenna.externalIp();
+        write(mainComputer, "/requirements.txt", StageDemos.requirements(remoteIp));
         folder(remoteComputer, "/demos");
         write(remoteComputer, "/demos/echo.py", StageDemos.ECHO);
         write(remoteComputer, "/README.txt", StageDemos.remoteReadme(mainAddress));

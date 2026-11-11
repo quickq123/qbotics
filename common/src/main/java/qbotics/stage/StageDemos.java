@@ -45,6 +45,11 @@ final class StageDemos {
                 "  10_levels.py   repair on the anvil and enchant a book, paid from xp",
                 "  11_watch.py    watches the chest for 30 seconds: put things in, take them out",
                 "  13_drives.py   a shared library on a hard drive, imported from there",
+                "",
+                "Libraries from the remote network's repository (a Drive Bay 'repo' there):",
+                "  pip install -r requirements.txt     installs what requirements.txt lists into /lib",
+                "  python   then   import stock   and   print(stock.report())",
+                "",
                 "  12_events.py   timers and events together for 30 seconds: the lamp blinks while",
                 "                 the chest is watched; send main a message from remote to see it",
                 "",
@@ -66,6 +71,34 @@ final class StageDemos {
                 "It runs demos/echo.py from the start: every message it gets, it sends back.",
                 "Ctrl+C stops that. Start it again with:  run demos/echo.py",
                 "The main computer is " + mainAddress + ".",
+                "");
+    }
+
+    /** The packages on the remote network's repository drive (repo/lib): a file and a folder that needs it. */
+    static final String[][] REPO_FILES = {
+        {"greetings.py", String.join("\n",
+                "# A tiny library, installed with pip from the remote repository.",
+                "def hello(name):",
+                "    return 'hello, ' + name + ', from the remote repository'",
+                "")},
+        {"stock/__init__.py", String.join("\n",
+                "# A library that uses another one: its requirements.txt asks for greetings.",
+                "from greetings import hello",
+                "from logistics import network",
+                "",
+                "def report(name='store'):",
+                "    store = network().interface(name)",
+                "    return '%s holds %d items' % (name, store.count())",
+                "")},
+        {"stock/requirements.txt", "greetings\n"},
+    };
+
+    /** main's requirements.txt: what it installs from the remote network's repository. */
+    static String requirements(String remoteIp) {
+        return String.join("\n",
+                "# What this computer needs. Install it with:  pip install -r requirements.txt",
+                "--source " + remoteIp + "/repo/lib     # the drive lib, in the bay repo, behind remote's antenna",
+                "stock",
                 "");
     }
 

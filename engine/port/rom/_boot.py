@@ -210,3 +210,8 @@ class _Drive:
 
 
 vfs.mount(_Drive(), "/")
+
+# Installed libraries (see pip) live in /lib, where import looks for them.
+import sys
+if "/lib" not in sys.path:
+    sys.path.append("/lib")

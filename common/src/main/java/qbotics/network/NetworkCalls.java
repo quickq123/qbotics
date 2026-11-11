@@ -395,6 +395,8 @@ public final class NetworkCalls {
                 qbotics.block.WorldPlates.sense(level, pin); // starts from what is there now
                 return JsonNull.INSTANCE;
             }
+            case "repo_list", "repo_tree", "repo_read":
+                return Repositories.call(method, level, network, computerPos, args);
             case "watch_open":
                 return Watches.open(level, network, computerPos, args);
             case "watch_poll":
@@ -1050,7 +1052,7 @@ public final class NetworkCalls {
     private static final int MAX_MESSAGE_CHARS = 4096;
 
     /** Another antenna this network can reach by radio, and the network behind it (null if it isn't that network's router). */
-    private record Far(AntennaBlockEntity antenna, ServerLevel level, CableNetwork network) {
+    record Far(AntennaBlockEntity antenna, ServerLevel level, CableNetwork network) {
     }
 
     /** The owner of the computer that made a call, or null if nobody owns it. */
@@ -1068,7 +1070,7 @@ public final class NetworkCalls {
         return level.getBlockEntity(computerPos) instanceof qbotics.block.ComputerBlockEntity computer ? computer.owner() : null;
     }
 
-    private static Far far(ServerLevel level, CableNetwork network, String ip, BlockPos computerPos) {
+    static Far far(ServerLevel level, CableNetwork network, String ip, BlockPos computerPos) {
         AntennaBlockEntity near = network.gateway();
         if (near == null) {
             throw new CallError("Reaching an external address needs an antenna cabled to this computer.");

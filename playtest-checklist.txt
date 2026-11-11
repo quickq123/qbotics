@@ -111,6 +111,14 @@ HARD DRIVES
      half a second), put it back (its files are still there).
  46. Craft a Hard Drive, name it in an anvil, put it in the bay: it appears under that name.
 
+ 47. In main:  cat requirements.txt   (it points at remote's repository), then
+     pip available --source <remote's IP>/repo/lib   and   pip install -r requirements.txt :
+     stock and greetings are installed. Then  python ,  import stock ,  print(stock.report()) .
+ 48. pip list ,  pip uninstall greetings ,  pip list  again.
+ 49. On remote, retune its antenna (python, then  import network ,
+     network.Radio().tune("other") ) and in main try  pip install -r requirements.txt  again:
+     it says why it can't reach the repository. Tune it back with  .tune("1") .
+
 REMOTE
- 47. In main:  ssh  followed by remote's address from README.txt. You are now typing on
+ 50. In main:  ssh  followed by remote's address from README.txt. You are now typing on
      remote; Ctrl+C stops its echo; exit comes back.

@@ -48,6 +48,7 @@ terminal below, and an optional Python scratchpad on the right.
 | `devices <external IP>` | Lists the devices behind another antenna |
 | `ssh <name or address>` | Uses another computer's terminal from this one (section 7.4). `exit` returns |
 | `settings` | Opens this computer's settings page (section 1.5) |
+| `pip` | Installs libraries from a hard drive, on this network or another (section 9d) |
 | `shutdown` | Switches this computer off; it stays off, even across restarts, until opened again (section 9b) |
 | `clear` | Clears the terminal |
 
@@ -1027,6 +1028,55 @@ import greetings
 From a program, `net.drive_bay()` gives the bay: `bay.path` is its folder (`"/net/shared"`) and
 `bay.drives()` the names of the drives in it.
 
+### 9d. Libraries from a repository: `pip`
+
+A hard drive full of libraries can serve as a **repository**, on your own network or on another
+one reached by radio, and `pip` installs from it into your computer's `/lib` folder, where
+`import` finds them:
+
+```
+# requirements.txt
+--source 100.64.0.2/repo/lib     # the drive lib, in the bay repo, behind the antenna at 100.64.0.2
+tools
+greetings
+```
+
+```
+/ $ pip install -r requirements.txt
+installed tools (2 files)
+installed greetings (1 file)
+/ $ python
+>>> import tools
+```
+
+| Command | Does |
+|---|---|
+| `pip install -r requirements.txt` | Installs what a requirements file lists, from its `--source` |
+| `pip install <name> ... --source <source>` | Installs packages by name. `-s` is short for `--source` |
+| `pip available --source <source>` | Lists the packages a source has |
+| `pip list` | Lists what is installed in `/lib` |
+| `pip uninstall <name>` | Removes an installed package |
+| `pip help` | All of this |
+
+**A source** is a bay and a drive: `shared/lib` on this network, or `100.64.0.2/shared/lib` behind
+the antenna at that external address. Reaching another network follows the radio's rules: the same
+frequency, in range, and that antenna's access setting must let your computer's owner in (section
+7.3). **Another network's drives can only be read**, never changed, so a repository can't be
+spoiled from outside.
+
+**A package** on the drive is a file `name.py`, or a folder `name/` with an `__init__.py` (and
+anything else it needs). A package folder may have its own `requirements.txt`; those packages are
+installed too, from the same source. Installing again replaces the earlier copy.
+
+**`requirements.txt`**: one package name a line; `--source` (or `-s`) on a line of its own says
+where they come from; `#` starts a comment. Versions (`name==1.0`) aren't supported yet.
+
+From a program: `import pip`, then `pip.install(["tools"], "100.64.0.2/repo/lib")`,
+`pip.available(source)`, `pip.installed()`, `pip.uninstall(name)`.
+
+**Publishing** to a repository means putting files on its drive: from a computer on the
+repository's own network (`cp mylib.py /net/repo/lib/`), or by carrying the drive there.
+
 **Recipes (placeholders):** Hard Drive: iron around redstone, with a gold ingot at the bottom
 middle (`III` / `IRI` / `IGI`). Drive Bay: four cables around a barrel.
 
@@ -1076,6 +1126,7 @@ belongs to you.
 | An Experience Interface holding 30 levels' worth | `xp` |
 | A Bus on a crafting table | `crafter` |
 | A Drive Bay with two hard drives (`lib` and `drive2`) | `shared` |
+| On `remote`'s network, a package repository: a Drive Bay with a drive `lib` holding `greetings` and `stock`; `main` has a `requirements.txt` for it | `repo` |
 | A Logic Pin on a redstone lamp | `lamp` |
 | A Placer and a Breaker facing the same empty space | `placer`, `breaker` |
 | Buses on an anvil and an enchanting table (the chest holds two worn swords, books and lapis for them) | `anvil`, `enchanter` |

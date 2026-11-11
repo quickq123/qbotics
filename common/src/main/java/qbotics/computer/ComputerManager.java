@@ -75,7 +75,8 @@ public final class ComputerManager {
     /** One file system per hard drive, shared by every computer that sees it, so its space is counted once. */
     private final Map<UUID, qbotics.engine.HostFileSystem> media = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private qbotics.engine.HostFileSystem media(UUID mediaId) {
+    /** The files on a hard drive, by its ID. */
+    public qbotics.engine.HostFileSystem mediaFiles(UUID mediaId) {
         return media.computeIfAbsent(mediaId, id -> new qbotics.engine.DriveFileSystem(mediaFolder(id), qbotics.block.HardDriveItem.CAPACITY_BYTES));
     }
 
@@ -94,7 +95,7 @@ public final class ComputerManager {
             for (qbotics.network.NetworkDevice device : qbotics.network.CableNetwork.at(level, entry.getValue().pos()).devices()) {
                 if (device instanceof qbotics.block.DriveBayBlockEntity bay) {
                     Map<String, qbotics.engine.HostFileSystem> drives = new java.util.LinkedHashMap<>();
-                    bay.mounted().forEach((name, id) -> drives.put(name, media(id)));
+                    bay.mounted().forEach((name, id) -> drives.put(name, mediaFiles(id)));
                     mounts.put(bay.folderName(), drives);
                 }
             }
