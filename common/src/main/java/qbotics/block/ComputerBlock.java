@@ -66,6 +66,9 @@ public class ComputerBlock extends BaseEntityBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (ProbeItem.heldBy(player)) {
+            return InteractionResult.PASS; // the probe reads this device instead
+        }
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof ComputerBlockEntity computer) {
             ComputerManager.get(serverPlayer.level().getServer()).openTerminal(serverPlayer, computer);
         }

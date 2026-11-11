@@ -60,6 +60,7 @@ public final class QboticsGameTests {
             Map.entry("interface_filters", QboticsGameTests::interfaceFilters),
             Map.entry("logistics_transfer", QboticsGameTests::logisticsTransfer),
             Map.entry("cable_plates", QboticsGameTests::cablePlates),
+            Map.entry("network_probe", QboticsGameTests::networkProbe),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -584,6 +585,53 @@ public final class QboticsGameTests {
         CableBlock.detach(level, helper.absolutePos(cablePos), Direction.UP);
         helper.assertTrue(!CableBlock.hasPlates(helper.getBlockState(cablePos)) && level.getBlockEntity(helper.absolutePos(cablePos)) == null
                 && networkAt(helper, computerPos).devices().size() == 2, "taking the last plate off should leave a bare cable and two devices");
+        helper.succeed();
+    }
+
+    /** The Network Probe reads any device's name and addresses, picks out one plate on a cable, and renames. */
+    private static void networkProbe(GameTestHelper helper) {
+        BlockPos computerPos = new BlockPos(0, 1, 0);
+        BlockPos storePos = new BlockPos(1, 1, 0);
+        BlockPos cablePos = new BlockPos(0, 1, 1);
+        ServerLevel level = helper.getLevel();
+        helper.setBlock(computerPos, QboticsContent.COMPUTER_BLOCK.get());
+        helper.setBlock(storePos, QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(cablePos, port(Kind.BUS, Direction.SOUTH));
+        BlockPos storeAt = helper.absolutePos(storePos);
+        BlockPos cableAt = helper.absolutePos(cablePos);
+
+        qbotics.net.ProbePayloads.Info store = qbotics.block.ProbeItem.inspect(level, storeAt, storeAt.getCenter());
+        helper.assertTrue(store != null && store.kind().equals("interface") && store.side() == -1 && store.ip().startsWith("192.168.1.")
+                && store.mac().startsWith("02:") && store.external().isEmpty() && store.python().equals("net.interface(\"" + store.ip() + "\")"),
+                "the probe should read the interface, but gave " + store);
+
+        // Naming it changes what a program would write.
+        qbotics.net.ProbePayloads.Info named = qbotics.block.ProbeItem.rename(level, null,
+                new qbotics.net.ProbePayloads.Rename(storeAt, -1, "ore store!"));
+        helper.assertTrue(named != null && named.name().equals("ore_store") && named.python().equals("net.interface(\"ore_store\")")
+                && helper.getBlockEntity(storePos, InterfaceBlockEntity.class).deviceName().equals("ore_store"),
+                "renaming from the probe should clean and keep the name, but gave " + named);
+
+        // On a cable the click picks out a plate; the cable itself has no address.
+        net.minecraft.world.phys.Vec3 corner = new net.minecraft.world.phys.Vec3(cableAt.getX(), cableAt.getY(), cableAt.getZ());
+        qbotics.net.ProbePayloads.Info bus = qbotics.block.ProbeItem.inspect(level, cableAt, corner.add(0.5, 0.5, 0.95));
+        helper.assertTrue(bus != null && bus.kind().equals("bus") && bus.side() == Direction.SOUTH.get3DDataValue()
+                && !bus.ip().equals(store.ip()), "the probe should read the bus on the cable's south side, but gave " + bus);
+        helper.assertTrue(qbotics.block.ProbeItem.inspect(level, cableAt, corner.add(0.5, 0.5, 0.5)) == null, "the cable's core is not a device");
+        qbotics.block.ProbeItem.rename(level, null, new qbotics.net.ProbePayloads.Rename(cableAt, bus.side(), "smelter"));
+        helper.assertTrue(helper.getBlockEntity(cablePos, PortBlockEntity.class).port(Direction.SOUTH).deviceName().equals("smelter"),
+                "a plate can be named from the probe");
+
+        // With an antenna on the network, the address other networks use is shown too.
+        helper.setBlock(computerPos.above(), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        qbotics.net.ProbePayloads.Info outside = qbotics.block.ProbeItem.inspect(level, storeAt, storeAt.getCenter());
+        String port = String.valueOf(1000 + Integer.parseInt(outside.ip().substring(outside.ip().lastIndexOf('.') + 1)));
+        helper.assertTrue(outside.external().startsWith("100.64.") && outside.external().endsWith(":" + port),
+                "the external address should end in port " + port + " but was " + outside.external());
+
+        ByteBuf buffer = Unpooled.buffer();
+        qbotics.net.ProbePayloads.Info.STREAM_CODEC.encode(buffer, outside);
+        helper.assertTrue(outside.equals(qbotics.net.ProbePayloads.Info.STREAM_CODEC.decode(buffer)), "probe info changed in transit");
         helper.succeed();
     }
 

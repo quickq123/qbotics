@@ -888,6 +888,8 @@ Right-clicking a computer opens an editor laid out like the code editors develop
 
 Text in the terminal can be selected by dragging (double-click selects a word, such as an address). Ctrl+C copies the selection; with nothing selected it stops the program as before. Ctrl+V pastes, and a right-click menu offers Copy, Copy All, Paste and Select All.
 
+**Network Probe.** A hand tool. Right-click any device (a computer, an interface, an antenna, or one plate on a cable) and a pop-up lists its name, a ready line of Python (`net.bus("smelter")`), its internal IP, its hardware address and, if the network has an antenna, its external address and port. Clicking a line copies it for pasting into the editor. A box at the top names the device, and the Python line then uses the name. While a probe is held, right-clicking a device reads it; the device's own screen does not open.
+
 **Hover hints.** Resting the mouse on a function name in a Python file shows how it is called and what it does. The text comes from the Python source itself: the docstrings of the mod's own modules (`logistics`, `network`, copied into the jar by `engine/build.sh`) and of functions in the file being edited. Only Python's built-ins are described by hand (`qbotics.ide.Docs`). It does not understand types: it guesses a variable's class from a line such as `inbox = net.input()`, and otherwise shows every class that has a method by that name.
 
 Ctrl+C stops a running program.
@@ -1268,6 +1270,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | A cable carries up to six plates, one per side (for tight spaces) | Decided |
 | 2026-11-10 | Plates are block-state values on the cable (15,625 states) for now. **Move to a model built in code before fluid and energy plates are added**: more plate kinds would multiply the states (9 values a side is 531,441) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
+| 2026-11-10 | Network Probe: a hand tool that reads a device's name and addresses with one-click copy, and names the device. Names are the recommended way to address many devices in code | Built; to confirm |
 
 ---
 
@@ -1322,6 +1325,7 @@ All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G
 | **Input** | ` C ` / `CXC` / ` C ` | `X` = hopper |
 | **Output** | ` C ` / `CXC` / ` C ` | `X` = dropper |
 | **Bus** | ` C ` / `CXC` / ` C ` | `X` = observer |
+| **Network Probe** | `R` / `C` / `I` (one column) | Redstone, cable, iron ingot |
 | **Short-Range Antenna** | `T` / `I` / `C` (one column) | Redstone torch, iron ingot, cable |
 | **Long-Range Antenna** | `D` / `A` / `C` (one column) | Diamond, short-range antenna, cable |
 | **Infinite Antenna** | `E` / `A` / `C` (one column) | Eye of ender, long-range antenna, cable |

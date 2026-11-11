@@ -94,6 +94,9 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, CABLE.get()));
 
+    private static final DeferredItem<qbotics.block.ProbeItem> PROBE_ITEM = ITEMS.registerItem("probe",
+            properties -> new qbotics.block.ProbeItem(properties.stacksTo(1)));
+
     private static final DeferredRegister<net.minecraft.world.inventory.MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, Qbotics.MOD_ID);
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU =
             MENUS.register("interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
@@ -131,6 +134,7 @@ public final class QboticsNeoForge {
                         output.accept(ANTENNA_SHORT_ITEM.get());
                         output.accept(ANTENNA_LONG_ITEM.get());
                         output.accept(ANTENNA_INFINITE_ITEM.get());
+                        output.accept(PROBE_ITEM.get());
                     })
                     .build());
 
@@ -146,6 +150,7 @@ public final class QboticsNeoForge {
         QboticsContent.CABLE_BLOCK = CABLE;
         QboticsContent.DRIVE_ID = DRIVE_ID;
         QboticsContent.INTERFACE_BLOCK = INTERFACE;
+        QboticsContent.PROBE_ITEM = PROBE_ITEM;
         QboticsContent.PLATE_ITEMS = java.util.Map.of(NetworkDevice.Kind.INPUT, INPUT_ITEM,
                 NetworkDevice.Kind.OUTPUT, OUTPUT_ITEM, NetworkDevice.Kind.BUS, BUS_ITEM);
         QboticsContent.INTERFACE_BLOCK_ENTITY = INTERFACE_BLOCK_ENTITY;
@@ -206,6 +211,12 @@ public final class QboticsNeoForge {
                 .playToClient(IdePayloads.FileResponse.TYPE, IdePayloads.FileResponse.STREAM_CODEC)
                 .playToClient(IdePayloads.ScratchResult.TYPE, IdePayloads.ScratchResult.STREAM_CODEC)
                 .playToClient(IdePayloads.OpenFile.TYPE, IdePayloads.OpenFile.STREAM_CODEC)
+                .playToClient(qbotics.net.ProbePayloads.Info.TYPE, qbotics.net.ProbePayloads.Info.STREAM_CODEC)
+                .playToServer(qbotics.net.ProbePayloads.Rename.TYPE, qbotics.net.ProbePayloads.Rename.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.block.ProbeItem.onRename(player, payload);
+                    }
+                })
                 .playToServer(IdePayloads.FileRequest.TYPE, IdePayloads.FileRequest.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         ComputerManager.get(player.level().getServer()).onFileRequest(player, payload);

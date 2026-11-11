@@ -305,7 +305,12 @@ public class CableBlock extends Block implements EntityBlock {
 
     /** Which plate a click landed on, or null if it was on the cable itself. */
     private static @Nullable Direction plateAt(BlockState state, BlockPos pos, BlockHitResult hit) {
-        Vec3 at = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
+        return plateAt(state, pos, hit.getLocation());
+    }
+
+    /** Which of a cable's plates a point in the world lies on, or null. */
+    public static @Nullable Direction plateAt(BlockState state, BlockPos pos, Vec3 point) {
+        Vec3 at = point.subtract(pos.getX(), pos.getY(), pos.getZ());
         for (Direction direction : Direction.values()) {
             if (plateKind(state, direction) != null && PLATES.get(direction).bounds().inflate(0.01).contains(at)) {
                 return direction;
@@ -353,6 +358,9 @@ public class CableBlock extends Block implements EntityBlock {
      */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (ProbeItem.heldBy(player)) {
+            return InteractionResult.PASS; // the probe reads this device instead
+        }
         Direction direction = plateAt(state, pos, hit);
         if (direction == null) {
             return InteractionResult.PASS;

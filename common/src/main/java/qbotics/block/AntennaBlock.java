@@ -79,6 +79,9 @@ public class AntennaBlock extends BaseEntityBlock {
     /** Right-click: tells the player the antenna's addresses, frequency and reach. */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (ProbeItem.heldBy(player)) {
+            return InteractionResult.PASS; // the probe reads this device instead
+        }
         if (player instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel
                 && level.getBlockEntity(pos) instanceof AntennaBlockEntity antenna) {
             CableNetwork.at(serverLevel, pos);

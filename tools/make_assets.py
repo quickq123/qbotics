@@ -140,6 +140,19 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.input": "Input",
     "item.qbotics.output": "Output",
     "item.qbotics.bus": "Bus",
+    "item.qbotics.probe": "Network Probe",
+    "message.qbotics.probe_nothing": "That isn't a network device. Aim at a computer, an interface, an antenna or a plate.",
+    "screen.qbotics.probe": "Network Probe",
+    "screen.qbotics.probe.title": "This is: %s",
+    "screen.qbotics.probe.hint": "Click a line to copy it, then paste it into your program with Ctrl+V",
+    "screen.qbotics.probe.name": "Name (letters, digits, _ - .)",
+    "screen.qbotics.probe.set_name": "Set name",
+    "screen.qbotics.probe.python": "Python:  %s",
+    "screen.qbotics.probe.name_row": "Name:  %s",
+    "screen.qbotics.probe.ip": "Internal IP:  %s",
+    "screen.qbotics.probe.mac": "Hardware address:  %s",
+    "screen.qbotics.probe.external": "External address:  %s",
+    "screen.qbotics.probe.copied": "Copied:  %s",
     "message.qbotics.plate_taken": "That side of the cable already carries a plate.",
     "message.qbotics.plate_needs_cable": "A plate goes on a cable: you need a cable in your inventory.",
     "block.qbotics.antenna_short": "Short-Range Antenna",
@@ -410,6 +423,24 @@ for plate, boxes in PLATE_BOXES.items():
                             "apply": dict({"model": "qbotics:block/plate_%s" % plate}, **turn)})
 # Written here, after the plates, because a cable's look includes the plate it carries.
 write_json("assets/qbotics/blockstates/cable.json", {"multipart": cable_parts})
+
+# The Network Probe: a small hand-held reader, drawn from two boxes.
+write_json("assets/qbotics/models/item/probe.json", {
+    "parent": "minecraft:block/block",
+    "textures": {"particle": "qbotics:block/port_side", "side": "qbotics:block/port_side", "front": "qbotics:block/bus_front"},
+    "elements": [
+        {"from": [6, 0, 7], "to": [10, 9, 9],
+         "faces": {side: {"texture": "#side"} for side in ("north", "south", "east", "west", "up", "down")}},
+        {"from": [3, 9, 6], "to": [13, 16, 10],
+         "faces": dict({side: {"texture": "#side"} for side in ("south", "east", "west", "up", "down")},
+                       north={"texture": "#front"})},
+    ],
+})
+write_json("assets/qbotics/items/probe.json", {
+    "model": {"type": "minecraft:model", "model": "qbotics:item/probe"},
+})
+write_json("data/qbotics/recipe/probe.json", shaped(
+    ["R", "C", "I"], {"R": "minecraft:redstone", "C": "qbotics:cable", "I": "minecraft:iron_ingot"}, "qbotics:probe"))
 
 # Placeholder recipes (design doc §20): four cables around the vanilla block each one resembles.
 for name, heart in (("interface", "minecraft:chest"), ("input", "minecraft:hopper"),
