@@ -19,6 +19,7 @@ Contents
 8. [The Network Probe](#8-the-network-probe)
 9. [Limits](#9-limits)
 10. [Errors](#10-errors)
+11. [The test stage](#11-the-test-stage)
 
 ---
 
@@ -553,3 +554,45 @@ except NetworkError as problem:
 ```
 
 A transfer that moves nothing is not an error: the call returns 0.
+
+---
+
+## 11. The test stage
+
+`/qbotics stage` builds a ready-made place to try things, so a feature can be tested without
+placing blocks or typing a program first. It needs permission to use commands (cheats on, or
+an operator).
+
+It builds a floor of 15 by 9 blocks to the south-east of where you stand, **replacing
+whatever is there**, and gives you a Network Probe if you have none. Everything it places
+belongs to you.
+
+| On the stage | Name |
+|---|---|
+| A computer with an antenna, and every device beside it | `main` |
+| An Interface: coal, logs, raw iron, ingots, then five open slots | `store` |
+| A Bus on a chest of coal, logs, raw iron, cobblestone and ingots | `chest` |
+| A Bus on a furnace | `furnace` |
+| An Input on a barrel of redstone and gold; an Output on an empty barrel | `inbox`, `outbox` |
+| A Fluid Interface; a Fluid Bus on a tank of water and lava | `tanks`, `big_tank` |
+| An Energy Interface; an Energy Bus on a charged cell | `battery`, `machine` |
+| An Experience Interface holding 30 levels' worth | `xp` |
+| A second computer on its own cables and antenna, with an Interface and a Bus on a chest | `remote`, `remote_store`, `remote_chest` |
+
+On `main`, `README.txt` lists all of this with the two computers' addresses, and `demos/`
+holds one short program per feature:
+
+| Program | Shows |
+|---|---|
+| `demos/1_items.py` | Counting, moving, feeding the furnace, collecting what it made |
+| `demos/2_filters.py` | Tags, wildcards, mods, and slots by number |
+| `demos/3_fluid.py` | Moving water and lava by name and by tank |
+| `demos/4_energy.py` | Reading and moving energy |
+| `demos/5_radio.py` | Listing the other network, sending a message, reading the reply |
+| `demos/6_devices.py` | Every device on the network |
+
+`remote` runs `demos/echo.py` from the start, which answers every message, so the radio demo
+works at once. Log in to it with the `ssh` line the README gives; Ctrl+C stops the echo.
+
+Running the command again in the same place rebuilds everything as it was. The computers
+get new, empty drives each time.

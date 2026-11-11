@@ -257,6 +257,22 @@ public final class QboticsNeoForge {
 
         NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post event) ->
                 ComputerManager.get(event.getServer()).tick(event.getServer()));
+        // /qbotics stage: builds the test stage beside the player (see TestStage). For players who may use commands.
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.RegisterCommandsEvent event) -> event.getDispatcher().register(
+                net.minecraft.commands.Commands.literal("qbotics")
+                        .requires(net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS))
+                        .then(net.minecraft.commands.Commands.literal("stage").executes(context -> {
+                            ServerPlayer player = context.getSource().getPlayerOrException();
+                            // The stage goes to the south-east, leaving the player standing just outside its corner.
+                            String built = qbotics.stage.TestStage.build(player.level(), player.blockPosition().offset(2, 0, 2), player.getUUID());
+                            for (String line : built.split("\n")) {
+                                context.getSource().sendSuccess(() -> Component.literal(line), false);
+                            }
+                            if (!player.getInventory().contains(stack -> stack.getItem() instanceof qbotics.block.ProbeItem)) {
+                                player.getInventory().add(new ItemStack(PROBE_ITEM.get()));
+                            }
+                            return 1;
+                        }))));
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) ->
                 ComputerManager.shutDown(event.getServer()));
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {

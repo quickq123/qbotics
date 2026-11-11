@@ -269,6 +269,12 @@ public final class ScreenshotRun {
         view("14-setup-at-night", new Vec3(9.0, 3.6, 0.2), new Vec3(9.0, 0.7, -3.5));
         then(40, minecraft -> onServer(minecraft, player -> command(player, "time set noon")));
 
+        // The test stage that /qbotics stage builds, set down beyond the scene.
+        then(20, minecraft -> onServer(minecraft, player ->
+                qbotics.stage.TestStage.build(player.level(), base.offset(0, 0, 8), player.getUUID())));
+        view("15-test-stage", new Vec3(7.0, 7.5, 21.5), new Vec3(7.0, 0.5, 11.5));
+        view("16-test-stage-main-row", new Vec3(7.0, 3.2, 13.6), new Vec3(7.0, 0.6, 9.6));
+
         // The items, as the hotbar and the hand draw them.
         then(10, minecraft -> {
             minecraft.options.hideGui = false;

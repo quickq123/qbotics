@@ -67,6 +67,7 @@ public final class QboticsGameTests {
             Map.entry("computer_settings", QboticsGameTests::computerSettings),
             Map.entry("remote_login", QboticsGameTests::remoteLogin),
             Map.entry("experience_store", QboticsGameTests::experienceStore),
+            Map.entry("test_stage", QboticsGameTests::testStage),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -951,6 +952,39 @@ public final class QboticsGameTests {
         // It is a device on a network like the other stores.
         helper.assertTrue(networkAt(helper, pos).devices().getFirst().kindWord().equals("experience_interface"), "it should be a network device");
         helper.succeed();
+    }
+
+    /**
+     * The test stage (/qbotics stage): it builds, and every demo program it puts on its main
+     * computer runs through without an error and prints what the stage's contents say it should.
+     */
+    private static void testStage(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        // High above the test's own space, so the stage's 15 by 9 blocks disturb nothing.
+        BlockPos corner = helper.absolutePos(new BlockPos(0, 30, 0));
+        String built = qbotics.stage.TestStage.build(level, corner, null);
+        helper.assertTrue(built.contains("Stage built"), built);
+        ComputerBlockEntity main = (ComputerBlockEntity) level.getBlockEntity(corner.offset(1, 0, 2));
+        CableNetwork network = CableNetwork.at(level, main.getBlockPos());
+        List<String> names = network.devices().stream().map(NetworkDevice::deviceName).sorted().toList();
+        helper.assertTrue(names.equals(List.of("battery", "big_tank", "chest", "furnace", "inbox", "machine", "main", "main_antenna", "outbox",
+                "store", "tanks", "xp")), "the main network should hold exactly the stage's devices, but had " + names);
+
+        ServerComputer computer = ComputerManager.get(level.getServer()).getOrStart(main);
+        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices")) {
+            computer.submitLine("run demos/" + demo + ".py");
+        }
+        computer.submitLine("pwd");
+        helper.succeedWhen(() -> {
+            Terminal.State state = computer.terminal().full();
+            String text = String.join("\n", state.scrolled()) + "\n" + String.join("\n", state.lines());
+            helper.assertTrue(text.contains("$ pwd"), "the demos are still running; so far:\n" + text);
+            helper.assertTrue(!text.contains("Traceback") && !text.contains("Error"), "a demo failed:\n" + text);
+            for (String expected : List.of("149 items; 32 are coal", "the store: 8", "moved to the store: 24", "5000 mB, 3000 of it water",
+                    "battery now holds 250000 of 2000000", "Sent: True", "{'echo': {'hello': 'from main'}}", "experience_interface")) {
+                helper.assertTrue(text.contains(expected), "the demos should have printed '" + expected + "' but printed:\n" + text);
+            }
+        });
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */
