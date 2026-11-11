@@ -1,0 +1,31 @@
+QBOTICS: HANDY COMMANDS
+Run these from this folder (g:\MinecraftMods) in a terminal.
+
+PLAY TEST (the game, with other mods)
+    gradlew :neoforge:runPlaytest
+
+    Opens straight into the "Qbotics Playtest" world: creative, flat, cheats on.
+    The first time, the world is made and the test stage is built beside you.
+    After that the same world opens again, so what you build stays.
+    In the game:  /qbotics stage   rebuilds the stage where you stand.
+    To start the world over, delete:  neoforge\runs\playtest\saves
+
+ADDING MORE MODS TO THE PLAY TEST
+    1. Open  neoforge\playtest-mods.txt
+    2. Add a line with the mod's file name, as it appears in the FTB Evolution 2 mods folder
+       (C:\Users\qrick\curseforge\minecraft\Instances\FTB Evolution 2\mods),
+       with * in place of the version, for example:
+           ae2-*.jar
+    3. Add the mods it needs as well (the game says which are missing if it won't start).
+    4. Run the play test again. The mods are copied in before the game starts.
+
+    The play test's mods folder is made to match the list each time, so a mod dropped in
+    by hand is removed: always add it to the list instead.
+    Mods must be for Minecraft 26.1.2 on NeoForge.
+    To take mods from another pack, add this to the command:
+        -Pqbotics.playtestModsFrom="C:\path\to\that\pack\mods"
+
+OTHER COMMANDS
+    gradlew :neoforge:runGameTestServer     runs the automatic in-game tests
+    gradlew build                           builds the mod (the jar is in neoforge\build\libs)
+    gradlew :neoforge:runClient             the plain development game, no other mods
