@@ -22,5 +22,5 @@ if [ -f out/micropython.wasm ]; then
     cp out/micropython.wasm ../common/src/main/resources/qbotics/engine/micropython.wasm
     # The editor reads the modules' source for its hover hints (qbotics.ide.Docs).
     mkdir -p ../common/src/main/resources/qbotics/rom
-    cp port/rom/logistics.py port/rom/network.py port/rom/events.py port/rom/pip.py port/rom/display.py ../common/src/main/resources/qbotics/rom/
+    cp port/rom/logistics.py port/rom/network.py port/rom/events.py port/rom/pip.py port/rom/display.py port/rom/qbot.py ../common/src/main/resources/qbotics/rom/
 fi

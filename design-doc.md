@@ -331,9 +331,11 @@ gps.dimension()               # e.g. "minecraft:overworld"
 
 > **Naming:** the mod's mobile robot is the **Qbot**: Q (the author's initial) plus "cube bot". Its Python module is `qbot`, never `turtle` (§2.3).
 
+> **Status (2026-11-11): the Iron Qbot is built** (`docs/reference.md` §7d). Decided by the project owner: a Qbot is a **moving block** (not an entity), drawn by a renderer as a loose, original golem-like robot in white-ish iron that hovers, glides a block per step with a small hop, turns smoothly and swings its arms as it works (so its movement doesn't read as an uncanny slide). It is a computer (own terminal, editor, drive, limits as `qbots_per_player`, Programmer), carries **16 slots (4x4)**, a hand slot for a tool, one upgrade slot (Chunk Loader), a **1,000,000 FE cell** and **two 4,000 mB tanks** (water and lava apart). Iron tier: digs as iron tools, with real tools in hand used when better (wear, Fortune, Silk Touch); moves, turns, inspects six sides, digs, places, uses (blocks and creatures), attacks, drops/sucks/inserts/extracts with faces, moves energy and fluid, pumps and pours. Its program keeps running as it moves. Its main limits by design: iron-level digging and 16 slots, against a later tier's "full chest". Not yet: higher tiers, inventory filters, item/fluid/energy capabilities for pipes, Efficiency, parking on owner logout, the new-terrain rate limit.
+
 ### 8.1 Design principles
 
-- **No fuel or energy system.**
+- **No fuel or energy system.** (Its energy cell and tanks, added 2026-11-11, are cargo it carries to machines, not what it runs on.)
 - **Size:** 1×1×1. It moves one block at a time and turns left or right.
 - The **Qbot's program and its body are separate**. The program runs on the server; movement and actions are world calls.
 
@@ -354,7 +356,7 @@ if inspect.front().id == "minecraft:chest":
 ### 8.3 Inventory
 
 - Works **like an Input block** (§11.0): chest-like slots with **optional per-slot filters**, configurable in the GUI or code, up to one stack per slot.
-- The **same slot count as an Input block of the same tier**. Inventory upgrades are tiered, like Input blocks (§11.0).
+- The **same slot count as an Input block of the same tier**. Inventory upgrades are tiered, like Input blocks (§11.0). **Decided 2026-11-11:** the Iron Qbot has 16 slots (4x4); a higher tier gets a full chest's worth.
 - **Access face for insert and extract**, like Output blocks and buses: the Qbot doesn't need to be on the face it inserts through.
 
 ```python
@@ -1368,7 +1370,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 2 | `machine.Pin` redstone, events, timers. **Events and timers built 2026-11-11** as the `events` module (timers, pin edges and block changes, container changes, messages; one `run()` loop; the game pushes pin events and messages into a per-computer queue). Redstone goes through the Logic Pin (§11.0.1) rather than the computer's own sides; `machine.Pin` on the computer itself is not built | Embedded circuits |
 | 3 | Ownership registry, limits, bricked state, boot queue. **Built 2026-11-11** for computers and antennas (`docs/reference.md` §9b): a server-wide registry saved with the world, per-type limits from `qbotics-server.toml` with operators exempt, bricked placement over the limit or by machines (dark screen, off the network, files kept), right-click reactivation (once a second per player), grandfathering, a boot queue for computers that were on (dimension, owner round-robin, distance, coordinates), a `shutdown` command, and `/qbotics limits`. The programmer block (§5.4) built 2026-11-11 for computers (§9e). Not yet: ranks and team pooling (§5.6), boot priority | Performance controls (early on purpose) |
 | 4 | Text monitors, then control surfaces (§10.2). **Built 2026-11-11** (`docs/reference.md` §7c); limits and themes to follow | Displays foundation; cheap control panels |
-| 5 | Qbots: movement, six-side sensing and actions, filtered inventory, tool use, self chunk loading, parking, programmer-block activation of inert Qbots (§5.4) | Qbot experience |
+| 5 | Qbots: movement, six-side sensing and actions, filtered inventory, tool use, self chunk loading, parking, programmer-block activation of inert Qbots (§5.4). **Iron Qbot built 2026-11-11** (§8 status); filters, parking, higher tiers to follow | Qbot experience |
 | 6a | Antennas, brought forward: three range tiers, external addresses, ports, frequencies, messages between computers (§9.3). **Built 2026-11-10, not yet played** | Computers in separate bases can talk |
 | 6 | Antennas (tiers, frequencies, access modes), in-game network, pseudo-DNS, in-game HTTP | Radio |
 | 7a | Item blocks, brought forward: cable networks, internal addresses (§9.3), Input, Output, Bus with access faces, the `logistics` module. **Built 2026-11-10, not yet played** (§11.0) | A program can move items between containers |

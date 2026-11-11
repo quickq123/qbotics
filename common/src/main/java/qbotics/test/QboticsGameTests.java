@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000, "displays", 200_000, "antenna_upgrades", 200_000);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000, "displays", 200_000, "antenna_upgrades", 200_000, "iron_qbot", 200_000);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -89,6 +89,7 @@ public final class QboticsGameTests {
             Map.entry("programmer_block", QboticsGameTests::programmerBlock),
             Map.entry("displays", QboticsGameTests::displays),
             Map.entry("antenna_upgrades", QboticsGameTests::antennaUpgrades),
+            Map.entry("iron_qbot", QboticsGameTests::ironQbot),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -2036,6 +2037,76 @@ public final class QboticsGameTests {
             helper.assertTrue(store.countItem(Items.COAL) == 20 && mine.countItem(Items.COAL) == 44, "20 coal should have crossed");
             helper.assertTrue(qbotics.upgrade.ChunkLoaders.heldBy(level, near.getBlockPos()).isEmpty(), "switched off, it should hold nothing");
             qbotics.QboticsConfig.transportItemsPerSecond = before;
+        });
+    }
+
+    /**
+     * An Iron Qbot (design doc §8): its program keeps running as it steps and turns; it digs
+     * stone (into its inventory) but not obsidian; places a block; fills its two tanks with
+     * water and lava separately; charges its cell; and pours.
+     */
+    private static void ironQbot(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ComputerManager manager = ComputerManager.get(level.getServer());
+        BlockPos start = new BlockPos(1, 1, 1);
+        helper.setBlock(start, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(start, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        UUID id = qbot.deviceId();
+        UUID drive = qbot.driveId();
+        helper.setBlock(new BlockPos(1, 1, 0), Blocks.STONE);
+        helper.setBlock(new BlockPos(1, 1, -1), Blocks.OBSIDIAN);
+        helper.setBlock(new BlockPos(0, 1, 0), Blocks.LAVA);
+        helper.setBlock(new BlockPos(1, 0, 1), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.getBlockEntity(new BlockPos(1, 0, 1), qbotics.block.FluidInterfaceBlockEntity.class)
+                .insertInto(0, net.minecraft.world.level.material.Fluids.WATER, 2000, false);
+        helper.setBlock(new BlockPos(1, 0, 0), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.getBlockEntity(new BlockPos(1, 0, 0), qbotics.block.EnergyInterfaceBlockEntity.class).insert(5000, false);
+
+        String program = String.join("\n",
+                "import qbot",
+                "from qbot import inspect, inventory, tanks, energy, Side, QbotError",
+                "print('front', inspect.front().id)",
+                "print('water', tanks.take(Side.BOTTOM))",
+                "print('dug', qbot.dig())",
+                "qbot.forward()",
+                "print('energy', energy.take(Side.BOTTOM))",
+                "try:",
+                "    qbot.dig()",
+                "except QbotError as e:",
+                "    print('refused:', e)",
+                "print('facing', qbot.turn_right())",
+                "print('placed', qbot.place())",
+                "print('items', inventory.list())",
+                "print('pumped', qbot.pump(Side.BACK))",
+                "qbot.back()",
+                "print('poured', qbot.pour(Side.FRONT, 'water'))",
+                "print('done')",
+                "");
+        ServerComputer computer = manager.getOrStart(qbot);
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/q.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not write the test program", e);
+        }
+        computer.submitLine("run /q.py");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "front minecraft:stone\n", "water 2000\n", "dug {'minecraft:cobblestone': 1}\n", "energy 5000\n",
+                    "refused: An iron Qbot can't dig minecraft:obsidian", "facing east\n", "placed minecraft:cobblestone\n", "items []\n",
+                    "pumped minecraft:lava\n", "poured minecraft:water\n", "done\n");
+            // It ended a block west of where it dug, still the same computer, with its drive.
+            qbotics.qbot.QbotBlockEntity moved = helper.getBlockEntity(new BlockPos(0, 1, 0), qbotics.qbot.QbotBlockEntity.class);
+            helper.assertTrue(moved.deviceId().equals(id) && moved.driveId().equals(drive) && manager.computer(id) == computer,
+                    "the Qbot should be the same computer, still running, at its new place");
+            helper.assertTrue(moved.energy() == 5000, "its cell should hold 5000 FE, not " + moved.energy());
+            helper.assertTrue(moved.tankFluid(0) == net.minecraft.world.level.material.Fluids.WATER && moved.tankAmount(0) == 1000
+                    && moved.tankFluid(1) == net.minecraft.world.level.material.Fluids.LAVA && moved.tankAmount(1) == 1000,
+                    "water and lava should be in separate tanks: " + moved.tankFluid(0) + " " + moved.tankAmount(0) + ", "
+                            + moved.tankFluid(1) + " " + moved.tankAmount(1));
+            helper.assertBlockPresent(Blocks.COBBLESTONE, new BlockPos(2, 1, 0));
+            helper.assertBlockPresent(Blocks.OBSIDIAN, new BlockPos(1, 1, -1));
+            helper.assertTrue(!(helper.getLevel().getBlockState(helper.absolutePos(start)).getBlock() instanceof qbotics.qbot.QbotBlock),
+                    "it should have left where it started");
         });
     }
 

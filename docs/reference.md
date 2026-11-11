@@ -18,6 +18,7 @@ Contents
 7. [The `network` module: messages and antennas](#7-the-network-module)
    - [7b. The `events` module](#7b-the-events-module-running-code-when-things-happen)
    - [7c. Displays: Text Monitors and Control Panels](#7c-displays-text-monitors-and-control-panels)
+   - [7d. Qbots: computers that move](#7d-qbots-computers-that-move)
 8. [The Network Probe](#8-the-network-probe)
 9. [Limits](#9-limits)
 10. [Errors](#10-errors)
@@ -1148,6 +1149,120 @@ cable). Control Panel (makes 2): `BLB` / `ISI` / `ICI` (stone buttons and a leve
 
 ---
 
+## 7d. Qbots: computers that move
+
+A **Qbot** is a computer in a small robot's body. It runs Python like any computer (right-click
+it for its terminal and editor), and moves one block at a time, digs, places, uses and attacks,
+and carries things. The first is the **Iron Qbot**.
+
+| | Iron Qbot |
+|---|---|
+| Inventory | **16 slots**, a 4x4 grid (numbered 0 to 15) |
+| Hand | One tool, which it digs, attacks and is used with |
+| Upgrade slot | One: a Chunk Loader Upgrade (section 7.3b) |
+| Energy cell | **1,000,000 FE** |
+| Tanks | **Two of 4,000 mB**, one fluid each, so it can carry water and lava at once |
+| Digs as | An unenchanted **iron** tool, with nothing in its hand |
+
+- **No fuel.** Moving and working cost nothing. The energy cell and tanks are things it
+  carries, to fill machines and tanks with or bring back.
+- **Placing it:** it faces you, like a computer.
+- **Right-click:** its terminal and editor. **Sneak and right-click with an empty hand:** its
+  inventory, hand and upgrade slots, and gauges for its cell and tanks.
+- **Breaking it:** its items fall out. Its files (its drive), name, energy and fluid stay with
+  the item.
+- It is a computer on the network (cables and devices beside it join it), and counts against
+  `limits.qbots_per_player` (5), not the computer limit. A machine-placed Qbot is inactive
+  until someone claims it, and the Programmer programs Qbots like computers.
+- A step or a turn takes a quarter of a second. While it works, it swings its arms; it hovers
+  and glides from block to block.
+
+```python
+import qbot
+from qbot import inspect, inventory, tools, tanks, energy, Side, QbotError
+
+qbot.forward()
+while inspect.front().id == "minecraft:stone":
+    qbot.dig()
+    qbot.forward()
+qbot.turn_around()
+inventory.drop(Side.BOTTOM, "cobblestone")      # into a chest below
+```
+
+### 7d.1 Moving and sensing
+
+| Call | Does |
+|---|---|
+| `qbot.forward()`, `back()`, `up()`, `down()` | Moves one block. Raises `QbotError` if something solid or alive is in the way, the area isn't loaded, or its owner may not build there |
+| `qbot.turn_left()`, `turn_right()`, `turn_around()` | Turns on the spot. Returns the way it faces now |
+| `qbot.position()` | `(x, y, z)`: a Qbot always knows where it is |
+| `qbot.facing()` | `"north"`, `"east"`, `"south"` or `"west"` |
+| `qbot.info()` | All at once: tier, facing, position, energy, tanks, tool |
+| `inspect.front()`, `back()`, `left()`, `right()`, `top()`, `bottom()` | What is on that side: `.id`, `.air`, `.state` (its properties), `.tags`, `.fluid`, `.source`, `.entities` (creatures and items there, by name) |
+
+**Sides** are `Side.FRONT`, `BACK`, `LEFT`, `RIGHT`, `TOP`, `BOTTOM` (or those words in lower
+case), as the Qbot faces. Every call below that takes a side defaults to the front.
+
+Seeing isn't looking inside: `inspect` says a chest is a chest; `inventory.read()` says what is in it.
+
+### 7d.2 Working
+
+| Call | Does |
+|---|---|
+| `qbot.dig(side)` | Digs the block there, taking as long as a player would with the same tool, and returns what it got: `{"minecraft:cobblestone": 1}`. Every drop must fit in its inventory, or nothing is dug |
+| `qbot.place(side, item=None)` | Places a block from its inventory: the named one, or the first block it holds |
+| `qbot.use(side, item=None)` | Right-clicks there as a player would: with the named item from its inventory, else the tool in its hand, else an empty hand. Works on blocks (levers, doors, bone meal, a hoe on dirt) and creatures (shears on a sheep, a bucket on a cow); what that gives goes into its inventory |
+| `qbot.attack(side)` | Attacks a creature there with the tool in its hand (or its fist), at full strength |
+| `qbot.pump(side)` | Takes up a source of water or lava (1,000 mB) into a tank |
+| `qbot.pour(side, fluid=None)` | Pours 1,000 mB from a tank, making a source block there |
+
+**Digging power.** With nothing in its hand, an Iron Qbot digs as the right iron tool would (an
+iron pickaxe for stone, an iron axe for wood), so it can dig iron, gold, diamond and redstone ore
+but not obsidian or ancient debris. **A tool in its hand** is used when it does better: its
+level and speed count, and enchantments that change what drops (Fortune, Silk Touch) work as
+they would for a player. (Efficiency doesn't speed it up yet.)
+
+**Tools wear** like a player's. When one breaks, what the Qbot was doing is done and
+`ToolBrokenError` is raised (a kind of `QbotError`).
+
+| Call | Does |
+|---|---|
+| `tools.equip(item)` | Takes the item from its inventory into its hand (what was there goes back) |
+| `tools.unequip()` | Puts it back into the inventory |
+| `tools.equipped()` | `{"item", "damage", "max_damage"}`, or `None` |
+
+Everything it does to the world, it does as its owner: land claims and protection apply, and a
+Qbot nobody owns (placed by a machine) can't change the world.
+
+### 7d.3 What it carries
+
+| Call | Does |
+|---|---|
+| `inventory.list()` | `[{"slot": 0, "item": "minecraft:coal", "count": 12}, ...]` |
+| `inventory.count(item=None)` | How many of an item (or everything) |
+| `inventory.drop(side, item=None, count=None, face=None)` | Into the block there (a chest, a furnace); with nothing there that takes items, onto the ground. Returns how many went |
+| `inventory.suck(side, item=None, count=None, face=None)` | From the block there; with no container, picks up items lying there |
+| `inventory.insert(side, ...)`, `inventory.extract(side, ...)` | The same, but only with a container |
+| `inventory.read(side, face=None)` | What the container there holds |
+| `energy.stored()`, `energy.capacity()` | Its cell |
+| `energy.give(side, amount=None)`, `energy.take(side, amount=None)` | Energy to or from the block there |
+| `tanks.list()` | `[{"fluid": "minecraft:water", "amount": 3000, "capacity": 4000}, {...}]` |
+| `tanks.give(side, fluid=None, amount=None)`, `tanks.take(side, fluid=None, amount=None)` | Fluid to or from the block there (a tank, a machine) |
+
+**`face=`** picks which face of that block it reaches, as a bus does: `"near"` (the face touching
+the Qbot; the default), `"far"`, `"top"`, `"bottom"`, `"left"`, `"right"`. From beside a
+furnace, `inventory.drop(Side.FRONT, "raw_iron", 16, face="top")` fills its input and
+`face="left"` (or right) its fuel.
+
+### 7d.4 Not yet
+
+Better tiers (diamond, with a full chest of slots), inventory filters, pipes and hoppers reaching
+into a Qbot, and the Transport Upgrade in a Qbot are planned but not built.
+
+**Recipe (placeholder):** `III` / `ICI` / `IHI`: iron around a computer, over a chest.
+
+---
+
 ## 8. The Network Probe
 
 A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows the mode.
@@ -1214,6 +1329,7 @@ even across restarts, until someone opens it again.
 |---|---|---|
 | `limits.computers_per_player` | 10 | Active computers per player; -1 for no limit |
 | `limits.antennas_per_player` | 10 | Active antennas per player; -1 for no limit |
+| `limits.qbots_per_player` | 5 | Active Qbots per player; -1 for no limit |
 | `limits.operators_exempt` | true | Operators have no limit |
 | `boot.per_tick` | 4 | Computers started per tick as they come back on |
 | `scheduler.worker_cores` | 2 | How many computers run Python at the same moment (read at server start) |

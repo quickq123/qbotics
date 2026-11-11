@@ -13,6 +13,7 @@
     "qbotics:drive_bay",
     "qbotics:programmer",
     "qbotics:text_monitor",
-    "qbotics:control_panel"
+    "qbotics:control_panel",
+    "qbotics:iron_qbot"
   ]
 }

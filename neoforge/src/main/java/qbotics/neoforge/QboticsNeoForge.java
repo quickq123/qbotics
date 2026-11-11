@@ -103,6 +103,14 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<qbotics.block.DisplayBlock> CONTROL_PANEL = BLOCKS.registerBlock("control_panel", qbotics.block.DisplayBlock::panel,
             properties -> properties.mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.METAL).lightLevel(state -> 4));
     private static final DeferredItem<BlockItem> CONTROL_PANEL_ITEM = ITEMS.registerSimpleBlockItem(CONTROL_PANEL);
+    // Qbots (design doc §8): drawn by their renderer, so they can step, turn and swing.
+    private static final DeferredBlock<qbotics.qbot.QbotBlock> IRON_QBOT = BLOCKS.registerBlock("iron_qbot", qbotics.qbot.QbotBlock::iron,
+            properties -> properties.mapColor(MapColor.METAL).strength(2.5f).sound(SoundType.METAL).noOcclusion());
+    private static final DeferredItem<BlockItem> IRON_QBOT_ITEM = ITEMS.registerSimpleBlockItem(IRON_QBOT);
+    private static final DeferredBlock<qbotics.qbot.QbotPartBlock> QBOT_PART = BLOCKS.registerBlock("qbot_part", qbotics.qbot.QbotPartBlock::new,
+            properties -> properties.noOcclusion().noLootTable());
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.qbot.QbotBlockEntity>> QBOT_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("qbot", () -> new BlockEntityType<>(qbotics.qbot.QbotBlockEntity::new, IRON_QBOT.get()));
     // Upgrades (fitted to antennas; later to Qbots).
     private static final DeferredItem<qbotics.upgrade.UpgradeItem> TRANSPORT_UPGRADE = ITEMS.registerItem("transport_upgrade",
             properties -> new qbotics.upgrade.UpgradeItem(qbotics.upgrade.UpgradeItem.Kind.TRANSPORT, properties.stacksTo(1)));
@@ -187,6 +195,9 @@ public final class QboticsNeoForge {
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU =
             MENUS.register("interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.InterfaceMenu(containerId, inventory)));
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.qbot.QbotMenu>> QBOT_MENU =
+            MENUS.register("qbot", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.qbot.QbotMenu(containerId, inventory)));
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.AntennaMenu>> ANTENNA_MENU =
             MENUS.register("antenna", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.AntennaMenu(containerId, inventory)));
@@ -253,6 +264,7 @@ public final class QboticsNeoForge {
                         output.accept(PROGRAMMER_ITEM.get());
                         output.accept(TEXT_MONITOR_ITEM.get());
                         output.accept(CONTROL_PANEL_ITEM.get());
+                        output.accept(IRON_QBOT_ITEM.get());
                         output.accept(TRANSPORT_UPGRADE.get());
                         output.accept(CHUNK_LOADER_UPGRADE.get());
                         output.accept(SCREEN_ITEM.get());
@@ -298,6 +310,10 @@ public final class QboticsNeoForge {
         QboticsContent.CONTROL_PANEL_BLOCK = CONTROL_PANEL;
         QboticsContent.PROGRAMMER_MENU = PROGRAMMER_MENU;
         QboticsContent.ANTENNA_MENU = ANTENNA_MENU;
+        QboticsContent.IRON_QBOT_BLOCK = IRON_QBOT;
+        QboticsContent.QBOT_BLOCK_ENTITY = QBOT_BLOCK_ENTITY;
+        QboticsContent.QBOT_MENU = QBOT_MENU;
+        QboticsContent.QBOT_PART_BLOCK = QBOT_PART;
         QboticsContent.DRIVE_BAY_MENU = DRIVE_BAY_MENU;
         QboticsContent.PROBE_MODE = PROBE_MODE;
         QboticsContent.INTERFACE_BLOCK = INTERFACE;

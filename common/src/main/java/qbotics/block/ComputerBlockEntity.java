@@ -115,9 +115,20 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
     }
 
     public ComputerBlockEntity(BlockPos pos, BlockState state) {
-        super(QboticsContent.COMPUTER_BLOCK_ENTITY.get(), pos, state);
+        this(QboticsContent.COMPUTER_BLOCK_ENTITY.get(), pos, state);
+    }
+
+    /** For kinds of computer with a block entity of their own (the Qbot). */
+    protected ComputerBlockEntity(net.minecraft.world.level.block.entity.BlockEntityType<?> type, BlockPos pos, BlockState state) {
+        super(type, pos, state);
         CableNetwork.changed();
     }
+
+    /**
+     * True while a Qbot steps from one block to the next: its old block going and its new one
+     * arriving are the same computer moving, not one broken and another placed. Server thread only.
+     */
+    public static boolean moving;
 
     public void onPlaced(@Nullable UUID placedBy) {
         deviceId = UUID.randomUUID();
@@ -177,7 +188,7 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
     @Override
     public void setLevel(net.minecraft.world.level.Level newLevel) {
         super.setLevel(newLevel);
-        if (newLevel instanceof ServerLevel serverLevel) {
+        if (newLevel instanceof ServerLevel serverLevel && !moving) {
             qbotics.limits.Limits.loaded(serverLevel, this);
             if (on && !bricked) {
                 ComputerManager.get(serverLevel.getServer()).queueBoot(serverLevel, this);
@@ -261,7 +272,7 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
         // The block was broken or replaced (not merely unloaded): the computer is gone.
-        if (deviceId != null && level instanceof ServerLevel serverLevel) {
+        if (deviceId != null && level instanceof ServerLevel serverLevel && !moving) {
             ComputerManager.get(serverLevel.getServer()).remove(deviceId);
             qbotics.limits.Limits.removed(serverLevel, this);
         }

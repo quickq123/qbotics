@@ -171,10 +171,15 @@ write_json("assets/qbotics/lang/en_us.json", {
     "screen.qbotics.programmer_hint2": "level's program (programs.txt)",
     "block.qbotics.text_monitor": "Text Monitor",
     "item.qbotics.transport_upgrade": "Transport Upgrade",
+    "block.qbotics.iron_qbot": "Iron Qbot",
+    "block.qbotics.qbot_part": "Qbot Part",
+    "screen.qbotics.qbot.hand": "Hand",
+    "screen.qbotics.qbot.upgrade": "Upgrade",
+    "screen.qbotics.qbot.energy": "Energy: %s / %s FE",
     "item.qbotics.chunk_loader_upgrade": "Chunk Loader Upgrade",
     "item.qbotics.transport_upgrade.tooltip": "Carries items, fluid and energy to other networks",
     "item.qbotics.chunk_loader_upgrade.tooltip": "Keeps its network's chunks loaded",
-    "item.qbotics.upgrade.fits": "Fits an antenna (right-click it)",
+    "item.qbotics.upgrade.fits": "Fits an antenna (right-click it); a Chunk Loader also fits a Qbot",
     "screen.qbotics.antenna.upgrades": "Upgrades",
     "screen.qbotics.antenna.chunks": "Chunk loading:",
     "screen.qbotics.antenna.loading_on": "Chunk loading: On",
@@ -474,14 +479,14 @@ write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
     "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
-               "qbotics:text_monitor", "qbotics:control_panel"],
+               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
     "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
-               "qbotics:text_monitor", "qbotics:control_panel"],
+               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot"],
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 
@@ -704,6 +709,123 @@ write_json("assets/qbotics/items/programmer.json", {
     "model": {"type": "minecraft:model", "model": "qbotics:block/programmer"},
 })
 write_png("assets/qbotics/textures/item/hard_drive.png", hard_drive())
+
+
+# ---- the Iron Qbot (design doc §8): a loose, boxy little golem in white-ish iron, hovering ----
+QB_IRON = (226, 228, 231)
+QB_SHADE = (204, 207, 212)
+QB_EDGE = (156, 160, 167)
+QB_DARK = (72, 76, 84)
+QB_EYE = (120, 220, 255)
+QB_GLOW = (150, 205, 255)
+
+
+def qbot_plate():
+    """Iron plating: light, with a faint panel line and rivets at the corners."""
+    px = [[QB_IRON for _ in range(16)] for _ in range(16)]
+    for i in range(16):
+        px[0][i] = px[15][i] = QB_SHADE
+        px[i][0] = px[i][15] = QB_SHADE
+    for y in (7,):
+        for x in range(2, 14):
+            px[y][x] = QB_SHADE
+    for (x, y) in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        px[y][x] = QB_EDGE
+    return px
+
+
+def qbot_face():
+    """The head's front: iron, with a dark visor band and two bright eyes (in rows 3 to 8, columns 4 to 12)."""
+    px = qbot_plate()
+    for y in range(4, 7):
+        for x in range(5, 11):
+            px[y][x] = QB_DARK
+    for (x, y) in ((6, 5), (9, 5)):
+        px[y][x] = QB_EYE
+    px[4][6] = px[4][9] = (190, 240, 255)
+    return px
+
+
+def qbot_dark():
+    """Joints and the hover base: dark metal."""
+    px = [[QB_DARK for _ in range(16)] for _ in range(16)]
+    for i in range(0, 16, 4):
+        for j in range(16):
+            px[j][i] = (60, 63, 70)
+    return px
+
+
+def qbot_glow():
+    """The underside of its hover base: a soft blue glow."""
+    px = [[QB_GLOW for _ in range(16)] for _ in range(16)]
+    for i in range(16):
+        px[0][i] = px[15][i] = px[i][0] = px[i][15] = (110, 170, 230)
+    return px
+
+
+write_png("assets/qbotics/textures/block/qbot_iron.png", qbot_plate())
+write_png("assets/qbotics/textures/block/qbot_iron_face.png", qbot_face())
+write_png("assets/qbotics/textures/block/qbot_dark.png", qbot_dark())
+write_png("assets/qbotics/textures/block/qbot_glow.png", qbot_glow())
+
+
+def box(x0, y0, z0, x1, y1, z1, texture="#iron", north=None, down=None, emissive=False):
+    """A model element with every face textured; north and down may differ."""
+    def face(name, tex):
+        f = {"texture": tex, "uv": uv(name)}
+        return f
+
+    def uv(name):
+        if name in ("north", "south"):
+            return [x0, 16 - y1, x1, 16 - y0]
+        if name in ("east", "west"):
+            return [z0, 16 - y1, z1, 16 - y0]
+        return [x0, z0, x1, z1]
+
+    faces = {name: face(name, texture) for name in ("north", "south", "east", "west", "up", "down")}
+    if north:
+        faces["north"] = {"texture": north, "uv": [4, 3, 12, 8]}
+    if down:
+        faces["down"] = {"texture": down, "uv": [0, 0, 16, 16]}
+    element = {"from": [x0, y0, z0], "to": [x1, y1, z1], "faces": faces}
+    if emissive:
+        element["light_emission"] = 12
+    return element
+
+
+QBOT_TEXTURES = {"particle": "qbotics:block/qbot_iron", "iron": "qbotics:block/qbot_iron", "face": "qbotics:block/qbot_iron_face",
+                 "dark": "qbotics:block/qbot_dark", "glow": "qbotics:block/qbot_glow"}
+BODY_ELEMENTS = [
+        box(4, 0, 4, 12, 3, 12, "#dark", down="#glow", emissive=True),   # hover base
+        box(3, 3, 3, 13, 10, 13),                                        # torso
+        box(5, 10, 5, 11, 10.5, 11, "#dark"),                            # neck
+        box(4, 10.5, 4, 12, 15.5, 12, north="#face"),                    # head
+        box(7.5, 15.5, 7.5, 8.5, 17, 8.5, "#dark"),                      # antenna
+        box(7.25, 17, 7.25, 8.75, 17.75, 8.75, "#glow", emissive=True),  # its light
+]
+write_json("assets/qbotics/models/block/iron_qbot_body.json", {"textures": QBOT_TEXTURES, "elements": BODY_ELEMENTS})
+def qbot_arm(dx):
+    return [box(dx, 4, 7, dx + 2, 10.5, 9), box(dx, 3, 6.5, dx + 2, 4, 9.5, "#dark")]
+
+
+write_json("assets/qbotics/models/block/iron_qbot_arm.json", {"textures": QBOT_TEXTURES, "elements": qbot_arm(0)})
+QBOT_TURNS = {"north": 0, "east": 90, "south": 180, "west": 270}
+write_json("assets/qbotics/blockstates/iron_qbot.json", {"variants": {
+    "active=%s,facing=%s" % (active, facing): dict({"model": "qbotics:block/iron_qbot_body"}, **({"y": turn} if turn else {}))
+    for facing, turn in QBOT_TURNS.items() for active in ("true", "false")}})
+write_json("assets/qbotics/blockstates/qbot_part.json", {"variants": {
+    "part=iron_body": {"model": "qbotics:block/iron_qbot_body"},
+    "part=iron_arm": {"model": "qbotics:block/iron_qbot_arm"},
+}})
+write_json("assets/qbotics/items/iron_qbot.json", {
+    "model": {"type": "minecraft:model", "model": "qbotics:item/iron_qbot"},
+})
+# In the hand and inventory: the body with both arms, turned to show its face.
+write_json("assets/qbotics/models/item/iron_qbot.json", {
+    "parent": "minecraft:block/block",
+    "textures": QBOT_TEXTURES,
+    "elements": BODY_ELEMENTS + qbot_arm(0.5) + qbot_arm(13.5),
+})
 
 
 def upgrade_card(mark):
@@ -933,6 +1055,12 @@ write_json("data/qbotics/recipe/programmer.json", shaped(
     [" C ", "CMC", " C "], {"C": "qbotics:cable", "M": "qbotics:motherboard"}, "qbotics:programmer"))
 write_json("data/qbotics/loot_table/blocks/programmer.json",
            drops_itself("qbotics:programmer", copy_components=["minecraft:custom_name"]))
+# Placeholder: an Iron Qbot is a computer in iron, over a chest (what it carries).
+write_json("data/qbotics/recipe/iron_qbot.json", shaped(
+    ["III", "ICI", "IHI"], {"I": "minecraft:iron_ingot", "C": "qbotics:computer", "H": "minecraft:chest"}, "qbotics:iron_qbot"))
+# A broken Qbot keeps its drive (files), name, and its energy and fluid (custom data); its items fall out.
+write_json("data/qbotics/loot_table/blocks/iron_qbot.json",
+           drops_itself("qbotics:iron_qbot", copy_components=["qbotics:drive_id", "minecraft:custom_name", "minecraft:custom_data"]))
 # Placeholders: upgrades are a motherboard with what they do. Transport: ender pearls (things cross a
 # distance) and a hopper; Chunk Loader: an eye of ender over obsidian.
 write_json("data/qbotics/recipe/transport_upgrade.json", shaped(

@@ -140,8 +140,13 @@ public final class ComputerManager {
                         return CompletableFuture.completedFuture(qbotics.display.Displays.drawFast(computerId, call));
                     }
                     // Asked on the computer's thread; answered on the server thread at the next tick.
+                    // Where it is when the call is answered: a Qbot moves.
                     CompletableFuture<String> answer = new CompletableFuture<>();
-                    outbox.add(server -> answer.complete(NetworkCalls.handle(server, dimension, pos, call)));
+                    outbox.add(server -> {
+                        Viewing place = places.get(computerId);
+                        answer.complete(NetworkCalls.handle(server, place == null ? dimension : place.dimension(),
+                                place == null ? pos : place.pos(), call));
+                    });
                     return answer;
                 });
         computers.put(block.deviceId(), computer);
@@ -155,6 +160,19 @@ public final class ComputerManager {
 
     /** Where each running computer is, so a program's shutdown can find its block. */
     private final Map<UUID, Viewing> places = new HashMap<>();
+
+    /** A running computer's block moved (a Qbot stepped): its program and the players watching it follow. */
+    public void moved(UUID deviceId, ResourceKey<Level> dimension, BlockPos to) {
+        BlockPos at = to.immutable();
+        if (places.containsKey(deviceId)) {
+            places.put(deviceId, new Viewing(deviceId, dimension, at));
+        }
+        viewers.replaceAll((player, viewing) -> viewing.deviceId().equals(deviceId) ? new Viewing(deviceId, dimension, at) : viewing);
+        Boot waiting = booting.get(deviceId);
+        if (waiting != null) {
+            booting.put(deviceId, new Boot(deviceId, dimension, at, waiting.owner()));
+        }
+    }
 
     /** A computer waiting to come back on: where it is, whose it is, and how far from the world's origin. */
     private record Boot(UUID deviceId, ResourceKey<Level> dimension, BlockPos pos, String owner) {

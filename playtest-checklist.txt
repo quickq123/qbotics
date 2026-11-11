@@ -174,3 +174,19 @@ ANTENNA UPGRADES (build these yourself)
  68. Chunk loading: the antenna's screen says how many chunks it holds. Fly 300+ blocks away
      and come back: furnaces on that network kept smelting. Press the button to switch it off;
      in python:  import network ,  network.Radio().chunks() .
+
+QBOTS (from the creative tab)
+ 69. Place an Iron Qbot: it faces you, hovers and bobs. Sneak + right-click with an empty
+     hand: its 4x4 inventory, hand and upgrade slots, energy gauge and two tanks.
+ 70. Right-click it for its terminal:  python ,  import qbot ,  qbot.forward() ,
+     qbot.turn_right() ,  qbot.position() . Watch it glide and turn.
+ 71. Put stone in front:  qbot.dig()  (its arms swing; cobblestone goes into its slots).
+     Obsidian in front:  qbot.dig()  says it needs a better tool. Put a diamond pickaxe in its
+     hand (screen or  from qbot import tools ,  tools.equip("diamond_pickaxe") ) and dig again.
+ 72. Water and lava: put a source of each beside it:  qbot.pump("left") ,  qbot.pump("right") ;
+     its screen shows them in separate tanks. qbot.pour("front", "water") .
+ 73. A chest in front:  from qbot import inventory ,  inventory.drop()  then  inventory.read() .
+     A furnace beside it:  inventory.drop("front", "coal", 4, face="left")  fills the fuel.
+ 74. qbot.use() on a lever; with shears in its hand, qbot.use() on a sheep.
+ 75. A Chunk Loader Upgrade in its upgrade slot: walk far away while it digs a tunnel.
+ 76. Break it: its items fall out; place it again and its files, energy and fluid are kept.

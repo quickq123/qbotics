@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "part=iron_body": {
+      "model": "qbotics:block/iron_qbot_body"
+    },
+    "part=iron_arm": {
+      "model": "qbotics:block/iron_qbot_arm"
+    }
+  }
+}

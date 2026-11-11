@@ -404,6 +404,48 @@ public final class ScreenshotRun {
             minecraft.setScreen(null);
             minecraft.options.hideGui = true;
         });
+        // An Iron Qbot: standing, mid-step, mid-swing, and its screen.
+        then(10, minecraft -> onServer(minecraft, player -> {
+            BlockPos at = base.offset(24, 0, 3);
+            player.level().setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState()
+                    .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+            if (player.level().getBlockEntity(at) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                qbot.onPlaced(player.getUUID());
+            }
+        }));
+        view("18-iron-qbot", new Vec3(25.6, 1.5, 6.0), new Vec3(24.5, 0.5, 3.5));
+        then(5, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(base.offset(24, 0, 3)) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                qbotics.qbot.Qbots.step(player.level(), qbot, Direction.SOUTH,
+                        Qbotics.platform().standIn(player.level(), player.getUUID(), qbot.deviceId(), qbot.getBlockPos(), Direction.SOUTH));
+            }
+        }));
+        then(0, minecraft -> shot(minecraft, "18b-qbot-stepping"));
+        then(20, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(base.offset(24, 0, 4)) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                qbot.swingTowards(Direction.SOUTH);
+            }
+        }));
+        then(1, minecraft -> shot(minecraft, "18c-qbot-swing"));
+        then(20, minecraft -> {
+            minecraft.options.hideGui = false;
+            onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(base.offset(24, 0, 4)) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                    qbot.items().setItem(0, new ItemStack(Items.COBBLESTONE, 40));
+                    qbot.items().setItem(5, new ItemStack(Items.RAW_IRON, 12));
+                    qbot.hand().setItem(0, new ItemStack(Items.DIAMOND_PICKAXE));
+                    qbot.setEnergy(640_000);
+                    qbot.fluidPort().insert(net.minecraft.world.level.material.Fluids.WATER, 3000, false);
+                    qbot.fluidPort().insert(net.minecraft.world.level.material.Fluids.LAVA, 1500, false);
+                    player.openMenu(qbot);
+                }
+            });
+        });
+        then(8, minecraft -> shot(minecraft, "18d-qbot-screen"));
+        then(5, minecraft -> {
+            minecraft.player.closeContainer();
+            minecraft.options.hideGui = true;
+        });
         then(10, minecraft -> onServer(minecraft, player -> command(player, "time set midnight")));
         view("17d-displays-at-night", new Vec3(22.5, 1.6, 5.2), new Vec3(22.5, 1.0, 0.5));
         then(10, minecraft -> onServer(minecraft, player -> command(player, "time set noon")));

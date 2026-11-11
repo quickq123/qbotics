@@ -128,6 +128,24 @@ public final class ChunkLoaders {
             hold(level, key, want);
             antenna.setLoaderState(status.ordinal(), want.size(), wanted);
         }
+        // Qbots with the upgrade hold the chunk they are in (and the next, near its edge), sharing the owner's loader count.
+        for (qbotics.qbot.QbotBlockEntity qbot : qbotics.qbot.QbotBlockEntity.loaded()) {
+            if (!(qbot.getLevel() instanceof ServerLevel level)) {
+                continue;
+            }
+            Key key = new Key(level.dimension(), qbot.getBlockPos().immutable());
+            seen.add(key);
+            boolean loads = qbot.hasUpgrade(UpgradeItem.Kind.CHUNK_LOADER) && !qbot.bricked() && QboticsConfig.chunkLoadingEnabled
+                    && qbot.owner() != null && (QboticsConfig.chunkLoadingWhileOffline || server.getPlayerList().getPlayer(qbot.owner()) != null);
+            if (loads) {
+                int limit = QboticsConfig.chunkLoadersPerPlayer;
+                loads = limit < 0 || perOwner.getOrDefault(qbot.owner(), 0) < limit || qbotics.limits.Limits.exempt(server, qbot.owner());
+            }
+            if (loads) {
+                perOwner.merge(qbot.owner(), 1, Integer::sum);
+            }
+            hold(level, key, loads ? chunksAround(qbot.getBlockPos()) : Set.of());
+        }
         // An antenna holding chunks that hasn't been seen for a while is gone: let its chunks go.
         for (Key key : new ArrayList<>(HELD.keySet())) {
             if (seen.contains(key)) {
@@ -192,6 +210,36 @@ public final class ChunkLoaders {
         } else {
             HELD.put(key, new HashSet<>(want));
         }
+    }
+
+    /**
+     * The chunks a Qbot at a place holds: its own, and the next one over when it is at a
+     * chunk's edge, so what it senses on every side is loaded (design doc §8.5).
+     */
+    public static Set<Long> chunksAround(BlockPos pos) {
+        Set<Long> chunks = new HashSet<>();
+        int cx = pos.getX() >> 4;
+        int cz = pos.getZ() >> 4;
+        int lx = pos.getX() & 15;
+        int lz = pos.getZ() & 15;
+        int dx = lx == 0 ? -1 : lx == 15 ? 1 : 0;
+        int dz = lz == 0 ? -1 : lz == 15 ? 1 : 0;
+        chunks.add(ChunkPos.pack(cx, cz));
+        chunks.add(ChunkPos.pack(cx + dx, cz));
+        chunks.add(ChunkPos.pack(cx, cz + dz));
+        chunks.add(ChunkPos.pack(cx + dx, cz + dz));
+        return chunks;
+    }
+
+    /** A Qbot stepped: what it held goes with it, held at its new place before it is let go at the old. */
+    public static void moved(ServerLevel level, BlockPos from, BlockPos to) {
+        Key old = new Key(level.dimension(), from.immutable());
+        Set<Long> held = HELD.get(old);
+        if (held == null || held.isEmpty()) {
+            return;
+        }
+        hold(level, new Key(level.dimension(), to.immutable()), chunksAround(to));
+        hold(level, old, Set.of());
     }
 
     /** The chunks an antenna holds now (for tests and its programs). */

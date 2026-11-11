@@ -156,6 +156,9 @@ public final class NetworkCalls {
 
     private static JsonElement run(ServerLevel level, CableNetwork network, BlockPos computerPos, JsonArray args) {
         String method = args.get(0).getAsString();
+        if (method.startsWith("qbot_")) {
+            return QbotCalls.call(method, level, computerPos, args); // a Qbot's program asking its body
+        }
         switch (method) {
             case "self": {
                 for (NetworkDevice device : network.devices()) {

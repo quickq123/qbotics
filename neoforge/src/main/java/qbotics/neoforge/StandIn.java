@@ -71,6 +71,12 @@ final class StandIn extends FakePlayer {
         return player;
     }
 
+    /** A stand-in never waits between swings (it doesn't tick): a Qbot's attack lands at full strength. */
+    @Override
+    public float getAttackStrengthScale(float partialTick) {
+        return 1.0f;
+    }
+
     @Override
     public OptionalInt openMenu(@Nullable MenuProvider provider, @Nullable Consumer<RegistryFriendlyByteBuf> extraData) {
         offered = provider;

@@ -46,6 +46,9 @@ public final class QboticsNeoForgeClient {
         // What Text Monitors and Control Panels show, drawn on their faces.
         modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
                 event.registerBlockEntityRenderer(QboticsNeoForge.DISPLAY_BLOCK_ENTITY.get(), NeoDisplayRenderer::new));
+        // Qbots: drawn from their part models, stepping, turning and swinging.
+        modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
+                event.registerBlockEntityRenderer(QboticsNeoForge.QBOT_BLOCK_ENTITY.get(), qbotics.client.QbotRenderer::new));
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) -> {
             event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new);
             event.register(QboticsNeoForge.FLUID_INTERFACE_MENU.get(), qbotics.client.FluidInterfaceScreen::new);
@@ -53,6 +56,7 @@ public final class QboticsNeoForgeClient {
             event.register(QboticsNeoForge.DRIVE_BAY_MENU.get(), qbotics.client.DriveBayScreen::new);
             event.register(QboticsNeoForge.PROGRAMMER_MENU.get(), qbotics.client.ProgrammerScreen::new);
             event.register(QboticsNeoForge.ANTENNA_MENU.get(), qbotics.client.AntennaScreen::new);
+            event.register(QboticsNeoForge.QBOT_MENU.get(), qbotics.client.QbotScreen::new);
         });
         modBus.addListener((RegisterClientPayloadHandlersEvent event) -> {
             event.register(TerminalStatePayload.TYPE, (payload, context) -> ClientIde.onTerminalState(payload));
