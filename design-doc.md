@@ -969,6 +969,8 @@ carries the owner's identity (the same player ID and name) and stands at the pla
 - 20 mB a point is assumed for every experience fluid for now. A mod whose fluid uses another rate will be over- or under-charged; accepted for now, and the place for a per-fluid setting later.
 - The operation charges exactly the points it costs, as if the stand-in player had just enough levels.
 
+**Experience a block gives out (left as the game does it, 2026-11-11).** A furnace keeps a hidden tally of the experience its smelting earned. Taking its output through a plate releases none, as with a hopper, so it builds up until a player takes from the output slot by hand or the furnace is broken. Taking the output through a Bus's screen releases it as orbs beside the Bus, where nobody may collect them. Decided by the project owner to leave unhandled for now. If wanted later: a screen's `xp` source could gather exactly the orbs its own action released, and the probe could show a furnace's tally.
+
 ### 11.0.5 Sources, destinations and `move` (built 2026-11-11)
 
 **Why.** The first API moved things with `extract` and `insert` on a plate, always by way of an

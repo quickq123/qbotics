@@ -540,6 +540,11 @@ expensive than a player.
 
 Not yet: renaming on the anvil.
 
+**Furnace experience.** A furnace keeps the experience its smelting earns until a player
+takes from its output slot by hand, or it is broken; then it comes out as orbs. A plate
+emptying a furnace releases none, as a hopper doesn't, so it waits in the furnace. A Bus taking
+the output through the furnace's screen releases it as orbs on the ground beside the Bus.
+
 **A product slot** (the crafting table's slot 0) gives only its whole stack, and taking from it
 uses up the ingredients, as it does for a player. Nothing can be put into it.
 
