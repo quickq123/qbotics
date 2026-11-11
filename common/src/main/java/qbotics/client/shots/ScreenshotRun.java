@@ -214,9 +214,9 @@ public final class ScreenshotRun {
                     new ItemStack(QboticsContent.COMPUTER_BLOCK.get()),
                     new ItemStack(QboticsContent.CABLE_BLOCK.get()),
                     new ItemStack(QboticsContent.INTERFACE_BLOCK.get()),
-                    new ItemStack(QboticsContent.PLATE_ITEMS.get(Kind.INPUT).get()),
-                    new ItemStack(QboticsContent.PLATE_ITEMS.get(Kind.OUTPUT).get()),
-                    new ItemStack(QboticsContent.PLATE_ITEMS.get(Kind.BUS).get()),
+                    new ItemStack(QboticsContent.plateItem(Kind.INPUT, qbotics.network.Medium.ITEM)),
+                    new ItemStack(QboticsContent.plateItem(Kind.OUTPUT, qbotics.network.Medium.ITEM)),
+                    new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM)),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("screen"))),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("motherboard"))),
                 };

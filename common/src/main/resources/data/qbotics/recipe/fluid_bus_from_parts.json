@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    "qbotics:fluid_input",
+    "qbotics:fluid_output"
+  ],
+  "result": {
+    "id": "qbotics:fluid_bus"
+  }
+}

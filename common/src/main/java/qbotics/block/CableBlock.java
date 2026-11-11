@@ -45,6 +45,7 @@ import org.jspecify.annotations.Nullable;
 import qbotics.Qbotics;
 import qbotics.QboticsContent;
 import qbotics.network.CableNetwork;
+import qbotics.network.Medium;
 import qbotics.network.NetworkDevice;
 
 /**
@@ -242,6 +243,11 @@ public class CableBlock extends Block implements EntityBlock {
      * already carries a plate.
      */
     public static @Nullable CablePort attach(Level level, BlockPos pos, NetworkDevice.Kind kind, Direction direction) {
+        return attach(level, pos, kind, Medium.ITEM, direction);
+    }
+
+    /** The same, for a plate that carries fluid or energy. */
+    public static @Nullable CablePort attach(Level level, BlockPos pos, NetworkDevice.Kind kind, Medium medium, Direction direction) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof CableBlock) || plateKind(state, direction) != null) {
             return null;
@@ -252,7 +258,13 @@ public class CableBlock extends Block implements EntityBlock {
             level.setBlockEntity(new PortBlockEntity(pos, changed));
         }
         CableNetwork.changed();
-        return level.getBlockEntity(pos) instanceof PortBlockEntity host ? host.port(direction) : null;
+        CablePort port = level.getBlockEntity(pos) instanceof PortBlockEntity host ? host.port(direction) : null;
+        if (port != null) {
+            port.medium = medium;
+            port.host.setChanged();
+            level.sendBlockUpdated(pos, changed, changed, Block.UPDATE_ALL); // tells players' games what it carries
+        }
+        return port;
     }
 
     /** Takes the plate off one side of a cable and returns it as an item (named, if the plate was). */
@@ -281,8 +293,8 @@ public class CableBlock extends Block implements EntityBlock {
         if (kind == null) {
             return ItemStack.EMPTY;
         }
-        ItemStack stack = new ItemStack(QboticsContent.PLATE_ITEMS.get(kind).get());
         CablePort port = entity instanceof PortBlockEntity host ? host.port(direction) : null;
+        ItemStack stack = new ItemStack(QboticsContent.plateItem(kind, port == null ? Medium.ITEM : port.medium()));
         if (port != null && !port.deviceName().isEmpty()) {
             stack.set(DataComponents.CUSTOM_NAME, Component.literal(port.deviceName()));
         }

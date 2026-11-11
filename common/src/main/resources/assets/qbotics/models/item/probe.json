@@ -3,7 +3,7 @@
   "textures": {
     "particle": "qbotics:block/port_side",
     "side": "qbotics:block/port_side",
-    "front": "qbotics:block/bus_front"
+    "front": "qbotics:block/plate_front"
   },
   "elements": [
     {

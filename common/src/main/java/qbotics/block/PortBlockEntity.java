@@ -17,6 +17,7 @@ import qbotics.QboticsContent;
 import qbotics.network.AccessFace;
 import qbotics.network.Addresses;
 import qbotics.network.CableNetwork;
+import qbotics.network.Medium;
 
 /**
  * What a cable remembers about the plates it carries: up to six, one per side (see
@@ -85,6 +86,7 @@ public class PortBlockEntity extends BlockEntity {
             child.putString("name", port.name);
             child.putInt("host", port.hostNumber);
             child.putString("face", port.accessFace.word());
+            child.putString("medium", port.medium.word);
         }
     }
 
@@ -104,8 +106,30 @@ public class PortBlockEntity extends BlockEntity {
             port.hostNumber = child.getIntOr("host", 0);
             AccessFace face = AccessFace.parse(child.getStringOr("face", ""));
             port.accessFace = face == null ? AccessFace.NEAR : face;
+            port.medium = Medium.parse(child.getStringOr("medium", ""));
             ports.put(side, port);
         }
+        // In a player's game the plates' colours come from this, so the block is drawn again.
+        if (level != null && level.isClientSide()) {
+            level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        }
+    }
+
+    /** What the plate on a side carries. Used to colour it; never changes anything. */
+    public Medium mediumAt(Direction side) {
+        CablePort port = ports.get(side);
+        return port == null ? Medium.ITEM : port.medium;
+    }
+
+    // Players' games are told about the plates, because a plate's colour depends on what it carries.
+    @Override
+    public net.minecraft.nbt.CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+        return saveCustomOnly(registries);
+    }
+
+    @Override
+    public net.minecraft.network.protocol.Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
     }
 
     /** A new identity for a plate that has just been put on (a new one on every placement, like a block's). */

@@ -21,11 +21,15 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 import qbotics.Qbotics;
 import qbotics.computer.ComputerManager;
 import qbotics.block.AntennaBlockEntity;
 import qbotics.block.InterfaceBlockEntity;
 import qbotics.block.CablePort;
+import qbotics.block.EnergyInterfaceBlockEntity;
+import qbotics.block.FluidInterfaceBlockEntity;
 import qbotics.network.NetworkDevice.Kind;
 
 /**
@@ -124,6 +128,12 @@ public final class NetworkCalls {
             }
             case "contents": {
                 NetworkDevice device = byMac(network, args, 1);
+                if (device.medium() == Medium.FLUID) {
+                    return tanks(fluidSource(level, device, string(args, 2)));
+                }
+                if (device.medium() == Medium.ENERGY) {
+                    throw new CallError("Energy has no contents to list. Ask how much is stored instead.");
+                }
                 if (device instanceof InterfaceBlockEntity input) {
                     return contents(input);
                 }
@@ -132,7 +142,15 @@ public final class NetworkCalls {
                     String faceWord = string(args, 2);
                     return contents(faceWord == null ? wholeTarget(level, port) : target(level, port, faceWord));
                 }
-                throw new CallError("Only an interface, an input or a bus can list contents; this is " + article(device.kind()) + ".");
+                throw new CallError("Only an interface, an input or a bus can list contents; this is " + article(device) + ".");
+            }
+            case "energy": {
+                // How much energy an energy interface holds, or the machine an energy input or bus points at.
+                EnergyPort store = energySource(level, byMac(network, args, 1), string(args, 2));
+                JsonObject held = new JsonObject();
+                held.addProperty("stored", store.stored());
+                held.addProperty("capacity", store.capacity());
+                return held;
             }
             case "filters": {
                 InterfaceBlockEntity input = input(byMac(network, args, 1));
@@ -184,11 +202,22 @@ public final class NetworkCalls {
      */
     private static int move(ServerLevel level, CableNetwork network, boolean insert, JsonArray args) {
         CablePort port = port(byMac(network, args, 1));
+        String stuff = switch (port.medium()) {
+            case ITEM -> "items";
+            case FLUID -> "fluid";
+            case ENERGY -> "energy";
+        };
         if (!insert && port.kind() == Kind.OUTPUT) {
-            throw new CallError("An output can only put items in. Use an input or a bus to take items out.");
+            throw new CallError("An output can only put " + stuff + " in. Use an input or a bus to take " + stuff + " out.");
         }
         if (insert && port.kind() == Kind.INPUT) {
-            throw new CallError("An input can only take items out. Use an output or a bus to put items in.");
+            throw new CallError("An input can only take " + stuff + " out. Use an output or a bus to put " + stuff + " in.");
+        }
+        if (port.medium() == Medium.FLUID) {
+            return moveFluid(level, network, port, insert, args);
+        }
+        if (port.medium() == Medium.ENERGY) {
+            return moveEnergy(level, network, port, insert, args);
         }
         Item item = item(args.get(2).getAsString());
         int count = args.get(3).getAsInt();
@@ -217,6 +246,173 @@ public final class NetworkCalls {
                 break;
             }
             moved += insert ? ItemPort.move(input, target, item, count - moved) : ItemPort.move(target, input, item, count - moved);
+        }
+        return moved;
+    }
+
+    // ---- fluid and energy ----------------------------------------------------------------
+
+    /** The most one call may move: sixteen buckets of fluid, or a whole energy interface's worth. */
+    private static final int MAX_FLUID_PER_CALL = 16 * FluidPort.BUCKET;
+    private static final int MAX_ENERGY_PER_CALL = EnergyInterfaceBlockEntity.CAPACITY;
+
+    /** The fluid for an ID such as "minecraft:water"; "water" alone means the same. */
+    private static Fluid fluid(String id) {
+        Identifier key = Identifier.tryParse(id);
+        Fluid found = key != null && BuiltInRegistries.FLUID.containsKey(key) ? BuiltInRegistries.FLUID.getValue(key) : Fluids.EMPTY;
+        if (found == Fluids.EMPTY || !found.isSource(found.defaultFluidState())) {
+            throw new CallError("There is no fluid called '" + id + "'. Fluid names look like minecraft:water or minecraft:lava.");
+        }
+        return found;
+    }
+
+    private static String nothingThere(ServerLevel level, CablePort port, String what) {
+        String block = BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString();
+        return "The " + port.kindWord().replace('_', ' ') + " at " + port.ip() + " points at " + block + ", which holds no " + what + ".";
+    }
+
+    /** The side of its target a plate works through: none named reads the whole block, where the block allows it. */
+    private static Direction sideFor(CablePort port, String faceWord) {
+        return (faceWord == null ? port.accessFace() : face(faceWord)).resolve(port.pointing());
+    }
+
+    private static FluidPort fluidTarget(ServerLevel level, CablePort port, String faceWord, boolean whole) {
+        BlockPos pos = port.targetPos();
+        FluidPort target = null;
+        if (level.isLoaded(pos)) {
+            target = whole && faceWord == null ? Qbotics.platform().fluidPort(level, pos, null) : null;
+            if (target == null) {
+                target = Qbotics.platform().fluidPort(level, pos, sideFor(port, faceWord));
+            }
+        }
+        if (target == null) {
+            throw new CallError(nothingThere(level, port, "fluid"));
+        }
+        return target;
+    }
+
+    private static EnergyPort energyTarget(ServerLevel level, CablePort port, String faceWord, boolean whole) {
+        BlockPos pos = port.targetPos();
+        EnergyPort target = null;
+        if (level.isLoaded(pos)) {
+            target = whole && faceWord == null ? Qbotics.platform().energyPort(level, pos, null) : null;
+            if (target == null) {
+                target = Qbotics.platform().energyPort(level, pos, sideFor(port, faceWord));
+            }
+        }
+        if (target == null) {
+            throw new CallError(nothingThere(level, port, "energy"));
+        }
+        return target;
+    }
+
+    /** What a fluid device reads: a fluid interface's own tanks, or the tanks an input or bus points at. */
+    private static FluidPort fluidSource(ServerLevel level, NetworkDevice device, String faceWord) {
+        if (device instanceof FluidInterfaceBlockEntity store) {
+            return store;
+        }
+        if (device instanceof CablePort port && port.kind() != Kind.OUTPUT) {
+            return fluidTarget(level, port, faceWord, true);
+        }
+        throw new CallError("Only a fluid interface, a fluid input or a fluid bus can list contents; this is " + article(device) + ".");
+    }
+
+    private static EnergyPort energySource(ServerLevel level, NetworkDevice device, String faceWord) {
+        if (device instanceof EnergyInterfaceBlockEntity store) {
+            return store;
+        }
+        if (device instanceof CablePort port && port.medium() == Medium.ENERGY && port.kind() != Kind.OUTPUT) {
+            return energyTarget(level, port, faceWord, true);
+        }
+        throw new CallError("Only an energy interface, an energy input or an energy bus can say how much energy there is; this is "
+                + article(device) + ".");
+    }
+
+    private static JsonArray tanks(FluidPort port) {
+        JsonArray list = new JsonArray();
+        List<FluidPort.Tank> tanks = port.tanks();
+        for (int i = 0; i < tanks.size(); i++) {
+            FluidPort.Tank tank = tanks.get(i);
+            JsonObject entry = new JsonObject();
+            entry.addProperty("tank", i);
+            if (tank.amount() > 0) {
+                entry.addProperty("fluid", BuiltInRegistries.FLUID.getKey(tank.fluid()).toString());
+            } else {
+                entry.add("fluid", JsonNull.INSTANCE);
+            }
+            entry.addProperty("amount", tank.amount());
+            entry.addProperty("capacity", tank.capacity());
+            list.add(entry);
+        }
+        return list;
+    }
+
+    /** The count argument of insert and extract, checked and capped. */
+    private static int amount(JsonArray args, int most, String unit) {
+        int count = args.get(3).getAsInt();
+        if (count < 1) {
+            throw new CallError("The amount must be 1 or more " + unit + ", not " + count + ".");
+        }
+        return Math.min(count, most);
+    }
+
+    /** Arguments: device MAC, fluid, millibuckets, the other end's MAC (or null for any fluid interface), face (or null). */
+    private static int moveFluid(ServerLevel level, CableNetwork network, CablePort port, boolean insert, JsonArray args) {
+        Fluid fluid = fluid(args.get(2).getAsString());
+        int count = amount(args, MAX_FLUID_PER_CALL, "millibuckets");
+        List<FluidInterfaceBlockEntity> stores = new ArrayList<>();
+        if (string(args, 4) != null) {
+            if (!(byMac(network, args, 4) instanceof FluidInterfaceBlockEntity store)) {
+                throw new CallError("That needs a fluid interface; this is " + article(byMac(network, args, 4)) + ".");
+            }
+            stores.add(store);
+        } else {
+            for (NetworkDevice device : network.devices()) {
+                if (device instanceof FluidInterfaceBlockEntity store) {
+                    stores.add(store);
+                }
+            }
+            if (stores.isEmpty()) {
+                throw new CallError("There is no fluid interface on this network to " + (insert ? "take fluid from." : "put fluid into."));
+            }
+        }
+        FluidPort target = fluidTarget(level, port, string(args, 5), false);
+        int moved = 0;
+        for (FluidInterfaceBlockEntity store : stores) {
+            if (moved >= count) {
+                break;
+            }
+            moved += insert ? FluidPort.move(store, target, fluid, count - moved) : FluidPort.move(target, store, fluid, count - moved);
+        }
+        return moved;
+    }
+
+    /** Arguments: device MAC, null, amount of energy, the other end's MAC (or null for any energy interface), face (or null). */
+    private static int moveEnergy(ServerLevel level, CableNetwork network, CablePort port, boolean insert, JsonArray args) {
+        int count = amount(args, MAX_ENERGY_PER_CALL, "units of energy");
+        List<EnergyInterfaceBlockEntity> stores = new ArrayList<>();
+        if (string(args, 4) != null) {
+            if (!(byMac(network, args, 4) instanceof EnergyInterfaceBlockEntity store)) {
+                throw new CallError("That needs an energy interface; this is " + article(byMac(network, args, 4)) + ".");
+            }
+            stores.add(store);
+        } else {
+            for (NetworkDevice device : network.devices()) {
+                if (device instanceof EnergyInterfaceBlockEntity store) {
+                    stores.add(store);
+                }
+            }
+            if (stores.isEmpty()) {
+                throw new CallError("There is no energy interface on this network to " + (insert ? "take energy from." : "put energy into."));
+            }
+        }
+        EnergyPort target = energyTarget(level, port, string(args, 5), false);
+        int moved = 0;
+        for (EnergyInterfaceBlockEntity store : stores) {
+            if (moved >= count) {
+                break;
+            }
+            moved += insert ? EnergyPort.move(store, target, count - moved) : EnergyPort.move(target, store, count - moved);
         }
         return moved;
     }
@@ -289,7 +485,7 @@ public final class NetworkCalls {
             sender = self.ip();
         }
         if (target.kind() != Kind.COMPUTER) {
-            throw new CallError("Only computers receive messages; " + address + " is " + article(target.kind()) + ".");
+            throw new CallError("Only computers receive messages; " + address + " is " + article(target) + ".");
         }
         return ComputerManager.get(level.getServer()).deliver(target.deviceId(), sender, data);
     }
@@ -312,11 +508,11 @@ public final class NetworkCalls {
     private static NetworkDevice find(CableNetwork network, String key, String kindWord) {
         List<NetworkDevice> matches = new ArrayList<>();
         for (NetworkDevice device : key == null ? network.devices() : network.find(key)) {
-            if (kindWord == null || device.kind().word.equals(kindWord)) {
+            if (kindWord == null || device.kindWord().equals(kindWord)) {
                 matches.add(device);
             }
         }
-        String what = kindWord == null ? "device" : kindWord;
+        String what = kindWord == null ? "device" : kindWord.replace('_', ' ');
         if (matches.size() == 1) {
             return matches.getFirst();
         }
@@ -329,13 +525,13 @@ public final class NetworkCalls {
             List<NetworkDevice> otherKinds = network.find(key);
             throw new CallError(otherKinds.isEmpty()
                     ? "No " + what + " on this network has the name or address '" + key + "'."
-                    : "'" + key + "' is " + article(otherKinds.getFirst().kind()) + ", not " + article(what) + ".");
+                    : "'" + key + "' is " + article(otherKinds.getFirst()) + ", not " + article(what) + ".");
         }
         throw new CallError(matches.size() + " devices are named '" + key + "'. Use an address, or rename one.");
     }
 
-    private static String article(Kind kind) {
-        return article(kind.word);
+    private static String article(NetworkDevice device) {
+        return article(device.kindWord().replace('_', ' '));
     }
 
     private static String article(String word) {
@@ -346,14 +542,14 @@ public final class NetworkCalls {
         if (device instanceof InterfaceBlockEntity input) {
             return input;
         }
-        throw new CallError("That needs an interface; this is " + article(device.kind()) + ".");
+        throw new CallError("That needs an interface; this is " + article(device) + ".");
     }
 
     private static CablePort port(NetworkDevice device) {
         if (device instanceof CablePort port) {
             return port;
         }
-        throw new CallError("That needs an input, an output or a bus; this is " + article(device.kind()) + ".");
+        throw new CallError("That needs an input, an output or a bus; this is " + article(device) + ".");
     }
 
     private static AccessFace face(String word) {
@@ -392,7 +588,7 @@ public final class NetworkCalls {
         ItemPort target = level.isLoaded(pos) ? Qbotics.platform().itemPort(level, pos, side) : null;
         if (target == null) {
             String block = BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString();
-            throw new CallError("The " + port.kind().word + " at " + port.ip() + " points at " + block
+            throw new CallError("The " + port.kindWord().replace('_', ' ') + " at " + port.ip() + " points at " + block
                     + ", which holds no items" + (face == AccessFace.NEAR ? "." : " that can be reached through its " + face.word() + " face."));
         }
         return target;
@@ -404,7 +600,8 @@ public final class NetworkCalls {
         JsonObject info = new JsonObject();
         info.addProperty("ip", device.ip());
         info.addProperty("mac", device.mac());
-        info.addProperty("kind", device.kind().word);
+        info.addProperty("kind", device.kindWord());
+        info.addProperty("medium", device.medium().word);
         info.addProperty("name", device.deviceName());
         // With an antenna on the network, every device can be reached from outside on its own port.
         AntennaBlockEntity gateway = network.gateway();
@@ -423,6 +620,11 @@ public final class NetworkCalls {
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
         } else if (device instanceof InterfaceBlockEntity) {
             info.addProperty("slots", InterfaceBlockEntity.SLOTS);
+        } else if (device instanceof FluidInterfaceBlockEntity) {
+            info.addProperty("tanks", FluidInterfaceBlockEntity.TANKS);
+            info.addProperty("tank_capacity", FluidInterfaceBlockEntity.TANK_CAPACITY);
+        } else if (device instanceof EnergyInterfaceBlockEntity) {
+            info.addProperty("capacity", EnergyInterfaceBlockEntity.CAPACITY);
         }
         return info;
     }

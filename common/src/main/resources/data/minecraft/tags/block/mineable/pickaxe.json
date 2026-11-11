@@ -4,6 +4,8 @@
     "qbotics:computer",
     "qbotics:cable",
     "qbotics:interface",
+    "qbotics:fluid_interface",
+    "qbotics:energy_interface",
     "qbotics:antenna_short",
     "qbotics:antenna_long",
     "qbotics:antenna_infinite"

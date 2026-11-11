@@ -51,11 +51,12 @@ public final class ProbePayloads {
 
         /** A line of Python that reaches this device. */
         public String python() {
-            return switch (kind) {
-                case "interface", "input", "output", "bus" -> "net." + kind + "(\"" + key() + "\")";
-                case "computer" -> "network.send(\"" + key() + "\", data)";
-                default -> "net.device(\"" + key() + "\")";
-            };
+            if (kind.equals("computer")) {
+                return "network.send(\"" + key() + "\", data)";
+            }
+            // "bus" -> net.bus("x"); "fluid_input" -> net.fluid_input("x")
+            boolean logistics = kind.endsWith("interface") || kind.endsWith("input") || kind.endsWith("output") || kind.endsWith("bus");
+            return "net." + (logistics ? kind : "device") + "(\"" + key() + "\")";
         }
     }
 

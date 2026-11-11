@@ -445,6 +445,12 @@ public final class Docs {
                     case "open" -> "file";
                     default -> called;
                 };
+                if (called.startsWith("fluid_") || called.startsWith("energy_")) {
+                    // net.fluid_input() gives a FluidInput, net.energy_bus() an EnergyBus.
+                    String[] words = called.split("_");
+                    made = Character.toUpperCase(words[0].charAt(0)) + words[0].substring(1)
+                            + Character.toUpperCase(words[1].charAt(0)) + words[1].substring(1);
+                }
                 for (Entry entry : known) {
                     if (entry.owner().equals(made) || (entry.isClass() && entry.name().equals(made))) {
                         return made;

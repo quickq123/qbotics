@@ -61,6 +61,7 @@ public final class QboticsGameTests {
             Map.entry("logistics_transfer", QboticsGameTests::logisticsTransfer),
             Map.entry("cable_plates", QboticsGameTests::cablePlates),
             Map.entry("network_probe", QboticsGameTests::networkProbe),
+            Map.entry("fluid_and_energy", QboticsGameTests::fluidAndEnergy),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -265,13 +266,28 @@ public final class QboticsGameTests {
         for (String line : List.of("python", "name = input('Name? ')", "Ada", "print('hi', name)", "input('again? ')")) {
             computer.submitLine(line);
         }
-        helper.runAfterDelay(40, computer::interrupt);
-        helper.runAfterDelay(45, () -> computer.submitLine("print('after', len(name))"));
-        // A scratchpad run has no terminal: input() there is an error, not a hang.
-        helper.runAfterDelay(50, () -> computer.submitScratch(UUID.randomUUID(), 1, "input('never asked')"));
-        helper.runAfterDelay(55, () -> computer.submitLine("print('still here')"));
-        helper.succeedWhen(() -> assertScreen(helper, computer,
-                "Name? Ada\n>>> print('hi', name)\nhi Ada\n", "again?\n", "KeyboardInterrupt", "after 3\n", "still here\n>>>"));
+        // Each step waits for the screen to show the one before it: the test server's ticks
+        // run much faster than the computer's own thread, so fixed delays can't be relied on.
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            String shown = screen(computer);
+            if (step[0] == 0 && shown.contains("again? ")) {
+                computer.interrupt();
+                step[0] = 1;
+            }
+            if (step[0] == 1 && shown.contains("KeyboardInterrupt")) {
+                computer.submitLine("print('after', len(name))");
+                step[0] = 2;
+            }
+            if (step[0] == 2 && shown.contains("after 3")) {
+                // A scratchpad run has no terminal: input() there is an error, not a hang.
+                computer.submitScratch(UUID.randomUUID(), 1, "input('never asked')");
+                computer.submitLine("print('still here')");
+                step[0] = 3;
+            }
+            assertScreen(helper, computer,
+                    "Name? Ada\n>>> print('hi', name)\nhi Ada\n", "again?\n", "KeyboardInterrupt", "after 3\n", "still here\n>>>");
+        });
     }
 
     /** Both packets survive being written to and read from a buffer. */
@@ -492,8 +508,10 @@ public final class QboticsGameTests {
             assertScreen(helper, computer, "before 3 None\n", "moved 5 2 3\n", "out 11 0 3\n", "4 computer minecraft:furnace True\n",
                     "NetworkError: No bus on this network has the name or address 'nope'.",
                     "There is no item called 'minecraft:not_a_thing'", "AttributeError", "host base True\n");
-            helper.assertTrue(furnace.getItem(0).is(Items.RAW_IRON) && furnace.getItem(2).isEmpty(),
-                    "the furnace should hold raw iron and no ingots: " + furnace.getItem(0) + " / " + furnace.getItem(2));
+            // The furnace is lit, so by now it may have smelted some of the five: count both.
+            helper.assertTrue(furnace.getItem(0).getCount() + furnace.getItem(2).getCount() == 5,
+                    "the furnace should hold the five raw iron (smelted or not) and none of the old ingots: "
+                    + furnace.getItem(0) + " / " + furnace.getItem(2));
             helper.assertTrue(barrel.countItem(Items.RAW_IRON) == 11, "the barrel should hold 11 raw iron but holds " + barrel.countItem(Items.RAW_IRON));
             helper.assertTrue(input.getItem(1).getCount() == 6 && input.getItem(2).is(Items.IRON_INGOT),
                     "the input should have 6 coal left and the ingots in slot 2");
@@ -522,7 +540,7 @@ public final class QboticsGameTests {
         // A player holding an Input clicks the chest's north face: the plate goes on the cable in front of it.
         net.minecraft.world.entity.player.Player player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         net.minecraft.world.InteractionHand hand = net.minecraft.world.InteractionHand.MAIN_HAND;
-        ItemStack inputs = new ItemStack(QboticsContent.PLATE_ITEMS.get(Kind.INPUT).get(), 2);
+        ItemStack inputs = new ItemStack(QboticsContent.plateItem(Kind.INPUT, qbotics.network.Medium.ITEM), 2);
         inputs.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("ore in"));
         player.setItemInHand(hand, inputs);
         java.util.function.BiFunction<BlockPos, Direction, net.minecraft.world.InteractionResult> click = (pos, face) -> {
@@ -553,7 +571,7 @@ public final class QboticsGameTests {
                 "the cable should carry two inputs, each its own device: " + withTwo);
 
         // With no cable in front of the clicked face, one is taken from the player's inventory.
-        player.setItemInHand(hand, new ItemStack(QboticsContent.PLATE_ITEMS.get(Kind.BUS).get()));
+        player.setItemInHand(hand, new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM)));
         click.apply(chestPos, Direction.UP);
         helper.assertTrue(helper.getBlockState(chestPos.above()).isAir() && player.getItemInHand(hand).getCount() == 1, "no cable, no plate");
         player.getInventory().add(new ItemStack(QboticsContent.CABLE_BLOCK.get(), 3));
@@ -603,6 +621,100 @@ public final class QboticsGameTests {
         helper.assertTrue(!CableBlock.hasPlates(helper.getBlockState(cablePos)) && level.getBlockEntity(helper.absolutePos(cablePos)) == null
                 && networkAt(helper, computerPos).devices().size() == 2, "taking the last plate off should leave a bare cable and two devices");
         helper.succeed();
+    }
+
+    /**
+     * Fluid and energy: a store for each, plates that carry each, and programs moving both.
+     * The plates' targets here are a second store of each kind, reached the way another
+     * mod's tank or machine would be.
+     */
+    private static void fluidAndEnergy(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos computerPos = new BlockPos(0, 1, 0);
+        BlockPos fluidCable = new BlockPos(2, 1, 0);
+        BlockPos energyCable = new BlockPos(0, 1, 2);
+        ServerComputer computer = startAt(helper, computerPos);
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(0, 1, 1), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 1), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 1, 2), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(fluidCable, QboticsContent.CABLE_BLOCK.get());
+        helper.setBlock(energyCable, QboticsContent.CABLE_BLOCK.get());
+        qbotics.network.Medium fluid = qbotics.network.Medium.FLUID;
+        qbotics.network.Medium energy = qbotics.network.Medium.ENERGY;
+        CablePort fluidBus = CableBlock.attach(level, helper.absolutePos(fluidCable), Kind.BUS, fluid, Direction.SOUTH);
+        CablePort energyBus = CableBlock.attach(level, helper.absolutePos(energyCable), Kind.BUS, energy, Direction.EAST);
+        qbotics.block.FluidInterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), qbotics.block.FluidInterfaceBlockEntity.class);
+        qbotics.block.FluidInterfaceBlockEntity tank = helper.getBlockEntity(new BlockPos(2, 1, 1), qbotics.block.FluidInterfaceBlockEntity.class);
+        qbotics.block.EnergyInterfaceBlockEntity cell = helper.getBlockEntity(new BlockPos(0, 1, 1), qbotics.block.EnergyInterfaceBlockEntity.class);
+        qbotics.block.EnergyInterfaceBlockEntity machine = helper.getBlockEntity(new BlockPos(1, 1, 2), qbotics.block.EnergyInterfaceBlockEntity.class);
+        net.minecraft.world.level.material.Fluid water = net.minecraft.world.level.material.Fluids.WATER;
+
+        // The stores themselves: four tanks of four buckets, and two million units of energy.
+        helper.assertTrue(tank.insert(water, 99_000, false) == 16_000 && tank.extract(water, 13_000, false) == 13_000
+                && tank.insert(net.minecraft.world.level.material.Fluids.LAVA, 500, false) == 500 && tank.tanks().size() == 4,
+                "a fluid interface holds 16 buckets in four tanks");
+        helper.assertTrue(machine.insert(3_000_000, false) == 2_000_000 && machine.extract(1_500_000, false) == 1_500_000 && machine.stored() == 500_000,
+                "an energy interface holds two million");
+
+        // On the network: the computer, the two stores and the two plates. The plates' targets are not on it.
+        CableNetwork network = networkAt(helper, computerPos);
+        List<String> kinds = network.devices().stream().map(NetworkDevice::kindWord).sorted().toList();
+        helper.assertTrue(kinds.equals(List.of("computer", "energy_bus", "energy_interface", "fluid_bus", "fluid_interface")),
+                "the network should hold the computer, two stores and two plates, but had " + kinds);
+        BlockPos computerAt = helper.absolutePos(computerPos);
+        java.util.function.Function<String, String> call = request ->
+                qbotics.network.NetworkCalls.handle(level.getServer(), level.dimension(), computerAt, request);
+        String f = fluidBus.mac();
+        String e = energyBus.mac();
+        helper.assertTrue(call.apply("[\"contents\",\"" + f + "\",null]").contains("\"fluid\":\"minecraft:water\",\"amount\":3000"),
+                "the fluid bus should read its target's tanks: " + call.apply("[\"contents\",\"" + f + "\",null]"));
+        helper.assertTrue(call.apply("[\"extract\",\"" + f + "\",\"minecraft:water\",2500,null,null]").equals("{\"r\":2500}")
+                && store.tanks().getFirst().amount() == 2500, "2500 mB of water should move into the fluid interface");
+        helper.assertTrue(call.apply("[\"insert\",\"" + f + "\",\"minecraft:water\",500,null,null]").equals("{\"r\":500}")
+                && store.tanks().getFirst().amount() == 2000 && tank.extract(water, 99_000, true) == 1000, "500 mB should go back");
+        helper.assertTrue(call.apply("[\"extract\",\"" + f + "\",\"minecraft:milk_tea\",1,null,null]").contains("There is no fluid called"),
+                "an unknown fluid should be explained");
+        helper.assertTrue(call.apply("[\"energy\",\"" + e + "\",null]").equals("{\"r\":{\"stored\":500000,\"capacity\":2000000}}"),
+                "the energy bus should read its target: " + call.apply("[\"energy\",\"" + e + "\",null]"));
+        helper.assertTrue(call.apply("[\"extract\",\"" + e + "\",null,200000,null,null]").equals("{\"r\":200000}")
+                && cell.stored() == 200_000 && machine.stored() == 300_000, "200,000 should move into the energy interface");
+        helper.assertTrue(call.apply("[\"insert\",\"" + e + "\",null,50000,null,null]").equals("{\"r\":50000}")
+                && cell.stored() == 150_000 && machine.stored() == 350_000, "50,000 should go back");
+        helper.assertTrue(call.apply("[\"extract\",\"" + f + "\",\"minecraft:water\",1,\"" + cell.mac() + "\",null]").contains("needs a fluid interface"),
+                "fluid can't be sent to an energy interface");
+
+        // Breaking the cable gives back the fluid plate, not an item one.
+        List<ItemStack> drops = net.minecraft.world.level.block.Block.getDrops(helper.getBlockState(fluidCable), level,
+                helper.absolutePos(fluidCable), level.getBlockEntity(helper.absolutePos(fluidCable)));
+        helper.assertTrue(drops.stream().anyMatch(stack -> stack.is(QboticsContent.plateItem(Kind.BUS, fluid))), "the drops should hold a fluid bus: " + drops);
+
+        // Recipes: a bus is an input and an output; a bucket makes the fluid version, a redstone block the energy version.
+        ItemStack none = ItemStack.EMPTY;
+        ItemStack input = new ItemStack(QboticsContent.plateItem(Kind.INPUT, qbotics.network.Medium.ITEM));
+        ItemStack output = new ItemStack(QboticsContent.plateItem(Kind.OUTPUT, qbotics.network.Medium.ITEM));
+        ItemStack bus = craft(helper, input, output, none, none, none, none, none, none, none);
+        ItemStack fluidInput = craft(helper, input, new ItemStack(Items.BUCKET), none, none, none, none, none, none, none);
+        ItemStack energyStore = craft(helper, new ItemStack(QboticsContent.INTERFACE_BLOCK.get()), new ItemStack(Blocks.REDSTONE_BLOCK),
+                none, none, none, none, none, none, none);
+        ItemStack energyBusItem = craft(helper, bus, new ItemStack(Blocks.REDSTONE_BLOCK), none, none, none, none, none, none, none);
+        helper.assertTrue(bus.is(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM)) && fluidInput.is(QboticsContent.plateItem(Kind.INPUT, fluid))
+                && energyStore.is(QboticsContent.ENERGY_INTERFACE_BLOCK.get().asItem()) && energyBusItem.is(QboticsContent.plateItem(Kind.BUS, energy)),
+                "recipes gave " + bus + ", " + fluidInput + ", " + energyStore + ", " + energyBusItem);
+
+        // And from Python.
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "net = network()",
+                "print(net.fluid_bus().amount('water'), net.fluid_interface().amount(), net.fluid_interface().contents()[0]['fluid'])",
+                "print(net.energy_interface().stored, net.energy_bus().stored(), net.energy_bus().insert(1000))",
+                "print(net.fluid_bus().extract('water', 250), net.fluid_bus().kind)",
+                "net.energy_bus().extract(0)")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer, "1000 2000 minecraft:water\n", "150000 350000 1000\n", "250 fluid_bus\n",
+                "NetworkError: The amount must be 1 or more units of energy, not 0."));
     }
 
     /** The Network Probe reads any device's name and addresses, picks out one plate on a cable, and renames. */

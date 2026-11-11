@@ -25,7 +25,18 @@ public final class QboticsContent {
     /** The Network Probe: reads a device's name and addresses. */
     public static Supplier<? extends net.minecraft.world.item.Item> PROBE_ITEM;
     /** The Input, Output and Bus plates, as the items a player holds. They go on cables. */
-    public static java.util.Map<qbotics.network.NetworkDevice.Kind, Supplier<? extends net.minecraft.world.item.Item>> PLATE_ITEMS;
+    public static java.util.Map<String, Supplier<? extends net.minecraft.world.item.Item>> PLATE_ITEMS;
+
+    /** The item for a plate: plateItem(Kind.INPUT, Medium.FLUID) is the Fluid Input. */
+    public static net.minecraft.world.item.Item plateItem(qbotics.network.NetworkDevice.Kind kind, qbotics.network.Medium medium) {
+        return PLATE_ITEMS.get(medium.prefix + kind.word).get();
+    }
+
+    /** The network's stores for fluid and for energy. */
+    public static Supplier<qbotics.block.StoreBlock> FLUID_INTERFACE_BLOCK;
+    public static Supplier<qbotics.block.StoreBlock> ENERGY_INTERFACE_BLOCK;
+    public static Supplier<BlockEntityType<qbotics.block.FluidInterfaceBlockEntity>> FLUID_INTERFACE_BLOCK_ENTITY;
+    public static Supplier<BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY;
     public static Supplier<BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY;
     /** The Input block's screen of filters and slots. */
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU;

@@ -74,7 +74,7 @@ public class ProbeItem extends Item {
         AntennaBlockEntity gateway = network.gateway();
         String external = gateway == null || device.hostNumber() <= 0 ? ""
                 : gateway.externalIp() + ":" + (RadioNetwork.PORT_BASE + device.hostNumber());
-        return new ProbePayloads.Info(pos, side, device.kind().word, device.deviceName(), device.ip(), device.mac(), external);
+        return new ProbePayloads.Info(pos, side, device.kindWord(), device.deviceName(), device.ip(), device.mac(), external);
     }
 
     /** A player asked, from the probe's pop-up, to name a device. Returns what the device is now, or null. */

@@ -55,7 +55,8 @@ class Device:
         self.ip = info["ip"]        # internal address on this network, e.g. "192.168.1.4"
         self.mac = info["mac"]      # hardware address; never changes while the block stays placed
         self.name = info["name"]    # "" if it has no name
-        self.kind = info["kind"]    # "computer", "antenna", "interface", "input", "output" or "bus"
+        self.kind = info["kind"]    # "computer", "antenna", "interface", "input", "output", "bus",
+        #                             or one of the last four after "fluid_" or "energy_"
         self._info = info
 
     def rename(self, name):
@@ -176,11 +177,150 @@ class Bus(Port):
         return self._insert(item, count, source, face)
 
 
+# ---- fluid: amounts are in millibuckets (mB); 1000 is one bucket ----
+
+
+def _amount(tanks, fluid):
+    fluid = _full_name(fluid)
+    return sum(t["amount"] for t in tanks if fluid is None or t["fluid"] == fluid)
+
+
+class FluidInterface(Device):
+    """The network's fluid store: four tanks of four buckets (4000 mB) each. Fluid
+    inputs and buses deliver to it; fluid outputs and buses draw from it."""
+
+    def contents(self):
+        """What each tank holds: a list of {"tank": 0, "fluid": "minecraft:water",
+        "amount": 1000, "capacity": 4000}. An empty tank's fluid is None."""
+        return _call("contents", self.mac, None)
+
+    def amount(self, fluid=None):
+        """How many millibuckets of a fluid it holds (or of everything, with no fluid)."""
+        return _amount(self.contents(), fluid)
+
+
+class FluidInput(Port):
+    """Takes fluid out of the tank it points at, into the network's fluid interfaces."""
+
+    def contents(self, face=None):
+        """The target's tanks, as seen through a face (or all of them, with no face)."""
+        return self._contents(face)
+
+    def amount(self, fluid=None, face=None):
+        """How many millibuckets of a fluid the target holds (or of everything)."""
+        return _amount(self.contents(face), fluid)
+
+    def extract(self, fluid, amount=1000, dest=None, face=None):
+        """Moves up to an amount (in millibuckets; 1000 is a bucket) of a fluid out of the
+        target into a fluid interface (any, unless dest says which). Returns how much moved."""
+        return self._extract(_full_name(fluid), amount, dest, face)
+
+
+class FluidOutput(Port):
+    """Puts fluid from the network's fluid interfaces into the tank it points at."""
+
+    def insert(self, fluid, amount=1000, source=None, face=None):
+        """Moves up to an amount (in millibuckets; 1000 is a bucket) of a fluid from a fluid
+        interface (any, unless source says which) into the target. Returns how much moved."""
+        return self._insert(_full_name(fluid), amount, source, face)
+
+
+class FluidBus(Port):
+    """A fluid input and a fluid output in one."""
+
+    def contents(self, face=None):
+        """The target's tanks, as seen through a face (or all of them, with no face)."""
+        return self._contents(face)
+
+    def amount(self, fluid=None, face=None):
+        """How many millibuckets of a fluid the target holds (or of everything)."""
+        return _amount(self.contents(face), fluid)
+
+    def extract(self, fluid, amount=1000, dest=None, face=None):
+        """Moves up to an amount (in millibuckets; 1000 is a bucket) of a fluid out of the
+        target into a fluid interface (any, unless dest says which). Returns how much moved."""
+        return self._extract(_full_name(fluid), amount, dest, face)
+
+    def insert(self, fluid, amount=1000, source=None, face=None):
+        """Moves up to an amount (in millibuckets; 1000 is a bucket) of a fluid from a fluid
+        interface (any, unless source says which) into the target. Returns how much moved."""
+        return self._insert(_full_name(fluid), amount, source, face)
+
+
+# ---- energy: amounts are in FE, the unit mods share (also called RF) ----
+
+
+class EnergyInterface(Device):
+    """The network's energy store: it holds 2,000,000 FE. Energy inputs and buses
+    charge it; energy outputs and buses draw from it."""
+
+    @property
+    def stored(self):
+        """How much energy it holds now."""
+        return _call("energy", self.mac, None)["stored"]
+
+    @property
+    def capacity(self):
+        """The most it can hold."""
+        return self._info["capacity"]
+
+
+class EnergyInput(Port):
+    """Takes energy out of the machine it points at, into the network's energy interfaces."""
+
+    def stored(self, face=None):
+        """How much energy the target holds."""
+        return _call("energy", self.mac, face)["stored"]
+
+    def capacity(self, face=None):
+        """The most the target can hold."""
+        return _call("energy", self.mac, face)["capacity"]
+
+    def extract(self, amount, dest=None, face=None):
+        """Moves up to an amount of energy out of the target into an energy interface
+        (any, unless dest says which). Returns how much moved."""
+        return self._extract(None, amount, dest, face)
+
+
+class EnergyOutput(Port):
+    """Puts energy from the network's energy interfaces into the machine it points at."""
+
+    def insert(self, amount, source=None, face=None):
+        """Moves up to an amount of energy from an energy interface (any, unless source
+        says which) into the target. Returns how much moved."""
+        return self._insert(None, amount, source, face)
+
+
+class EnergyBus(Port):
+    """An energy input and an energy output in one."""
+
+    def stored(self, face=None):
+        """How much energy the target holds."""
+        return _call("energy", self.mac, face)["stored"]
+
+    def capacity(self, face=None):
+        """The most the target can hold."""
+        return _call("energy", self.mac, face)["capacity"]
+
+    def extract(self, amount, dest=None, face=None):
+        """Moves up to an amount of energy out of the target into an energy interface
+        (any, unless dest says which). Returns how much moved."""
+        return self._extract(None, amount, dest, face)
+
+    def insert(self, amount, source=None, face=None):
+        """Moves up to an amount of energy from an energy interface (any, unless source
+        says which) into the target. Returns how much moved."""
+        return self._insert(None, amount, source, face)
+
+
 def _full_name(item):
     return item if item is None or ":" in item else "minecraft:" + item
 
 
-_KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus}
+_KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus,
+          "fluid_interface": FluidInterface, "fluid_input": FluidInput, "fluid_output": FluidOutput, "fluid_bus": FluidBus,
+          "energy_interface": EnergyInterface, "energy_input": EnergyInput, "energy_output": EnergyOutput,
+          "energy_bus": EnergyBus}
 
 
 def _wrap(info):
@@ -213,6 +353,38 @@ class Network:
     def bus(self, key=None):
         """A bus by name or address; with no argument, the network's only bus."""
         return _wrap(_call("find", key, "bus"))
+
+    def fluid_interface(self, key=None):
+        """A fluid interface by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "fluid_interface"))
+
+    def fluid_input(self, key=None):
+        """A fluid input by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "fluid_input"))
+
+    def fluid_output(self, key=None):
+        """A fluid output by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "fluid_output"))
+
+    def fluid_bus(self, key=None):
+        """A fluid bus by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "fluid_bus"))
+
+    def energy_interface(self, key=None):
+        """An energy interface by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "energy_interface"))
+
+    def energy_input(self, key=None):
+        """An energy input by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "energy_input"))
+
+    def energy_output(self, key=None):
+        """An energy output by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "energy_output"))
+
+    def energy_bus(self, key=None):
+        """An energy bus by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "energy_bus"))
 
     def interfaces(self):
         """Every interface on the network."""

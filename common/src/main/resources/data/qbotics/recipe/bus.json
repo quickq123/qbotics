@@ -1,14 +1,9 @@
 {
-  "type": "minecraft:crafting_shaped",
+  "type": "minecraft:crafting_shapeless",
   "category": "redstone",
-  "key": {
-    "C": "qbotics:cable",
-    "H": "minecraft:observer"
-  },
-  "pattern": [
-    " C ",
-    "CHC",
-    " C "
+  "ingredients": [
+    "qbotics:input",
+    "qbotics:output"
   ],
   "result": {
     "id": "qbotics:bus"

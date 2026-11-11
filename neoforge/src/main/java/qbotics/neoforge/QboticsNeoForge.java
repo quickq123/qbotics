@@ -86,9 +86,38 @@ public final class QboticsNeoForge {
             properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(INTERFACE);
     // Plates that go on cables: no blocks of their own.
-    private static final DeferredItem<PlateItem> INPUT_ITEM = ITEMS.registerItem("input", properties -> new PlateItem(NetworkDevice.Kind.INPUT, properties));
-    private static final DeferredItem<PlateItem> OUTPUT_ITEM = ITEMS.registerItem("output", properties -> new PlateItem(NetworkDevice.Kind.OUTPUT, properties));
-    private static final DeferredItem<PlateItem> BUS_ITEM = ITEMS.registerItem("bus", properties -> new PlateItem(NetworkDevice.Kind.BUS, properties));
+    private static final DeferredItem<PlateItem> INPUT_ITEM = ITEMS.registerItem("input",
+            properties -> new PlateItem(NetworkDevice.Kind.INPUT, qbotics.network.Medium.ITEM, properties));
+    private static final DeferredItem<PlateItem> OUTPUT_ITEM = ITEMS.registerItem("output",
+            properties -> new PlateItem(NetworkDevice.Kind.OUTPUT, qbotics.network.Medium.ITEM, properties));
+    private static final DeferredItem<PlateItem> BUS_ITEM = ITEMS.registerItem("bus",
+            properties -> new PlateItem(NetworkDevice.Kind.BUS, qbotics.network.Medium.ITEM, properties));
+    private static final DeferredItem<PlateItem> FLUID_INPUT_ITEM = ITEMS.registerItem("fluid_input",
+            properties -> new PlateItem(NetworkDevice.Kind.INPUT, qbotics.network.Medium.FLUID, properties));
+    private static final DeferredItem<PlateItem> FLUID_OUTPUT_ITEM = ITEMS.registerItem("fluid_output",
+            properties -> new PlateItem(NetworkDevice.Kind.OUTPUT, qbotics.network.Medium.FLUID, properties));
+    private static final DeferredItem<PlateItem> FLUID_BUS_ITEM = ITEMS.registerItem("fluid_bus",
+            properties -> new PlateItem(NetworkDevice.Kind.BUS, qbotics.network.Medium.FLUID, properties));
+    private static final DeferredItem<PlateItem> ENERGY_INPUT_ITEM = ITEMS.registerItem("energy_input",
+            properties -> new PlateItem(NetworkDevice.Kind.INPUT, qbotics.network.Medium.ENERGY, properties));
+    private static final DeferredItem<PlateItem> ENERGY_OUTPUT_ITEM = ITEMS.registerItem("energy_output",
+            properties -> new PlateItem(NetworkDevice.Kind.OUTPUT, qbotics.network.Medium.ENERGY, properties));
+    private static final DeferredItem<PlateItem> ENERGY_BUS_ITEM = ITEMS.registerItem("energy_bus",
+            properties -> new PlateItem(NetworkDevice.Kind.BUS, qbotics.network.Medium.ENERGY, properties));
+
+    // The stores for fluid and energy: full blocks, like the Interface.
+    private static final DeferredBlock<qbotics.block.StoreBlock> FLUID_INTERFACE = BLOCKS.registerBlock("fluid_interface",
+            qbotics.block.StoreBlock::fluid, properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredBlock<qbotics.block.StoreBlock> ENERGY_INTERFACE = BLOCKS.registerBlock("energy_interface",
+            qbotics.block.StoreBlock::energy, properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> FLUID_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(FLUID_INTERFACE);
+    private static final DeferredItem<BlockItem> ENERGY_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(ENERGY_INTERFACE);
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.FluidInterfaceBlockEntity>> FLUID_INTERFACE_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("fluid_interface",
+                    () -> new BlockEntityType<>(qbotics.block.FluidInterfaceBlockEntity::new, FLUID_INTERFACE.get()));
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("energy_interface",
+                    () -> new BlockEntityType<>(qbotics.block.EnergyInterfaceBlockEntity::new, ENERGY_INTERFACE.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("interface", () -> new BlockEntityType<>(InterfaceBlockEntity::new, INTERFACE.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY =
@@ -131,9 +160,17 @@ public final class QboticsNeoForge {
                         output.accept(COMPUTER_ITEM.get());
                         output.accept(CABLE_ITEM.get());
                         output.accept(INTERFACE_ITEM.get());
+                        output.accept(FLUID_INTERFACE_ITEM.get());
+                        output.accept(ENERGY_INTERFACE_ITEM.get());
                         output.accept(INPUT_ITEM.get());
                         output.accept(OUTPUT_ITEM.get());
                         output.accept(BUS_ITEM.get());
+                        output.accept(FLUID_INPUT_ITEM.get());
+                        output.accept(FLUID_OUTPUT_ITEM.get());
+                        output.accept(FLUID_BUS_ITEM.get());
+                        output.accept(ENERGY_INPUT_ITEM.get());
+                        output.accept(ENERGY_OUTPUT_ITEM.get());
+                        output.accept(ENERGY_BUS_ITEM.get());
                         output.accept(ANTENNA_SHORT_ITEM.get());
                         output.accept(ANTENNA_LONG_ITEM.get());
                         output.accept(ANTENNA_INFINITE_ITEM.get());
@@ -149,6 +186,10 @@ public final class QboticsNeoForge {
             DATA_COMPONENTS.registerComponentType("drive_id",
                     builder -> builder.persistent(UUIDUtil.CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC));
 
+    static CableBlock cableBlock() {
+        return CABLE.get();
+    }
+
     public QboticsNeoForge(IEventBus modBus, ModContainer container) {
         QboticsContent.COMPUTER_BLOCK = COMPUTER;
         QboticsContent.COMPUTER_BLOCK_ENTITY = COMPUTER_BLOCK_ENTITY;
@@ -156,8 +197,20 @@ public final class QboticsNeoForge {
         QboticsContent.DRIVE_ID = DRIVE_ID;
         QboticsContent.INTERFACE_BLOCK = INTERFACE;
         QboticsContent.PROBE_ITEM = PROBE_ITEM;
-        QboticsContent.PLATE_ITEMS = java.util.Map.of(NetworkDevice.Kind.INPUT, INPUT_ITEM,
-                NetworkDevice.Kind.OUTPUT, OUTPUT_ITEM, NetworkDevice.Kind.BUS, BUS_ITEM);
+        QboticsContent.PLATE_ITEMS = java.util.Map.ofEntries(
+                java.util.Map.entry("input", INPUT_ITEM),
+                java.util.Map.entry("output", OUTPUT_ITEM),
+                java.util.Map.entry("bus", BUS_ITEM),
+                java.util.Map.entry("fluid_input", FLUID_INPUT_ITEM),
+                java.util.Map.entry("fluid_output", FLUID_OUTPUT_ITEM),
+                java.util.Map.entry("fluid_bus", FLUID_BUS_ITEM),
+                java.util.Map.entry("energy_input", ENERGY_INPUT_ITEM),
+                java.util.Map.entry("energy_output", ENERGY_OUTPUT_ITEM),
+                java.util.Map.entry("energy_bus", ENERGY_BUS_ITEM));
+        QboticsContent.FLUID_INTERFACE_BLOCK = FLUID_INTERFACE;
+        QboticsContent.ENERGY_INTERFACE_BLOCK = ENERGY_INTERFACE;
+        QboticsContent.FLUID_INTERFACE_BLOCK_ENTITY = FLUID_INTERFACE_BLOCK_ENTITY;
+        QboticsContent.ENERGY_INTERFACE_BLOCK_ENTITY = ENERGY_INTERFACE_BLOCK_ENTITY;
         QboticsContent.INTERFACE_BLOCK_ENTITY = INTERFACE_BLOCK_ENTITY;
         QboticsContent.INTERFACE_MENU = INTERFACE_MENU;
         QboticsContent.PORT_BLOCK_ENTITY = PORT_BLOCK_ENTITY;
@@ -174,8 +227,12 @@ public final class QboticsNeoForge {
         CREATIVE_TABS.register(modBus);
         MENUS.register(modBus);
         // Hoppers and other mods' pipes see the Input block as an ordinary (filtered) inventory.
-        modBus.addListener((RegisterCapabilitiesEvent event) -> event.registerBlockEntity(
-                Capabilities.Item.BLOCK, INTERFACE_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input)));
+        modBus.addListener((RegisterCapabilitiesEvent event) -> {
+            event.registerBlockEntity(Capabilities.Item.BLOCK, INTERFACE_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input));
+            // The fluid and energy stores are ordinary tanks and batteries to other mods' pipes and cables.
+            event.registerBlockEntity(Capabilities.Fluid.BLOCK, FLUID_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
+            event.registerBlockEntity(Capabilities.Energy.BLOCK, ENERGY_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
+        });
         if (Boolean.getBoolean("qbotics.gameTests")) {
             registerGameTests(modBus);
         }
@@ -205,6 +262,34 @@ public final class QboticsNeoForge {
             public ItemPort itemPort(ServerLevel level, BlockPos pos, Direction side) {
                 ResourceHandler<ItemResource> handler = level.getCapability(Capabilities.Item.BLOCK, pos, side);
                 return handler == null ? null : new HandlerItemPort(handler);
+            }
+
+            @Override
+            public qbotics.network.FluidPort fluidPort(ServerLevel level, BlockPos pos, Direction side) {
+                var handler = level.getCapability(Capabilities.Fluid.BLOCK, pos, side);
+                return handler == null ? null : new MediaHandlers.FluidTarget(handler);
+            }
+
+            @Override
+            public qbotics.network.EnergyPort energyPort(ServerLevel level, BlockPos pos, Direction side) {
+                var handler = level.getCapability(Capabilities.Energy.BLOCK, pos, side);
+                return handler == null ? null : new MediaHandlers.EnergyTarget(handler);
+            }
+
+            @Override
+            public boolean useFluidContainer(net.minecraft.world.entity.player.Player player, net.minecraft.world.InteractionHand hand,
+                    net.minecraft.world.level.Level level, BlockPos pos, Direction side) {
+                var handler = level.getCapability(Capabilities.Fluid.BLOCK, pos, side);
+                if (handler == null) {
+                    return false;
+                }
+                try (var transaction = net.neoforged.neoforge.transfer.transaction.Transaction.openRoot()) {
+                    boolean moved = net.neoforged.neoforge.transfer.fluid.FluidUtil.interactWithFluidHandler(player, hand, pos, handler, transaction);
+                    if (moved) {
+                        transaction.commit();
+                    }
+                    return moved;
+                }
             }
         });
     }

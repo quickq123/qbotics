@@ -22,4 +22,17 @@ public interface QboticsPlatform {
      * side gives access to.
      */
     @Nullable ItemPort itemPort(ServerLevel level, BlockPos pos, @Nullable Direction side);
+
+    /** The same for the fluid in a block: its tanks, as reached through one of its sides. */
+    qbotics.network.@Nullable FluidPort fluidPort(ServerLevel level, BlockPos pos, @Nullable Direction side);
+
+    /** The same for the energy in a block. */
+    qbotics.network.@Nullable EnergyPort energyPort(ServerLevel level, BlockPos pos, @Nullable Direction side);
+
+    /**
+     * A player used the item in their hand on a block that holds fluid: fills the block from a
+     * full bucket, or fills an empty bucket from the block. Returns true if anything moved.
+     */
+    boolean useFluidContainer(net.minecraft.world.entity.player.Player player, net.minecraft.world.InteractionHand hand,
+            net.minecraft.world.level.Level level, BlockPos pos, Direction side);
 }

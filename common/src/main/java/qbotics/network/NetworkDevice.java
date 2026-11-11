@@ -25,6 +25,16 @@ public interface NetworkDevice {
 
     Kind kind();
 
+    /** What it carries. Computers and antennas carry nothing; they answer ITEM. */
+    default Medium medium() {
+        return Medium.ITEM;
+    }
+
+    /** The word programs and messages use for it: "input", "fluid_input", "energy_bus", "computer". */
+    default String kindWord() {
+        return medium().prefix + kind().word;
+    }
+
     /** The name its owner gave it, or "" if it has none. */
     String deviceName();
 

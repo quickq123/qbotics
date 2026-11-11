@@ -16,6 +16,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import qbotics.QboticsContent;
+import qbotics.network.Medium;
 import qbotics.network.NetworkDevice;
 
 /**
@@ -29,10 +30,16 @@ import qbotics.network.NetworkDevice;
  */
 public class PlateItem extends Item {
     private final NetworkDevice.Kind kind;
+    private final Medium medium;
 
-    public PlateItem(NetworkDevice.Kind kind, Item.Properties properties) {
+    public PlateItem(NetworkDevice.Kind kind, Medium medium, Item.Properties properties) {
         super(properties);
         this.kind = kind;
+        this.medium = medium;
+    }
+
+    public Medium medium() {
+        return medium;
     }
 
     public NetworkDevice.Kind kind() {
@@ -72,7 +79,7 @@ public class PlateItem extends Item {
             }
             level.setBlock(pos, CableBlock.withConnections(level, pos, cable.defaultBlockState()), Block.UPDATE_ALL);
         }
-        CablePort port = CableBlock.attach(level, pos, kind, side);
+        CablePort port = CableBlock.attach(level, pos, kind, medium, side);
         if (port == null) {
             return InteractionResult.FAIL;
         }

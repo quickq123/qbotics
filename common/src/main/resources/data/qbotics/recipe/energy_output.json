@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    "qbotics:output",
+    "minecraft:redstone_block"
+  ],
+  "result": {
+    "id": "qbotics:energy_output"
+  }
+}

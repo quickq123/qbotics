@@ -6,6 +6,7 @@ import net.minecraft.core.Direction;
 import org.jspecify.annotations.Nullable;
 import qbotics.network.AccessFace;
 import qbotics.network.Addresses;
+import qbotics.network.Medium;
 import qbotics.network.NetworkDevice;
 
 /**
@@ -22,6 +23,8 @@ public final class CablePort implements NetworkDevice {
     int hostNumber;
     /** The face used when a program doesn't name one. */
     AccessFace accessFace = AccessFace.NEAR;
+    /** What it carries: items, fluid or energy. */
+    Medium medium = Medium.ITEM;
     /** True once the plate has been taken off its cable. */
     boolean detached;
 
@@ -48,6 +51,11 @@ public final class CablePort implements NetworkDevice {
     public Kind kind() {
         Kind kind = CableBlock.plateKind(host.getBlockState(), side);
         return kind == null ? Kind.BUS : kind;
+    }
+
+    @Override
+    public Medium medium() {
+        return medium;
     }
 
     @Override

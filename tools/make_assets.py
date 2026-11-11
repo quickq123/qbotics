@@ -145,6 +145,14 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.input": "Input",
     "item.qbotics.output": "Output",
     "item.qbotics.bus": "Bus",
+    "block.qbotics.fluid_interface": "Fluid Interface",
+    "block.qbotics.energy_interface": "Energy Interface",
+    "item.qbotics.fluid_input": "Fluid Input",
+    "item.qbotics.fluid_output": "Fluid Output",
+    "item.qbotics.fluid_bus": "Fluid Bus",
+    "item.qbotics.energy_input": "Energy Input",
+    "item.qbotics.energy_output": "Energy Output",
+    "item.qbotics.energy_bus": "Energy Bus",
     "item.qbotics.probe": "Network Probe",
     "item.qbotics.screen": "Screen",
     "item.qbotics.motherboard": "Motherboard",
@@ -372,13 +380,13 @@ write_json("data/qbotics/loot_table/blocks/cable.json", drops_itself("qbotics:ca
 
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
-    "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface",
+    "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
-    "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface",
+    "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
@@ -415,24 +423,68 @@ def port_side():
 
 
 def port_front():
-    """The face that touches the target: a dark opening ringed in redstone red. The plates'
-    shapes say which way items go, so the face carries no arrows."""
+    """The face that touches the target: a dark opening in an iron frame."""
     px = case_base()
     for y in range(3, 13):
         for x in range(3, 13):
             px[y][x] = EDGE if x in (3, 12) or y in (3, 12) else SCREEN
-    for i in range(5, 11):
-        for (x, y) in ((i, 5), (i, 10), (5, i), (10, i)):
-            px[y][x] = CORE_RED
+    return px
+
+
+# What a plate or store carries, and the colour that says so. (PlateTints.java holds the same colours.)
+MEDIA = {"": (200, 36, 28), "fluid_": (60, 130, 230), "energy_": (240, 190, 40)}
+MEDIA_NAMES = {"": "", "fluid_": "Fluid ", "energy_": "Energy "}
+
+
+def tint_value(colour):
+    """A colour as the game's item files want it: one signed 32-bit number, fully opaque."""
+    value = (255 << 24) | (colour[0] << 16) | (colour[1] << 8) | colour[2]
+    return value - (1 << 32)
+
+
+def store_side(colour, cells):
+    """A store's side: iron, with windows showing what is inside."""
+    px = case_base()
+    dark = tuple(c * 2 // 3 for c in colour)
+    for (x0, y0, x1, y1) in cells:
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                edge = x in (x0, x1 - 1) or y in (y0, y1 - 1)
+                px[y][x] = EDGE if edge else (colour if y >= (y0 + y1) // 2 else dark)
+    return px
+
+
+def store_top(colour):
+    px = case_base()
+    for y in range(4, 12):
+        for x in range(4, 12):
+            px[y][x] = EDGE if x in (4, 11) or y in (4, 11) else colour
     return px
 
 
 write_png("assets/qbotics/textures/block/interface_side.png", interface_side())
 write_png("assets/qbotics/textures/block/interface_top.png", interface_top())
 write_png("assets/qbotics/textures/block/port_side.png", port_side())
-write_png("assets/qbotics/textures/block/input_front.png", port_front())
-write_png("assets/qbotics/textures/block/output_front.png", port_front())
-write_png("assets/qbotics/textures/block/bus_front.png", port_front())
+write_png("assets/qbotics/textures/block/plate_front.png", port_front())
+write_png("assets/qbotics/textures/block/plate_ring.png", [[(255, 255, 255)] * 16 for _ in range(16)])
+# The fluid store shows four tanks; the energy store shows one tall cell.
+write_png("assets/qbotics/textures/block/fluid_interface_side.png",
+          store_side(MEDIA["fluid_"], [(2, 2, 8, 8), (8, 2, 14, 8), (2, 8, 8, 14), (8, 8, 14, 14)]))
+write_png("assets/qbotics/textures/block/fluid_interface_top.png", store_top(MEDIA["fluid_"]))
+write_png("assets/qbotics/textures/block/energy_interface_side.png",
+          store_side(MEDIA["energy_"], [(3, 2, 6, 14), (6, 2, 10, 14), (10, 2, 13, 14)]))
+write_png("assets/qbotics/textures/block/energy_interface_top.png", store_top(MEDIA["energy_"]))
+for store in ("fluid_interface", "energy_interface"):
+    write_json("assets/qbotics/models/block/%s.json" % store, {
+        "parent": "minecraft:block/cube_column",
+        "textures": {"end": "qbotics:block/%s_top" % store, "side": "qbotics:block/%s_side" % store},
+    })
+    write_json("assets/qbotics/blockstates/%s.json" % store, {"variants": {"": {"model": "qbotics:block/%s" % store}}})
+    write_json("assets/qbotics/items/%s.json" % store, {
+        "model": {"type": "minecraft:model", "model": "qbotics:block/%s" % store},
+    })
+    write_json("data/qbotics/loot_table/blocks/%s.json" % store,
+               drops_itself("qbotics:%s" % store, copy_components=["minecraft:custom_name"]))
 
 write_json("assets/qbotics/models/block/interface.json", {
     "parent": "minecraft:block/cube_column",
@@ -446,20 +498,37 @@ write_json("assets/qbotics/items/interface.json", {
 # Each plate is three stacked boxes between the cable (at z = 6) and the block it points at
 # (at z = 0), drawn pointing north. The shapes follow a convention players know from other
 # logistics mods: an input has a wide mouth, an output a narrow nozzle, a bus a flat panel.
+# The middle box is a collar in the colour of what the plate carries (red items, blue fluid,
+# yellow energy), and the face has a ring in the same colour.
 PLATE_BOXES = {
     "input": [(3, 3, 0, 13, 13, 2), (5, 5, 2, 11, 11, 4), (6, 6, 4, 10, 10, 6)],
     "output": [(6, 6, 0, 10, 10, 2), (5, 5, 2, 11, 11, 4), (4, 4, 4, 12, 12, 6)],
     "bus": [(2, 2, 0, 14, 14, 2), (4, 4, 2, 12, 12, 4), (6, 6, 4, 10, 10, 6)],
 }
 PLATE_TURNS = {"north": {}, "east": {"y": 90}, "south": {"y": 180}, "west": {"y": 270}, "up": {"x": 270}, "down": {"x": 90}}
+# The game numbers the six sides like this. A plate on a side takes its colour from the
+# colour source with that side's number (see PlateTints.java), so each side needs its own model.
+SIDE_NUMBERS = {"down": 0, "up": 1, "north": 2, "south": 3, "west": 4, "east": 5}
+ALL_FACES = ("north", "south", "east", "west", "up", "down")
 
 
-def plate_element(index, box):
-    x0, y0, z0, x1, y1, z1 = box
-    faces = {side: {"texture": "#side"} for side in ("north", "south", "east", "west", "up", "down")}
-    if index == 0:
-        faces["north"] = {"texture": "#front"}
-    return {"from": [x0, y0, z0], "to": [x1, y1, z1], "faces": faces}
+def plate_elements(boxes, tint):
+    front, collar, stem = boxes
+    coloured = {"texture": "#ring", "tintindex": tint}
+    elements = [
+        {"from": list(front[:3]), "to": list(front[3:]),
+         "faces": dict({side: {"texture": "#side"} for side in ALL_FACES}, north={"texture": "#front"})},
+        {"from": list(collar[:3]), "to": list(collar[3:]), "faces": {side: dict(coloured) for side in ALL_FACES}},
+        {"from": list(stem[:3]), "to": list(stem[3:]), "faces": {side: {"texture": "#side"} for side in ALL_FACES}},
+    ]
+    # The ring on the face: four thin bars standing a hair proud of it, set in from its edge.
+    x0, y0, _, x1, y1, _ = front
+    inset = 2 if x1 - x0 >= 8 else 1
+    a, b, c, d = x0 + inset, y0 + inset, x1 - inset, y1 - inset
+    bars = [(a, b, c, b + 1), (a, d - 1, c, d), (a, b, a + 1, d), (c - 1, b, c, d)]
+    for (bx0, by0, bx1, by1) in bars:
+        elements.append({"from": [bx0, by0, -PROUD], "to": [bx1, by1, 0.5], "faces": {"north": dict(coloured)}})
+    return elements
 
 
 cable_parts = [
@@ -472,32 +541,36 @@ cable_parts = [
     arm("down", x=90),
 ]
 for plate, boxes in PLATE_BOXES.items():
-    write_json("assets/qbotics/models/block/plate_%s.json" % plate, {
-        "parent": "minecraft:block/block",
-        "textures": {
-            "particle": "qbotics:block/port_side",
-            "side": "qbotics:block/port_side",
-            "front": "qbotics:block/%s_front" % plate,
-        },
-        "elements": [plate_element(i, box) for i, box in enumerate(boxes)],
-    })
-    # In the hand and inventory the plate is shown on its own.
-    write_json("assets/qbotics/items/%s.json" % plate, {
-        "model": {"type": "minecraft:model", "model": "qbotics:block/plate_%s" % plate},
-    })
-    for facing, turn in PLATE_TURNS.items():
-        cable_parts.append({"when": {facing: plate},
-                            "apply": dict({"model": "qbotics:block/plate_%s" % plate}, **turn)})
-# Written here, after the plates, because a cable's look includes the plate it carries.
+    for side, number in SIDE_NUMBERS.items():
+        write_json("assets/qbotics/models/block/plate_%s_%s.json" % (plate, side), {
+            "parent": "minecraft:block/block",
+            "textures": {
+                "particle": "qbotics:block/port_side",
+                "side": "qbotics:block/port_side",
+                "front": "qbotics:block/plate_front",
+                "ring": "qbotics:block/plate_ring",
+            },
+            "elements": plate_elements(boxes, number),
+        })
+        cable_parts.append({"when": {side: plate},
+                            "apply": dict({"model": "qbotics:block/plate_%s_%s" % (plate, side)}, **PLATE_TURNS[side])})
+    # In the hand and inventory the plate is shown on its own, in its medium's colour. It uses
+    # the "down" model, whose colour is number 0: the first (and only) tint an item lists.
+    for prefix, colour in MEDIA.items():
+        write_json("assets/qbotics/items/%s%s.json" % (prefix, plate), {
+            "model": {"type": "minecraft:model", "model": "qbotics:block/plate_%s_down" % plate,
+                      "tints": [{"type": "minecraft:constant", "value": tint_value(colour)}]},
+        })
+# Written here, after the plates, because a cable's look includes the plates it carries.
 write_json("assets/qbotics/blockstates/cable.json", {"multipart": cable_parts})
 
 # The Network Probe: a small hand-held reader, drawn from two boxes.
 write_json("assets/qbotics/models/item/probe.json", {
     "parent": "minecraft:block/block",
-    "textures": {"particle": "qbotics:block/port_side", "side": "qbotics:block/port_side", "front": "qbotics:block/bus_front"},
+    "textures": {"particle": "qbotics:block/port_side", "side": "qbotics:block/port_side", "front": "qbotics:block/plate_front"},
     "elements": [
         {"from": [6, 0, 7], "to": [10, 9, 9],
-         "faces": {side: {"texture": "#side"} for side in ("north", "south", "east", "west", "up", "down")}},
+         "faces": {side: {"texture": "#side"} for side in ALL_FACES}},
         {"from": [3, 9, 6], "to": [13, 16, 10],
          "faces": dict({side: {"texture": "#side"} for side in ("south", "east", "west", "up", "down")},
                        north={"texture": "#front"})},
@@ -509,11 +582,25 @@ write_json("assets/qbotics/items/probe.json", {
 write_json("data/qbotics/recipe/probe.json", shaped(
     ["R", "C", "I"], {"R": "minecraft:redstone", "C": "qbotics:cable", "I": "minecraft:iron_ingot"}, "qbotics:probe"))
 
-# Placeholder recipes (design doc §20): four cables around the vanilla block each one resembles.
-for name, heart in (("interface", "minecraft:chest"), ("input", "minecraft:hopper"),
-                    ("output", "minecraft:dropper"), ("bus", "minecraft:observer")):
+
+def shapeless(ingredients, result):
+    return {"type": "minecraft:crafting_shapeless", "category": "redstone", "ingredients": ingredients, "result": {"id": result}}
+
+
+# Recipes (design doc §20). The item versions: four cables around the vanilla block each one
+# resembles; a bus is an input and an output together.
+for name, heart in (("interface", "minecraft:chest"), ("input", "minecraft:hopper"), ("output", "minecraft:dropper")):
     write_json("data/qbotics/recipe/%s.json" % name, shaped(
         [" C ", "CHC", " C "], {"C": "qbotics:cable", "H": heart}, "qbotics:%s" % name))
+write_json("data/qbotics/recipe/bus.json", shapeless(["qbotics:input", "qbotics:output"], "qbotics:bus"))
+# The fluid version of anything is the item version and a bucket; the energy version, the
+# item version and a block of redstone. A fluid or energy bus can also be made from its own
+# input and output.
+for prefix, extra in (("fluid_", "minecraft:bucket"), ("energy_", "minecraft:redstone_block")):
+    for name in ("interface", "input", "output", "bus"):
+        write_json("data/qbotics/recipe/%s%s.json" % (prefix, name), shapeless(["qbotics:%s" % name, extra], "qbotics:%s%s" % (prefix, name)))
+    write_json("data/qbotics/recipe/%sbus_from_parts.json" % prefix,
+               shapeless(["qbotics:%sinput" % prefix, "qbotics:%soutput" % prefix], "qbotics:%sbus" % prefix))
 # A device named in an anvil keeps its name when broken.
 write_json("data/qbotics/loot_table/blocks/interface.json",
            drops_itself("qbotics:interface", copy_components=["minecraft:custom_name"]))

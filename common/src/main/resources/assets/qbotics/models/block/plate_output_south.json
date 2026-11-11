@@ -3,7 +3,8 @@
   "textures": {
     "particle": "qbotics:block/port_side",
     "side": "qbotics:block/port_side",
-    "front": "qbotics:block/output_front"
+    "front": "qbotics:block/plate_front",
+    "ring": "qbotics:block/plate_ring"
   },
   "elements": [
     {
@@ -51,22 +52,28 @@
       ],
       "faces": {
         "north": {
-          "texture": "#side"
+          "texture": "#ring",
+          "tintindex": 3
         },
         "south": {
-          "texture": "#side"
+          "texture": "#ring",
+          "tintindex": 3
         },
         "east": {
-          "texture": "#side"
+          "texture": "#ring",
+          "tintindex": 3
         },
         "west": {
-          "texture": "#side"
+          "texture": "#ring",
+          "tintindex": 3
         },
         "up": {
-          "texture": "#side"
+          "texture": "#ring",
+          "tintindex": 3
         },
         "down": {
-          "texture": "#side"
+          "texture": "#ring",
+          "tintindex": 3
         }
       }
     },
@@ -99,6 +106,78 @@
         },
         "down": {
           "texture": "#side"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        7,
+        -0.02
+      ],
+      "to": [
+        9,
+        8,
+        0.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#ring",
+          "tintindex": 3
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        8,
+        -0.02
+      ],
+      "to": [
+        9,
+        9,
+        0.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#ring",
+          "tintindex": 3
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        7,
+        -0.02
+      ],
+      "to": [
+        8,
+        9,
+        0.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#ring",
+          "tintindex": 3
+        }
+      }
+    },
+    {
+      "from": [
+        8,
+        7,
+        -0.02
+      ],
+      "to": [
+        9,
+        9,
+        0.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#ring",
+          "tintindex": 3
         }
       }
     }
