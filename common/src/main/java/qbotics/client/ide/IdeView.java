@@ -56,7 +56,7 @@ final class IdeView {
     private static final int MIN_TERMINAL_H = HEADER_H + 3 * Ui.CELL_H + 6;
 
     /** What a held-down left mouse button is doing. */
-    private enum Drag { NONE, TEXT, TERMINAL_EDGE }
+    private enum Drag { NONE, TEXT, TERMINAL_TEXT, TERMINAL_EDGE }
 
     private Drag drag = Drag.NONE;
 
@@ -513,6 +513,10 @@ final class IdeView {
                 for (Tab tab : session.tabs) {
                     if (Paths.isInside(tab.path, node.path)) {
                         tab.path = target + tab.path.substring(node.path.length());
+                        if (tab.view != null) {
+                            // A file renamed to end in .py becomes a Python file, coloured and runnable.
+                            tab.view.setLanguage(Language.forFile(Paths.name(tab.path)));
+                        }
                     }
                 }
                 if (session.expanded.remove(node.path)) {
@@ -913,7 +917,9 @@ final class IdeView {
         if (focused) {
             ui.fill(r.x() + 8, r.y() + HEADER_H - 2, ui.textWidth("TERMINAL"), 1, Ui.STATUS_BG);
         }
-        String hint = session.terminalScroll > 0 ? "Scrolled back - type or press End to return" : "Ctrl+C stops a program";
+        int[] selection = terminalSelection();
+        String hint = selection != null ? "Ctrl+C copies the selected text"
+                : session.terminalScroll > 0 ? "Scrolled back - type or press End to return" : "Ctrl+C stops a program   Drag to select";
         ui.text(hint, r.right() - ui.textWidth(hint) - 10, r.y() + 3, session.terminalScroll > 0 ? Ui.FOLDER : Ui.TEXT_DIM);
 
         int left = r.x() + 8;
@@ -931,6 +937,12 @@ final class IdeView {
         for (int row = 0; row < rows && first + row < total; row++) {
             int index = first + row;
             String line = index < scrollback.size() ? scrollback.get(index) : session.terminalLines.get(index - scrollback.size());
+            if (selection != null && index >= selection[0] && index <= selection[2]) {
+                int from = index == selection[0] ? selection[1] : 0;
+                // A line selected through to its end shows one more cell, for the line break.
+                int to = index == selection[2] ? selection[3] : Math.max(from, terminalLine(index).length()) + 1;
+                ui.fill(left + from * Ui.CELL_W, top + row * Ui.CELL_H, (to - from) * Ui.CELL_W, Ui.CELL_H, Ui.SELECTION);
+            }
             ui.mono(line, left, top + row * Ui.CELL_H, Ui.TEXT);
         }
         // The line being typed starts at the server's cursor, just after the prompt.
@@ -975,17 +987,16 @@ final class IdeView {
     private void terminalKey(KeyEvent event) {
         StringBuilder input = session.terminalInput;
         if (event.hasControlDown() && event.key() == InputConstants.KEY_C) {
-            input.setLength(0);
-            backend.terminalInput(TerminalInputPayload.INTERRUPT, "");
-        } else if (event.isPaste()) {
-            // Pasted text may hold several lines: each complete line is entered.
-            String[] parts = host.clipboard().replace("\r\n", "\n").replace('\r', '\n').split("\n", -1);
-            for (int i = 0; i < parts.length; i++) {
-                terminalAppend(parts[i].replace("\t", "    "));
-                if (i < parts.length - 1) {
-                    terminalEnter();
-                }
+            // With text selected, Ctrl+C copies it, as in other terminals; otherwise it stops the program.
+            // Ctrl+Shift+C only ever copies.
+            if (terminalSelection() != null) {
+                terminalCopy();
+            } else if (!event.hasShiftDown()) {
+                input.setLength(0);
+                backend.terminalInput(TerminalInputPayload.INTERRUPT, "");
             }
+        } else if (event.isPaste()) {
+            terminalPaste();
         } else {
             switch (event.key()) {
                 case InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> terminalEnter();
@@ -1005,7 +1016,19 @@ final class IdeView {
         }
     }
 
+    /** Pasted text may hold several lines: each complete line is entered. */
+    private void terminalPaste() {
+        String[] parts = host.clipboard().replace("\r\n", "\n").replace('\r', '\n').split("\n", -1);
+        for (int i = 0; i < parts.length; i++) {
+            terminalAppend(parts[i].replace("\t", "    "));
+            if (i < parts.length - 1) {
+                terminalEnter();
+            }
+        }
+    }
+
     private void terminalAppend(String text) {
+        session.terminalSelection = null;
         session.terminalScroll = 0; // typing brings the prompt back into view
         int room = TerminalInputPayload.MAX_LINE_LENGTH - session.terminalInput.length();
         session.terminalInput.append(text, 0, Math.min(room, text.length()));
@@ -1035,6 +1058,128 @@ final class IdeView {
         }
     }
 
+    // ---- selecting and copying terminal text ---------------------------------------
+
+    /** How many lines there are to show: the scroll-back, then the screen's used rows. */
+    private int terminalTotalLines() {
+        return session.terminalScrollback.size() + terminalUsedRows();
+    }
+
+    /** One line of everything the terminal can show, including what is being typed on the cursor's line. */
+    private String terminalLine(int index) {
+        List<String> scrollback = session.terminalScrollback;
+        if (index < scrollback.size()) {
+            return scrollback.get(index);
+        }
+        int row = index - scrollback.size();
+        String line = row < session.terminalLines.size() ? session.terminalLines.get(row) : "";
+        if (row == session.terminalCursorY && !session.terminalInput.isEmpty()) {
+            line = line + " ".repeat(Math.max(0, session.terminalCursorX - line.length())) + session.terminalInput;
+        }
+        return line;
+    }
+
+    /** The line and column under the mouse. The column is the nearest gap between characters. */
+    private int[] terminalCellAt(double x, double y) {
+        int total = terminalTotalLines();
+        int rows = terminalRows();
+        int first = Math.max(0, total - rows - Math.clamp(session.terminalScroll, 0, Math.max(0, total - rows)));
+        int row = (int) Math.floor((y - (terminalRect.y() + HEADER_H + 2)) / Ui.CELL_H);
+        int line = Math.clamp(first + row, 0, Math.max(0, total - 1));
+        int column = Math.clamp((int) Math.round((x - (terminalRect.x() + 8)) / Ui.CELL_W), 0, Terminal.COLS);
+        return new int[] {line, column};
+    }
+
+    /** The selection as {first line, column, last line, column}, or null if nothing is selected. */
+    private int[] terminalSelection() {
+        int[] s = session.terminalSelection;
+        if (s == null || (s[0] == s[2] && s[1] == s[3])) {
+            return null;
+        }
+        boolean forwards = s[0] < s[2] || (s[0] == s[2] && s[1] < s[3]);
+        int last = Math.max(0, terminalTotalLines() - 1);
+        int[] ordered = forwards ? new int[] {s[0], s[1], s[2], s[3]} : new int[] {s[2], s[3], s[0], s[1]};
+        ordered[0] = Math.min(ordered[0], last);
+        ordered[2] = Math.min(ordered[2], last);
+        return ordered;
+    }
+
+    private String terminalSelectedText() {
+        int[] s = terminalSelection();
+        if (s == null) {
+            return "";
+        }
+        StringBuilder text = new StringBuilder();
+        for (int index = s[0]; index <= s[2]; index++) {
+            String line = terminalLine(index);
+            int from = Math.min(line.length(), index == s[0] ? s[1] : 0);
+            int to = Math.min(line.length(), index == s[2] ? s[3] : line.length());
+            text.append(line, from, Math.max(from, to));
+            if (index < s[2]) {
+                text.append('\n');
+            }
+        }
+        return text.toString();
+    }
+
+    private void terminalCopy() {
+        String text = terminalSelectedText();
+        if (!text.isEmpty()) {
+            host.setClipboard(text);
+            toast("Copied.", false);
+        }
+        session.terminalSelection = null;
+    }
+
+    private void terminalSelectAll() {
+        int last = Math.max(0, terminalTotalLines() - 1);
+        session.terminalSelection = new int[] {0, 0, last, terminalLine(last).length()};
+    }
+
+    private void terminalMouseDown(double x, double y, int button, boolean shift, boolean doubleClick) {
+        if (button == RIGHT_BUTTON) {
+            List<MenuItem> items = new ArrayList<>();
+            if (terminalSelection() != null) {
+                items.add(new MenuItem("Copy", this::terminalCopy));
+            }
+            items.add(new MenuItem("Copy All", () -> {
+                terminalSelectAll();
+                terminalCopy();
+            }));
+            items.add(new MenuItem("Paste", this::terminalPaste));
+            items.add(new MenuItem("Select All", this::terminalSelectAll));
+            menu = new Menu((int) x, (int) y, items);
+            return;
+        }
+        if (button != LEFT_BUTTON) {
+            return;
+        }
+        int[] cell = terminalCellAt(x, y);
+        if (doubleClick) {
+            // A double-click selects a whole word, which is how an address is picked up.
+            String line = terminalLine(cell[0]);
+            int at = Math.clamp((int) Math.floor((x - (terminalRect.x() + 8)) / Ui.CELL_W), 0, Math.max(0, line.length() - 1));
+            int start = at;
+            int end = at;
+            if (at < line.length() && line.charAt(at) != ' ') {
+                while (start > 0 && line.charAt(start - 1) != ' ') {
+                    start--;
+                }
+                while (end < line.length() && line.charAt(end) != ' ') {
+                    end++;
+                }
+            }
+            session.terminalSelection = new int[] {cell[0], start, cell[0], end};
+            drag = Drag.NONE;
+        } else if (shift && session.terminalSelection != null) {
+            session.terminalSelection[2] = cell[0];
+            session.terminalSelection[3] = cell[1];
+            drag = Drag.TERMINAL_TEXT;
+        } else {
+            session.terminalSelection = new int[] {cell[0], cell[1], cell[0], cell[1]};
+            drag = Drag.TERMINAL_TEXT;
+        }
+    }
     // ---- scratchpad --------------------------------------------------------------
 
     private void toggleScratch() {
@@ -1362,6 +1507,7 @@ final class IdeView {
             }
         } else if (terminalRect.contains(x, y)) {
             session.focus = Focus.TERMINAL;
+            terminalMouseDown(x, y, button, shift, doubleClick);
         } else if (session.scratchOpen && scratchRect.contains(x, y)) {
             session.focus = Focus.SCRATCH;
             if (button == LEFT_BUTTON && scratchCodeRect.contains(x, y)) {
@@ -1373,6 +1519,10 @@ final class IdeView {
     void mouseDragged(double x, double y, int button) {
         if (drag == Drag.TERMINAL_EDGE) {
             session.terminalHeight = Math.max(MIN_TERMINAL_H, viewHeight - STATUS_H - (int) y);
+        } else if (drag == Drag.TERMINAL_TEXT && session.terminalSelection != null) {
+            int[] cell = terminalCellAt(x, y);
+            session.terminalSelection[2] = cell[0];
+            session.terminalSelection[3] = cell[1];
         } else if (dialog == null && button == LEFT_BUTTON && drag == Drag.TEXT) {
             Tab tab = session.active();
             if (session.focus == Focus.EDITOR && tab != null && tab.view != null) {

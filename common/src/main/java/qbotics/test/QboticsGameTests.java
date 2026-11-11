@@ -552,6 +552,7 @@ public final class QboticsGameTests {
                 "network.send('" + bAddress + "', {'ore': 128})",
                 "r = network.receive(8)",
                 "print('reply', r.data, r.sender)",
+                "print([(d['address'], d['kind']) for d in network.scan('" + bAddress.replace(":1002", "") + "')])",
                 "radio.tune('other')",
                 "network.send('" + bAddress + "', 1)",
                 "network.send('100.64.200.1:1002', 1)",
@@ -563,6 +564,7 @@ public final class QboticsGameTests {
             assertScreen(helper, a, "end\n");
             assertScreen(helper, b, "got 128 " + aAddress + "\n");
             assertScreen(helper, a, "1002 short 24 1\n", "to myself\n", "None\n", "reply ['thanks', 2] " + bAddress + "\n",
+                    "[('" + bAddress.replace(":1002", ":1001") + "', 'antenna'), ('" + bAddress + "', 'computer')]\n",
                     "that antenna is tuned to a different", "No antenna with the address 100.64.200.1 can be reached",
                     "Only computers receive messages; 192.168.1.1 is an antenna.", "end\n");
         });

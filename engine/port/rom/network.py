@@ -27,6 +27,14 @@ def hostname(name=None):
     return me["name"]
 
 
+def scan(address):
+    """The devices behind another antenna, given its external IP: a list of
+    {"address": "100.64.0.12:1003", "ip", "mac", "kind", "name"}. The address is
+    what network.send() takes. Needs an antenna here, in range and on the same frequency."""
+    return [{"address": "%s:%d" % (d["external_ip"], d["port"]), "ip": d["ip"], "mac": d["mac"],
+             "kind": d["kind"], "name": d["name"]} for d in _call("devices", address)]
+
+
 class Message:
     """A received message. Reply with network.send(msg.sender, ...)."""
 

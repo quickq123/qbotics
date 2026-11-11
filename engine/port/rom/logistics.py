@@ -187,10 +187,18 @@ def network():
     return Network()
 
 
-def _print_devices():
-    # The shell's "devices" command.
-    me = _call("self")
-    print("%-14s %-18s %-9s %s" % ("IP address", "Hardware address", "Kind", "Name"))
-    for d in _call("devices"):
-        note = "  (this computer)" if d["mac"] == me["mac"] else ""
-        print("%-14s %-18s %-9s %s%s" % (d["ip"], d["mac"], d["kind"], d["name"], note))
+def _print_devices(address=None):
+    # The shell's "devices" command; with an address, the devices behind another antenna.
+    try:
+        if address is not None:
+            print("%-22s %-14s %-9s %s" % ("Address", "IP there", "Kind", "Name"))
+            for d in _call("devices", address):
+                print("%-22s %-14s %-9s %s" % ("%s:%d" % (d["external_ip"], d["port"]), d["ip"], d["kind"], d["name"]))
+            return
+        me = _call("self")
+        print("%-14s %-18s %-9s %s" % ("IP address", "Hardware address", "Kind", "Name"))
+        for d in _call("devices"):
+            note = "  (this computer)" if d["mac"] == me["mac"] else ""
+            print("%-14s %-18s %-9s %s%s" % (d["ip"], d["mac"], d["kind"], d["name"], note))
+    except NetworkError as e:
+        print(e)

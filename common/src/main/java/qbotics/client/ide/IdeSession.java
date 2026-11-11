@@ -105,6 +105,11 @@ final class IdeSession {
     /** Commands entered earlier, recalled with the Up and Down keys. */
     final List<String> terminalHistory = new ArrayList<>();
     int terminalHistoryIndex;
+    /**
+     * Text selected in the terminal with the mouse, or null: where the drag began (line,
+     * column) and where it is now (line, column). Lines count the scroll-back, then the screen.
+     */
+    int[] terminalSelection;
 
     private static final int MAX_CLIENT_SCROLLBACK = 2000;
 
@@ -114,6 +119,7 @@ final class IdeSession {
             // First update, or the terminal was cleared.
             terminalEpoch = state.epoch();
             terminalScrollback.clear();
+            terminalSelection = null;
             terminalScrollbackEnd = state.scrolledStart();
             terminalScroll = 0;
         }
@@ -129,7 +135,13 @@ final class IdeSession {
         }
         terminalScrollbackEnd = Math.max(terminalScrollbackEnd, index);
         if (terminalScrollback.size() > MAX_CLIENT_SCROLLBACK) {
-            terminalScrollback.subList(0, terminalScrollback.size() - MAX_CLIENT_SCROLLBACK).clear();
+            int dropped = terminalScrollback.size() - MAX_CLIENT_SCROLLBACK;
+            terminalScrollback.subList(0, dropped).clear();
+            if (terminalSelection != null) {
+                // The selected lines have moved up with everything else.
+                terminalSelection[0] = Math.max(0, terminalSelection[0] - dropped);
+                terminalSelection[2] = Math.max(0, terminalSelection[2] - dropped);
+            }
         }
         terminalLines = state.lines();
         terminalCursorX = state.cursorX();

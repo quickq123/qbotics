@@ -101,6 +101,18 @@ public final class IdePreviewTool {
         tools.view.mouseScrolled(500, 400, 0, 4, false);   // wheel up over the terminal
         tools.shot("9-autocomplete-and-scrollback");
 
+        // Selecting terminal text with the mouse, then copying it with Ctrl+C.
+        Scene copying = new Scene(960, 540, 2);
+        copying.frame();
+        copying.view.mouseClicked(200, 400, IdeView.LEFT_BUTTON, false, false);
+        copying.view.mouseDragged(330, 432, IdeView.LEFT_BUTTON);
+        copying.view.mouseReleased();
+        copying.shot("10-terminal-selection");
+        copying.key(InputConstants.KEY_C, 2);
+        System.out.println("Copied from the terminal: [" + copying.clipboard.replace("\n", "\\n") + "]");
+        copying.click(260, 420, IdeView.RIGHT_BUTTON);
+        copying.shot("11-terminal-menu");
+
         // A small window (854x480, Minecraft's default size): one screen pixel per font pixel.
         Scene small = new Scene(854, 480, 1);
         small.view.openFile("/miner.py");

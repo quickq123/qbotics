@@ -873,7 +873,10 @@ Right-clicking a computer opens an editor laid out like the code editors develop
 | `python` | The Python prompt; `exit()` returns to the shell |
 | `edit file` | Opens a file in the editor |
 | `devices` (or `ifconfig`) | Lists the blocks cabled to this computer: IP address, hardware address, kind and name (§9.3) |
+| `devices 100.64.0.12` | Lists the blocks behind another antenna, with the `address:port` to send to. Needs an antenna here, in range and on the same frequency. `network.scan(address)` gives the same list to a program |
 | `clear`, `help` | |
+
+Text in the terminal can be selected by dragging (double-click selects a word, such as an address). Ctrl+C copies the selection; with nothing selected it stops the program as before. Ctrl+V pastes, and a right-click menu offers Copy, Copy All, Paste and Select All.
 
 Ctrl+C stops a running program.
 

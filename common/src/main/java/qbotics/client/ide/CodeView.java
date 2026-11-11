@@ -21,7 +21,8 @@ final class CodeView {
     private static final int KEY_SPACE = 32;
 
     final TextBuffer buffer;
-    final Language language;
+    /** Decides the colouring and the suggestions; follows the file's name when it is renamed. */
+    Language language;
     private final boolean lineNumbers;
 
     private int scrollLine;
@@ -55,6 +56,15 @@ final class CodeView {
         this.buffer = buffer;
         this.language = language;
         this.lineNumbers = lineNumbers;
+    }
+
+    /** The file was renamed: colour it, and offer suggestions, by its new name. */
+    void setLanguage(Language changed) {
+        if (changed != language) {
+            language = changed;
+            analysedVersion = -1;
+            dismissPopup();
+        }
     }
 
     /** For JSON files: what is wrong with the text, or null. */

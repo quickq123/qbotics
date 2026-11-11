@@ -88,9 +88,25 @@ public final class NetworkCalls {
                 throw new CallError("This computer's block is missing.");
             }
             case "devices": {
+                // With an address, the devices behind another antenna; with none, this network's own.
+                String address = string(args, 1);
+                ServerLevel where = level;
+                CableNetwork listed = network;
+                if (address != null) {
+                    Matcher external = EXTERNAL_OR_IP.matcher(address.strip());
+                    if (!external.matches()) {
+                        throw new CallError("'" + address + "' isn't an external address. They look like 100.64.0.12.");
+                    }
+                    Far far = far(level, network, external.group(1));
+                    if (far.network() == null) {
+                        throw new CallError("The antenna at " + external.group(1) + " isn't its network's router, so nothing behind it can be reached.");
+                    }
+                    where = far.level();
+                    listed = far.network();
+                }
                 JsonArray list = new JsonArray();
-                for (NetworkDevice device : network.devices()) {
-                    list.add(describe(level, network, device));
+                for (NetworkDevice device : listed.devices()) {
+                    list.add(describe(where, listed, device));
                 }
                 return list;
             }
@@ -206,7 +222,30 @@ public final class NetworkCalls {
 
     /** "100.64.0.12:1003": an antenna's external address and a device's port on it. */
     private static final Pattern EXTERNAL = Pattern.compile("(\\d{1,3}(?:\\.\\d{1,3}){3}):(\\d{1,5})");
+    /** The same, with the port left out or ignored: an antenna's whole network. */
+    private static final Pattern EXTERNAL_OR_IP = Pattern.compile("(\\d{1,3}(?:\\.\\d{1,3}){3})(?::\\d{1,5})?");
     private static final int MAX_MESSAGE_CHARS = 4096;
+
+    /** Another antenna this network can reach by radio, and the network behind it (null if it isn't that network's router). */
+    private record Far(AntennaBlockEntity antenna, ServerLevel level, CableNetwork network) {
+    }
+
+    private static Far far(ServerLevel level, CableNetwork network, String ip) {
+        AntennaBlockEntity near = network.gateway();
+        if (near == null) {
+            throw new CallError("Reaching an external address needs an antenna cabled to this computer.");
+        }
+        AntennaBlockEntity far = RadioNetwork.get(level.getServer()).byExternalIp(ip);
+        if (far == null || !(far.getLevel() instanceof ServerLevel farLevel)) {
+            throw new CallError("No antenna with the address " + ip + " can be reached. It may not exist, or its area isn't loaded.");
+        }
+        String problem = far == near ? null : RadioNetwork.linkProblem(near, far);
+        if (problem != null) {
+            throw new CallError("Can't reach " + ip + ": " + problem + ".");
+        }
+        CableNetwork farNetwork = CableNetwork.at(farLevel, far.getBlockPos());
+        return new Far(far, farLevel, farNetwork.gateway() == far && !farNetwork.tooLarge() ? farNetwork : null);
+    }
 
     private static AntennaBlockEntity router(CableNetwork network) {
         AntennaBlockEntity antenna = network.gateway();
@@ -233,22 +272,11 @@ public final class NetworkCalls {
         String sender;
         Matcher external = EXTERNAL.matcher(address);
         if (external.matches()) {
-            AntennaBlockEntity near = network.gateway();
-            if (near == null) {
-                throw new CallError("Sending to an external address needs an antenna cabled to this computer.");
-            }
             String ip = external.group(1);
-            AntennaBlockEntity far = RadioNetwork.get(level.getServer()).byExternalIp(ip);
-            if (far == null || !(far.getLevel() instanceof ServerLevel farLevel)) {
-                throw new CallError("No antenna with the address " + ip + " can be reached. It may not exist, or its area isn't loaded.");
-            }
-            String problem = RadioNetwork.linkProblem(near, far);
-            if (problem != null) {
-                throw new CallError("Can't reach " + ip + ": " + problem + ".");
-            }
-            CableNetwork farNetwork = CableNetwork.at(farLevel, far.getBlockPos());
+            Far far = far(level, network, ip);
+            AntennaBlockEntity near = network.gateway();
             int port = Integer.parseInt(external.group(2));
-            target = farNetwork.gateway() == far && !farNetwork.tooLarge() ? farNetwork.byHost(port - RadioNetwork.PORT_BASE) : null;
+            target = far.network() != null ? far.network().byHost(port - RadioNetwork.PORT_BASE) : null;
             if (target == null) {
                 throw new CallError("Nothing is on port " + port + " of " + ip + ".");
             }

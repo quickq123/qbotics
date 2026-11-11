@@ -388,6 +388,7 @@ public final class ServerComputer {
             "         python             the Python prompt; exit() comes back here",
             "Editor:  edit <file>        open a file in the editor",
             "Network: devices            list the blocks cabled to this computer",
+            "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
             "Other:   clear   help       Ctrl+C stops a running program",
             "");
 
@@ -428,7 +429,8 @@ public final class ServerComputer {
                         drive.call(HostFileSystem.READ, path(args, 0, name), new byte[0]));
                 case "edit" -> listener.openInEditor(deviceId, path(args, 0, name));
                 case "run" -> runFile(computer, path(args, 0, name));
-                case "devices", "ifconfig" -> runPython(computer, "import logistics\nlogistics._print_devices()");
+                case "devices", "ifconfig" -> runPython(computer,
+                        "import logistics\nlogistics._print_devices(" + (args.isEmpty() ? "" : pyString(args.getFirst())) + ")");
                 case "python", "py" -> {
                     if (args.isEmpty()) {
                         repl(computer);
