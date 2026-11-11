@@ -52,6 +52,9 @@ terminal below, and an optional Python scratchpad on the right.
 
 Names with spaces go in double quotes: `run "my program.py"`.
 
+A line that isn't a command gets a hint: `run9_world.py` suggests `run 9_world.py`, and a
+program's name typed on its own suggests `run` in front of it.
+
 Ctrl+C stops a running program. A file named `/startup.py` runs when the computer starts.
 
 ### 1.2 Editor keys
