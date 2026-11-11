@@ -13,6 +13,11 @@ import qbotics.net.TerminalStatePayload;
 @Mod(value = Qbotics.MOD_ID, dist = Dist.CLIENT)
 public final class QboticsNeoForgeClient {
     public QboticsNeoForgeClient(IEventBus modBus) {
+        // A development aid: see ScreenshotRun. Off unless the game was started for it.
+        if (qbotics.client.shots.ScreenshotRun.ENABLED) {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientTickEvent.Post event) ->
+                    qbotics.client.shots.ScreenshotRun.tick(net.minecraft.client.Minecraft.getInstance()));
+        }
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) ->
                 event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new));
         modBus.addListener((RegisterClientPayloadHandlersEvent event) -> {
