@@ -984,16 +984,32 @@ moves between them:
 
 Details and examples: `docs/reference.md` §6.4.
 
-**Planned: recipes.** The same idea one level up, for crafting:
+**Planned: recipes** (design agreed 2026-11-11; not built, because it needs the Bus's screen access, §11.0.2).
+
+A recipe is an object a program fills in once and then uses many times. It says which slots
+of a screen get which ingredient, and which slots the product is taken from.
 
 ```python
-piston = Recipe(["PPP", "CIC", "CRC"], P="#minecraft:planks", C="cobblestone", I="iron_ingot", R="redstone")
-craft(piston, parts, table, result=store, wait=True)
+blocks = Recipe(sources=parts, output=store)       # where ingredients come from, where products go
+for n in range(1, 10):                             # a crafting table's grid is slots 1 to 9
+    blocks.ingredient("coal", Slot(n), amount=1)
+blocks.result(Slot(0))                             # ...and its product appears in slot 0
+
+if blocks.can_craft(4):                            # are there ingredients for four runs?
+    with table.open_screen() as screen:            # table is a Bus on a crafting table
+        blocks.craft(4, screen)                    # raises NetworkError if a run fails
 ```
 
-- A `Recipe` is described once: a grid of letters and what each letter stands for, as the game's own recipe files do. Names can be filters.
-- `craft` checks that every ingredient is available (all or nothing, as `need=` does), lays them out by slot, triggers the craft, and moves the result to a destination. With `wait=True` it pauses until the ingredients are there.
-- It needs something to craft in. Either the vanilla Crafter with a Logic Pin to pulse it (§11.0.1), or a crafting table through the Bus's screen access (§11.0.2). So it is built after one of those.
+- **`recipe.ingredient(what, slot, amount=1)`** adds one line to the recipe: this name or filter, into this slot, this many per run. The lines are kept in a dictionary by slot, so setting a slot again replaces it.
+- **`recipe.result(slot, what=None, amount=None)`** names a slot the product is taken from. It can be called more than once, for machines that give several outputs. `what` and `amount` are optional: with them the run checks it got that; without, it takes whatever is there.
+- **`recipe.can_craft(runs=1)`** answers True or False: do the sources hold enough of every ingredient for that many runs? The same item in several slots is added up. It does not look at the machine, so it can't know whether the recipe is a real one or whether the output has room.
+- **`recipe.craft(runs=1, screen)`** does the runs on an open screen: lays the ingredients into their slots, takes the product from the result slots to the output, and repeats. If a run fails (an ingredient is missing, a result slot stays empty, the product has nowhere to go) it raises `NetworkError`; ingredients already placed go back when the screen closes, as for any screen session.
+- **Slot numbers are the screen's own**, as the probe's Slots mode shows them on that screen. That is why the result's slot is named and not assumed: a crafting table's product is slot 0 and its grid 1 to 9, and another mod's machine will differ.
+- **Sources and output** are given when the recipe is made and can be changed for one call. They are the same sources and destinations `move` uses.
+- **Opening and closing.** `with bus.open_screen() as screen:` is the recommended form because the screen is closed, and leftovers returned, even if the program stops with an error. `screen = bus.open_screen()` ... `screen.close()` also works.
+- **Waiting.** `recipe.craft(4, screen, wait=True)` pauses for missing ingredients instead of failing, in the way `move(..., need=, wait=)` does.
+
+Open points: whether `can_craft` should also try the recipe in the machine (slower, but would catch a wrong recipe); and how filters that overlap between slots are counted (an oak plank can't be used for two slots at once).
 
 ### 11.1 Public peripheral API (separate small jar)
 
@@ -1478,7 +1494,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | A program that spends experience must name its source: an Experience Interface, or liquid experience (20 mB a point, assumed for all such fluids) in a Fluid Interface or behind a fluid plate. Liquid experience is only consumed, never converted | Decided; not built |
 | 2026-11-11 | `extract` and `insert` removed. Things move with `move(sources, destinations, ...)` between ends described by `source()` and `destination()`; nothing has to pass through an Interface (§11.0.5) | Decided; built |
 | 2026-11-11 | `move` returns how many moved (none is not an error); `need=` is all-or-nothing and raises; `wait=` pauses until the amount can be moved | Decided; built |
-| 2026-11-11 | Planned: `Recipe` and `craft`, built on `move`, once the Logic Pin or screen access exists | Decided; not built |
+| 2026-11-11 | Planned: a `Recipe` object: `ingredient(what, slot, amount)`, `result(slot)` (one or several), `can_craft(runs)` as a True/False check against sources, and `craft(runs, screen)` on an open Bus screen, raising if a run fails. Needs screen access | Decided; not built |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |
