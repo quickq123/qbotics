@@ -152,6 +152,41 @@ public class InterfaceBlockEntity extends DeviceBlockEntity implements Container
     }
 
     @Override
+    public int insertInto(int slot, ItemStack like, int max, boolean simulate) {
+        ItemStack held = items.get(slot);
+        if (!canPlaceItem(slot, like) || (!held.isEmpty() && !ItemStack.isSameItemSameComponents(held, like))) {
+            return 0;
+        }
+        int room = Math.clamp(getMaxStackSize(like) - held.getCount(), 0, Math.max(0, max));
+        if (!simulate && room > 0) {
+            if (held.isEmpty()) {
+                items.set(slot, like.copyWithCount(room));
+            } else {
+                held.grow(room);
+            }
+            setChanged();
+        }
+        return room;
+    }
+
+    @Override
+    public int extractFrom(int slot, ItemStack like, int max, boolean simulate) {
+        ItemStack held = items.get(slot);
+        if (held.isEmpty() || !ItemStack.isSameItemSameComponents(held, like)) {
+            return 0;
+        }
+        int take = Math.clamp(max, 0, held.getCount());
+        if (!simulate && take > 0) {
+            held.shrink(take);
+            if (held.isEmpty()) {
+                items.set(slot, ItemStack.EMPTY);
+            }
+            setChanged();
+        }
+        return take;
+    }
+
+    @Override
     public int extract(ItemStack like, int max, boolean simulate) {
         int left = max;
         for (int slot = 0; slot < SLOTS && left > 0; slot++) {

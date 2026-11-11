@@ -38,6 +38,34 @@ record HandlerItemPort(ResourceHandler<ItemResource> handler) implements ItemPor
     }
 
     @Override
+    public int insertInto(int slot, ItemStack like, int max, boolean simulate) {
+        if (like.isEmpty() || max <= 0 || slot >= handler.size()) {
+            return 0;
+        }
+        try (Transaction transaction = Transaction.openRoot()) {
+            int inserted = handler.insert(slot, ItemResource.of(like), max, transaction);
+            if (!simulate) {
+                transaction.commit();
+            }
+            return inserted;
+        }
+    }
+
+    @Override
+    public int extractFrom(int slot, ItemStack like, int max, boolean simulate) {
+        if (like.isEmpty() || max <= 0 || slot >= handler.size()) {
+            return 0;
+        }
+        try (Transaction transaction = Transaction.openRoot()) {
+            int extracted = handler.extract(slot, ItemResource.of(like), max, transaction);
+            if (!simulate) {
+                transaction.commit();
+            }
+            return extracted;
+        }
+    }
+
+    @Override
     public int extract(ItemStack like, int max, boolean simulate) {
         if (like.isEmpty() || max <= 0) {
             return 0;

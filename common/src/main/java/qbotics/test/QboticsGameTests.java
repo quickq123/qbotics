@@ -62,6 +62,7 @@ public final class QboticsGameTests {
             Map.entry("cable_plates", QboticsGameTests::cablePlates),
             Map.entry("network_probe", QboticsGameTests::networkProbe),
             Map.entry("fluid_and_energy", QboticsGameTests::fluidAndEnergy),
+            Map.entry("slots_and_faces", QboticsGameTests::slotsAndFaces),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -705,16 +706,67 @@ public final class QboticsGameTests {
         // And from Python.
         for (String line : List.of(
                 "python",
-                "from logistics import network",
+                "from logistics import network, Slot",
                 "net = network()",
                 "print(net.fluid_bus().amount('water'), net.fluid_interface().amount(), net.fluid_interface().contents()[0]['fluid'])",
                 "print(net.energy_interface().stored, net.energy_bus().stored(), net.energy_bus().insert(1000))",
                 "print(net.fluid_bus().extract('water', 250), net.fluid_bus().kind)",
+                // By tank number, without naming the fluid: the target's first tank holds the lava.
+                "print(net.fluid_bus().amount(Slot(0)), net.fluid_bus().extract(Slot(0)), net.fluid_interface().amount('lava'))",
                 "net.energy_bus().extract(0)")) {
             computer.submitLine(line);
         }
-        helper.succeedWhen(() -> assertScreen(helper, computer, "1000 2000 minecraft:water\n", "150000 350000 1000\n", "250 fluid_bus\n",
+        helper.succeedWhen(() -> assertScreen(helper, computer, "1000 2000 minecraft:water\n", "150000 350000 1000\n", "250 fluid_bus\n", "500 500 500\n",
                 "NetworkError: The amount must be 1 or more units of energy, not 0."));
+    }
+
+    /**
+     * Aiming by slot and by face instead of by name: what a program does when it doesn't know
+     * (or care) which item is there, as with a furnace's product.
+     */
+    private static void slotsAndFaces(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(2, 1, 1);
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        helper.setBlock(chestPos, Blocks.CHEST);
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        store.setFilter(0, Items.COAL);
+        store.setFilter(1, Items.IRON_INGOT);
+        store.setFilter(2, Items.COAL);
+        net.minecraft.world.Container chest = helper.getBlockEntity(chestPos, net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        chest.setItem(0, new ItemStack(Items.COAL, 10));
+        chest.setItem(3, new ItemStack(Items.IRON_INGOT, 5));
+        chest.setItem(5, new ItemStack(Items.COAL, 7));
+
+        for (String line : List.of(
+                "python",
+                "from logistics import network, Face, Slot",
+                "net = network()",
+                "bus = net.bus()",
+                "store = net.interface()",
+                "print(bus.count(Slot(0)), bus.count('coal'), bus.count(slot=3), bus.count())",
+                // Whatever is in a slot, without naming it.
+                "print(bus.extract(Slot(3)), store.count(Slot(1)))",
+                // A named item, from one slot of the chest into one slot of the interface.
+                "print(bus.extract('coal', 4, slot=5, dest_slot=2), store.count(slot=2), bus.count(Slot(5)))",
+                "print(bus.extract(Slot(0)), store.count('coal'))",
+                // The other way: from one slot of the interface into one slot of the chest.
+                "print(bus.insert(source_slot=1, slot=8), bus.count(Slot(8)))",
+                "print(bus.insert(Slot(0), source_slot=2, count=3), bus.count(Slot(0)))",
+                "bus.extract(Slot(40))",
+                // Whatever can be reached through a face: here, everything left in the chest.
+                "print(bus.extract(Face.TOP), bus.count())")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "10 17 5 22\n", "5 5\n", "4 4 3\n", "10 14\n", "5 5\n", "3 3\n",
+                    "NetworkError: The target has slots 0 to 26 here; there is no slot 40.", "11 0\n");
+            // Coal tops up the slot that already holds coal (slot 2) before starting an empty one.
+            helper.assertTrue(chest.isEmpty() && store.getItem(0).isEmpty() && store.getItem(1).getCount() == 5
+                    && store.getItem(2).getCount() == 17, "everything should have ended up in the interface: " + store.getItem(0)
+                    + ", " + store.getItem(1) + ", " + store.getItem(2));
+        });
     }
 
     /** The Network Probe reads any device's name and addresses, picks out one plate on a cable, and renames. */

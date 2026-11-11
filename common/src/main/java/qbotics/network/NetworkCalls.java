@@ -198,7 +198,9 @@ public final class NetworkCalls {
     /**
      * insert: from interfaces, through an output or bus, into its target.
      * extract: out of an input's or bus's target, into interfaces.
-     * Arguments: device MAC, item, count, the other end's MAC (or null for any interface), face (or null).
+     * Arguments: device MAC, item (or null for whatever is there), count (or null: 1 of a named
+     * item, otherwise all there is), the other end's MAC (or null for any interface), face (or
+     * null), slot of the target (or null), slot of the interface (or null).
      */
     private static int move(ServerLevel level, CableNetwork network, boolean insert, JsonArray args) {
         CablePort port = port(byMac(network, args, 1));
@@ -219,12 +221,12 @@ public final class NetworkCalls {
         if (port.medium() == Medium.ENERGY) {
             return moveEnergy(level, network, port, insert, args);
         }
-        Item item = item(args.get(2).getAsString());
-        int count = args.get(3).getAsInt();
-        if (count < 1) {
-            throw new CallError("The count must be 1 or more, not " + count + ".");
-        }
-        count = Math.min(count, MAX_ITEMS_PER_CALL);
+        // No item named means "whatever is there", which is how a furnace's product is taken
+        // without knowing what was smelted.
+        Item item = string(args, 2) == null ? null : item(string(args, 2));
+        int count = amount(args, item == null ? MAX_ITEMS_PER_CALL : 1, MAX_ITEMS_PER_CALL, "items");
+        int slot = slot(args, 6);
+        int otherSlot = slot(args, 7);
         List<InterfaceBlockEntity> inputs = new ArrayList<>();
         String other = string(args, 4);
         if (other != null) {
@@ -239,13 +241,17 @@ public final class NetworkCalls {
                 throw new CallError("There is no interface on this network to " + (insert ? "take items from." : "put items into."));
             }
         }
-        ItemPort target = target(level, port, string(args, 5));
+        // A slot number with no face named counts slots as contents() lists them: through the whole container.
+        ItemPort target = slot >= 0 && string(args, 5) == null ? wholeTarget(level, port) : target(level, port, string(args, 5));
+        checkSlot(slot, target.contents().size(), "The target", "slot");
+        checkSlot(otherSlot, InterfaceBlockEntity.SLOTS, "An interface", "slot");
         int moved = 0;
         for (InterfaceBlockEntity input : inputs) {
             if (moved >= count) {
                 break;
             }
-            moved += insert ? ItemPort.move(input, target, item, count - moved) : ItemPort.move(target, input, item, count - moved);
+            moved += insert ? ItemPort.move(input, otherSlot, target, slot, item, count - moved)
+                    : ItemPort.move(target, slot, input, otherSlot, item, count - moved);
         }
         return moved;
     }
@@ -347,8 +353,11 @@ public final class NetworkCalls {
         return list;
     }
 
-    /** The count argument of insert and extract, checked and capped. */
-    private static int amount(JsonArray args, int most, String unit) {
+    /** The count argument of insert and extract, checked and capped; with none given, a default. */
+    private static int amount(JsonArray args, int byDefault, int most, String unit) {
+        if (args.size() <= 3 || args.get(3).isJsonNull()) {
+            return byDefault;
+        }
         int count = args.get(3).getAsInt();
         if (count < 1) {
             throw new CallError("The amount must be 1 or more " + unit + ", not " + count + ".");
@@ -356,10 +365,31 @@ public final class NetworkCalls {
         return Math.min(count, most);
     }
 
+    /** A slot or tank number argument, or -1 if none was given. */
+    private static int slot(JsonArray args, int index) {
+        if (index >= args.size() || args.get(index).isJsonNull()) {
+            return -1;
+        }
+        int slot = args.get(index).getAsInt();
+        if (slot < 0) {
+            throw new CallError("Slots and tanks are numbered from 0; there is no number " + slot + ".");
+        }
+        return slot;
+    }
+
+    private static void checkSlot(int slot, int size, String owner, String word) {
+        if (slot >= size) {
+            throw new CallError(size == 0 ? owner + " has no " + word + "s that can be reached here."
+                    : owner + " has " + word + "s 0 to " + (size - 1) + " here; there is no " + word + " " + slot + ".");
+        }
+    }
+
     /** Arguments: device MAC, fluid, millibuckets, the other end's MAC (or null for any fluid interface), face (or null). */
     private static int moveFluid(ServerLevel level, CableNetwork network, CablePort port, boolean insert, JsonArray args) {
-        Fluid fluid = fluid(args.get(2).getAsString());
-        int count = amount(args, MAX_FLUID_PER_CALL, "millibuckets");
+        Fluid fluid = string(args, 2) == null ? null : fluid(string(args, 2));
+        int count = amount(args, fluid == null ? MAX_FLUID_PER_CALL : FluidPort.BUCKET, MAX_FLUID_PER_CALL, "millibuckets");
+        int tank = slot(args, 6);
+        int otherTank = slot(args, 7);
         List<FluidInterfaceBlockEntity> stores = new ArrayList<>();
         if (string(args, 4) != null) {
             if (!(byMac(network, args, 4) instanceof FluidInterfaceBlockEntity store)) {
@@ -376,20 +406,23 @@ public final class NetworkCalls {
                 throw new CallError("There is no fluid interface on this network to " + (insert ? "take fluid from." : "put fluid into."));
             }
         }
-        FluidPort target = fluidTarget(level, port, string(args, 5), false);
+        FluidPort target = fluidTarget(level, port, string(args, 5), tank >= 0);
+        checkSlot(tank, target.tanks().size(), "The target", "tank");
+        checkSlot(otherTank, FluidInterfaceBlockEntity.TANKS, "A fluid interface", "tank");
         int moved = 0;
         for (FluidInterfaceBlockEntity store : stores) {
             if (moved >= count) {
                 break;
             }
-            moved += insert ? FluidPort.move(store, target, fluid, count - moved) : FluidPort.move(target, store, fluid, count - moved);
+            moved += insert ? FluidPort.move(store, otherTank, target, tank, fluid, count - moved)
+                    : FluidPort.move(target, tank, store, otherTank, fluid, count - moved);
         }
         return moved;
     }
 
     /** Arguments: device MAC, null, amount of energy, the other end's MAC (or null for any energy interface), face (or null). */
     private static int moveEnergy(ServerLevel level, CableNetwork network, CablePort port, boolean insert, JsonArray args) {
-        int count = amount(args, MAX_ENERGY_PER_CALL, "units of energy");
+        int count = amount(args, MAX_ENERGY_PER_CALL, MAX_ENERGY_PER_CALL, "units of energy");
         List<EnergyInterfaceBlockEntity> stores = new ArrayList<>();
         if (string(args, 4) != null) {
             if (!(byMac(network, args, 4) instanceof EnergyInterfaceBlockEntity store)) {

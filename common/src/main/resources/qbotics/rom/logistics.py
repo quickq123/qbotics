@@ -36,6 +36,33 @@ class Face:
     RIGHT = "right"
 
 
+_FACES = (Face.NEAR, Face.FAR, Face.TOP, Face.BOTTOM, Face.LEFT, Face.RIGHT)
+
+
+class Slot:
+    """A slot (or a tank) by its number. Numbers start at 0 and run left to right, top to
+    bottom, as contents() lists them. Use it where an item's name would go:
+    bus.extract(Slot(0)) takes whatever is in the first slot."""
+
+    def __init__(self, index):
+        self.index = index
+
+    def __repr__(self):
+        return "Slot(%d)" % self.index
+
+
+def _aim(what, face, slot):
+    # The first thing given to extract(), insert(), count() or amount() may be a name, a
+    # Face or a Slot. Returns (name or None, face or None, slot number or None).
+    if isinstance(what, Slot):
+        what, slot = None, what
+    elif what in _FACES:
+        what, face = None, what
+    if isinstance(slot, Slot):
+        slot = slot.index
+    return _full_name(what), face, slot
+
+
 def _mac(device):
     # A device may be given as an object, or as a name or address to look up.
     if device is None:
@@ -81,10 +108,12 @@ class Interface(Device):
         """What it holds: a list of {"slot": 0, "item": "minecraft:coal", "count": 12}."""
         return _call("contents", self.mac, None)
 
-    def count(self, item=None):
-        """How many of an item it holds (or of everything, with no item)."""
-        item = _full_name(item)
-        return sum(e["count"] for e in self.contents() if item is None or e["item"] == item)
+    def count(self, item=None, slot=None):
+        """How many of an item it holds (or of everything, with no item). slot= narrows it
+        to one slot; a Slot can also stand in for the item: store.count(Slot(0))."""
+        item, _, slot = _aim(item, None, slot)
+        return sum(e["count"] for e in self.contents()
+                   if (item is None or e["item"] == item) and (slot is None or e["slot"] == slot))
 
     def filters(self):
         """What each slot accepts: an item name, or None for a closed slot."""
@@ -120,11 +149,21 @@ class Port(Device):
     def _contents(self, face):
         return _call("contents", self.mac, face)
 
-    def _extract(self, item, count, dest, face):
-        return _call("extract", self.mac, item, count, _mac(dest), face)
+    def _held(self, key, what, face, slot):
+        # Adds up "count" or "amount" over what the target holds, narrowed by name, face and slot.
+        what, face, slot = _aim(what, face, slot)
+        name = "item" if key == "count" else "fluid"
+        number = "slot" if key == "count" else "tank"
+        return sum(e[key] for e in self._contents(face)
+                   if (what is None or e[name] == what) and (slot is None or e[number] == slot))
 
-    def _insert(self, item, count, source, face):
-        return _call("insert", self.mac, item, count, _mac(source), face)
+    def _extract(self, what, count, dest, face, slot=None, dest_slot=None):
+        what, face, slot = _aim(what, face, slot)
+        return _call("extract", self.mac, what, count, _mac(dest), face, slot, _aim(None, None, dest_slot)[2])
+
+    def _insert(self, what, count, source, face, slot=None, source_slot=None):
+        what, face, slot = _aim(what, face, slot)
+        return _call("insert", self.mac, what, count, _mac(source), face, slot, _aim(None, None, source_slot)[2])
 
 
 class Input(Port):
@@ -134,24 +173,35 @@ class Input(Port):
         """What the target holds, as seen through a face (or all of it, with no face)."""
         return self._contents(face)
 
-    def count(self, item=None, face=None):
-        """How many of an item the target holds (or of everything, with no item)."""
-        item = _full_name(item)
-        return sum(e["count"] for e in self.contents(face) if item is None or e["item"] == item)
+    def count(self, item=None, face=None, slot=None):
+        """How many of an item the target holds: bus.count("coal"). With no item, how many
+        of everything. Narrow it with face= or slot=, or give a Face or a Slot in place of
+        the item: bus.count(Face.BOTTOM), bus.count(Slot(2))."""
+        return self._held("count", item, face, slot)
 
-    def extract(self, item, count=1, dest=None, face=None):
-        """Moves up to count of an item out of the target into an interface (any
-        interface with a slot open for it, unless dest says which). Returns how many moved."""
-        return self._extract(item, count, dest, face)
+    def extract(self, item=None, count=None, dest=None, face=None, slot=None, dest_slot=None):
+        """Moves items out of the target into an interface (any interface with a slot open
+        for them, unless dest says which). Returns how many moved.
+
+        Name the item, or leave it out to take whatever is there:
+        bus.extract("iron_ingot", 16), bus.extract(Face.BOTTOM), bus.extract(Slot(0)),
+        bus.extract(face=Face.BOTTOM, slot=0). count defaults to 1 of a named item, and to
+        everything otherwise. dest_slot picks the interface's slot."""
+        return self._extract(item, count, dest, face, slot, dest_slot)
 
 
 class Output(Port):
     """Puts items from the network's interfaces into the container it points at."""
 
-    def insert(self, item, count=1, source=None, face=None):
-        """Moves up to count of an item from an interface (any interface, unless source
-        says which) into the target. Returns how many moved; 0 if none could."""
-        return self._insert(item, count, source, face)
+    def insert(self, item=None, count=None, source=None, face=None, slot=None, source_slot=None):
+        """Moves items from an interface (any interface, unless source says which) into
+        the target. Returns how many moved; 0 if none could.
+
+        Name the item, or leave it out to send whatever the interface holds:
+        out.insert("coal", 8, face=Face.LEFT), out.insert(Slot(1)) puts into the target's
+        slot 1, out.insert(source_slot=0) sends what is in the interface's first slot.
+        count defaults to 1 of a named item, and to everything otherwise."""
+        return self._insert(item, count, source, face, slot, source_slot)
 
 
 class Bus(Port):
@@ -161,28 +211,34 @@ class Bus(Port):
         """What the target holds, as seen through a face (or all of it, with no face)."""
         return self._contents(face)
 
-    def count(self, item=None, face=None):
-        """How many of an item the target holds (or of everything, with no item)."""
-        item = _full_name(item)
-        return sum(e["count"] for e in self.contents(face) if item is None or e["item"] == item)
+    def count(self, item=None, face=None, slot=None):
+        """How many of an item the target holds: bus.count("coal"). With no item, how many
+        of everything. Narrow it with face= or slot=, or give a Face or a Slot in place of
+        the item: bus.count(Face.BOTTOM), bus.count(Slot(2))."""
+        return self._held("count", item, face, slot)
 
-    def extract(self, item, count=1, dest=None, face=None):
-        """Moves up to count of an item out of the target into an interface (any
-        interface with a slot open for it, unless dest says which). Returns how many moved."""
-        return self._extract(item, count, dest, face)
+    def extract(self, item=None, count=None, dest=None, face=None, slot=None, dest_slot=None):
+        """Moves items out of the target into an interface (any interface with a slot open
+        for them, unless dest says which). Returns how many moved.
 
-    def insert(self, item, count=1, source=None, face=None):
-        """Moves up to count of an item from an interface (any interface, unless source
-        says which) into the target. Returns how many moved; 0 if none could."""
-        return self._insert(item, count, source, face)
+        Name the item, or leave it out to take whatever is there:
+        bus.extract("iron_ingot", 16), bus.extract(Face.BOTTOM), bus.extract(Slot(0)),
+        bus.extract(face=Face.BOTTOM, slot=0). count defaults to 1 of a named item, and to
+        everything otherwise. dest_slot picks the interface's slot."""
+        return self._extract(item, count, dest, face, slot, dest_slot)
+
+    def insert(self, item=None, count=None, source=None, face=None, slot=None, source_slot=None):
+        """Moves items from an interface (any interface, unless source says which) into
+        the target. Returns how many moved; 0 if none could.
+
+        Name the item, or leave it out to send whatever the interface holds:
+        out.insert("coal", 8, face=Face.LEFT), out.insert(Slot(1)) puts into the target's
+        slot 1, out.insert(source_slot=0) sends what is in the interface's first slot.
+        count defaults to 1 of a named item, and to everything otherwise."""
+        return self._insert(item, count, source, face, slot, source_slot)
 
 
 # ---- fluid: amounts are in millibuckets (mB); 1000 is one bucket ----
-
-
-def _amount(tanks, fluid):
-    fluid = _full_name(fluid)
-    return sum(t["amount"] for t in tanks if fluid is None or t["fluid"] == fluid)
 
 
 class FluidInterface(Device):
@@ -194,9 +250,12 @@ class FluidInterface(Device):
         "amount": 1000, "capacity": 4000}. An empty tank's fluid is None."""
         return _call("contents", self.mac, None)
 
-    def amount(self, fluid=None):
-        """How many millibuckets of a fluid it holds (or of everything, with no fluid)."""
-        return _amount(self.contents(), fluid)
+    def amount(self, fluid=None, slot=None):
+        """How many millibuckets of a fluid it holds (or of everything, with no fluid).
+        slot= narrows it to one tank; a Slot can also stand in for the fluid."""
+        fluid, _, slot = _aim(fluid, None, slot)
+        return sum(t["amount"] for t in self.contents()
+                   if (fluid is None or t["fluid"] == fluid) and (slot is None or t["tank"] == slot))
 
 
 class FluidInput(Port):
@@ -206,23 +265,32 @@ class FluidInput(Port):
         """The target's tanks, as seen through a face (or all of them, with no face)."""
         return self._contents(face)
 
-    def amount(self, fluid=None, face=None):
-        """How many millibuckets of a fluid the target holds (or of everything)."""
-        return _amount(self.contents(face), fluid)
+    def amount(self, fluid=None, face=None, slot=None):
+        """How many millibuckets of a fluid the target holds (or of everything). Narrow it
+        with face= or slot= (a tank's number), or give a Face or a Slot in place of the fluid."""
+        return self._held("amount", fluid, face, slot)
 
-    def extract(self, fluid, amount=1000, dest=None, face=None):
-        """Moves up to an amount (in millibuckets; 1000 is a bucket) of a fluid out of the
-        target into a fluid interface (any, unless dest says which). Returns how much moved."""
-        return self._extract(_full_name(fluid), amount, dest, face)
+    def extract(self, fluid=None, amount=None, dest=None, face=None, slot=None, dest_slot=None):
+        """Moves fluid (in millibuckets; 1000 is a bucket) out of the target into a fluid
+        interface (any, unless dest says which). Returns how much moved.
+
+        Name the fluid, or leave it out to take whatever is there: bus.extract("water", 2000),
+        bus.extract(Slot(0)) empties the target's first tank. amount defaults to one bucket
+        of a named fluid, and to everything otherwise. dest_slot picks the interface's tank."""
+        return self._extract(fluid, amount, dest, face, slot, dest_slot)
 
 
 class FluidOutput(Port):
     """Puts fluid from the network's fluid interfaces into the tank it points at."""
 
-    def insert(self, fluid, amount=1000, source=None, face=None):
-        """Moves up to an amount (in millibuckets; 1000 is a bucket) of a fluid from a fluid
-        interface (any, unless source says which) into the target. Returns how much moved."""
-        return self._insert(_full_name(fluid), amount, source, face)
+    def insert(self, fluid=None, amount=None, source=None, face=None, slot=None, source_slot=None):
+        """Moves fluid (in millibuckets; 1000 is a bucket) from a fluid interface (any,
+        unless source says which) into the target. Returns how much moved.
+
+        Name the fluid, or leave it out to send whatever the interface holds. slot picks the
+        target's tank, source_slot the interface's: out.insert(source_slot=0). amount
+        defaults to one bucket of a named fluid, and to everything otherwise."""
+        return self._insert(fluid, amount, source, face, slot, source_slot)
 
 
 class FluidBus(Port):
@@ -232,19 +300,28 @@ class FluidBus(Port):
         """The target's tanks, as seen through a face (or all of them, with no face)."""
         return self._contents(face)
 
-    def amount(self, fluid=None, face=None):
-        """How many millibuckets of a fluid the target holds (or of everything)."""
-        return _amount(self.contents(face), fluid)
+    def amount(self, fluid=None, face=None, slot=None):
+        """How many millibuckets of a fluid the target holds (or of everything). Narrow it
+        with face= or slot= (a tank's number), or give a Face or a Slot in place of the fluid."""
+        return self._held("amount", fluid, face, slot)
 
-    def extract(self, fluid, amount=1000, dest=None, face=None):
-        """Moves up to an amount (in millibuckets; 1000 is a bucket) of a fluid out of the
-        target into a fluid interface (any, unless dest says which). Returns how much moved."""
-        return self._extract(_full_name(fluid), amount, dest, face)
+    def extract(self, fluid=None, amount=None, dest=None, face=None, slot=None, dest_slot=None):
+        """Moves fluid (in millibuckets; 1000 is a bucket) out of the target into a fluid
+        interface (any, unless dest says which). Returns how much moved.
 
-    def insert(self, fluid, amount=1000, source=None, face=None):
-        """Moves up to an amount (in millibuckets; 1000 is a bucket) of a fluid from a fluid
-        interface (any, unless source says which) into the target. Returns how much moved."""
-        return self._insert(_full_name(fluid), amount, source, face)
+        Name the fluid, or leave it out to take whatever is there: bus.extract("water", 2000),
+        bus.extract(Slot(0)) empties the target's first tank. amount defaults to one bucket
+        of a named fluid, and to everything otherwise. dest_slot picks the interface's tank."""
+        return self._extract(fluid, amount, dest, face, slot, dest_slot)
+
+    def insert(self, fluid=None, amount=None, source=None, face=None, slot=None, source_slot=None):
+        """Moves fluid (in millibuckets; 1000 is a bucket) from a fluid interface (any,
+        unless source says which) into the target. Returns how much moved.
+
+        Name the fluid, or leave it out to send whatever the interface holds. slot picks the
+        target's tank, source_slot the interface's: out.insert(source_slot=0). amount
+        defaults to one bucket of a named fluid, and to everything otherwise."""
+        return self._insert(fluid, amount, source, face, slot, source_slot)
 
 
 # ---- energy: amounts are in FE, the unit mods share (also called RF) ----
@@ -314,7 +391,8 @@ class EnergyBus(Port):
 
 
 def _full_name(item):
-    return item if item is None or ":" in item else "minecraft:" + item
+    # "coal" means "minecraft:coal". Anything that isn't text (None, for energy) is left alone.
+    return "minecraft:" + item if isinstance(item, str) and ":" not in item else item
 
 
 _KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus,

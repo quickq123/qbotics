@@ -72,9 +72,38 @@ final class MediaHandlers {
                 return extracted;
             }
         }
+
+        @Override
+        public int insertInto(int tank, Fluid fluid, int max, boolean simulate) {
+            if (fluid == Fluids.EMPTY || max <= 0 || tank >= handler.size()) {
+                return 0;
+            }
+            try (Transaction transaction = Transaction.openRoot()) {
+                int inserted = handler.insert(tank, FluidResource.of(fluid), max, transaction);
+                if (!simulate) {
+                    transaction.commit();
+                }
+                return inserted;
+            }
+        }
+
+        @Override
+        public int extractFrom(int tank, Fluid fluid, int max, boolean simulate) {
+            if (fluid == Fluids.EMPTY || max <= 0 || tank >= handler.size()) {
+                return 0;
+            }
+            try (Transaction transaction = Transaction.openRoot()) {
+                int extracted = handler.extract(tank, FluidResource.of(fluid), max, transaction);
+                if (!simulate) {
+                    transaction.commit();
+                }
+                return extracted;
+            }
+        }
     }
 
     /** A machine or battery reached through NeoForge's energy capability. */
+
     record EnergyTarget(EnergyHandler handler) implements EnergyPort {
         @Override
         public long stored() {
@@ -159,7 +188,7 @@ final class MediaHandlers {
         }
     }
 
-    /** The Fluid Interface's four tanks. A fluid goes to whichever tank will take it, whatever tank number is asked for. */
+    /** The Fluid Interface's four tanks. */
     private static final class FluidStore extends Journal implements ResourceHandler<FluidResource> {
         private final FluidInterfaceBlockEntity tanks;
 
@@ -196,20 +225,20 @@ final class MediaHandlers {
 
         @Override
         public int insert(int index, FluidResource resource, int amount, TransactionContext transaction) {
-            if (!isValid(index, resource) || tanks.insert(resource.getFluid(), amount, true) == 0) {
+            if (!isValid(index, resource) || tanks.insertInto(index, resource.getFluid(), amount, true) == 0) {
                 return 0;
             }
             updateSnapshots(transaction);
-            return tanks.insert(resource.getFluid(), amount, false);
+            return tanks.insertInto(index, resource.getFluid(), amount, false);
         }
 
         @Override
         public int extract(int index, FluidResource resource, int amount, TransactionContext transaction) {
-            if (!isValid(index, resource) || tanks.extract(resource.getFluid(), amount, true) == 0) {
+            if (!isValid(index, resource) || tanks.extractFrom(index, resource.getFluid(), amount, true) == 0) {
                 return 0;
             }
             updateSnapshots(transaction);
-            return tanks.extract(resource.getFluid(), amount, false);
+            return tanks.extractFrom(index, resource.getFluid(), amount, false);
         }
     }
 

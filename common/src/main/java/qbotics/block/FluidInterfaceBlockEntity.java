@@ -101,6 +101,36 @@ public class FluidInterfaceBlockEntity extends DeviceBlockEntity implements Flui
         return max - left;
     }
 
+    @Override
+    public int insertInto(int tank, Fluid fluid, int max, boolean simulate) {
+        if (fluid == Fluids.EMPTY || max <= 0 || (amounts[tank] > 0 && fluids[tank] != fluid)) {
+            return 0;
+        }
+        int room = Math.min(max, TANK_CAPACITY - amounts[tank]);
+        if (!simulate && room > 0) {
+            fluids[tank] = fluid;
+            amounts[tank] += room;
+            setChanged();
+        }
+        return room;
+    }
+
+    @Override
+    public int extractFrom(int tank, Fluid fluid, int max, boolean simulate) {
+        if (fluid == Fluids.EMPTY || max <= 0 || amounts[tank] == 0 || fluids[tank] != fluid) {
+            return 0;
+        }
+        int take = Math.min(max, amounts[tank]);
+        if (!simulate) {
+            amounts[tank] -= take;
+            if (amounts[tank] == 0) {
+                fluids[tank] = Fluids.EMPTY;
+            }
+            setChanged();
+        }
+        return take;
+    }
+
     // ---- for the loader's fluid API, which needs to undo changes -------------------------
 
     private record Snapshot(Fluid[] fluids, int[] amounts) {
