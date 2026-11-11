@@ -94,6 +94,9 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, CABLE.get()));
 
+    // Parts: made in the crafting grid, used up in other recipes.
+    private static final DeferredItem<net.minecraft.world.item.Item> SCREEN_ITEM = ITEMS.registerSimpleItem("screen");
+    private static final DeferredItem<net.minecraft.world.item.Item> MOTHERBOARD_ITEM = ITEMS.registerSimpleItem("motherboard");
     private static final DeferredItem<qbotics.block.ProbeItem> PROBE_ITEM = ITEMS.registerItem("probe",
             properties -> new qbotics.block.ProbeItem(properties.stacksTo(1)));
 
@@ -135,6 +138,8 @@ public final class QboticsNeoForge {
                         output.accept(ANTENNA_LONG_ITEM.get());
                         output.accept(ANTENNA_INFINITE_ITEM.get());
                         output.accept(PROBE_ITEM.get());
+                        output.accept(SCREEN_ITEM.get());
+                        output.accept(MOTHERBOARD_ITEM.get());
                     })
                     .build());
 

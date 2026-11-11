@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "C": "minecraft:copper_ingot",
+    "L": "minecraft:glass",
+    "G": "minecraft:green_dye"
+  },
+  "pattern": [
+    "CCC",
+    "LGL",
+    "CCC"
+  ],
+  "result": {
+    "id": "qbotics:motherboard"
+  }
+}

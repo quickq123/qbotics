@@ -124,11 +124,28 @@ public final class QboticsGameTests {
 
     /** Cable in the shape of leggings, redstone in the middle, glass at the bottom middle. */
     private static void computerRecipe(GameTestHelper helper) {
+        // The parts first: four screens from lines of glowstone dust, dye and glass pane; a motherboard from copper, glass and green dye.
+        ItemStack g = new ItemStack(Items.GLOWSTONE_DUST);
+        ItemStack p = new ItemStack(Blocks.GLASS_PANE);
+        ItemStack screens = craft(helper,
+                g, new ItemStack(Items.RED_DYE), p,
+                g, new ItemStack(Items.GREEN_DYE), p,
+                g, new ItemStack(Items.BLUE_DYE), p);
+        ItemStack copper = new ItemStack(Items.COPPER_INGOT);
+        ItemStack glass = new ItemStack(Blocks.GLASS);
+        ItemStack motherboard = craft(helper,
+                copper, copper, copper,
+                glass, new ItemStack(Items.GREEN_DYE), glass,
+                copper, copper, copper);
+        helper.assertTrue(screens.getCount() == 4 && screens.getItem().toString().equals("qbotics:screen"), "the screen recipe gave " + screens);
+        helper.assertTrue(motherboard.getCount() == 1 && motherboard.getItem().toString().equals("qbotics:motherboard"),
+                "the motherboard recipe gave " + motherboard);
+
         ItemStack c = new ItemStack(QboticsContent.CABLE_BLOCK.get());
         ItemStack result = craft(helper,
                 c, c, c,
-                c, new ItemStack(Items.REDSTONE), c,
-                c, new ItemStack(Blocks.GLASS), c);
+                c, motherboard, c,
+                c, screens.copyWithCount(1), c);
         helper.assertTrue(result.is(QboticsContent.COMPUTER_BLOCK.get().asItem()) && result.getCount() == 1,
                 "recipe should give one computer but gave " + result);
         helper.succeed();

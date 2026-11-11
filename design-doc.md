@@ -1270,6 +1270,8 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | A cable carries up to six plates, one per side (for tight spaces) | Decided |
 | 2026-11-10 | Plates are block-state values on the cable (15,625 states) for now. **Move to a model built in code before fluid and energy plates are added**: more plate kinds would multiply the states (9 values a side is 531,441) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
+| 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |
+| 2026-11-10 | Look: whitish iron with redstone red; the plates carry no arrows because their shapes show direction | Decided |
 | 2026-11-10 | Network Probe: a hand tool that reads a device's name and addresses with one-click copy, and names the device. Names are the recommended way to address many devices in code | Built; to confirm |
 
 ---
@@ -1315,7 +1317,9 @@ All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G
 |---|---|---|
 | **16 Cable** | `IRI` / `IRI` / `IRI` | Vertical lines: 6 iron, 3 redstone |
 | **16 Cable** | `III` / `RRR` / `III` | Horizontal lines: the same ingredients |
-| **Computer** | `CCC` / `CRC` / `CGC` | Cable in the shape of leggings, redstone in the middle. Costs 7 cables, 1 redstone, 1 glass |
+| **Screen** (a part; makes 4) | `GRP` / `GEP` / `GBP` | Three upright lines side by side: glowstone dust, then red, green and blue dye, then glass panes. Will also be used for monitors |
+| **Motherboard** (a part) | `CCC` / `LGL` / `CCC` | Copper ingots above and below; glass, green dye, glass between. The core of every computer |
+| **Computer** | `CCC` / `CMC` / `CSC` | Cable in the shape of leggings, a motherboard in the middle, a screen at the bottom middle. Costs 7 cables, 1 motherboard, 1 screen |
 
 **Placeholders, not decided:** the item blocks need recipes to be craftable at all, so each is four cables around the vanilla block it most resembles.
 

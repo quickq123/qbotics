@@ -3,13 +3,13 @@
   "category": "redstone",
   "key": {
     "C": "qbotics:cable",
-    "R": "minecraft:redstone",
-    "G": "minecraft:glass"
+    "M": "qbotics:motherboard",
+    "S": "qbotics:screen"
   },
   "pattern": [
     "CCC",
-    "CRC",
-    "CGC"
+    "CMC",
+    "CSC"
   ],
   "result": {
     "id": "qbotics:computer"

@@ -210,8 +210,8 @@ public final class ScreenshotRun {
                     new ItemStack(QboticsContent.PLATE_ITEMS.get(Kind.INPUT).get()),
                     new ItemStack(QboticsContent.PLATE_ITEMS.get(Kind.OUTPUT).get()),
                     new ItemStack(QboticsContent.PLATE_ITEMS.get(Kind.BUS).get()),
-                    new ItemStack(QboticsContent.ANTENNA_SHORT_BLOCK.get()),
-                    new ItemStack(QboticsContent.ANTENNA_LONG_BLOCK.get()),
+                    new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("screen"))),
+                    new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("motherboard"))),
                 };
                 for (int slot = 0; slot < items.length; slot++) {
                     player.getInventory().setItem(slot, items[slot]);
@@ -232,10 +232,10 @@ public final class ScreenshotRun {
             server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), command);
         }
         base = player.blockPosition().offset(2, 0, -6);
-        // A pale floor, so the grey blocks stand out.
+        // A dark floor, so the whitish blocks stand out.
         for (int x = -2; x <= 16; x++) {
             for (int z = -8; z <= 4; z++) {
-                level.setBlock(base.offset(x, -1, z), Blocks.SMOOTH_QUARTZ.defaultBlockState(), Block.UPDATE_ALL);
+                level.setBlock(base.offset(x, -1, z), Blocks.GRAY_CONCRETE.defaultBlockState(), Block.UPDATE_ALL);
                 for (int y = 0; y < 4; y++) {
                     level.setBlock(base.offset(x, y, z), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
                 }

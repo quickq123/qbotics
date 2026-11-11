@@ -7,6 +7,8 @@
   "item.qbotics.output": "Output",
   "item.qbotics.bus": "Bus",
   "item.qbotics.probe": "Network Probe",
+  "item.qbotics.screen": "Screen",
+  "item.qbotics.motherboard": "Motherboard",
   "message.qbotics.probe_nothing": "That isn't a network device. Aim at a computer, an interface, an antenna or a plate.",
   "screen.qbotics.probe": "Network Probe",
   "screen.qbotics.probe.title": "This is: %s",

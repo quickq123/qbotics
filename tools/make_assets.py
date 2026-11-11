@@ -23,9 +23,12 @@ def write_json(path, obj):
 
 
 def write_png(path, pixels):
-    """pixels: 16 rows of 16 (r, g, b) tuples."""
+    """pixels: 16 rows of 16 (r, g, b) tuples. A pixel of None is see-through."""
     full = os.path.join(RES, path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
+    clear = any(px is None for row in pixels for px in row)
+    if clear:
+        pixels = [[(0, 0, 0, 0) if px is None else tuple(px) + (255,) for px in row] for row in pixels]
     raw = b"".join(b"\x00" + bytes(c for px in row for c in px) for row in pixels)
 
     def chunk(kind, data):
@@ -33,7 +36,7 @@ def write_png(path, pixels):
         return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
 
     png = (b"\x89PNG\r\n\x1a\n"
-           + chunk(b"IHDR", struct.pack(">IIBBBBB", 16, 16, 8, 2, 0, 0, 0))
+           + chunk(b"IHDR", struct.pack(">IIBBBBB", 16, 16, 8, 6 if clear else 2, 0, 0, 0))
            + chunk(b"IDAT", zlib.compress(raw, 9))
            + chunk(b"IEND", b""))
     with open(full, "wb") as f:
@@ -42,16 +45,18 @@ def write_png(path, pixels):
 
 # ---- textures ----------------------------------------------------------------
 
-CASE = (150, 154, 160)
-CASE_LIGHT = (176, 180, 186)
-CASE_DARK = (112, 116, 122)
-EDGE = (78, 82, 88)
-VENT = (60, 63, 68)
-SCREEN = (12, 18, 22)
-SCREEN_EDGE = (40, 44, 50)
-GREEN = (110, 224, 124)
-LED = (90, 220, 100)
-RED = (200, 60, 50)
+# The mod's look: whitish iron (it is made of iron) with redstone red for whatever is live.
+CASE = (216, 216, 216)
+CASE_LIGHT = (238, 238, 238)
+CASE_DARK = (172, 172, 172)
+EDGE = (128, 128, 130)
+VENT = (92, 92, 96)
+SCREEN = (16, 14, 16)
+SCREEN_EDGE = (70, 68, 70)
+RED = (200, 36, 28)
+RED_BRIGHT = (255, 72, 48)
+GREEN = RED_BRIGHT    # the ">_" on the computer's screen
+LED = RED_BRIGHT
 
 
 def case_base():
@@ -141,6 +146,8 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.output": "Output",
     "item.qbotics.bus": "Bus",
     "item.qbotics.probe": "Network Probe",
+    "item.qbotics.screen": "Screen",
+    "item.qbotics.motherboard": "Motherboard",
     "message.qbotics.probe_nothing": "That isn't a network device. Aim at a computer, an interface, an antenna or a plate.",
     "screen.qbotics.probe": "Network Probe",
     "screen.qbotics.probe.title": "This is: %s",
@@ -166,10 +173,10 @@ write_json("assets/qbotics/lang/en_us.json", {
 
 # ---- cable: texture, connecting model ------------------------------------------
 
-SHEATH = (92, 96, 104)
-SHEATH_LIGHT = (122, 126, 134)
-SHEATH_DARK = (64, 67, 74)
-CORE_RED = (190, 40, 34)
+SHEATH = (204, 204, 204)
+SHEATH_LIGHT = (232, 232, 232)
+SHEATH_DARK = (156, 156, 158)
+CORE_RED = RED
 
 
 def cable_texture():
@@ -279,11 +286,73 @@ write_json("data/qbotics/recipe/cable.json",
 write_json("data/qbotics/recipe/cable_horizontal.json",
            shaped(["III", "RRR", "III"], CABLE_KEY, "qbotics:cable", 16))
 
-# Computer: cable in the shape of leggings, redstone in the middle, glass at the bottom middle.
+# Computer: cable in the shape of leggings, a motherboard in the middle, a screen at the bottom middle.
 write_json("data/qbotics/recipe/computer.json", shaped(
-    ["CCC", "CRC", "CGC"],
-    {"C": "qbotics:cable", "R": "minecraft:redstone", "G": "minecraft:glass"},
+    ["CCC", "CMC", "CSC"],
+    {"C": "qbotics:cable", "M": "qbotics:motherboard", "S": "qbotics:screen"},
     "qbotics:computer"))
+
+# ---- parts: the screen and the motherboard --------------------------------------------
+
+
+def screen_item():
+    """A small display: an iron frame around dark glass lit in red, green and blue."""
+    px = [[None] * 16 for _ in range(16)]
+    for y in range(3, 13):
+        for x in range(1, 15):
+            if x in (1, 14) or y in (3, 12):
+                px[y][x] = CASE_DARK if (x == 14 or y == 12) else CASE_LIGHT
+            else:
+                glow = ((230, 60, 50), (80, 210, 90), (70, 110, 235))[(x - 2) % 3]
+                px[y][x] = glow if y in (5, 6, 8, 9) and 3 <= x <= 12 else SCREEN
+    for x in range(6, 10):
+        px[13][x] = EDGE     # a short stand
+    return px
+
+
+def motherboard_item():
+    """A green board with copper tracks, a chip in the middle and glass at two corners."""
+    board, track, chip, glass = (38, 120, 62), (214, 132, 82), (30, 30, 34), (190, 226, 236)
+    px = [[None] * 16 for _ in range(16)]
+    for y in range(2, 14):
+        for x in range(2, 14):
+            px[y][x] = (26, 88, 46) if x in (2, 13) or y in (2, 13) else board
+    for i in range(3, 13):
+        px[4][i] = track
+        px[11][i] = track
+    for y in range(4, 12):
+        px[y][4] = track
+        px[y][11] = track
+    for y in range(6, 10):
+        for x in range(6, 10):
+            px[y][x] = chip
+    for (x, y) in ((7, 5), (8, 10), (5, 7), (10, 8)):
+        px[y][x] = track
+    for (x, y) in ((3, 3), (12, 12)):
+        px[y][x] = glass
+    return px
+
+
+for part, picture in (("screen", screen_item()), ("motherboard", motherboard_item())):
+    write_png("assets/qbotics/textures/item/%s.png" % part, picture)
+    write_json("assets/qbotics/models/item/%s.json" % part, {
+        "parent": "minecraft:item/generated",
+        "textures": {"layer0": "qbotics:item/%s" % part},
+    })
+    write_json("assets/qbotics/items/%s.json" % part, {
+        "model": {"type": "minecraft:model", "model": "qbotics:item/%s" % part},
+    })
+# Screen: lines of glowstone dust, dye and glass pane, standing side by side. Makes four.
+write_json("data/qbotics/recipe/screen.json", shaped(
+    ["GRP", "GEP", "GBP"],
+    {"G": "minecraft:glowstone_dust", "R": "minecraft:red_dye", "E": "minecraft:green_dye", "B": "minecraft:blue_dye",
+     "P": "minecraft:glass_pane"},
+    "qbotics:screen", 4))
+# Motherboard: copper above and below glass, green dye, glass.
+write_json("data/qbotics/recipe/motherboard.json", shaped(
+    ["CCC", "LGL", "CCC"],
+    {"C": "minecraft:copper_ingot", "L": "minecraft:glass", "G": "minecraft:green_dye"},
+    "qbotics:motherboard"))
 
 # A broken computer keeps its drive (its files).
 write_json("data/qbotics/loot_table/blocks/computer.json",
@@ -303,8 +372,6 @@ write_json("data/qbotics/tags/block/cable_connectable.json", {
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 
-ARROW_IN = (110, 224, 124)
-ARROW_OUT = (240, 160, 60)
 
 
 def interface_side():
@@ -339,33 +406,25 @@ def port_side():
     return px
 
 
-def port_front(colours):
-    """The face that touches the target: a dark opening with coloured marks."""
+def port_front():
+    """The face that touches the target: a dark opening ringed in redstone red. The plates'
+    shapes say which way items go, so the face carries no arrows."""
     px = case_base()
     for y in range(3, 13):
         for x in range(3, 13):
             px[y][x] = EDGE if x in (3, 12) or y in (3, 12) else SCREEN
-    for (x, y), colour in colours.items():
-        px[y][x] = colour
+    for i in range(5, 11):
+        for (x, y) in ((i, 5), (i, 10), (5, i), (10, i)):
+            px[y][x] = CORE_RED
     return px
 
-
-# Output: an orange arrow. Input: the same arrow in green, pointing the other way. Bus: both.
-OUTPUT_MARKS = {(7, 5): ARROW_OUT, (8, 5): ARROW_OUT, (6, 6): ARROW_OUT, (9, 6): ARROW_OUT,
-                (7, 7): ARROW_OUT, (8, 7): ARROW_OUT, (7, 8): ARROW_OUT, (8, 8): ARROW_OUT,
-                (7, 9): ARROW_OUT, (8, 9): ARROW_OUT, (7, 10): ARROW_OUT, (8, 10): ARROW_OUT}
-INPUT_MARKS = {(x, 15 - y): ARROW_IN for (x, y) in OUTPUT_MARKS}
-BUS_MARKS = {(5, 5): ARROW_OUT, (6, 5): ARROW_OUT, (5, 6): ARROW_OUT, (6, 6): ARROW_OUT, (5, 7): ARROW_OUT,
-             (6, 7): ARROW_OUT, (4, 8): ARROW_OUT, (7, 8): ARROW_OUT, (5, 9): ARROW_OUT, (6, 9): ARROW_OUT,
-             (9, 6): ARROW_IN, (10, 6): ARROW_IN, (8, 7): ARROW_IN, (11, 7): ARROW_IN, (9, 8): ARROW_IN,
-             (10, 8): ARROW_IN, (9, 9): ARROW_IN, (10, 9): ARROW_IN, (9, 10): ARROW_IN, (10, 10): ARROW_IN}
 
 write_png("assets/qbotics/textures/block/interface_side.png", interface_side())
 write_png("assets/qbotics/textures/block/interface_top.png", interface_top())
 write_png("assets/qbotics/textures/block/port_side.png", port_side())
-write_png("assets/qbotics/textures/block/input_front.png", port_front(INPUT_MARKS))
-write_png("assets/qbotics/textures/block/output_front.png", port_front(OUTPUT_MARKS))
-write_png("assets/qbotics/textures/block/bus_front.png", port_front(BUS_MARKS))
+write_png("assets/qbotics/textures/block/input_front.png", port_front())
+write_png("assets/qbotics/textures/block/output_front.png", port_front())
+write_png("assets/qbotics/textures/block/bus_front.png", port_front())
 
 write_json("assets/qbotics/models/block/interface.json", {
     "parent": "minecraft:block/cube_column",
@@ -469,7 +528,7 @@ def flat(colour, light, dark):
 write_png("assets/qbotics/textures/block/antenna_base.png", case_base())
 write_png("assets/qbotics/textures/block/antenna_mast.png", flat(SHEATH, SHEATH_LIGHT, SHEATH_DARK))
 ANTENNA_TIPS = {
-    "short": ((214, 122, 62), (240, 160, 100), (160, 84, 40)),       # copper
+    "short": (RED, RED_BRIGHT, (140, 24, 18)),                        # redstone red
     "long": ((70, 140, 220), (120, 180, 245), (40, 90, 160)),        # blue
     "infinite": ((160, 90, 220), (200, 140, 250), (104, 50, 160)),   # purple
 }
