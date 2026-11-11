@@ -49,7 +49,7 @@
         10.02,
         16
       ],
-      "light_emission": 9,
+      "light_emission": 5,
       "shade": false,
       "faces": {
         "up": {
@@ -71,7 +71,7 @@
         9,
         16
       ],
-      "light_emission": 9,
+      "light_emission": 5,
       "shade": false,
       "faces": {
         "east": {
@@ -93,7 +93,7 @@
         9,
         16.02
       ],
-      "light_emission": 9,
+      "light_emission": 5,
       "shade": false,
       "faces": {
         "north": {

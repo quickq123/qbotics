@@ -184,11 +184,13 @@ def plain(colour):
 
 
 write_png("assets/qbotics/textures/block/cable.png", plain(SHEATH))
-write_png("assets/qbotics/textures/block/cable_core.png", plain(RED_BRIGHT))
+# Redstone red, a little lifted. Its glow (CORE_GLOW) is what shows in the dark; this is what shows by day.
+CORE_COLOUR = (222, 46, 34)
+write_png("assets/qbotics/textures/block/cable_core.png", plain(CORE_COLOUR))
 
 CABLE_TEXTURES = {"all": "qbotics:block/cable", "core": "qbotics:block/cable_core", "particle": "qbotics:block/cable"}
 # How brightly the red core glows by itself, 0 to 15. Redstone is lit but not a lamp.
-CORE_GLOW = 9
+CORE_GLOW = 5
 # How far the core stands out of the sheath, in pixels: just enough to be the surface that is seen.
 PROUD = 0.02
 

@@ -43,7 +43,7 @@
         10.02,
         9
       ],
-      "light_emission": 9,
+      "light_emission": 5,
       "shade": false,
       "faces": {
         "up": {
@@ -65,7 +65,7 @@
         9,
         9
       ],
-      "light_emission": 9,
+      "light_emission": 5,
       "shade": false,
       "faces": {
         "east": {

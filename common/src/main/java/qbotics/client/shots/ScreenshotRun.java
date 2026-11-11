@@ -199,6 +199,12 @@ public final class ScreenshotRun {
         then(5, minecraft -> shot(minecraft, "11-computer-screen"));
         then(10, minecraft -> minecraft.setScreen(null));
 
+        // The same cables at night, to see how much the red core glows by itself.
+        then(40, minecraft -> onServer(minecraft, player -> command(player, "time set midnight")));
+        view("13-cables-at-night", new Vec3(3.5, 3.4, -4.6), new Vec3(3.5, 0.5, -7.0));
+        view("14-setup-at-night", new Vec3(9.0, 3.6, 0.2), new Vec3(9.0, 0.7, -3.5));
+        then(40, minecraft -> onServer(minecraft, player -> command(player, "time set noon")));
+
         // The items, as the hotbar and the hand draw them.
         then(10, minecraft -> {
             minecraft.options.hideGui = false;
@@ -225,6 +231,11 @@ public final class ScreenshotRun {
     }
 
     // ---- the scene ----------------------------------------------------------------------
+
+    private static void command(ServerPlayer player, String command) {
+        MinecraftServer server = player.level().getServer();
+        server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), command);
+    }
 
     private static void buildScene(ServerPlayer player) {
         ServerLevel level = player.level();
