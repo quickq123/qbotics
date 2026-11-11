@@ -387,6 +387,28 @@ public final class QboticsGameTests {
                 "two open slots hold two stacks");
         helper.assertTrue(input.extract(coal, 70, false) == 70 && input.countItem(Items.COAL) == 58, "70 of 128 taken leaves 58");
 
+        // By hand: clicking the screen's top row with an item sets the filter of the slot below it.
+        BlockPos handPos = new BlockPos(3, 1, 3);
+        helper.setBlock(handPos, QboticsContent.INPUT_BLOCK.get());
+        InputBlockEntity byHand = helper.getBlockEntity(handPos, InputBlockEntity.class);
+        net.minecraft.world.entity.player.Player player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        net.minecraft.world.inventory.AbstractContainerMenu menu = byHand.createMenu(1, player.getInventory(), player);
+        net.minecraft.world.inventory.ContainerInput click = net.minecraft.world.inventory.ContainerInput.PICKUP;
+        menu.setCarried(new ItemStack(Items.COAL, 20));
+        menu.clicked(9 + 2, 0, click, player);
+        helper.assertTrue(byHand.isEmpty() && menu.getCarried().getCount() == 20, "a closed slot should refuse the coal");
+        menu.clicked(2, 0, click, player);
+        helper.assertTrue(byHand.filter(2) == Items.COAL && menu.getCarried().getCount() == 20 && menu.getSlot(2).getItem().is(Items.COAL),
+                "clicking the top row should set the filter, show it, and leave the coal in hand");
+        menu.clicked(9 + 2, 0, click, player);
+        helper.assertTrue(byHand.getItem(2).getCount() == 20 && menu.getCarried().isEmpty(), "the open slot should now take the coal");
+        menu.clicked(2, 0, click, player);
+        helper.assertTrue(byHand.filter(2) == null && menu.getSlot(2).getItem().isEmpty() && byHand.getItem(2).getCount() == 20,
+                "an empty hand on the top row should close the slot and leave its items");
+        menu.quickMoveStack(player, 2);
+        helper.assertTrue(byHand.getItem(2).getCount() == 20, "shift-clicking a filter should move nothing");
+        menu.removed(player);
+
         // A hopper above feeds it coal but can't push in the iron.
         helper.setBlock(pos.above(), Blocks.HOPPER);
         net.minecraft.world.level.block.entity.HopperBlockEntity hopper =

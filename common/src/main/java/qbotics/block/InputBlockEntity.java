@@ -178,7 +178,7 @@ public class InputBlockEntity extends DeviceBlockEntity implements Container, Me
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.qbotics.input", deviceName().isEmpty() ? ip() : deviceName() + "  " + ip());
+        return Component.translatable("container.qbotics.input", deviceName().isEmpty() ? ip() : deviceName());
     }
 
     @Override
