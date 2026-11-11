@@ -26,6 +26,8 @@ public final class QboticsContent {
     public static Supplier<PortBlock> OUTPUT_BLOCK;
     public static Supplier<PortBlock> BUS_BLOCK;
     public static Supplier<BlockEntityType<InputBlockEntity>> INPUT_BLOCK_ENTITY;
+    /** The Input block's screen of filters and slots. */
+    public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.InputMenu>> INPUT_MENU;
     /** Shared by the bus and the output. */
     public static Supplier<BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY;
     public static Supplier<AntennaBlock> ANTENNA_SHORT_BLOCK;

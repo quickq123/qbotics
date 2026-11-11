@@ -95,6 +95,11 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, OUTPUT.get(), BUS.get()));
 
+    private static final DeferredRegister<net.minecraft.world.inventory.MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, Qbotics.MOD_ID);
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InputMenu>> INPUT_MENU =
+            MENUS.register("input", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.block.InputMenu(containerId, inventory)));
+
     // Antennas, one block per range tier (design doc §9.1).
     private static final DeferredBlock<AntennaBlock> ANTENNA_SHORT = antenna("antenna_short", RadioNetwork.Tier.SHORT);
     private static final DeferredBlock<AntennaBlock> ANTENNA_LONG = antenna("antenna_long", RadioNetwork.Tier.LONG);
@@ -144,6 +149,7 @@ public final class QboticsNeoForge {
         QboticsContent.OUTPUT_BLOCK = OUTPUT;
         QboticsContent.BUS_BLOCK = BUS;
         QboticsContent.INPUT_BLOCK_ENTITY = INPUT_BLOCK_ENTITY;
+        QboticsContent.INPUT_MENU = INPUT_MENU;
         QboticsContent.PORT_BLOCK_ENTITY = PORT_BLOCK_ENTITY;
         QboticsContent.ANTENNA_SHORT_BLOCK = ANTENNA_SHORT;
         QboticsContent.ANTENNA_LONG_BLOCK = ANTENNA_LONG;
@@ -156,6 +162,7 @@ public final class QboticsNeoForge {
         BLOCK_ENTITY_TYPES.register(modBus);
         modBus.addListener(QboticsNeoForge::registerPayloads);
         CREATIVE_TABS.register(modBus);
+        MENUS.register(modBus);
         // Hoppers and other mods' pipes see the Input block as an ordinary (filtered) inventory.
         modBus.addListener((RegisterCapabilitiesEvent event) -> event.registerBlockEntity(
                 Capabilities.Item.BLOCK, INPUT_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input)));
