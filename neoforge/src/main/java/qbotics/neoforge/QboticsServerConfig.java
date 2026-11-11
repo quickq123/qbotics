@@ -18,6 +18,13 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue BOOT_PER_TICK;
     private static final ModConfigSpec.IntValue WORKER_CORES;
     private static final ModConfigSpec.IntValue REACTIVATION_CHECKS;
+    private static final ModConfigSpec.BooleanValue CHUNK_LOADING;
+    private static final ModConfigSpec.IntValue CHUNK_LOADERS;
+    private static final ModConfigSpec.IntValue CHUNKS_PER_LOADER;
+    private static final ModConfigSpec.BooleanValue CHUNK_LOADING_OFFLINE;
+    private static final ModConfigSpec.IntValue TRANSPORT_ITEMS;
+    private static final ModConfigSpec.IntValue TRANSPORT_FLUID;
+    private static final ModConfigSpec.IntValue TRANSPORT_ENERGY;
 
     static {
         BUILDER.push("limits");
@@ -45,6 +52,24 @@ final class QboticsServerConfig {
         REACTIVATION_CHECKS = BUILDER.comment("How often one player may ask a bricked device to switch on, per second.")
                 .defineInRange("reactivation_checks_per_s", 1, 1, 20);
         BUILDER.pop();
+
+        BUILDER.push("chunk_loading");
+        BUILDER.comment("An antenna with a Chunk Loader Upgrade keeps the chunks of its cable network loaded",
+                "(nearest the antenna first), while it is switched on in its screen or by a program.");
+        CHUNK_LOADING = BUILDER.comment("false switches every Chunk Loader Upgrade off.").define("enabled", true);
+        CHUNK_LOADERS = BUILDER.comment("Antennas with a working Chunk Loader Upgrade one player may have. -1 means no limit.",
+                        "Operators are exempt when limits.operators_exempt is true.")
+                .defineInRange("loaders_per_player", 4, -1, 10_000);
+        CHUNKS_PER_LOADER = BUILDER.comment("The most chunks one antenna keeps loaded.").defineInRange("chunks_per_loader", 25, 1, 1024);
+        CHUNK_LOADING_OFFLINE = BUILDER.comment("Whether loaders keep working while their owner is offline.").define("while_owner_offline", true);
+        BUILDER.pop();
+
+        BUILDER.push("transport");
+        BUILDER.comment("How much one antenna with a Transport Upgrade carries to and from other networks each second.");
+        TRANSPORT_ITEMS = BUILDER.defineInRange("items_per_second", 1024, 0, 1_000_000);
+        TRANSPORT_FLUID = BUILDER.comment("In millibuckets.").defineInRange("fluid_per_second", 64_000, 0, 100_000_000);
+        TRANSPORT_ENERGY = BUILDER.comment("In FE.").defineInRange("energy_per_second", 2_000_000, 0, Integer.MAX_VALUE);
+        BUILDER.pop();
     }
 
     static final ModConfigSpec SPEC = BUILDER.build();
@@ -63,5 +88,12 @@ final class QboticsServerConfig {
         QboticsConfig.bootPerTick = BOOT_PER_TICK.get();
         QboticsConfig.workerCores = WORKER_CORES.get();
         QboticsConfig.reactivationChecksPerSecond = REACTIVATION_CHECKS.get();
+        QboticsConfig.chunkLoadingEnabled = CHUNK_LOADING.get();
+        QboticsConfig.chunkLoadersPerPlayer = CHUNK_LOADERS.get();
+        QboticsConfig.chunksPerLoader = CHUNKS_PER_LOADER.get();
+        QboticsConfig.chunkLoadingWhileOffline = CHUNK_LOADING_OFFLINE.get();
+        QboticsConfig.transportItemsPerSecond = TRANSPORT_ITEMS.get();
+        QboticsConfig.transportFluidPerSecond = TRANSPORT_FLUID.get();
+        QboticsConfig.transportEnergyPerSecond = TRANSPORT_ENERGY.get();
     }
 }

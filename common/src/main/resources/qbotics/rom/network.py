@@ -133,6 +133,28 @@ class Radio:
         """Only antennas on the same frequency hear each other."""
         self._info = _call("tune", str(frequency))
 
+    def upgrades(self):
+        """The upgrades fitted to the antenna: "transport", "chunk_loader"."""
+        return self._get("upgrades")
+
+    @property
+    def chunk_loading(self):
+        """Whether its Chunk Loader Upgrade is switched on. Set it to switch it."""
+        return self._get("chunk_loading")
+
+    @chunk_loading.setter
+    def chunk_loading(self, on):
+        self._info = _call("chunk_loading", bool(on))
+
+    def chunks(self):
+        """What its chunk loading is doing: {"status": "loading", "chunks": 6, "wanted": 6}.
+        status is one of "loading", "off", "no_upgrade", "disabled" (by the server),
+        "owner_offline", "over_limit", "inactive" or "no_owner". wanted above chunks means
+        the network spreads over more chunks than one antenna may hold."""
+        info = _call("radio")
+        self._info = info
+        return {"status": info["chunk_status"], "chunks": info["chunks"], "wanted": info["chunks_wanted"]}
+
     def send(self, address, data):
         """The same as network.send()."""
         return send(address, data)

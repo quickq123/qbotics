@@ -29,4 +29,24 @@ public final class QboticsConfig {
     public static volatile int workerCores = 2;
     /** How often one player may ask a bricked device to come back on, per second. */
     public static volatile int reactivationChecksPerSecond = 1;
+
+    // ---- [chunk_loading] (antenna upgrades) -------------------------------------------------
+
+    /** Whether Chunk Loader Upgrades work at all. */
+    public static volatile boolean chunkLoadingEnabled = true;
+    /** Antennas with a working Chunk Loader Upgrade a player may have; -1 for no limit. */
+    public static volatile int chunkLoadersPerPlayer = 4;
+    /** The most chunks one antenna keeps loaded (its network's, nearest first). */
+    public static volatile int chunksPerLoader = 25;
+    /** Whether loaders keep working while their owner is offline. */
+    public static volatile boolean chunkLoadingWhileOffline = true;
+
+    // ---- [transport] (antenna upgrades) ------------------------------------------------------
+
+    /** Items one antenna carries to or from other networks each second. */
+    public static volatile int transportItemsPerSecond = 1024;
+    /** Fluid one antenna carries each second, in mB. */
+    public static volatile int transportFluidPerSecond = 64_000;
+    /** Energy one antenna carries each second, in FE. */
+    public static volatile int transportEnergyPerSecond = 2_000_000;
 }

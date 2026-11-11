@@ -924,75 +924,88 @@ def _wrap(info):
 class Network:
     """The cable network this computer is on."""
 
+    def _find(self, key, kind):
+        return _wrap(_call("find", key, kind))
+
+    def _list(self):
+        return _call("devices")
+
+    def remote(self, address):
+        """The network behind another antenna, by its external address ("100.64.0.2"): its
+        devices are found and used as this network's are, and move() carries things
+        between the two. Needs a Transport Upgrade in both antennas, and the radio's rules
+        (same frequency, in range, access) to let this computer's owner in."""
+        return RemoteNetwork(address)
+
     def devices(self, kind=None):
         """Every device on the network (or every one of a kind), in address order."""
-        return [_wrap(i) for i in _call("devices") if kind is None or i["kind"] == kind]
+        return [_wrap(i) for i in self._list() if kind is None or i["kind"] == kind]
 
     def device(self, key):
         """A device by name, IP address or hardware address."""
-        return _wrap(_call("find", key, None))
+        return self._find(key, None)
 
     def interface(self, key=None):
         """An interface by name or address; with no argument, the network's only interface."""
-        return _wrap(_call("find", key, "interface"))
+        return self._find(key, "interface")
 
     def input(self, key=None):
         """An input by name or address; with no argument, the network's only input."""
-        return _wrap(_call("find", key, "input"))
+        return self._find(key, "input")
 
     def output(self, key=None):
         """An output by name or address; with no argument, the network's only output."""
-        return _wrap(_call("find", key, "output"))
+        return self._find(key, "output")
 
     def bus(self, key=None):
         """A bus by name or address; with no argument, the network's only bus."""
-        return _wrap(_call("find", key, "bus"))
+        return self._find(key, "bus")
 
     def fluid_interface(self, key=None):
         """A fluid interface by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "fluid_interface"))
+        return self._find(key, "fluid_interface")
 
     def fluid_input(self, key=None):
         """A fluid input by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "fluid_input"))
+        return self._find(key, "fluid_input")
 
     def fluid_output(self, key=None):
         """A fluid output by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "fluid_output"))
+        return self._find(key, "fluid_output")
 
     def fluid_bus(self, key=None):
         """A fluid bus by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "fluid_bus"))
+        return self._find(key, "fluid_bus")
 
     def energy_interface(self, key=None):
         """An energy interface by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "energy_interface"))
+        return self._find(key, "energy_interface")
 
     def energy_input(self, key=None):
         """An energy input by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "energy_input"))
+        return self._find(key, "energy_input")
 
     def energy_output(self, key=None):
         """An energy output by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "energy_output"))
+        return self._find(key, "energy_output")
 
     def energy_bus(self, key=None):
         """An energy bus by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "energy_bus"))
+        return self._find(key, "energy_bus")
 
     def experience_interface(self, key=None):
         """An experience interface by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "experience_interface"))
+        return self._find(key, "experience_interface")
 
     def monitor(self, key=None):
         """A text monitor by name or address; with no argument, the network's only one.
         See the display module for what it can do."""
-        return _wrap(_call("find", key, "monitor"))
+        return self._find(key, "monitor")
 
     def panel(self, key=None):
         """A control panel by name or address; with no argument, the network's only one.
         See the display module for what it can do."""
-        return _wrap(_call("find", key, "panel"))
+        return self._find(key, "panel")
 
     def monitors(self):
         """Every text monitor on the network."""
@@ -1004,23 +1017,23 @@ class Network:
 
     def programmer(self, key=None):
         """A programmer by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "programmer"))
+        return self._find(key, "programmer")
 
     def drive_bay(self, key=None):
         """A drive bay by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "drive_bay"))
+        return self._find(key, "drive_bay")
 
     def pin(self, key=None):
         """A logic pin by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "pin"))
+        return self._find(key, "pin")
 
     def placer(self, key=None):
         """A placer by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "placer"))
+        return self._find(key, "placer")
 
     def breaker(self, key=None):
         """A breaker by name or address; with no argument, the network's only one."""
-        return _wrap(_call("find", key, "breaker"))
+        return self._find(key, "breaker")
 
     def pins(self):
         """Every logic pin on the network."""
@@ -1046,6 +1059,32 @@ class Network:
     def me(self):
         """This computer."""
         return _wrap(_call("self"))
+
+
+class RemoteNetwork(Network):
+    """The network behind another antenna (see Network.remote). Its devices carry the
+    antenna's address in theirs, as "100.64.0.2/02:1a:...", so every call reaches them
+    there. Rate: each antenna carries a limited amount each second (the server sets it);
+    a move asks for no more than may cross now."""
+
+    def __init__(self, address):
+        self.address = str(address)
+
+    def _find(self, key, kind):
+        return _wrap(_call("find", key, kind, self.address))
+
+    def _list(self):
+        return _call("devices", self.address)
+
+    @property
+    def me(self):
+        raise NetworkError("This computer isn't on that network.")
+
+    def remote(self, address):
+        return RemoteNetwork(address)
+
+    def __repr__(self):
+        return "<network behind %s>" % self.address
 
 
 def network():

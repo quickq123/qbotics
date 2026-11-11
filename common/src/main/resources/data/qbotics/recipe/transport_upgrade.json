@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "E": "minecraft:ender_pearl",
+    "H": "minecraft:hopper",
+    "R": "minecraft:redstone",
+    "M": "qbotics:motherboard",
+    "G": "minecraft:gold_nugget"
+  },
+  "pattern": [
+    "EHE",
+    "RMR",
+    "GGG"
+  ],
+  "result": {
+    "id": "qbotics:transport_upgrade"
+  }
+}

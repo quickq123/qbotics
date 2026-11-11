@@ -36,11 +36,13 @@ public final class CableNetwork {
     private final List<NetworkDevice> devices;
     private final boolean tooLarge;
     private final long madeAt;
+    private final Set<Long> chunks;
 
-    private CableNetwork(List<NetworkDevice> devices, boolean tooLarge, long madeAt) {
+    private CableNetwork(List<NetworkDevice> devices, boolean tooLarge, long madeAt, Set<Long> chunks) {
         this.devices = devices;
         this.tooLarge = tooLarge;
         this.madeAt = madeAt;
+        this.chunks = chunks;
     }
 
     /** A cable or device was placed, removed, loaded or unloaded: networks must be looked at again. */
@@ -105,7 +107,16 @@ public final class CableNetwork {
         }
         tooLarge |= !giveAddresses(found);
         found.sort(Comparator.comparingInt(NetworkDevice::hostNumber));
-        return new CableNetwork(List.copyOf(found), tooLarge, now);
+        Set<Long> chunks = new HashSet<>();
+        for (BlockPos pos : seen) {
+            chunks.add(net.minecraft.world.level.ChunkPos.pack(pos.getX() >> 4, pos.getZ() >> 4));
+        }
+        return new CableNetwork(List.copyOf(found), tooLarge, now, Set.copyOf(chunks));
+    }
+
+    /** The chunks its cables and devices are in (as ChunkPos longs). */
+    public Set<Long> chunks() {
+        return chunks;
     }
 
     /** True if the cable or device at a position joins the network through this side of it. */

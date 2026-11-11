@@ -53,6 +53,8 @@ public final class QboticsContent {
     public static Supplier<qbotics.block.DisplayBlock> TEXT_MONITOR_BLOCK;
     public static Supplier<qbotics.block.DisplayBlock> CONTROL_PANEL_BLOCK;
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.ProgrammerMenu>> PROGRAMMER_MENU;
+    /** An antenna's screen: its upgrades and chunk loading. */
+    public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.AntennaMenu>> ANTENNA_MENU;
     /** The Drive Bay, which hard drives go in, and its screen (design doc §17.6). */
     public static Supplier<BlockEntityType<qbotics.block.DriveBayBlockEntity>> DRIVE_BAY_BLOCK_ENTITY;
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.DriveBayMenu>> DRIVE_BAY_MENU;

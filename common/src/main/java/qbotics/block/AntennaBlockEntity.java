@@ -15,7 +15,46 @@ import qbotics.network.RadioNetwork;
  * the server-wide radio network and is tuned to a frequency; only antennas on the same
  * frequency and in range can exchange messages.
  */
-public class AntennaBlockEntity extends DeviceBlockEntity implements qbotics.limits.Limited, qbotics.limits.Limits.Ownable {
+public class AntennaBlockEntity extends DeviceBlockEntity implements qbotics.limits.Limited, qbotics.limits.Limits.Ownable,
+        net.minecraft.world.MenuProvider {
+    /** How many upgrades an antenna takes. */
+    public static final int UPGRADE_SLOTS = 2;
+
+    /** Its upgrades (a Transport Upgrade, a Chunk Loader Upgrade): one of each kind at most. */
+    private final net.minecraft.world.SimpleContainer upgrades = new net.minecraft.world.SimpleContainer(UPGRADE_SLOTS) {
+        @Override
+        public int getMaxStackSize() {
+            return 1;
+        }
+
+        @Override
+        public boolean canPlaceItem(int slot, net.minecraft.world.item.ItemStack stack) {
+            qbotics.upgrade.UpgradeItem.Kind kind = qbotics.upgrade.UpgradeItem.kindOf(stack);
+            if (kind == null) {
+                return false;
+            }
+            for (int other = 0; other < getContainerSize(); other++) {
+                if (other != slot && qbotics.upgrade.UpgradeItem.kindOf(getItem(other)) == kind) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public void setChanged() {
+            super.setChanged();
+            AntennaBlockEntity.this.setChanged();
+            qbotics.upgrade.ChunkLoaders.changed();
+        }
+    };
+    /** Whether its Chunk Loader Upgrade is switched on (it is, until switched off). */
+    private boolean chunkLoading = true;
+    /** What its chunk loading is doing now, and how many chunks: worked out by ChunkLoaders, not saved. */
+    private int loaderStatus;
+    private int loadedChunks;
+    private int wantedChunks;
+
     /** Inert: over its owner's limit, or placed by a machine (design doc §5.3). It routes nothing. */
     private boolean bricked;
 
@@ -52,6 +91,62 @@ public class AntennaBlockEntity extends DeviceBlockEntity implements qbotics.lim
     @Override
     public Kind kind() {
         return Kind.ANTENNA;
+    }
+
+    public net.minecraft.world.SimpleContainer upgrades() {
+        return upgrades;
+    }
+
+    /** True if it has an upgrade of this kind fitted. */
+    public boolean hasUpgrade(qbotics.upgrade.UpgradeItem.Kind kind) {
+        for (int slot = 0; slot < upgrades.getContainerSize(); slot++) {
+            if (qbotics.upgrade.UpgradeItem.kindOf(upgrades.getItem(slot)) == kind) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean chunkLoading() {
+        return chunkLoading;
+    }
+
+    public void setChunkLoading(boolean on) {
+        if (chunkLoading != on) {
+            chunkLoading = on;
+            setChanged();
+            qbotics.upgrade.ChunkLoaders.changed();
+        }
+    }
+
+    public int loaderStatus() {
+        return loaderStatus;
+    }
+
+    public int loadedChunks() {
+        return loadedChunks;
+    }
+
+    public int wantedChunks() {
+        return wantedChunks;
+    }
+
+    /** Set by ChunkLoaders: what its loading is doing (a ChunkLoaders.Status), and how many of the chunks it wants it holds. */
+    public void setLoaderState(int status, int loaded, int wanted) {
+        loaderStatus = status;
+        loadedChunks = loaded;
+        wantedChunks = wanted;
+    }
+
+    @Override
+    public net.minecraft.network.chat.Component getDisplayName() {
+        return getBlockState().getBlock().getName();
+    }
+
+    @Override
+    public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int id, net.minecraft.world.entity.player.Inventory inventory,
+            net.minecraft.world.entity.player.Player player) {
+        return new AntennaMenu(id, inventory, this);
     }
 
     public RadioNetwork.Tier tier() {
@@ -123,8 +218,10 @@ public class AntennaBlockEntity extends DeviceBlockEntity implements qbotics.lim
         if (level instanceof ServerLevel serverLevel) {
             qbotics.limits.Limits.removed(serverLevel, this);
         }
-        // Broken, not merely unloaded: the address goes back to the pool.
+        // Broken, not merely unloaded: the address goes back to the pool, its chunks are let go, its upgrades drop.
         if (level instanceof ServerLevel serverLevel) {
+            qbotics.upgrade.ChunkLoaders.release(serverLevel, pos);
+            net.minecraft.world.Containers.dropContents(serverLevel, pos, upgrades);
             RadioNetwork.get(serverLevel.getServer()).release(this, externalNumber);
             externalNumber = 0;
         }
@@ -137,6 +234,8 @@ public class AntennaBlockEntity extends DeviceBlockEntity implements qbotics.lim
         output.putInt("external", externalNumber);
         output.putString("frequency", frequency);
         output.putString("access", access.word);
+        output.store("upgrades", net.minecraft.world.item.ItemStack.OPTIONAL_CODEC.listOf(), upgrades.getItems());
+        output.putBoolean("chunk_loading", chunkLoading);
     }
 
     @Override
@@ -148,5 +247,11 @@ public class AntennaBlockEntity extends DeviceBlockEntity implements qbotics.lim
         frequency = saved.isEmpty() ? RadioNetwork.DEFAULT_FREQUENCY : saved;
         RadioNetwork.Access savedAccess = RadioNetwork.Access.parse(input.getStringOr("access", ""));
         access = savedAccess == null ? RadioNetwork.Access.PRIVATE : savedAccess;
+        java.util.List<net.minecraft.world.item.ItemStack> saved2 = input.read("upgrades",
+                net.minecraft.world.item.ItemStack.OPTIONAL_CODEC.listOf()).orElse(java.util.List.of());
+        for (int slot = 0; slot < UPGRADE_SLOTS; slot++) {
+            upgrades.setItem(slot, slot < saved2.size() ? saved2.get(slot) : net.minecraft.world.item.ItemStack.EMPTY);
+        }
+        chunkLoading = input.getBooleanOr("chunk_loading", true);
     }
 }

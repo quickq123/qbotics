@@ -82,9 +82,10 @@ final class Watches {
             OPEN.remove(mine.getFirst());
         }
         NetworkDevice device = NetworkCalls.byMac(network, args, 1);
-        Watch watch = new Watch(computer.immutable(), device.mac(), NetworkCalls.string(args, 2), NetworkCalls.string(args, 3));
+        // The address as the program gave it: behind another antenna it says which.
+        Watch watch = new Watch(computer.immutable(), args.get(1).getAsString(), NetworkCalls.string(args, 2), NetworkCalls.string(args, 3));
         watch.lastUsed = now;
-        read(level, device, watch, new JsonArray()); // what is there now is where it starts from
+        read(NetworkCalls.levelOf(device, level), device, watch, new JsonArray()); // what is there now is where it starts from
         String token = UUID.randomUUID().toString();
         OPEN.put(token, watch);
         return new JsonPrimitive(token);
@@ -97,12 +98,12 @@ final class Watches {
             throw new CallError("This watch has ended: it went unused for a minute, or its computer restarted. Start a new one with watch().");
         }
         watch.lastUsed = level.getGameTime();
-        NetworkDevice device = network.byMac(watch.mac);
+        NetworkDevice device = NetworkCalls.resolve(network, watch.mac);
         if (device == null) {
             throw new CallError("The device this watch was on is no longer on the network.");
         }
         JsonArray changes = new JsonArray();
-        read(level, device, watch, changes);
+        read(NetworkCalls.levelOf(device, level), device, watch, changes);
         return changes;
     }
 

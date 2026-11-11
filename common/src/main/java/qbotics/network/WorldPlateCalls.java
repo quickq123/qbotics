@@ -44,6 +44,7 @@ final class WorldPlateCalls {
 
     static JsonElement call(String method, ServerLevel level, CableNetwork network, JsonArray args) {
         NetworkDevice device = NetworkCalls.byMac(network, args, 1);
+        level = NetworkCalls.levelOf(device, level); // behind another antenna, perhaps in another dimension
         return switch (method) {
             case "look" -> look(level, plate(device, null));
             case "pin" -> pinState(level, plate(device, Kind.PIN));

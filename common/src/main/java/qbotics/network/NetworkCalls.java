@@ -67,6 +67,10 @@ public final class NetworkCalls {
                 throw new CallError("This network is too large: it has more than " + CableNetwork.MAX_BLOCKS
                         + " cables and devices, or more than " + (Addresses.LAST_HOST - Addresses.FIRST_HOST + 1) + " devices.");
             }
+            callLevel = level;
+            callPos = computerPos;
+            LINKS.clear();
+            REMOTE.clear();
             reply.add("r", run(level, network, computerPos, args));
         } catch (CallError e) {
             reply.addProperty("e", e.getMessage());
@@ -76,8 +80,78 @@ public final class NetworkCalls {
             reply = new JsonObject();
             reply.addProperty("e", "The call failed: its arguments are wrong, or something went wrong in the game ("
                     + e.getClass().getSimpleName() + ").");
+        } finally {
+            callLevel = null;
+            callPos = null;
+            LINKS.clear();
+            REMOTE.clear();
         }
         return reply.toString();
+    }
+
+    // ---- devices behind another antenna (the Transport Upgrade) ----------------------------
+
+    /** The computer the call being answered came from. Server thread only, while a call is answered. */
+    private static ServerLevel callLevel;
+    private static BlockPos callPos;
+    /** The antennas the call being answered has reached through: what it moves counts against their rate. */
+    private static final java.util.Set<AntennaBlockEntity> LINKS = new java.util.HashSet<>();
+    /** Devices this call reached behind another antenna, and that antenna's external address. */
+    private static final java.util.Map<NetworkDevice, String> REMOTE = new java.util.IdentityHashMap<>();
+
+    /**
+     * The device a program means by an address: a hardware address on this network, or
+     * "external IP/hardware address" for one behind another antenna. Reaching one there needs
+     * a Transport Upgrade in this network's antenna and in that one, and that antenna's
+     * range, frequency and access rules to allow it. Returns null if there is no such device.
+     */
+    static NetworkDevice resolve(CableNetwork network, String mac) {
+        int slash = mac.indexOf('/');
+        if (slash < 0) {
+            return network.byMac(mac);
+        }
+        String ip = mac.substring(0, slash);
+        if (callLevel == null) {
+            throw new CallError("Devices behind another antenna can only be reached from a program.");
+        }
+        Far far = far(callLevel, network, ip, callPos);
+        AntennaBlockEntity near = network.gateway();
+        if (far.antenna() == near) {
+            return network.byMac(mac.substring(slash + 1)); // this network's own antenna: the device is here
+        }
+        if (!near.hasUpgrade(qbotics.upgrade.UpgradeItem.Kind.TRANSPORT)) {
+            throw new CallError("Reaching devices behind another antenna needs a Transport Upgrade in this network's antenna ("
+                    + near.externalIp() + "). Right-click the antenna to fit one.");
+        }
+        if (!far.antenna().hasUpgrade(qbotics.upgrade.UpgradeItem.Kind.TRANSPORT)) {
+            throw new CallError("The antenna at " + ip + " has no Transport Upgrade, so the devices behind it can't be reached from here.");
+        }
+        if (far.network() == null) {
+            throw new CallError("The antenna at " + ip + " isn't its network's router, so nothing behind it can be reached.");
+        }
+        NetworkDevice device = far.network().byMac(mac.substring(slash + 1));
+        if (device != null) {
+            LINKS.add(near);
+            LINKS.add(far.antenna());
+            REMOTE.put(device, ip);
+        }
+        return device;
+    }
+
+    /** The level a device is in: another network's may be in another dimension. */
+    static ServerLevel levelOf(NetworkDevice device, ServerLevel fallback) {
+        if (device instanceof net.minecraft.world.level.block.entity.BlockEntity block && block.getLevel() instanceof ServerLevel own) {
+            return own;
+        }
+        if (device instanceof CablePort port && port.level() instanceof ServerLevel own) {
+            return own;
+        }
+        return fallback;
+    }
+
+    /** The antennas this call has reached through, for Transport's rate. */
+    static java.util.Set<AntennaBlockEntity> links() {
+        return LINKS;
     }
 
     private static JsonElement run(ServerLevel level, CableNetwork network, BlockPos computerPos, JsonArray args) {
@@ -96,6 +170,7 @@ public final class NetworkCalls {
                 String address = string(args, 1);
                 ServerLevel where = level;
                 CableNetwork listed = network;
+                String farIp = null;
                 if (address != null) {
                     Matcher external = EXTERNAL_OR_IP.matcher(address.strip());
                     if (!external.matches()) {
@@ -107,15 +182,49 @@ public final class NetworkCalls {
                     }
                     where = far.level();
                     listed = far.network();
+                    farIp = external.group(1);
                 }
                 JsonArray list = new JsonArray();
                 for (NetworkDevice device : listed.devices()) {
+                    if (listed != network) {
+                        REMOTE.put(device, farIp);
+                    }
                     list.add(describe(where, listed, device));
                 }
                 return list;
             }
-            case "find":
-                return describe(level, network, find(network, string(args, 1), string(args, 2)));
+            case "find": {
+                // ["find", key, kind, external IP]: with an address, among the devices behind that antenna.
+                String address = string(args, 3);
+                String key = string(args, 1);
+                if (address == null && key != null && key.indexOf('/') > 0) {
+                    // A device behind another antenna, by its full address (a device object refreshing itself).
+                    NetworkDevice device = resolve(network, key);
+                    if (device == null) {
+                        throw new CallError("The device " + key + " is no longer on its network.");
+                    }
+                    return describe(levelOf(device, level), network, device);
+                }
+                if (address == null) {
+                    return describe(level, network, find(network, key, string(args, 2)));
+                }
+                String ip = address.strip();
+                Far far = far(level, network, ip, computerPos);
+                if (far.network() == null) {
+                    throw new CallError("The antenna at " + ip + " isn't its network's router, so nothing behind it can be reached.");
+                }
+                NetworkDevice found = find(far.network(), string(args, 1), string(args, 2));
+                if (far.network() != network) {
+                    REMOTE.put(found, ip);
+                }
+                return describe(far.level(), far.network(), found);
+            }
+            case "chunk_loading": {
+                // ["chunk_loading", on]: switches this network's antenna's Chunk Loader Upgrade on or off.
+                AntennaBlockEntity antenna = router(network);
+                antenna.setChunkLoading(args.get(1).getAsBoolean());
+                return describe(level, network, antenna);
+            }
             case "rename": {
                 NetworkDevice device = byMac(network, args, 1);
                 String wanted = args.get(2).getAsString();
@@ -401,6 +510,9 @@ public final class NetworkCalls {
                 if (!(device instanceof qbotics.block.DisplayBlockEntity display) || display.content() == null) {
                     throw new CallError("Only a text monitor or a control panel can be drawn on; this is " + article(device) + ".");
                 }
+                if (REMOTE.containsKey(display)) {
+                    throw new CallError("A display can only be drawn on from a computer on its own network.");
+                }
                 qbotics.computer.ServerComputer computer = runningAt(level, computerPos);
                 JsonObject opened = display.describe();
                 opened.addProperty("handle", qbotics.display.Displays.open(level, computerPos, computer.deviceId(), display));
@@ -498,7 +610,7 @@ public final class NetworkCalls {
         for (JsonElement element : list) {
             JsonObject spec = element.getAsJsonObject();
             String mac = spec.get("mac").getAsString();
-            NetworkDevice device = network.byMac(mac);
+            NetworkDevice device = resolve(network, mac);
             if (device == null) {
                 throw new CallError("The device " + mac + " is no longer on this network.");
             }
@@ -544,6 +656,7 @@ public final class NetworkCalls {
     }
 
     private static ScreenSessions.Session openScreen(ServerLevel level, CablePort bus) {
+        level = levelOf(bus, level);
         ScreenSessions.Session session = ScreenSessions.of(level, bus);
         if (session == null) {
             throw new CallError("This bus has no screen open. Open one first, with open_screen(); a screen left unused for a minute closes itself.");
@@ -670,6 +783,7 @@ public final class NetworkCalls {
     }
 
     static ItemPort itemSource(ServerLevel level, End end) {
+        level = levelOf(end.device(), level);
         if (onScreen(end)) {
             return openScreen(level, screenBus(end.device())).port();
         }
@@ -684,6 +798,7 @@ public final class NetworkCalls {
     }
 
     static ItemPort itemDestination(ServerLevel level, End end) {
+        level = levelOf(end.device(), level);
         if (onScreen(end)) {
             return openScreen(level, screenBus(end.device())).port();
         }
@@ -912,6 +1027,23 @@ public final class NetworkCalls {
         }
         long limit = need != null ? need : count != null ? Math.min(count, most) : byDefault;
         JsonObject answer = new JsonObject();
+        // Through other antennas, a move is held to what their Transport Upgrades may carry this second.
+        long tick = level.getServer().getTickCount();
+        boolean linked = !LINKS.isEmpty();
+        if (linked) {
+            if (need != null && need > qbotics.upgrade.TransportRate.perSecond(medium)) {
+                throw new CallError("An antenna carries at most " + qbotics.upgrade.TransportRate.perSecond(medium) + " "
+                        + medium.word + (medium == Medium.ITEM ? "s" : "") + " a second; " + need + " can't cross in one move.");
+            }
+            long room = qbotics.upgrade.TransportRate.room(LINKS, medium, tick);
+            if (need != null && room < need) {
+                answer.addProperty("moved", 0);
+                answer.addProperty("short", true);
+                answer.addProperty("could", room);
+                return answer;
+            }
+            limit = Math.min(limit, room);
+        }
         if (need != null) {
             // All or nothing: find out first whether that many can move, and change nothing if not.
             long could = sweep(step, sources.size(), destinations.size(), limit, true);
@@ -926,6 +1058,9 @@ public final class NetworkCalls {
         if (need != null && moved < need) {
             // Several kinds competing for the same free slots can make the trial run optimistic.
             throw new CallError("Only " + moved + " of the " + need + " needed could be moved; the rest had nowhere to go.");
+        }
+        if (linked) {
+            qbotics.upgrade.TransportRate.spend(LINKS, medium, moved, tick);
         }
         answer.addProperty("moved", moved);
         return answer;
@@ -977,6 +1112,7 @@ public final class NetworkCalls {
     }
 
     private static String nothingThere(ServerLevel level, CablePort port, String what) {
+        level = levelOf(port, level);
         String block = BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString();
         return "The " + port.kindWord().replace('_', ' ') + " at " + port.ip() + " points at " + block + ", which holds no " + what + ".";
     }
@@ -987,6 +1123,7 @@ public final class NetworkCalls {
     }
 
     static FluidPort fluidTarget(ServerLevel level, CablePort port, String faceWord, boolean whole) {
+        level = levelOf(port, level);
         BlockPos pos = port.targetPos();
         FluidPort target = null;
         if (level.isLoaded(pos)) {
@@ -1002,6 +1139,7 @@ public final class NetworkCalls {
     }
 
     private static EnergyPort energyTarget(ServerLevel level, CablePort port, String faceWord, boolean whole) {
+        level = levelOf(port, level);
         BlockPos pos = port.targetPos();
         EnergyPort target = null;
         if (level.isLoaded(pos)) {
@@ -1175,7 +1313,7 @@ public final class NetworkCalls {
     }
 
     static NetworkDevice byMac(CableNetwork network, JsonArray args, int index) {
-        NetworkDevice device = network.byMac(args.get(index).getAsString());
+        NetworkDevice device = resolve(network, args.get(index).getAsString());
         if (device == null) {
             throw new CallError("The device " + args.get(index).getAsString() + " is no longer on this network.");
         }
@@ -1274,7 +1412,12 @@ public final class NetworkCalls {
     private static JsonObject describe(ServerLevel level, CableNetwork network, NetworkDevice device) {
         JsonObject info = new JsonObject();
         info.addProperty("ip", device.ip());
-        info.addProperty("mac", device.mac());
+        String remote = REMOTE.get(device);
+        // Behind another antenna, its address says which: "100.64.0.2/02:1a:...".
+        info.addProperty("mac", remote == null ? device.mac() : remote + "/" + device.mac());
+        if (remote != null) {
+            info.addProperty("remote", remote);
+        }
         info.addProperty("kind", device.kindWord());
         info.addProperty("medium", device.medium().word);
         info.addProperty("name", device.deviceName());
@@ -1291,6 +1434,17 @@ public final class NetworkCalls {
             info.addProperty("tier", antenna.tier().word);
             info.addProperty("range", antenna.tier() == RadioNetwork.Tier.INFINITE ? -1 : antenna.tier().radius);
             info.addProperty("router", antenna == gateway);
+            JsonArray upgrades = new JsonArray();
+            for (qbotics.upgrade.UpgradeItem.Kind kind : qbotics.upgrade.UpgradeItem.Kind.values()) {
+                if (antenna.hasUpgrade(kind)) {
+                    upgrades.add(kind.word);
+                }
+            }
+            info.add("upgrades", upgrades);
+            info.addProperty("chunk_loading", antenna.chunkLoading());
+            info.addProperty("chunk_status", qbotics.upgrade.ChunkLoaders.Status.of(antenna.loaderStatus()).word);
+            info.addProperty("chunks", antenna.loadedChunks());
+            info.addProperty("chunks_wanted", antenna.wantedChunks());
         } else if (device instanceof CablePort port) {
             info.addProperty("face", port.accessFace().word());
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());

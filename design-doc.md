@@ -271,6 +271,7 @@ If an admin lowers a limit, existing active devices stay active. The owner can't
 ### 6.1 Assumptions
 
 - Every active device is assumed to be **always loaded**. Whether that's done by this mod or another chunk-loading mod is a server setup choice.
+- **This mod's chunk loading is an upgrade** (decided 2026-11-11): a **Chunk Loader Upgrade** in an antenna keeps that antenna's whole cable network loaded (up to `chunk_loading.chunks_per_loader` chunks, nearest first), switchable in the antenna's screen or from a program, with `chunk_loading.loaders_per_player` working loaders per player and a server switch for loaders of offline owners (on by default). Built: `docs/reference.md` §7.3b. The same upgrade item will fit Qbots (§8.5).
 - Worst-case capacity planning: `players × per-type limits × cost per device`.
 
 ### 6.2 Programs live apart from chunks
@@ -376,7 +377,9 @@ pick.use(Side.FRONT)                                 # mine with this tool's lev
 
 - Real tools **wear down** like a player's would. When one breaks, it's gone and the program gets a clear `ToolBrokenError`.
 
-### 8.5 Self chunk loading
+### 8.5 Chunk loading (an upgrade)
+
+> **Changed 2026-11-11 (project owner):** Qbots do **not** load chunks on their own. A Qbot loads chunks only with a **Chunk Loader Upgrade** fitted, the same item antennas take (§6.1). Without it, a Qbot stops working when its chunk unloads, like any other block. The rules below apply to a Qbot with the upgrade.
 
 - A Qbot loads the chunk it's in. When it's **within one block of a chunk border**, it also loads the neighbouring chunk, so the touching sides it senses are always loaded.
 - Qbots in the same chunk share one load.
@@ -391,7 +394,7 @@ pick.use(Side.FRONT)                                 # mine with this tool's lev
 ### 8.7 Qbot-related blocks
 
 - **Programmer block:** activates and programs inert Qbots and computers (§5.4). It loads programs from **storage media** (§17.3) or a **drive bay** (§17.6), and activates the device under the programmer owner's UUID. **Built 2026-11-11 for computers**, with its own hard-drive socket (§5.4, `docs/reference.md` §9e).
-- Upgrades (inventory tiers, antennas, tool-holder): to be defined.
+- Upgrades (inventory tiers, antennas, tool-holder): to be defined. **Built 2026-11-11:** the upgrade item type and two upgrades, the **Transport Upgrade** and the **Chunk Loader Upgrade**, fitted to antennas now (two slots, one of each kind) and meant to fit Qbots later (`docs/reference.md` §7.3b).
 
 ---
 
@@ -440,6 +443,8 @@ asyncio.run(listen())
 ```
 
 ### 9.2 Wireless logistics bridging
+
+> **Changed and built 2026-11-11 (project owner):** networks are **not merged**. Instead, with a **Transport Upgrade** in both antennas, a program reaches the devices behind another antenna (`net.remote("100.64.0.2")`) and uses them as its own, including `move()` between the two networks. Each network keeps its own names and addresses; a remote device's address carries the antenna's (`100.64.0.2/02:1a:...`). Free, but capped per antenna per second (`transport.items_per_second`, `fluid_per_second`, `energy_per_second`). Range, frequency and access rules apply as for messages. Displays aren't drawn on across networks. The bullets below are the earlier plan, kept for reference. Player-facing details: `docs/reference.md` §7.3b.
 
 - An antenna attached to a logistics network joins that network to **every other network on the same frequency** that's within range.
 - The bridged networks act as **one network with a single controller**. The controller can sit on either side, so an antenna at the main base can run a factory at a remote outpost.
@@ -527,7 +532,7 @@ radio.tune("mine-ops")
   - Data is anything JSON can hold (text, numbers, lists, dicts), up to 4,096 characters.
   - Right-clicking an antenna shows its addresses, frequency and reach.
 
-**Built since:** antenna access modes (private, team, public), the computer settings page and `ssh` (see `docs/reference.md` §1.5, §7.3, §7.4). **Not built yet:** frequency ownership, `async` receiving, reaching item blocks behind another antenna, antennas as upgrades fitted to computers and Qbots, wireless bridging (§9.2), in-game HTTP and names.
+**Built since:** antenna access modes (private, team, public), the computer settings page and `ssh` (see `docs/reference.md` §1.5, §7.3, §7.4). **Built 2026-11-11:** reaching devices behind another antenna, and moving things through it, with Transport Upgrades (§9.2); chunk loading as an antenna upgrade (§6.1). **Not built yet:** frequency ownership, `async` receiving, antennas as upgrades fitted to computers and Qbots, in-game HTTP and names.
 
 #### In-game HTTP and names
 
@@ -1271,7 +1276,7 @@ world_calls_budget_ms     = 3   # per tick, across all computers
 reactivation_checks_per_s = 1   # per player, right-click reactivation
 
 [qbots]
-self_chunkload           = true
+# self_chunkload: removed 2026-11-11. Qbots load chunks only with a Chunk Loader Upgrade (§8.5).
 park_on_owner_logout     = true
 new_terrain_moves_per_s  = 2    # per Qbot; moves into never-generated chunks
 inspect_per_tick         = 4    # per Qbot; inventory.read() costs more than inspect
@@ -1367,7 +1372,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 6a | Antennas, brought forward: three range tiers, external addresses, ports, frequencies, messages between computers (§9.3). **Built 2026-11-10, not yet played** | Computers in separate bases can talk |
 | 6 | Antennas (tiers, frequencies, access modes), in-game network, pseudo-DNS, in-game HTTP | Radio |
 | 7a | Item blocks, brought forward: cable networks, internal addresses (§9.3), Input, Output, Bus with access faces, the `logistics` module. **Built 2026-11-10, not yet played** (§11.0) | A program can move items between containers |
-| 7 | Rest of the logistics network: filter and face GUI, tier upgrades, throughput limits, change events; wireless bridging (§9.2); drive bays (§17.6) | Inventory and machine automation |
+| 7 | Rest of the logistics network: filter and face GUI, tier upgrades, throughput limits, change events; wireless bridging (§9.2); drive bays (§17.6). **Wireless transport (as remote devices) and chunk loading built 2026-11-11** as antenna upgrades | Inventory and machine automation |
 | 7b | Fluid and energy logistics (§11.0) | Full factory automation |
 | 7c | World plates (§11.0.1 to §11.0.3): the cable's model built in code, stand-in players acting for the owner, then Logic Pin, Placer, Breaker and the Bus's screen access | Programs that sense and change the world: redstone logic, auto-crafting, mining and building in place |
 | 8 | Uplink (with all §13 protections), then Git import/export (§17.5) | Real-internet access; moving code between worlds |
@@ -1479,7 +1484,9 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Robot named **Qbot**, Python module `qbot` | Decided |
 | 2026-11-10 | GPS built into every computer and Qbot (position, heading, dimension) | Decided |
 | 2026-11-10 | Antennas: 24 / 100 / infinite radius, cylinder with unlimited height, no weather; only infinite works across dimensions; frequency codes with private/team/public access | Decided (link rule proposed) |
-| 2026-11-10 | Wireless bridging of logistics networks; one controller per bridged network | Decided |
+| 2026-11-10 | Wireless bridging of logistics networks; one controller per bridged network | Superseded 2026-11-11 |
+| 2026-11-11 | Transport across antennas: programs reach remote devices (`net.remote()`), networks aren't merged; free with per-antenna rate caps; needs a Transport Upgrade in both antennas | Decided |
+| 2026-11-11 | Chunk loading is an upgrade (antennas now, Qbots later): loads the antenna's whole network up to a cap; per-player loader limit; works while the owner is offline unless the server says otherwise. Qbots don't load chunks without it | Decided |
 | 2026-11-10 | Qbots sense and act on all six sides; reading inventories is a separate command; filtered inventory like Input blocks; access faces | Decided |
 | 2026-11-10 | Qbot mining: iron (basic) / diamond (advanced) built in; real tools via `equip().use()`, with wear | Decided |
 | 2026-11-10 | Tiered in-place upgrades for Input blocks and Qbot inventories; fluid and energy logistics mirror items | Decided |

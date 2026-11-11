@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "O": "minecraft:obsidian",
+    "Y": "minecraft:ender_eye",
+    "R": "minecraft:redstone",
+    "M": "qbotics:motherboard",
+    "G": "minecraft:gold_nugget"
+  },
+  "pattern": [
+    "OYO",
+    "RMR",
+    "GGG"
+  ],
+  "result": {
+    "id": "qbotics:chunk_loader_upgrade"
+  }
+}

@@ -86,4 +86,10 @@ public interface QboticsPlatform {
      * ({@code charge} true), or drains it into the store. Returns how much moved.
      */
     int exchangeEnergy(net.minecraft.world.Container container, int slot, qbotics.block.EnergyInterfaceBlockEntity store, boolean charge, int max);
+
+    /**
+     * Keeps a chunk loaded (and ticking), or stops keeping it, on behalf of a block: an
+     * antenna with a Chunk Loader Upgrade. What is kept is saved with the world.
+     */
+    void forceChunk(ServerLevel level, BlockPos owner, int chunkX, int chunkZ, boolean add);
 }

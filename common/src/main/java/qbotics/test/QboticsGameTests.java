@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000, "displays", 200_000);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000, "displays", 200_000, "antenna_upgrades", 200_000);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -88,6 +88,7 @@ public final class QboticsGameTests {
             Map.entry("pip_from_remote", QboticsGameTests::pipFromRemote),
             Map.entry("programmer_block", QboticsGameTests::programmerBlock),
             Map.entry("displays", QboticsGameTests::displays),
+            Map.entry("antenna_upgrades", QboticsGameTests::antennaUpgrades),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1950,6 +1951,91 @@ public final class QboticsGameTests {
             helper.assertTrue(heir.isOrigin() && heir.mac().equals(mac) && heir.content() == text && heir.screenHeight() == 2,
                     "the screen should keep its address and text in the block beside it");
             helper.assertTrue(text.rowsSince(0).get(0).text().startsWith("hello"), "and still show what it did");
+        });
+    }
+
+    /**
+     * Antenna upgrades: a program reaches the interface behind another antenna with
+     * net.remote(), but moving from it is refused until both antennas have a Transport Upgrade;
+     * then it moves, held to the per-second rate. A Chunk Loader Upgrade holds its network's
+     * chunks, and a program switches it off.
+     */
+    private static void antennaUpgrades(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        BlockPos home = new BlockPos(0, 2, 0);
+        BlockPos farPos = new BlockPos(2, 2, 2);
+        helper.setBlock(home, QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 2), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(farPos, QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        InterfaceBlockEntity mine = helper.getBlockEntity(new BlockPos(2, 1, 2), InterfaceBlockEntity.class);
+        mine.setItem(0, new ItemStack(Items.COAL, 64));
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        store.setFilter(0, Items.COAL);
+        mine.setFilter(0, Items.COAL);
+        AntennaBlockEntity near = helper.getBlockEntity(home, AntennaBlockEntity.class);
+        AntennaBlockEntity far = helper.getBlockEntity(farPos, AntennaBlockEntity.class);
+        networkAt(helper, new BlockPos(0, 1, 0));
+        networkAt(helper, new BlockPos(2, 1, 2));
+        String ip = far.externalIp();
+        net.minecraft.world.item.Item transport = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("transport_upgrade"));
+        net.minecraft.world.item.Item loader = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("chunk_loader_upgrade"));
+        helper.assertTrue(!near.upgrades().canPlaceItem(0, new ItemStack(Items.COAL)), "only upgrades go in an antenna's slots");
+
+        String first = String.join("\n",
+                "from logistics import network, move",
+                "net = network()",
+                "mine = net.remote('" + ip + "').interface()",
+                "print('remote', mine.mac.startswith('" + ip + "/'))",
+                "try:",
+                "    move(mine, net.interface(), 'coal', 10)",
+                "except Exception as e:",
+                "    print('refused:', e)",
+                "");
+        String second = String.join("\n",
+                "import time",
+                "import network as nw",
+                "from logistics import network, move",
+                "net = network()",
+                "mine = net.remote('" + ip + "').interface()",
+                "print('moved', move(mine, net.interface(), 'coal', 64))",
+                "r = nw.Radio()",
+                "print('upgrades', sorted(r.upgrades()))",
+                "while r.chunks()['status'] != 'loading':",
+                "    time.sleep(0.05)",
+                "print('holding', r.chunks()['chunks'] >= 1)",
+                "r.chunk_loading = False",
+                "while r.chunks()['status'] != 'off':",
+                "    time.sleep(0.05)",
+                "print('done')",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/a.py", first.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/b.py", second.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not write the test programs", e);
+        }
+        computer.submitLine("run /a.py");
+        int before = qbotics.QboticsConfig.transportItemsPerSecond;
+        int[] phase = {0};
+        helper.succeedWhen(() -> {
+            if (phase[0] == 0) {
+                assertScreen(helper, computer, "remote True\n","refused: Reaching devices behind another antenna needs a Transport Upgrade");
+                // Fit the upgrades, hold the rate to 20 items a second, and give the home antenna an owner for its loader.
+                near.upgrades().setItem(0, new ItemStack(transport));
+                far.upgrades().setItem(0, new ItemStack(transport));
+                near.upgrades().setItem(1, new ItemStack(loader));
+                helper.assertTrue(!near.upgrades().canPlaceItem(1, new ItemStack(transport)), "one upgrade of a kind per antenna");
+                near.claim(UUID.randomUUID());
+                qbotics.QboticsConfig.transportItemsPerSecond = 20;
+                computer.submitLine("run /b.py");
+                phase[0] = 1;
+            }
+            assertScreen(helper, computer, "moved 20\n", "upgrades ['chunk_loader', 'transport']\n", "holding True\n", "done\n");
+            helper.assertTrue(store.countItem(Items.COAL) == 20 && mine.countItem(Items.COAL) == 44, "20 coal should have crossed");
+            helper.assertTrue(qbotics.upgrade.ChunkLoaders.heldBy(level, near.getBlockPos()).isEmpty(), "switched off, it should hold nothing");
+            qbotics.QboticsConfig.transportItemsPerSecond = before;
         });
     }
 

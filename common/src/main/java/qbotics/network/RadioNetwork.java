@@ -128,6 +128,17 @@ public final class RadioNetwork {
         }
     }
 
+    /** Every antenna that is loaded now. */
+    public java.util.List<AntennaBlockEntity> loaded() {
+        java.util.List<AntennaBlockEntity> list = new java.util.ArrayList<>();
+        for (AntennaBlockEntity antenna : antennas.values()) {
+            if (!antenna.isRemoved()) {
+                list.add(antenna);
+            }
+        }
+        return list;
+    }
+
     /** The loaded antenna with this external address, or null. */
     public @Nullable AntennaBlockEntity byExternalIp(String ip) {
         for (Map.Entry<Integer, AntennaBlockEntity> entry : antennas.entrySet()) {

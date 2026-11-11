@@ -170,6 +170,24 @@ write_json("assets/qbotics/lang/en_us.json", {
     "screen.qbotics.programmer_hint": "Redstone on: installs that",
     "screen.qbotics.programmer_hint2": "level's program (programs.txt)",
     "block.qbotics.text_monitor": "Text Monitor",
+    "item.qbotics.transport_upgrade": "Transport Upgrade",
+    "item.qbotics.chunk_loader_upgrade": "Chunk Loader Upgrade",
+    "item.qbotics.transport_upgrade.tooltip": "Carries items, fluid and energy to other networks",
+    "item.qbotics.chunk_loader_upgrade.tooltip": "Keeps its network's chunks loaded",
+    "item.qbotics.upgrade.fits": "Fits an antenna (right-click it)",
+    "screen.qbotics.antenna.upgrades": "Upgrades",
+    "screen.qbotics.antenna.chunks": "Chunk loading:",
+    "screen.qbotics.antenna.loading_on": "Chunk loading: On",
+    "screen.qbotics.antenna.loading_off": "Chunk loading: Off",
+    "screen.qbotics.antenna.status.loading": "Chunks held: %s",
+    "screen.qbotics.antenna.status.capped": "Chunks held: %s of %s (server limit)",
+    "screen.qbotics.antenna.status.no_upgrade": "Needs a Chunk Loader Upgrade",
+    "screen.qbotics.antenna.status.off": "Switched off",
+    "screen.qbotics.antenna.status.disabled": "Switched off by the server",
+    "screen.qbotics.antenna.status.owner_offline": "Paused: its owner is offline",
+    "screen.qbotics.antenna.status.over_limit": "Paused: owner has too many loaders",
+    "screen.qbotics.antenna.status.inactive": "Inactive antenna",
+    "screen.qbotics.antenna.status.no_owner": "No owner: placed by a machine",
     "block.qbotics.control_panel": "Control Panel",
     "screen.qbotics.close_up": "Close-up",
     "screen.qbotics.close_up_waiting": "Waiting for the screen...",
@@ -688,6 +706,52 @@ write_json("assets/qbotics/items/programmer.json", {
 write_png("assets/qbotics/textures/item/hard_drive.png", hard_drive())
 
 
+def upgrade_card(mark):
+    """An upgrade: a circuit card with gold contacts, and its mark in the middle."""
+    px = [[None] * 16 for _ in range(16)]
+    board = (40, 92, 60)
+    board_edge = (24, 60, 38)
+    for y in range(2, 14):
+        for x in range(2, 14):
+            px[y][x] = board_edge if x in (2, 13) or y in (2, 13) else board
+    for x in range(4, 12, 2):               # gold contacts along the bottom
+        px[13][x] = (230, 186, 60)
+        px[12][x] = (230, 186, 60)
+    for (x, y), colour in mark.items():
+        px[y][x] = colour
+    return px
+
+
+ARROW = (120, 200, 255)
+TRANSPORT_MARK = {}
+for x in range(4, 11):                      # an arrow to the right, and one back
+    TRANSPORT_MARK[(x, 5)] = ARROW
+    TRANSPORT_MARK[(x + 1, 9)] = (255, 160, 80)
+for d in (1, 2):
+    TRANSPORT_MARK[(10 - d, 5 - d)] = ARROW
+    TRANSPORT_MARK[(10 - d, 5 + d)] = ARROW
+    TRANSPORT_MARK[(5 + d, 9 - d)] = (255, 160, 80)
+    TRANSPORT_MARK[(5 + d, 9 + d)] = (255, 160, 80)
+TRANSPORT_MARK[(5, 9)] = (255, 160, 80)
+CHUNK_MARK = {}
+for y in range(4, 11):                      # a square of chunks, the middle one lit
+    for x in range(4, 11):
+        if x in (4, 7, 10) or y in (4, 7, 10):
+            CHUNK_MARK[(x, y)] = (180, 180, 190)
+for (x, y) in ((5, 5), (6, 5), (5, 6), (6, 6)):
+    CHUNK_MARK[(x + 3, y + 3)] = (90, 230, 120)
+write_png("assets/qbotics/textures/item/transport_upgrade.png", upgrade_card(TRANSPORT_MARK))
+write_png("assets/qbotics/textures/item/chunk_loader_upgrade.png", upgrade_card(CHUNK_MARK))
+for upgrade in ("transport_upgrade", "chunk_loader_upgrade"):
+    write_json("assets/qbotics/models/item/%s.json" % upgrade, {
+        "parent": "minecraft:item/generated",
+        "textures": {"layer0": "qbotics:item/%s" % upgrade},
+    })
+    write_json("assets/qbotics/items/%s.json" % upgrade, {
+        "model": {"type": "minecraft:model", "model": "qbotics:item/%s" % upgrade},
+    })
+
+
 # ---- displays (design doc §10): a dark face that the game draws the screen onto ----
 PANEL_FACE = (27, 31, 36)
 
@@ -869,6 +933,14 @@ write_json("data/qbotics/recipe/programmer.json", shaped(
     [" C ", "CMC", " C "], {"C": "qbotics:cable", "M": "qbotics:motherboard"}, "qbotics:programmer"))
 write_json("data/qbotics/loot_table/blocks/programmer.json",
            drops_itself("qbotics:programmer", copy_components=["minecraft:custom_name"]))
+# Placeholders: upgrades are a motherboard with what they do. Transport: ender pearls (things cross a
+# distance) and a hopper; Chunk Loader: an eye of ender over obsidian.
+write_json("data/qbotics/recipe/transport_upgrade.json", shaped(
+    ["EHE", "RMR", "GGG"], {"E": "minecraft:ender_pearl", "H": "minecraft:hopper", "R": "minecraft:redstone",
+                            "M": "qbotics:motherboard", "G": "minecraft:gold_nugget"}, "qbotics:transport_upgrade"))
+write_json("data/qbotics/recipe/chunk_loader_upgrade.json", shaped(
+    ["OYO", "RMR", "GGG"], {"O": "minecraft:obsidian", "Y": "minecraft:ender_eye", "R": "minecraft:redstone",
+                            "M": "qbotics:motherboard", "G": "minecraft:gold_nugget"}, "qbotics:chunk_loader_upgrade"))
 # Placeholders: a Text Monitor is a screen in iron, over a cable; a Control Panel adds a button and a lever.
 write_json("data/qbotics/recipe/text_monitor.json", shaped(
     ["III", "ISI", "ICI"], {"I": "minecraft:iron_ingot", "S": "qbotics:screen", "C": "qbotics:cable"}, "qbotics:text_monitor", 2))

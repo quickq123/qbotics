@@ -16,6 +16,11 @@ import qbotics.network.NetworkDevice;
  */
 public final class CablePort implements NetworkDevice {
     final PortBlockEntity host;
+
+    /** The level its cable is in. */
+    public net.minecraft.world.level.@org.jspecify.annotations.Nullable Level level() {
+        return host.getLevel();
+    }
     private final Direction side;
     @Nullable UUID deviceId;
     @Nullable UUID owner;

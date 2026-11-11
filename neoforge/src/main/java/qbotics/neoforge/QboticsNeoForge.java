@@ -103,6 +103,22 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<qbotics.block.DisplayBlock> CONTROL_PANEL = BLOCKS.registerBlock("control_panel", qbotics.block.DisplayBlock::panel,
             properties -> properties.mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.METAL).lightLevel(state -> 4));
     private static final DeferredItem<BlockItem> CONTROL_PANEL_ITEM = ITEMS.registerSimpleBlockItem(CONTROL_PANEL);
+    // Upgrades (fitted to antennas; later to Qbots).
+    private static final DeferredItem<qbotics.upgrade.UpgradeItem> TRANSPORT_UPGRADE = ITEMS.registerItem("transport_upgrade",
+            properties -> new qbotics.upgrade.UpgradeItem(qbotics.upgrade.UpgradeItem.Kind.TRANSPORT, properties.stacksTo(1)));
+    private static final DeferredItem<qbotics.upgrade.UpgradeItem> CHUNK_LOADER_UPGRADE = ITEMS.registerItem("chunk_loader_upgrade",
+            properties -> new qbotics.upgrade.UpgradeItem(qbotics.upgrade.UpgradeItem.Kind.CHUNK_LOADER, properties.stacksTo(1)));
+    /**
+     * The tickets Chunk Loader Upgrades hold chunks with. When a world loads, they are handed
+     * to ChunkLoaders, which lets go of any whose antenna doesn't turn up within a few seconds
+     * (blocks aren't looked at here: the world is still loading).
+     */
+    static final net.neoforged.neoforge.common.world.chunk.TicketController CHUNK_TICKETS =
+            new net.neoforged.neoforge.common.world.chunk.TicketController(Qbotics.id("chunk_loader"), (level, tickets) -> {
+                for (var entry : tickets.getBlockTickets().entrySet()) {
+                    qbotics.upgrade.ChunkLoaders.seed(level, entry.getKey(), entry.getValue().normal());
+                }
+            });
     private static final DeferredItem<qbotics.block.HardDriveItem> HARD_DRIVE_ITEM = ITEMS.registerItem("hard_drive", qbotics.block.HardDriveItem::new);
     // Plates that go on cables: no blocks of their own.
     private static final DeferredItem<PlateItem> INPUT_ITEM = ITEMS.registerItem("input",
@@ -171,6 +187,9 @@ public final class QboticsNeoForge {
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU =
             MENUS.register("interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.InterfaceMenu(containerId, inventory)));
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.AntennaMenu>> ANTENNA_MENU =
+            MENUS.register("antenna", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.block.AntennaMenu(containerId, inventory)));
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.ProgrammerMenu>> PROGRAMMER_MENU =
             MENUS.register("programmer", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.ProgrammerMenu(containerId, inventory)));
@@ -234,6 +253,8 @@ public final class QboticsNeoForge {
                         output.accept(PROGRAMMER_ITEM.get());
                         output.accept(TEXT_MONITOR_ITEM.get());
                         output.accept(CONTROL_PANEL_ITEM.get());
+                        output.accept(TRANSPORT_UPGRADE.get());
+                        output.accept(CHUNK_LOADER_UPGRADE.get());
                         output.accept(SCREEN_ITEM.get());
                         output.accept(MOTHERBOARD_ITEM.get());
                     })
@@ -276,6 +297,7 @@ public final class QboticsNeoForge {
         QboticsContent.TEXT_MONITOR_BLOCK = TEXT_MONITOR;
         QboticsContent.CONTROL_PANEL_BLOCK = CONTROL_PANEL;
         QboticsContent.PROGRAMMER_MENU = PROGRAMMER_MENU;
+        QboticsContent.ANTENNA_MENU = ANTENNA_MENU;
         QboticsContent.DRIVE_BAY_MENU = DRIVE_BAY_MENU;
         QboticsContent.PROBE_MODE = PROBE_MODE;
         QboticsContent.INTERFACE_BLOCK = INTERFACE;
@@ -328,8 +350,12 @@ public final class QboticsNeoForge {
             registerGameTests(modBus);
         }
 
-        NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post event) ->
-                ComputerManager.get(event.getServer()).tick(event.getServer()));
+        NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post event) -> {
+            ComputerManager.get(event.getServer()).tick(event.getServer());
+            qbotics.upgrade.ChunkLoaders.tick(event.getServer());
+        });
+        // Chunk Loader Upgrades hold chunks through these tickets, saved with the world.
+        modBus.addListener((net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent event) -> event.register(CHUNK_TICKETS));
         // /qbotics stage: builds the test stage beside the player (see TestStage). For players who may use commands.
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.RegisterCommandsEvent event) -> event.getDispatcher().register(
                 net.minecraft.commands.Commands.literal("qbotics")
@@ -364,8 +390,10 @@ public final class QboticsNeoForge {
                             }
                             return 1;
                         }))));
-        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) ->
-                ComputerManager.shutDown(event.getServer()));
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> {
+            ComputerManager.shutDown(event.getServer());
+            qbotics.upgrade.ChunkLoaders.clear();
+        });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
                 ComputerManager.get(player.level().getServer()).onPlayerLeft(player);
@@ -453,6 +481,11 @@ public final class QboticsNeoForge {
             @Override
             public boolean isFakePlayer(net.minecraft.world.entity.player.Player player) {
                 return player.isFakePlayer();
+            }
+
+            @Override
+            public void forceChunk(net.minecraft.server.level.ServerLevel level, BlockPos owner, int chunkX, int chunkZ, boolean add) {
+                CHUNK_TICKETS.forceChunk(level, owner, chunkX, chunkZ, add, false);
             }
 
             @Override

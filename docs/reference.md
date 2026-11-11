@@ -842,6 +842,73 @@ Devices on the same cables never need an antenna and are not affected by this.
 | Long-Range | 100 blocks |
 | Infinite | Any distance, any dimension |
 
+### 7.3b Antenna upgrades: transport and chunk loading
+
+**Right-click an antenna** for its screen: two upgrade slots, and the switch for chunk loading.
+Its addresses still show above the hotbar. An antenna takes one upgrade of each kind; breaking it
+drops them. (Qbots will take the same upgrade items.)
+
+| Upgrade | Does |
+|---|---|
+| **Transport Upgrade** | Lets programs use the devices behind another antenna (that also has one), and `move()` items, fluid and energy between the two networks |
+| **Chunk Loader Upgrade** | Keeps the chunks of the antenna's whole cable network loaded and working while nobody is near |
+
+#### Transport
+
+```python
+from logistics import network, move
+net = network()
+mine = net.remote("100.64.0.2")             # the network behind that antenna
+move(mine.bus("ore_chest"), net.interface("store"), "raw_iron", 64)
+print(mine.energy_interface().stored())
+```
+
+- `net.remote(address)` is the network behind another antenna, by its external address. It
+  has the same finders as `net`: `.interface()`, `.bus("name")`, `.devices()` and the rest.
+- Its devices work like local ones: `count()`, `contents()`, `watch()`, a pin's `read()`,
+  a placer, and in `move()` as sources and destinations, from either side. Their address says
+  where they are: `mine.bus("ore_chest").mac` is `"100.64.0.2/02:1a:..."`.
+- **Both antennas need a Transport Upgrade.** Without them, finding and listing devices works,
+  but using them is refused with a message that says which antenna lacks one.
+- The radio's rules still apply (section 7.3): the same frequency, in range, and the far
+  antenna's access must let this computer's owner in. Infinite antennas carry across dimensions.
+- **Rate:** each antenna carries a limited amount each second, set by the server: 1,024 items,
+  64,000 mB and 2,000,000 FE by default. A move through it carries no more than may cross now;
+  `move(..., need=n)` waits (with `wait=`) or reports when the rate is used up. Experience isn't
+  limited.
+- Displays can't be drawn on from another network.
+- Both ends must be loaded: a Chunk Loader Upgrade, or a player nearby.
+
+#### Chunk loading
+
+- With a **Chunk Loader Upgrade** fitted and **chunk loading switched on** (it is, unless
+  switched off), the antenna keeps loaded every chunk its cable network reaches: the cables,
+  computers, plates and displays. Machines there keep working.
+- Up to **25 chunks per antenna** (the server sets it), the nearest to the antenna first. The
+  screen says how many it holds, and if the network spreads over more than it may hold.
+- A player may have **4 working loaders** (the server sets it; operators are exempt). Further
+  ones pause, and the screen says so.
+- Switch it on and off with the button in the antenna's screen, or from a program:
+
+```python
+import network
+radio = network.Radio()
+radio.chunk_loading = False
+print(radio.upgrades())            # ['chunk_loader', 'transport']
+print(radio.chunks())              # {'status': 'off', 'chunks': 0, 'wanted': 0}
+```
+
+`radio.chunks()["status"]` is `"loading"`, `"off"`, `"no_upgrade"`, `"disabled"` (by the
+server), `"owner_offline"` (when the server pauses loaders of players who are offline),
+`"over_limit"`, `"inactive"` (the antenna is) or `"no_owner"` (a machine placed it).
+
+What is loaded is remembered across restarts. Breaking the antenna, taking the upgrade out or
+switching it off lets the chunks go within a second.
+
+**Recipes (placeholders):** Transport Upgrade: `EHE` / `RMR` / `GGG` (ender pearls and a hopper,
+redstone, a motherboard, gold nuggets). Chunk Loader Upgrade: `OYO` / `RMR` / `GGG` (obsidian and
+an eye of ender over the same).
+
 ### 7.4 Remote login: `ssh`
 
 ```
@@ -1151,6 +1218,13 @@ even across restarts, until someone opens it again.
 | `boot.per_tick` | 4 | Computers started per tick as they come back on |
 | `scheduler.worker_cores` | 2 | How many computers run Python at the same moment (read at server start) |
 | `scheduler.reactivation_checks_per_s` | 1 | How often one player may try to switch on an inactive device |
+| `chunk_loading.enabled` | true | `false` switches every Chunk Loader Upgrade off (section 7.3b) |
+| `chunk_loading.loaders_per_player` | 4 | Working chunk loaders per player; -1 for no limit (operators exempt as above) |
+| `chunk_loading.chunks_per_loader` | 25 | The most chunks one antenna holds |
+| `chunk_loading.while_owner_offline` | true | Whether loaders keep working while their owner is offline |
+| `transport.items_per_second` | 1024 | Items one antenna carries to and from other networks each second |
+| `transport.fluid_per_second` | 64000 | The same for fluid, in mB |
+| `transport.energy_per_second` | 2000000 | The same for energy, in FE |
 
 ## 9c. Hard drives and the Drive Bay: moving files between computers
 

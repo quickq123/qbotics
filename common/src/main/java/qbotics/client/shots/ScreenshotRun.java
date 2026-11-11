@@ -317,6 +317,26 @@ public final class ScreenshotRun {
             });
         });
         then(15, minecraft -> shot(minecraft, "09m-programmer-editor"));
+        // An antenna's screen, with both upgrades fitted and chunk loading on.
+        then(10, minecraft -> {
+            minecraft.setScreen(null);
+            onServer(minecraft, player -> {
+                BlockPos at = base.offset(16, 0, -6);
+                player.level().setBlock(at, QboticsContent.ANTENNA_SHORT_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+                if (player.level().getBlockEntity(at) instanceof qbotics.block.AntennaBlockEntity antenna) {
+                    antenna.claim(player.getUUID());
+                    antenna.upgrades().setItem(0, new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("transport_upgrade"))));
+                    antenna.upgrades().setItem(1, new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("chunk_loader_upgrade"))));
+                }
+            });
+        });
+        then(40, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(base.offset(16, 0, -6)) instanceof qbotics.block.AntennaBlockEntity antenna) {
+                player.openMenu(antenna);
+            }
+        }));
+        then(10, minecraft -> shot(minecraft, "09n-antenna-screen"));
+        then(5, minecraft -> minecraft.player.closeContainer());
         then(5, minecraft -> minecraft.setScreen(null));
         then(10, minecraft -> {
             minecraft.setScreen(null);

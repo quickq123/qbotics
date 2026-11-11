@@ -159,3 +159,18 @@ DISPLAYS (build these yourself, from the creative tab)
      b.on_press(lambda e: print("pressed by", e.player)) ,  events.after(30, events.stop) ,
      events.run()  and press Go a few times within 30 seconds.
  63. Look at the screens at night (/time set midnight): they light themselves.
+
+ANTENNA UPGRADES (build these yourself)
+ 64. Right-click an antenna: its screen has two upgrade slots and a "Chunk loading" button.
+     Put a Transport Upgrade and a Chunk Loader Upgrade in it (creative tab).
+ 65. Build a second network 15-20 blocks away (a computer is not needed there): an antenna
+     with a Transport Upgrade, cabled to an Interface with a coal filter and some coal.
+     Note its external address (right-click it).
+ 66. At your computer:  python ,  from logistics import network, move ,  net = network() ,
+     far = net.remote("<its address>") ,  far.devices() ,
+     move(far.interface(), net.interface(), "coal", 16) . (Your interface needs a coal filter.)
+ 67. Take the Transport Upgrade out of the far antenna and try the move again: refused, saying
+     which antenna needs one.
+ 68. Chunk loading: the antenna's screen says how many chunks it holds. Fly 300+ blocks away
+     and come back: furnaces on that network kept smelting. Press the button to switch it off;
+     in python:  import network ,  network.Radio().chunks() .
