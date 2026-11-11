@@ -889,11 +889,53 @@ How every drop is caught, including when a block gives several different items:
 #### Things to decide before building
 
 1. **A model built in code comes first.** Each side of a cable is at present a block-state value, one of five (nothing, an arm, Input, Output, Bus), giving 15,625 states. Three more plate kinds make eight values and 262,144 states, which is too many. These plates therefore depend on moving the cable to a model built in code (decision log, 2026-11-10), with plates kept by the cable instead of in its block state.
-2. **Protected land.** A Breaker and a Placer change the world on a player's behalf. They should act as their owner for the purposes of claim and protection mods, and refuse where the owner could not build. The owner is already recorded for every plate.
+2. **Protected land.** Settled: see §11.0.3. A Breaker and a Placer act as their owner.
 3. **Limits.** How fast a Breaker works (the tool's real speed is proposed), whether breaking and placing cost energy from an Energy Interface, and per-player caps (§5, §15).
 4. **Enchantments.** With no tool slot, a Breaker has no Fortune or Silk Touch. Whether that is wanted later (as separate plates, an upgrade, or a setting) is open.
 5. **Pin strength and direction.** Whether an output pin powers only the block it points at or also provides strong power through it, and whether one pin can be both read and driven.
 6. **Recipes** for the Pin and the Placer.
+
+### 11.0.2 Screen access: a Bus working a block's screen (planned, not built)
+
+> **Status (2026-11-11): design only.** Decided by the project owner: this is a function of the Bus alone.
+
+**Why.** A plate reaches a block's contents directly when the block keeps them in the world
+and offers them through the loader's standard access (§11.0). Some blocks don't. A crafting
+table, an anvil or a smithing table holds nothing: its slots exist only in the screen of the
+player who has it open. Many other mods' machines are the same. The aim is not crafting for
+its own sake but being able to work any block whose slots are only on its screen.
+
+**How.** The Bus opens the block's screen on the server as a stand-in for its owner (§11.0.3)
+and lets the program work the slots of that open screen, by the screen's own rules. A result
+slot fills in exactly as it would for a player.
+
+```python
+with bus.open_screen() as screen:        # opens the crafting table's screen
+    screen.put(Slot(1), "oak_planks")    # from an Interface
+    screen.put(Slot(4), "oak_planks")
+    sticks = screen.take(Slot(0))        # the result, into an Interface
+```
+
+Rules:
+
+- **Bus only.** Input and Output plates don't get it. Direct access stays the normal way; screen access is for blocks that offer nothing else.
+- **A session with an end.** Items in screen slots exist only while the screen is open. When the session closes, whatever is left goes back to an Interface. If it can't all go back, the session does not close silently: nothing is ever lost or dropped.
+- **Best effort.** It goes through the same door a player uses, so most slot screens should work, including other mods'. Where a mod refuses stand-in players or does part of its work in the player's own game, the call fails with a message. That is accepted.
+- **Slot numbers are the screen's.** A screen can hold several inventories (a crafting table's grid and its result), so slots are numbered across the whole screen, not within each. The probe's Slots mode must show these same numbers on such screens.
+- **Not solved yet:** screens that charge the player something a stand-in doesn't have, chiefly experience levels (anvil, enchanting table).
+
+First targets, to prove it: crafting table, stonecutter, loom, smithing table, grindstone.
+
+### 11.0.3 Acting for the owner: stand-in players and land claims (planned, not built)
+
+Screen access, the Placer and the Breaker all do things only a player normally does. Each
+does them as a **stand-in for the plate's owner**: an invisible player on the server that
+carries the owner's identity (the same player ID and name) and stands at the plate.
+
+- **Same rights as the owner, no more.** Whatever protection applies to the owner applies to the plate: where the owner couldn't build, break or open a block, neither can the plate, and the program gets an error that says so.
+- **Best effort across mods.** The stand-in is made the standard way for the loader, so mods that recognise stand-in players treat it as one. A mod or server that blocks stand-in players blocks these plates too. That is accepted.
+- **FTB Chunks comes first.** It is the claim mod most modpacks use, so it is the one to test against and keep working. It has three team settings for stand-in players: allow all of them, allow named ones, and allow those carrying the ID of a real player (`allow_fake_players`, `allow_named_fake_players`, `allow_fake_players_by_id` in its source). Carrying the owner's ID is what lets the third setting treat a plate as its owner, so a team member's plates work inside that team's claims without the claim being opened to every machine. To confirm against the real mod when built, including what its defaults are.
+- **A plate with no owner** (placed by a machine or a command) has nobody to stand in for, and does none of these things.
 
 ### 11.1 Public peripheral API (separate small jar)
 
@@ -1220,7 +1262,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 7a | Item blocks, brought forward: cable networks, internal addresses (§9.3), Input, Output, Bus with access faces, the `logistics` module. **Built 2026-11-10, not yet played** (§11.0) | A program can move items between containers |
 | 7 | Rest of the logistics network: filter and face GUI, tier upgrades, throughput limits, change events; wireless bridging (§9.2); drive bays (§17.6) | Inventory and machine automation |
 | 7b | Fluid and energy logistics (§11.0) | Full factory automation |
-| 7b | World plates (§11.0.1): the cable's model built in code, then Logic Pin, Placer and Breaker | Programs that sense and change the world: redstone logic, auto-crafting, mining and building in place |
+| 7b | World plates (§11.0.1 to §11.0.3): the cable's model built in code, stand-in players acting for the owner, then Logic Pin, Placer, Breaker and the Bus's screen access | Programs that sense and change the world: redstone logic, auto-crafting, mining and building in place |
 | 8 | Uplink (with all §13 protections), then Git import/export (§17.5) | Real-internet access; moving code between worlds |
 | 9 | Web panels v1: engine evaluation, HTML/CSS v1 coverage, sync protocol, events | Flagship UI |
 | 10 | Web panels v2: JS sandbox, `<canvas>`, grid, animations | Full web development |
@@ -1371,7 +1413,9 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Each computer has a settings page, opened from the top left into the editor as JSON: name, remote login and password, antenna access and frequency. It is not a drive file, so programs can't read the password; only a salted hash is stored | Decided |
 | 2026-11-10 | `ssh <address>`: one computer's terminal drives another's (terminal only; files and editor stay local). Identity is the owner of the computer typed at. Teams are the game's scoreboard teams | Built; to confirm |
 | 2026-11-11 | Planned (§11.0.1): Logic Pin, Placer and Breaker as plates on cables. The Placer and Breaker also handle fluid, so there are no fluid versions. The Breaker breaks as the highest tool tier but never bedrock, holds nothing itself (the program names where the drops go, and it breaks only if every drop fits), and needs a diamond pickaxe in its recipe. The pin is a Logic Pin: redstone in and out, plus observer-like watching of the block it points at | Decided; not built |
-| 2026-11-11 | Crafting tables, anvils and smithing tables hold nothing in the world, so plates can't reach them; the vanilla Crafter can be reached, and needs a Logic Pin to trigger it | Noted |
+| 2026-11-11 | Crafting tables, anvils and smithing tables hold nothing in the world, so plates can't reach them directly; the vanilla Crafter can be reached, and needs a Logic Pin to trigger it | Noted |
+| 2026-11-11 | Planned (§11.0.2): screen access, a function of the Bus only: it opens a block's screen as a stand-in player and works its slots, best effort across mods | Decided; not built |
+| 2026-11-11 | Planned (§11.0.3): screen access, the Placer and the Breaker act as a stand-in for the plate's owner, with the owner's rights and no more. Mods that block stand-in players block them; FTB Chunks is the claim mod to keep working | Decided; not built |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |
