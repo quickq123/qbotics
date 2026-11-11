@@ -44,6 +44,11 @@ public final class QboticsContent {
     public static Supplier<BlockEntityType<qbotics.block.FluidInterfaceBlockEntity>> FLUID_INTERFACE_BLOCK_ENTITY;
     public static Supplier<BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY;
     public static Supplier<BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY;
+    /** On a hard drive: the ID its files are kept under (design doc §17.3). */
+    public static Supplier<DataComponentType<UUID>> MEDIA_ID;
+    /** The Drive Bay, which hard drives go in, and its screen (design doc §17.6). */
+    public static Supplier<BlockEntityType<qbotics.block.DriveBayBlockEntity>> DRIVE_BAY_BLOCK_ENTITY;
+    public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.DriveBayMenu>> DRIVE_BAY_MENU;
     /** The Fluid Interface's screen (tanks, filters, bucket slots) and the Energy Interface's (gauge, battery slots). */
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.FluidInterfaceMenu>> FLUID_INTERFACE_MENU;
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.EnergyInterfaceMenu>> ENERGY_INTERFACE_MENU;

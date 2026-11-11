@@ -47,6 +47,7 @@ public final class QboticsNeoForgeClient {
             event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new);
             event.register(QboticsNeoForge.FLUID_INTERFACE_MENU.get(), qbotics.client.FluidInterfaceScreen::new);
             event.register(QboticsNeoForge.ENERGY_INTERFACE_MENU.get(), qbotics.client.EnergyInterfaceScreen::new);
+            event.register(QboticsNeoForge.DRIVE_BAY_MENU.get(), qbotics.client.DriveBayScreen::new);
         });
         modBus.addListener((RegisterClientPayloadHandlersEvent event) -> {
             event.register(TerminalStatePayload.TYPE, (payload, context) -> ClientIde.onTerminalState(payload));

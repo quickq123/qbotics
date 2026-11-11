@@ -222,6 +222,15 @@ public final class TestStage {
         worldPlate(7, 3, Kind.PLACER, Direction.SOUTH, "placer");
         worldPlate(8, 4, Kind.BREAKER, Direction.WEST, "breaker");
 
+        // A Drive Bay beside main, with two hard drives: computers on the network see them under /net/shared/.
+        qbotics.block.DriveBayBlockEntity bay = device(2, 0, 3, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(Qbotics.id("drive_bay")),
+                "shared", qbotics.block.DriveBayBlockEntity.class);
+        net.minecraft.world.item.Item hardDrive = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("hard_drive"));
+        ItemStack lib = new ItemStack(hardDrive);
+        lib.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("lib"));
+        bay.drives().setItem(0, lib);
+        bay.drives().setItem(1, new ItemStack(hardDrive));
+
         // Screens that cost levels, paid from xp: a Bus on an anvil and one on an enchanting table.
         for (int x = 9; x <= 12; x++) {
             set(x, 0, 3, cable.defaultBlockState());

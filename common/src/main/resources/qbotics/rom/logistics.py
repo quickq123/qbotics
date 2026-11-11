@@ -867,7 +867,27 @@ class Breaker(_WorldPlate):
             time.sleep(min(reply["wait"] / 20, 0.1))
 
 
-_KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus,
+class DriveBay(Device):
+    """A Drive Bay: four sockets for hard drives. Every computer on its network sees each
+    drive as a folder, path + "/" + drive name, and reads and writes files there as on its
+    own drive:
+
+        bay = net.drive_bay()
+        open(bay.path + "/backup/main.py", "w").write(code)
+
+    In the shell:  cp main.py /net/<bay>/backup/   and   run /net/<bay>/backup/main.py"""
+
+    @property
+    def path(self):
+        """The bay's folder, "/net/" and its name (or "bay" and its number if it has none)."""
+        return "/net/" + self.refresh()._info["folder"]
+
+    def drives(self):
+        """The names of the drives in it: each one's anvil name, or "drive" and its socket."""
+        return list(self.refresh()._info["drives"])
+
+
+_KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus, "drive_bay": DriveBay,
           "pin": Pin, "placer": Placer, "breaker": Breaker,
           "fluid_interface": FluidInterface, "fluid_input": FluidInput, "fluid_output": FluidOutput, "fluid_bus": FluidBus,
           "energy_interface": EnergyInterface, "energy_input": EnergyInput, "energy_output": EnergyOutput,
@@ -940,6 +960,10 @@ class Network:
     def experience_interface(self, key=None):
         """An experience interface by name or address; with no argument, the network's only one."""
         return _wrap(_call("find", key, "experience_interface"))
+
+    def drive_bay(self, key=None):
+        """A drive bay by name or address; with no argument, the network's only one."""
+        return _wrap(_call("find", key, "drive_bay"))
 
     def pin(self, key=None):
         """A logic pin by name or address; with no argument, the network's only one."""

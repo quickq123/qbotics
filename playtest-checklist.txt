@@ -102,6 +102,15 @@ LIMITS AND STARTING UP
      operator, who has no limit). Start again and place a computer: it is placed with a dark
      screen, and right-clicking it says why. Set them back afterwards.
 
+HARD DRIVES
+ 43. Run  /qbotics stage  again, then in main:  run demos/13_drives.py : a library is written
+     to the hard drive "lib" in the bay "shared" and imported from there.
+ 44. In main's terminal:  ls /net/shared   then  cp /README.txt /net/shared/drive2/  and
+     cat /net/shared/drive2/README.txt . The editor's file tree shows /net too.
+ 45. Right-click the Drive Bay beside main: take a drive out (its folder goes from /net within
+     half a second), put it back (its files are still there).
+ 46. Craft a Hard Drive, name it in an anvil, put it in the bay: it appears under that name.
+
 REMOTE
- 43. In main:  ssh  followed by remote's address from README.txt. You are now typing on
+ 47. In main:  ssh  followed by remote's address from README.txt. You are now typing on
      remote; Ctrl+C stops its echo; exit comes back.

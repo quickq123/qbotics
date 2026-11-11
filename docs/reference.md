@@ -167,6 +167,7 @@ With an antenna on the network, each device can also be reached from other netwo
 | `experience_interface` | Experience storage, with no limit |
 | `pin` | A Logic Pin: a redstone line in or out, and an eye on a block |
 | `placer`, `breaker` | Plates that place blocks and fluid, or break them |
+| `drive_bay` | Holds hard drives; every computer on its network sees them under `/net` |
 
 Plates share a cable's block, one per side, and point at the block next to that side. Their
 colour says what they carry: white for items, blue-grey for fluid, red for energy.
@@ -985,6 +986,50 @@ even across restarts, until someone opens it again.
 | `scheduler.worker_cores` | 2 | How many computers run Python at the same moment (read at server start) |
 | `scheduler.reactivation_checks_per_s` | 1 | How often one player may try to switch on an inactive device |
 
+## 9c. Hard drives and the Drive Bay: moving files between computers
+
+A **Hard Drive** is an item that holds files (4 MB). A **Drive Bay** is a block with four sockets
+for them; right-click it to put drives in or take them out. Join the bay to a cable network and
+**every computer on that network sees each drive as a folder**:
+
+```
+/net/<bay>/<drive>/
+```
+
+- `<bay>` is the bay's name (name it with the probe, or in an anvil before placing it), or
+  `bay` and its number on the network if it has none.
+- `<drive>` is the name the drive was given in an anvil, or `drive` and its socket's number
+  (`drive1` to `drive4`).
+
+Everything that works on a computer's own files works there: `ls`, `cd`, `cat`, `cp`, `mv`, `rm`,
+`run`, the editor's file tree, and Python's `open()`, `os.listdir()` and `import`:
+
+```
+/ $ cp main.py /net/shared/backup/
+/ $ run /net/shared/backup/main.py
+```
+
+```python
+import sys
+sys.path.append("/net/shared/lib")     # a library every computer on the network shares
+import greetings
+```
+
+- **Files travel with the drive.** Take it out, put it in a bay on another network, and its
+  files are there. Breaking a bay drops its drives with their files.
+- **Moving** a file between drives (or between a drive and the computer's own) copies it and
+  removes the original. Folders can't be moved between drives; copy their files instead.
+- A drive appears within half a second of going in, and its folder goes when it is taken out.
+- `/net` and the bay folders themselves can't be written to: only the drives inside them.
+- Any computer on the network can read and change every drive in the bay; keep a bay on its
+  own network if that matters.
+
+From a program, `net.drive_bay()` gives the bay: `bay.path` is its folder (`"/net/shared"`) and
+`bay.drives()` the names of the drives in it.
+
+**Recipes (placeholders):** Hard Drive: iron around redstone, with a gold ingot at the bottom
+middle (`III` / `IRI` / `IGI`). Drive Bay: four cables around a barrel.
+
 ---
 
 ## 10. Errors
@@ -1030,6 +1075,7 @@ belongs to you.
 | An Energy Interface; an Energy Bus on a charged cell | `battery`, `machine` |
 | An Experience Interface holding 30 levels' worth | `xp` |
 | A Bus on a crafting table | `crafter` |
+| A Drive Bay with two hard drives (`lib` and `drive2`) | `shared` |
 | A Logic Pin on a redstone lamp | `lamp` |
 | A Placer and a Breaker facing the same empty space | `placer`, `breaker` |
 | Buses on an anvil and an enchanting table (the chest holds two worn swords, books and lapis for them) | `anvil`, `enchanter` |
@@ -1051,6 +1097,7 @@ holds one short program per feature:
 | `demos/9_world.py` | Blinking the lamp, placing a block and breaking it again |
 | `demos/10_levels.py` | Repairing on the anvil and enchanting a book, paid from `xp` |
 | `demos/11_watch.py` | Watches the chest for 30 seconds while you move things in and out by hand |
+| `demos/13_drives.py` | A shared library written to a hard drive and imported from there |
 | `demos/12_events.py` | Timers and events together for 30 seconds: the lamp blinks while the chest is watched and messages are shown |
 
 `remote` runs `demos/echo.py` from the start, which answers every message, so the radio demo

@@ -89,6 +89,11 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<InterfaceBlock> INTERFACE = BLOCKS.registerBlock("interface", InterfaceBlock::new,
             properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(INTERFACE);
+    // Files that travel (design doc §17.3, §17.6): hard drives, and the bay they go in.
+    private static final DeferredBlock<qbotics.block.DriveBayBlock> DRIVE_BAY = BLOCKS.registerBlock("drive_bay", qbotics.block.DriveBayBlock::new,
+            properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> DRIVE_BAY_ITEM = ITEMS.registerSimpleBlockItem(DRIVE_BAY);
+    private static final DeferredItem<qbotics.block.HardDriveItem> HARD_DRIVE_ITEM = ITEMS.registerItem("hard_drive", qbotics.block.HardDriveItem::new);
     // Plates that go on cables: no blocks of their own.
     private static final DeferredItem<PlateItem> INPUT_ITEM = ITEMS.registerItem("input",
             properties -> new PlateItem(NetworkDevice.Kind.INPUT, qbotics.network.Medium.ITEM, properties));
@@ -135,6 +140,8 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("energy_interface",
                     () -> new BlockEntityType<>(qbotics.block.EnergyInterfaceBlockEntity::new, ENERGY_INTERFACE.get()));
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.DriveBayBlockEntity>> DRIVE_BAY_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("drive_bay", () -> new BlockEntityType<>(qbotics.block.DriveBayBlockEntity::new, DRIVE_BAY.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("interface", () -> new BlockEntityType<>(InterfaceBlockEntity::new, INTERFACE.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY =
@@ -150,6 +157,9 @@ public final class QboticsNeoForge {
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU =
             MENUS.register("interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.InterfaceMenu(containerId, inventory)));
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.DriveBayMenu>> DRIVE_BAY_MENU =
+            MENUS.register("drive_bay", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.block.DriveBayMenu(containerId, inventory)));
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.FluidInterfaceMenu>> FLUID_INTERFACE_MENU =
             MENUS.register("fluid_interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.FluidInterfaceMenu(containerId, inventory)));
@@ -202,6 +212,8 @@ public final class QboticsNeoForge {
                         output.accept(ANTENNA_LONG_ITEM.get());
                         output.accept(ANTENNA_INFINITE_ITEM.get());
                         output.accept(PROBE_ITEM.get());
+                        output.accept(DRIVE_BAY_ITEM.get());
+                        output.accept(HARD_DRIVE_ITEM.get());
                         output.accept(SCREEN_ITEM.get());
                         output.accept(MOTHERBOARD_ITEM.get());
                     })
@@ -211,6 +223,10 @@ public final class QboticsNeoForge {
             DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, Qbotics.MOD_ID);
     private static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> DRIVE_ID =
             DATA_COMPONENTS.registerComponentType("drive_id",
+                    builder -> builder.persistent(UUIDUtil.CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC));
+    /** On a hard drive: the ID its files are kept under. */
+    private static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> MEDIA_ID =
+            DATA_COMPONENTS.registerComponentType("media_id",
                     builder -> builder.persistent(UUIDUtil.CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC));
 
     static CableBlock cableBlock() {
@@ -233,6 +249,9 @@ public final class QboticsNeoForge {
         QboticsContent.COMPUTER_BLOCK_ENTITY = COMPUTER_BLOCK_ENTITY;
         QboticsContent.CABLE_BLOCK = CABLE;
         QboticsContent.DRIVE_ID = DRIVE_ID;
+        QboticsContent.MEDIA_ID = MEDIA_ID;
+        QboticsContent.DRIVE_BAY_BLOCK_ENTITY = DRIVE_BAY_BLOCK_ENTITY;
+        QboticsContent.DRIVE_BAY_MENU = DRIVE_BAY_MENU;
         QboticsContent.PROBE_MODE = PROBE_MODE;
         QboticsContent.INTERFACE_BLOCK = INTERFACE;
         QboticsContent.PROBE_ITEM = PROBE_ITEM;

@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -84,6 +84,7 @@ public final class QboticsGameTests {
             Map.entry("watching", QboticsGameTests::watching),
             Map.entry("events_module", QboticsGameTests::eventsModule),
             Map.entry("limits_and_boot", QboticsGameTests::limitsAndBoot),
+            Map.entry("drive_bays", QboticsGameTests::driveBays),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -1008,10 +1009,10 @@ public final class QboticsGameTests {
         CableNetwork network = CableNetwork.at(level, main.getBlockPos());
         List<String> names = network.devices().stream().map(NetworkDevice::deviceName).sorted().toList();
         helper.assertTrue(names.equals(List.of("anvil", "battery", "big_tank", "breaker", "chest", "crafter", "enchanter", "furnace", "inbox", "lamp", "machine",
-                "main", "main_antenna", "outbox", "placer", "store", "tanks", "xp")),"the main network should hold exactly the stage's devices, but had " + names);
+                "main", "main_antenna", "outbox", "placer", "shared", "store", "tanks", "xp")),"the main network should hold exactly the stage's devices, but had " + names);
 
         ServerComputer computer = ComputerManager.get(level.getServer()).getOrStart(main);
-        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources", "8_crafting", "9_world", "10_levels")) {
+        for (String demo : List.of("1_items", "2_filters", "3_fluid", "4_energy", "5_radio", "6_devices", "7_sources", "8_crafting", "9_world", "10_levels", "13_drives")) {
             computer.submitLine("run demos/" + demo + ".py");
         }
         computer.submitLine("pwd");
@@ -1026,7 +1027,7 @@ public final class QboticsGameTests {
                     "A log into the grid: 1", "Planks taken out: 4", "runs for 8 sticks: 2", "Made: {'minecraft:stick': 8}", "holds 8 sticks",
                     "The lamp blinked three times.", "Placed: minecraft:cobblestone", "In front of the breaker: minecraft:cobblestone",
                     "Broke it and got: {'minecraft:cobblestone': 1}",
-                    "Repaired: 1\n", "Enchanted: 1\n")) {
+                    "Repaired: 1\n", "Enchanted: 1\n", "Drives in the bay: ['drive2', 'lib']", "hello, main, from the shared drive")) {
                 helper.assertTrue(text.contains(expected), "the demos should have printed '" + expected + "' but printed:\n" + text);
             }
         });
@@ -1655,6 +1656,58 @@ public final class QboticsGameTests {
                 helper.assertTrue(manager.computer(c.deviceId()) == null && !c.wasOn(), "shutdown should switch it off and keep it off");
                 placeholders.forEach(registry::remove);
             });
+        });
+    }
+
+    /**
+     * Hard drives in a Drive Bay (design doc §17.6): the computer on its network sees them
+     * under /net/<bay>/<drive>/, writes and runs programs there, and moves files between
+     * drives; the files are kept under the drive's own ID, and go when it is taken out.
+     */
+    private static void driveBays(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(qbotics.Qbotics.id("drive_bay")));
+        qbotics.block.DriveBayBlockEntity bay = helper.getBlockEntity(new BlockPos(1, 1, 0), qbotics.block.DriveBayBlockEntity.class);
+        bay.setDeviceName("shared");
+        net.minecraft.world.item.Item hardDrive = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("hard_drive"));
+        ItemStack backup = new ItemStack(hardDrive);
+        backup.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("backup"));
+        bay.drives().setItem(0, backup);
+        bay.drives().setItem(2, new ItemStack(hardDrive));
+        UUID backupId = bay.drives().getItem(0).get(QboticsContent.MEDIA_ID.get());
+        helper.assertTrue(backupId != null, "a drive should be given its files' ID when it goes in");
+
+        String program = String.join("\n",
+                "import os, time",
+                "from logistics import network",
+                "bay = network().drive_bay()",
+                "while 'net' not in os.listdir('/'):    # the drives appear within half a second",
+                "    time.sleep(0.05)",
+                "print('bay', bay.path, sorted(bay.drives()))",
+                "print('net', os.listdir('/net'), sorted(os.listdir(bay.path)))",
+                "with open(bay.path + '/backup/hello.py', 'w') as f:",
+                "    f.write(\"print('hello from the drive')\\n\")",
+                "with open('/note.txt', 'w') as f:",
+                "    f.write('moved')",
+                "os.rename('/note.txt', bay.path + '/drive3/note.txt')",
+                "print('moved', 'note.txt' in os.listdir('/'), os.listdir(bay.path + '/drive3'))",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/t.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not write the test program", e);
+        }
+        for (String line : List.of("run /t.py", "run /net/shared/backup/hello.py", "cp /net/shared/backup/hello.py /copy.py", "run /copy.py")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "bay /net/shared ['backup', 'drive3']\n", "net ['shared'] ['backup', 'drive3']\n",
+                    "moved False ['note.txt']\n", "/ $ run /net/shared/backup/hello.py\nhello from the drive\n", "/ $ run /copy.py\nhello from the drive\n");
+            java.nio.file.Path kept = ComputerManager.get(level.getServer()).mediaFolder(backupId).resolve("hello.py");
+            helper.assertTrue(java.nio.file.Files.exists(kept), "the drive's files should be kept under its own ID");
+            // Taken out, a drive's folder goes from /net on the next look.
+            bay.drives().setItem(2, ItemStack.EMPTY);
         });
     }
 

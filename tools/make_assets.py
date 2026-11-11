@@ -164,6 +164,12 @@ write_json("assets/qbotics/lang/en_us.json", {
     "block.qbotics.cable": "Cable",
     "itemGroup.qbotics": "Qbotics",
     "block.qbotics.interface": "Interface",
+    "block.qbotics.drive_bay": "Drive Bay",
+    "item.qbotics.hard_drive": "Hard Drive",
+    "item.qbotics.hard_drive.blank": "Blank, %s MB. Put it in a Drive Bay to use it.",
+    "item.qbotics.hard_drive.used": "Holds files (%s MB). In a Drive Bay, computers on its network see them in /net.",
+    "screen.qbotics.drive_bay_hint": "Computers on this network",
+    "screen.qbotics.drive_bay_hint2": "see these drives in /net",
     "item.qbotics.input": "Input",
     "item.qbotics.output": "Output",
     "item.qbotics.bus": "Bus",
@@ -440,13 +446,13 @@ write_json("data/qbotics/loot_table/blocks/cable.json", drops_itself("qbotics:ca
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
     "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
-               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
+               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
     "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
-               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite"],
+               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay"],
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 
@@ -593,6 +599,55 @@ write_json("assets/qbotics/models/block/interface.json", {
     "textures": {"end": "qbotics:block/interface_top", "side": "qbotics:block/interface_side"},
 })
 write_json("assets/qbotics/blockstates/interface.json", {"variants": {"": {"model": "qbotics:block/interface"}}})
+
+
+# ---- hard drives and the drive bay (design doc §17.3, §17.6) ----
+
+def drive_bay_front():
+    """Four drive sockets stacked down the face, each with a small green light."""
+    px = case_base()
+    for socket in range(4):
+        top = 2 + socket * 3
+        for y in range(top, top + 2):
+            for x in range(3, 13):
+                px[y][x] = EDGE if y == top else SCREEN
+        px[top + 1][11] = GREEN
+    return px
+
+
+def hard_drive():
+    """A hard drive, as an item: a grey box with a label strip and a connector."""
+    px = [[None] * 16 for _ in range(16)]
+    for y in range(3, 13):
+        for x in range(2, 14):
+            edge = x in (2, 13) or y in (3, 12)
+            px[y][x] = CASE_DARK if edge else CASE
+    for x in range(4, 12):          # the label
+        px[5][x] = CASE_LIGHT
+        px[6][x] = CASE_LIGHT
+    for x in range(4, 12, 2):       # the connector's pins
+        px[11][x] = EDGE
+    px[9][11] = GREEN               # its light
+    return px
+
+
+write_png("assets/qbotics/textures/block/drive_bay_front.png", drive_bay_front())
+write_png("assets/qbotics/textures/item/hard_drive.png", hard_drive())
+write_json("assets/qbotics/models/block/drive_bay.json", {
+    "parent": "minecraft:block/cube_column",
+    "textures": {"end": "qbotics:block/interface_top", "side": "qbotics:block/drive_bay_front"},
+})
+write_json("assets/qbotics/blockstates/drive_bay.json", {"variants": {"": {"model": "qbotics:block/drive_bay"}}})
+write_json("assets/qbotics/items/drive_bay.json", {
+    "model": {"type": "minecraft:model", "model": "qbotics:block/drive_bay"},
+})
+write_json("assets/qbotics/models/item/hard_drive.json", {
+    "parent": "minecraft:item/generated",
+    "textures": {"layer0": "qbotics:item/hard_drive"},
+})
+write_json("assets/qbotics/items/hard_drive.json", {
+    "model": {"type": "minecraft:model", "model": "qbotics:item/hard_drive"},
+})
 write_json("assets/qbotics/items/interface.json", {
     "model": {"type": "minecraft:model", "model": "qbotics:block/interface"},
 })
@@ -716,6 +771,14 @@ for prefix, extra in (("fluid_", "minecraft:bucket"), ("energy_", "minecraft:red
     write_json("data/qbotics/recipe/%sbus_from_parts.json" % prefix,
                shapeless(["qbotics:%sinput" % prefix, "qbotics:%soutput" % prefix], "qbotics:%sbus" % prefix))
 # A device named in an anvil keeps its name when broken.
+# Placeholder recipes: a hard drive is iron around redstone with a gold contact; a drive bay is
+# cables around a barrel, like the other item blocks.
+write_json("data/qbotics/recipe/hard_drive.json", shaped(
+    ["III", "IRI", "IGI"], {"I": "minecraft:iron_ingot", "R": "minecraft:redstone", "G": "minecraft:gold_ingot"}, "qbotics:hard_drive"))
+write_json("data/qbotics/recipe/drive_bay.json", shaped(
+    [" C ", "CBC", " C "], {"C": "qbotics:cable", "B": "minecraft:barrel"}, "qbotics:drive_bay"))
+write_json("data/qbotics/loot_table/blocks/drive_bay.json",
+           drops_itself("qbotics:drive_bay", copy_components=["minecraft:custom_name"]))
 write_json("data/qbotics/loot_table/blocks/interface.json",
            drops_itself("qbotics:interface", copy_components=["minecraft:custom_name"]))
 

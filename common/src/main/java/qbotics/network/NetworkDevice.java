@@ -12,7 +12,9 @@ public interface NetworkDevice {
     enum Kind {
         COMPUTER("computer"), ANTENNA("antenna"), INTERFACE("interface"), INPUT("input"), OUTPUT("output"), BUS("bus"),
         /** World plates (design doc §11.0.1): redstone and watching, placing, breaking. */
-        PIN("pin"), PLACER("placer"), BREAKER("breaker");
+        PIN("pin"), PLACER("placer"), BREAKER("breaker"),
+        /** Holds hard drives, which every computer on its network sees under /net (design doc §17.6). */
+        DRIVE_BAY("drive_bay");
 
         /** The word Python programs and messages use. */
         public final String word;

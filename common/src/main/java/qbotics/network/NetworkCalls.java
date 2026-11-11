@@ -1259,6 +1259,12 @@ public final class NetworkCalls {
         } else if (device instanceof CablePort port) {
             info.addProperty("face", port.accessFace().word());
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
+        } else if (device instanceof qbotics.block.DriveBayBlockEntity bay) {
+            // Where its drives appear on this network's computers, and their names.
+            info.addProperty("folder", bay.folderName());
+            JsonArray drives = new JsonArray();
+            bay.mounted().keySet().forEach(drives::add);
+            info.add("drives", drives);
         } else if (device instanceof InterfaceBlockEntity) {
             info.addProperty("slots", InterfaceBlockEntity.SLOTS);
         } else if (device instanceof FluidInterfaceBlockEntity) {

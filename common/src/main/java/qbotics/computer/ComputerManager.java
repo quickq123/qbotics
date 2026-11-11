@@ -67,6 +67,41 @@ public final class ComputerManager {
                 s.getWorldPath(LevelResource.ROOT).resolve("data").resolve(Qbotics.MOD_ID).resolve("drives")));
     }
 
+    /** Where a hard drive's files are: <world>/data/qbotics/media/<media-id>/ (design doc §17.2). */
+    public Path mediaFolder(UUID mediaId) {
+        return drivesFolder.resolveSibling("media").resolve(mediaId.toString());
+    }
+
+    /** One file system per hard drive, shared by every computer that sees it, so its space is counted once. */
+    private final Map<UUID, qbotics.engine.HostFileSystem> media = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private qbotics.engine.HostFileSystem media(UUID mediaId) {
+        return media.computeIfAbsent(mediaId, id -> new qbotics.engine.DriveFileSystem(mediaFolder(id), qbotics.block.HardDriveItem.CAPACITY_BYTES));
+    }
+
+    /**
+     * Every few ticks: tells each running computer which drive bays and drives its network
+     * has, for its /net folder (design doc §17.6).
+     */
+    private void updateMounts(MinecraftServer server) {
+        for (Map.Entry<UUID, Viewing> entry : places.entrySet()) {
+            ServerComputer computer = computers.get(entry.getKey());
+            net.minecraft.server.level.ServerLevel level = server.getLevel(entry.getValue().dimension());
+            if (computer == null || level == null || !level.isLoaded(entry.getValue().pos())) {
+                continue;
+            }
+            Map<String, Map<String, qbotics.engine.HostFileSystem>> mounts = new java.util.TreeMap<>();
+            for (qbotics.network.NetworkDevice device : qbotics.network.CableNetwork.at(level, entry.getValue().pos()).devices()) {
+                if (device instanceof qbotics.block.DriveBayBlockEntity bay) {
+                    Map<String, qbotics.engine.HostFileSystem> drives = new java.util.LinkedHashMap<>();
+                    bay.mounted().forEach((name, id) -> drives.put(name, media(id)));
+                    mounts.put(bay.folderName(), drives);
+                }
+            }
+            computer.setMounts(mounts);
+        }
+    }
+
     /** Where a drive's files are: <world>/data/qbotics/drives/<drive-id>/ (design doc §17.2). */
     public Path driveFolder(UUID driveId) {
         return drivesFolder.resolve(driveId.toString());
@@ -404,6 +439,9 @@ public final class ComputerManager {
             message.accept(server);
         }
         bootSome(server);
+        if (server.getTickCount() % 10 == 0) {
+            updateMounts(server);
+        }
         qbotics.network.ScreenSessions.tick(server, session -> NetworkCalls.interfaces(
                 qbotics.network.CableNetwork.at(qbotics.network.ScreenSessions.levelOf(session), qbotics.network.ScreenSessions.busPosOf(session))));
         if (viewers.isEmpty()) {

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone",
+    "G": "minecraft:gold_ingot"
+  },
+  "pattern": [
+    "III",
+    "IRI",
+    "IGI"
+  ],
+  "result": {
+    "id": "qbotics:hard_drive"
+  }
+}

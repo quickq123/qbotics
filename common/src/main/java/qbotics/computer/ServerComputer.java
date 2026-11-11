@@ -67,7 +67,8 @@ public final class ServerComputer {
 
     private final UUID deviceId;
     private final UUID driveId;
-    private final DriveFileSystem drive;
+    /** Its own drive, with the drive bays on its network mounted under /net (design doc §17.6). */
+    private final qbotics.engine.MountedFileSystem drive;
     private final Terminal terminal = new Terminal();
     private final BlockingQueue<Job> jobs = new LinkedBlockingQueue<>(MAX_QUEUED_JOBS);
     private final Semaphore cpu;
@@ -91,7 +92,7 @@ public final class ServerComputer {
         this.worldCalls = worldCalls;
         this.deviceId = deviceId;
         this.driveId = driveId;
-        this.drive = new DriveFileSystem(driveFolder, DRIVE_QUOTA_BYTES);
+        this.drive = new qbotics.engine.MountedFileSystem(new DriveFileSystem(driveFolder, DRIVE_QUOTA_BYTES));
         this.cpu = cpu;
         this.listener = listener;
         this.thread = Computer.newThread(this::run, "qbotics-computer-" + deviceId.toString().substring(0, 8));
@@ -112,6 +113,11 @@ public final class ServerComputer {
     }
 
     /** The computer's files. Safe to use from any thread. */
+    /** The drive bays' drives this computer sees under /net, by bay name then drive name (set by the server). */
+    public void setMounts(java.util.Map<String, java.util.Map<String, HostFileSystem>> mounts) {
+        drive.setMounts(mounts);
+    }
+
     public HostFileSystem drive() {
         return drive;
     }

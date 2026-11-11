@@ -273,6 +273,23 @@ public final class ScreenshotRun {
             });
         });
         then(5, minecraft -> shot(minecraft, "09j-energy-interface-screen"));
+        // A Drive Bay with two hard drives in it, and its screen.
+        then(10, minecraft -> {
+            minecraft.player.closeContainer();
+            onServer(minecraft, player -> {
+                BlockPos at = base.offset(9, 0, -6);
+                player.level().setBlock(at, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(Qbotics.id("drive_bay")).defaultBlockState(),
+                        Block.UPDATE_ALL);
+                if (player.level().getBlockEntity(at) instanceof qbotics.block.DriveBayBlockEntity bay) {
+                    net.minecraft.world.item.Item drive = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("hard_drive"));
+                    bay.drives().setItem(0, new ItemStack(drive));
+                    bay.drives().setItem(1, new ItemStack(drive));
+                    player.getInventory().add(new ItemStack(drive, 1));
+                    player.openMenu(bay);
+                }
+            });
+        });
+        then(5, minecraft -> shot(minecraft, "09k-drive-bay-screen"));
         then(5, minecraft -> minecraft.player.closeContainer());
         then(10, minecraft -> {
             minecraft.setScreen(null);

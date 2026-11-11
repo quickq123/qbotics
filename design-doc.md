@@ -1357,6 +1357,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 0c | ✅ **Project scaffold:** `common` + `neoforge` Gradle modules for Minecraft 26.1.2; the mod jar bundles the engine and Chicory; `gradlew :neoforge:runData` runs a Python self-test inside NeoForge. Done 2026-11-10 | The engine works inside the real mod loader |
 | 1 | Computer block, terminal, REPL, file system, editor, device UUIDs. **Built, not yet played:** everything is covered by in-game tests and offline renders of the editor screen (§12.2), but nobody has used it in the game client yet | Core loop |
 | 1b | Storage media (floppy) + disk drive; programmer block (loading programs from media) | Moving code between devices |
+| 1b (as built) | **Built 2026-11-11, changed by the project owner:** hard drives instead of floppies, in a Drive Bay (§17.6) rather than a one-disk drive. A Hard Drive (4 MB, files kept under `media/<id>/` and travelling with the item) goes in one of a bay's four sockets; every computer on the bay's cable network sees it as `/net/<bay>/<drive>/`. Not yet: per-bay permissions (read-only, owner/team/public), mounting over an antenna, the duplicate-drive rule of §17.1, the programmer block | |
 | 2 | `machine.Pin` redstone, events, timers. **Events and timers built 2026-11-11** as the `events` module (timers, pin edges and block changes, container changes, messages; one `run()` loop; the game pushes pin events and messages into a per-computer queue). Redstone goes through the Logic Pin (§11.0.1) rather than the computer's own sides; `machine.Pin` on the computer itself is not built | Embedded circuits |
 | 3 | Ownership registry, limits, bricked state, boot queue. **Built 2026-11-11** for computers and antennas (`docs/reference.md` §9b): a server-wide registry saved with the world, per-type limits from `qbotics-server.toml` with operators exempt, bricked placement over the limit or by machines (dark screen, off the network, files kept), right-click reactivation (once a second per player), grandfathering, a boot queue for computers that were on (dimension, owner round-robin, distance, coordinates), a `shutdown` command, and `/qbotics limits`. Not yet: the programmer block (§5.4), ranks and team pooling (§5.6), boot priority | Performance controls (early on purpose) |
 | 4 | Text monitors, then control surfaces (§10.2) | Displays foundation; cheap control panels |
@@ -1441,6 +1442,8 @@ Moves code between worlds and teaches real Git and GitHub habits.
 - Repos can include a `pcproject.toml` (name, entry point, required tier), so a cloned project runs with one command.
 
 ### 17.6 Drive bays (shared program storage)
+
+> **Status (2026-11-11): built** for cable networks (`docs/reference.md` §9c): four hard-drive sockets; each drive is mounted as `/net/<bay>/<drive>/` (the design below had one folder per bay; with several drives per bay, each gets its own folder under it). Not yet: antenna mounting, per-bay permissions, file locking, version history.
 
 A block that holds several **hard drives**, like the drive bays in Applied Energistics and Refined Storage, and gives a base **shared program storage**: an internal code repository.
 
