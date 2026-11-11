@@ -27,6 +27,9 @@ public final class QboticsNeoForgeClient {
                 qbotics.client.ItemNames.tooltip(event.getItemStack(), event.getToolTip()));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ScreenEvent.KeyPressed.Pre event) ->
                 qbotics.client.ItemNames.keyPressed(event.getKeyCode()));
+        // The cable's model built in code: its plates come from its block entity (see CableModels).
+        modBus.addListener(CableModels::register);
+        modBus.addListener(CableModels::wrap);
         // A plate's ring is coloured by what it carries (see PlateTints).
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.BlockTintSources event) ->
                 event.register(qbotics.client.PlateTints.sources(), QboticsNeoForge.cableBlock()));

@@ -76,7 +76,9 @@ public final class QboticsNeoForge {
             properties -> properties.mapColor(MapColor.STONE).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> COMPUTER_ITEM = ITEMS.registerSimpleBlockItem(COMPUTER);
     private static final DeferredBlock<CableBlock> CABLE = BLOCKS.registerBlock("cable", NeoForgeCableBlock::new,
-            properties -> properties.mapColor(MapColor.METAL).strength(0.5f).sound(SoundType.METAL).noOcclusion());
+            properties -> properties.mapColor(MapColor.METAL).strength(0.5f).sound(SoundType.METAL).noOcclusion()
+                    // Its shape depends on the plates its block entity keeps, not only its state.
+                    .dynamicShape());
     private static final DeferredItem<BlockItem> CABLE_ITEM = ITEMS.registerSimpleBlockItem(CABLE);
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ComputerBlockEntity>> COMPUTER_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("computer", () -> new BlockEntityType<>(ComputerBlockEntity::new, COMPUTER.get()));

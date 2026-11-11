@@ -7,7 +7,7 @@
     },
     {
       "when": {
-        "north": "cable"
+        "north": "true"
       },
       "apply": {
         "model": "qbotics:block/cable_side"
@@ -15,7 +15,7 @@
     },
     {
       "when": {
-        "east": "cable"
+        "east": "true"
       },
       "apply": {
         "model": "qbotics:block/cable_side",
@@ -24,7 +24,7 @@
     },
     {
       "when": {
-        "south": "cable"
+        "south": "true"
       },
       "apply": {
         "model": "qbotics:block/cable_side",
@@ -33,7 +33,7 @@
     },
     {
       "when": {
-        "west": "cable"
+        "west": "true"
       },
       "apply": {
         "model": "qbotics:block/cable_side",
@@ -42,7 +42,7 @@
     },
     {
       "when": {
-        "up": "cable"
+        "up": "true"
       },
       "apply": {
         "model": "qbotics:block/cable_side",
@@ -51,170 +51,11 @@
     },
     {
       "when": {
-        "down": "cable"
+        "down": "true"
       },
       "apply": {
         "model": "qbotics:block/cable_side",
         "x": 90
-      }
-    },
-    {
-      "when": {
-        "down": "input"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_input_down",
-        "x": 90
-      }
-    },
-    {
-      "when": {
-        "up": "input"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_input_up",
-        "x": 270
-      }
-    },
-    {
-      "when": {
-        "north": "input"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_input_north"
-      }
-    },
-    {
-      "when": {
-        "south": "input"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_input_south",
-        "y": 180
-      }
-    },
-    {
-      "when": {
-        "west": "input"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_input_west",
-        "y": 270
-      }
-    },
-    {
-      "when": {
-        "east": "input"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_input_east",
-        "y": 90
-      }
-    },
-    {
-      "when": {
-        "down": "output"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_output_down",
-        "x": 90
-      }
-    },
-    {
-      "when": {
-        "up": "output"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_output_up",
-        "x": 270
-      }
-    },
-    {
-      "when": {
-        "north": "output"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_output_north"
-      }
-    },
-    {
-      "when": {
-        "south": "output"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_output_south",
-        "y": 180
-      }
-    },
-    {
-      "when": {
-        "west": "output"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_output_west",
-        "y": 270
-      }
-    },
-    {
-      "when": {
-        "east": "output"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_output_east",
-        "y": 90
-      }
-    },
-    {
-      "when": {
-        "down": "bus"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_bus_down",
-        "x": 90
-      }
-    },
-    {
-      "when": {
-        "up": "bus"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_bus_up",
-        "x": 270
-      }
-    },
-    {
-      "when": {
-        "north": "bus"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_bus_north"
-      }
-    },
-    {
-      "when": {
-        "south": "bus"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_bus_south",
-        "y": 180
-      }
-    },
-    {
-      "when": {
-        "west": "bus"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_bus_west",
-        "y": 270
-      }
-    },
-    {
-      "when": {
-        "east": "bus"
-      },
-      "apply": {
-        "model": "qbotics:block/plate_bus_east",
-        "y": 90
       }
     }
   ]

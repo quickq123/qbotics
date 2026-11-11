@@ -25,6 +25,8 @@ public final class CablePort implements NetworkDevice {
     AccessFace accessFace = AccessFace.NEAR;
     /** What it carries: items, fluid or energy. */
     Medium medium = Medium.ITEM;
+    /** Which kind of plate it is: an input, an output or a bus. */
+    Kind kind = Kind.BUS;
     /** True once the plate has been taken off its cable. */
     boolean detached;
 
@@ -54,8 +56,7 @@ public final class CablePort implements NetworkDevice {
 
     @Override
     public Kind kind() {
-        Kind kind = CableBlock.plateKind(host.getBlockState(), side);
-        return kind == null ? Kind.BUS : kind;
+        return kind;
     }
 
     @Override
@@ -95,7 +96,7 @@ public final class CablePort implements NetworkDevice {
 
     @Override
     public boolean isRemoved() {
-        return detached || host.isRemoved() || CableBlock.plateKind(host.getBlockState(), side) == null;
+        return detached || host.isRemoved() || host.port(side) != this;
     }
 
     /** The direction from the cable to the plate's target. */

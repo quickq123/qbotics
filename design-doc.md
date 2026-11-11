@@ -889,7 +889,7 @@ How every drop is caught, including when a block gives several different items:
 
 #### Things to decide before building
 
-1. **A model built in code comes first.** Each side of a cable is at present a block-state value, one of five (nothing, an arm, Input, Output, Bus), giving 15,625 states. Three more plate kinds make eight values and 262,144 states, which is too many. These plates therefore depend on moving the cable to a model built in code (decision log, 2026-11-10), with plates kept by the cable instead of in its block state.
+1. ~~**A model built in code comes first.**~~ **Done 2026-11-11.** Each side of a cable was a block-state value, one of five (nothing, an arm, Input, Output, Bus), giving 15,625 states; three more plate kinds would have made 262,144. Now the block state holds only the six arms (64 states), and every cable has a block entity that keeps its plates: each plate's kind, what it carries, and its identity. A model built in code (`CableModels`, NeoForge side) wraps the cable's ordinary core-and-arms model and adds a part for each plate its block entity lists, from the plate model files `block/plate_<kind>_<side>`. A new plate kind needs only its model files and its kind. Plates saved by earlier versions are not carried over: those cables come back bare.
 2. **Protected land.** Settled: see §11.0.3. A Breaker and a Placer act as their owner.
 3. **Limits.** How fast a Breaker works (the tool's real speed is proposed), whether breaking and placing cost energy from an Energy Interface, and per-player caps (§5, §15).
 4. **Enchantments.** With no tool slot, a Breaker has no Fortune or Silk Touch. Whether that is wanted later (as separate plates, an upgrade, or a setting) is open.
@@ -1517,6 +1517,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | `move` returns how many moved (none is not an error); `need=` is all-or-nothing and raises; `wait=` pauses until the amount can be moved | Decided; built |
 | 2026-11-11 | Planned: a `Recipe` object: `ingredient(what, slot, amount)`, `result(slot)` (one or several), `can_craft(runs)` as a True/False check against sources, and `craft(runs, screen)` on an open Bus screen, raising if a run fails. Needs screen access | Built 2026-11-11 |
 | 2026-11-11 | A recipe result can name its own destination, to split a machine's outputs | Built 2026-11-11 |
+| 2026-11-11 | The cable's model is built in code: the block state keeps only the arms, and every cable has a block entity that keeps its plates (kind, medium, identity), which the model reads when drawing. Clears the way for the Logic Pin, Placer and Breaker (§11.0.1). Plates from worlds saved before this are dropped | Built 2026-11-11 |
 | 2026-11-11 | Much later: a recipe viewer (JEI) hands the player ready-made `Recipe` code for a recipe | Idea; not designed |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |

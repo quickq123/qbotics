@@ -112,7 +112,7 @@ public final class CableNetwork {
     private static boolean joinsOn(ServerLevel level, BlockPos pos, Direction side) {
         net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
         if (state.getBlock() instanceof CableBlock) {
-            return CableBlock.plateKind(state, side) == null; // a plate's face is not a connection
+            return CableBlock.plateKind(level, pos, side) == null; // a plate's face is not a connection
         }
         NetworkDevice device = deviceAt(level, pos);
         return device != null && device.connectsOn(side);

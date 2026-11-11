@@ -280,10 +280,10 @@ write_json("assets/qbotics/items/cable.json", {
 def arm(side, **rotation):
     apply = {"model": "qbotics:block/cable_side"}
     apply.update(rotation)
-    return {"when": {side: "cable"}, "apply": apply}
+    return {"when": {side: "true"}, "apply": apply}
 
 
-# (The cable's block state is written further down, with the plates it can carry.)
+# (The cable's block state is written further down, after the plates' models.)
 
 # ---- data: recipes, drops, tags -------------------------------------------------
 
@@ -584,8 +584,8 @@ for plate, boxes in PLATE_BOXES.items():
             },
             "elements": plate_elements(boxes, number),
         })
-        cable_parts.append({"when": {side: plate},
-                            "apply": dict({"model": "qbotics:block/plate_%s_%s" % (plate, side)}, **PLATE_TURNS[side])})
+        # Not in the cable's block state: plates are kept by the cable's block entity, and the
+        # model built in code (CableModels.java) adds each one, turned by PLATE_TURNS[side].
     # In the hand and inventory the plate is shown on its own, in its medium's colour. It uses
     # the "down" model, whose colour is number 0: the first (and only) tint an item lists.
     for prefix, colour in MEDIA.items():
@@ -593,7 +593,7 @@ for plate, boxes in PLATE_BOXES.items():
             "model": {"type": "minecraft:model", "model": "qbotics:block/plate_%s_down" % plate,
                       "tints": [{"type": "minecraft:constant", "value": tint_value(colour)}]},
         })
-# Written here, after the plates, because a cable's look includes the plates it carries.
+# The cable's block state: its core and arms only.
 write_json("assets/qbotics/blockstates/cable.json", {"multipart": cable_parts})
 
 # The Network Probe: a small hand-held reader, drawn from two boxes.

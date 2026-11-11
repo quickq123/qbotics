@@ -337,11 +337,13 @@ public final class QboticsGameTests {
 
     /** True if a cable reaches out to its neighbour on this side. */
     private static boolean arm(BlockState cable, Direction side) {
-        return CableBlock.side(cable, side) == CableBlock.Side.CABLE;
+        return CableBlock.arm(cable, side);
     }
 
-    private static BlockState port(Kind kind, Direction pointing) {
-        return QboticsContent.CABLE_BLOCK.get().withPlate(kind, pointing);
+    /** A cable at a position with one plate on it, pointing one way. */
+    private static void setPort(GameTestHelper helper, BlockPos pos, Kind kind, Direction pointing) {
+        helper.setBlock(pos, QboticsContent.CABLE_BLOCK.get());
+        CableBlock.attach(helper.getLevel(), helper.absolutePos(pos), kind, pointing);
     }
 
     private static CableNetwork networkAt(GameTestHelper helper, BlockPos pos) {
@@ -363,7 +365,7 @@ public final class QboticsGameTests {
         BlockPos link = new BlockPos(0, 1, 1);
         ServerComputer computer = startAt(helper, computerPos);
         helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.CABLE_BLOCK.get());
-        helper.setBlock(new BlockPos(2, 1, 0), port(Kind.BUS, Direction.SOUTH));
+        setPort(helper, new BlockPos(2, 1, 0), Kind.BUS, Direction.SOUTH);
         helper.setBlock(new BlockPos(1, 1, 1), QboticsContent.INTERFACE_BLOCK.get());
         helper.setBlock(farInput, QboticsContent.INTERFACE_BLOCK.get());
 
@@ -480,9 +482,9 @@ public final class QboticsGameTests {
         ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
         helper.setBlock(inputPos, QboticsContent.INTERFACE_BLOCK.get());
         helper.setBlock(furnacePos, Blocks.FURNACE);
-        helper.setBlock(new BlockPos(2, 1, 0), port(Kind.BUS, Direction.SOUTH));
+        setPort(helper, new BlockPos(2, 1, 0), Kind.BUS, Direction.SOUTH);
         helper.setBlock(barrelPos, Blocks.BARREL);
-        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.OUTPUT, Direction.UP));
+        setPort(helper, new BlockPos(1, 1, 1), Kind.OUTPUT, Direction.UP);
 
         InterfaceBlockEntity input = helper.getBlockEntity(inputPos, InterfaceBlockEntity.class);
         input.setFilter(0, Items.RAW_IRON);
@@ -559,7 +561,8 @@ public final class QboticsGameTests {
         };
         click.apply(chestPos, Direction.NORTH);
         BlockState withPlate = helper.getBlockState(cablePos);
-        helper.assertTrue(CableBlock.plateKind(withPlate, Direction.SOUTH) == Kind.INPUT && arm(withPlate, Direction.WEST)
+        BlockPos cableAt = helper.absolutePos(cablePos);
+        helper.assertTrue(CableBlock.plateKind(level, cableAt, Direction.SOUTH) == Kind.INPUT && arm(withPlate, Direction.WEST)
                 && !arm(withPlate, Direction.SOUTH) && player.getItemInHand(hand).getCount() == 1,
                 "the cable should carry an input pointing south at the chest, and one item be used: " + withPlate);
         PortBlockEntity host = helper.getBlockEntity(cablePos, PortBlockEntity.class);
@@ -574,7 +577,7 @@ public final class QboticsGameTests {
         click.apply(cablePos.above(), Direction.DOWN);
         BlockState withTwo = helper.getBlockState(cablePos);
         CablePort second = host.port(Direction.UP);
-        helper.assertTrue(CableBlock.plateKind(withTwo, Direction.UP) == Kind.INPUT && CableBlock.plateKind(withTwo, Direction.SOUTH) == Kind.INPUT
+        helper.assertTrue(CableBlock.plateKind(level, cableAt, Direction.UP) == Kind.INPUT && CableBlock.plateKind(level, cableAt, Direction.SOUTH) == Kind.INPUT
                 && second != null && host.ports().size() == 2 && !second.mac().equals(plate.mac())
                 && second.targetPos().equals(helper.absolutePos(cablePos.above())) && player.getItemInHand(hand).isEmpty(),
                 "the cable should carry two inputs, each its own device: " + withTwo);
@@ -585,7 +588,7 @@ public final class QboticsGameTests {
         helper.assertTrue(helper.getBlockState(chestPos.above()).isAir() && player.getItemInHand(hand).getCount() == 1, "no cable, no plate");
         player.getInventory().add(new ItemStack(QboticsContent.CABLE_BLOCK.get(), 3));
         click.apply(chestPos, Direction.UP);
-        helper.assertTrue(CableBlock.plateKind(helper.getBlockState(chestPos.above()), Direction.DOWN) == Kind.BUS && player.getItemInHand(hand).isEmpty()
+        helper.assertTrue(CableBlock.plateKind(level, helper.absolutePos(chestPos.above()), Direction.DOWN) == Kind.BUS && player.getItemInHand(hand).isEmpty()
                 && player.getInventory().countItem(QboticsContent.CABLE_BLOCK.get().asItem()) == 2,
                 "the bus should have been placed with one of the player's cables");
 
@@ -613,24 +616,24 @@ public final class QboticsGameTests {
                 && stack.getHoverName().getString().equals("ore_in")), "the drops should be the cable and both plates: " + drops);
         ItemStack taken = CableBlock.detach(level, helper.absolutePos(cablePos), Direction.SOUTH);
         helper.assertTrue(taken.getItem() instanceof qbotics.block.PlateItem && plate.isRemoved() && !second.isRemoved()
-                && CableBlock.plateKind(helper.getBlockState(cablePos), Direction.UP) == Kind.INPUT
+                && CableBlock.plateKind(level, cableAt, Direction.UP) == Kind.INPUT
                 && networkAt(helper, computerPos).devices().size() == 3, "taking one plate off should leave the other working");
         // Breaking while aiming at a plate takes off only that plate. Here a player stands west of a cable and looks east at it.
         BlockPos alonePos = new BlockPos(2, 2, 0); // inside the test's walls, with clear air to its west
-        helper.setBlock(alonePos, QboticsContent.CABLE_BLOCK.get().withPlate(Kind.OUTPUT, Direction.WEST));
+        setPort(helper, alonePos, Kind.OUTPUT, Direction.WEST);
         BlockPos aloneAt = helper.absolutePos(alonePos);
         player.snapTo(aloneAt.getX() - 1.5, aloneAt.getY() + 0.5 - player.getEyeHeight(), aloneAt.getZ() + 0.5, -90.0f, 0.0f);
         player.setYHeadRot(-90.0f);
-        helper.assertTrue(CableBlock.plateAimedAt(helper.getBlockState(alonePos), aloneAt, player) == Direction.WEST,
+        helper.assertTrue(CableBlock.plateAimedAt(level, aloneAt, player) == Direction.WEST,
                 "the player should be aiming at the west plate");
         helper.assertTrue(CableBlock.breakPlateInstead(helper.getBlockState(alonePos), level, aloneAt, player)
-                && helper.getBlockState(alonePos).getBlock() instanceof CableBlock && !CableBlock.hasPlates(helper.getBlockState(alonePos)),
+                && helper.getBlockState(alonePos).getBlock() instanceof CableBlock && !CableBlock.hasPlates(level, aloneAt),
                 "breaking at the plate should leave the cable without it");
         helper.assertTrue(!CableBlock.breakPlateInstead(helper.getBlockState(alonePos), level, aloneAt, player),
                 "with no plate aimed at, the cable itself breaks as usual");
 
         CableBlock.detach(level, helper.absolutePos(cablePos), Direction.UP);
-        helper.assertTrue(!CableBlock.hasPlates(helper.getBlockState(cablePos)) && level.getBlockEntity(helper.absolutePos(cablePos)) == null
+        helper.assertTrue(!CableBlock.hasPlates(level, cableAt) && arm(helper.getBlockState(cablePos), Direction.UP) == false
                 && networkAt(helper, computerPos).devices().size() == 2, "taking the last plate off should leave a bare cable and two devices");
         helper.succeed();
     }
@@ -746,7 +749,7 @@ public final class QboticsGameTests {
         BlockPos chestPos = new BlockPos(2, 1, 1);
         ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
         helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
-        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        setPort(helper, new BlockPos(1, 1, 1), Kind.BUS, Direction.EAST);
         helper.setBlock(chestPos, Blocks.CHEST);
         InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
         store.setFilter(0, Items.COAL);
@@ -795,7 +798,7 @@ public final class QboticsGameTests {
         BlockPos chestPos = new BlockPos(2, 1, 1);
         ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
         helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
-        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        setPort(helper, new BlockPos(1, 1, 1), Kind.BUS, Direction.EAST);
         helper.setBlock(chestPos, Blocks.CHEST);
         InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
         net.minecraft.world.Container chest = helper.getBlockEntity(chestPos, net.minecraft.world.level.block.entity.ChestBlockEntity.class);
@@ -1020,7 +1023,7 @@ public final class QboticsGameTests {
         ServerLevel level = helper.getLevel();
         ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
         helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
-        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        setPort(helper, new BlockPos(1, 1, 1), Kind.BUS, Direction.EAST);
         helper.setBlock(new BlockPos(2, 1, 1), Blocks.CRAFTING_TABLE);
         CablePort bus = helper.getBlockEntity(new BlockPos(1, 1, 1), PortBlockEntity.class).port(Direction.EAST);
         InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
@@ -1085,7 +1088,7 @@ public final class QboticsGameTests {
         helper.setBlock(new BlockPos(0, 1, 1), Blocks.GRINDSTONE);
         helper.setBlock(new BlockPos(1, 1, 2), Blocks.STONECUTTER);
         helper.setBlock(new BlockPos(1, 2, 1), Blocks.LOOM);
-        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        setPort(helper, new BlockPos(1, 1, 1), Kind.BUS, Direction.EAST);
         BlockPos cableAt = helper.absolutePos(new BlockPos(1, 1, 1));
         CableBlock.attach(level, cableAt, Kind.BUS, Direction.WEST);
         CableBlock.attach(level, cableAt, Kind.BUS, Direction.SOUTH);
@@ -1200,7 +1203,7 @@ public final class QboticsGameTests {
         helper.setBlock(new BlockPos(2, 1, 0), QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get());
         helper.setBlock(new BlockPos(0, 1, 1), QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get());
         helper.setBlock(new BlockPos(2, 1, 1), Blocks.ENCHANTING_TABLE);
-        helper.setBlock(new BlockPos(1, 1, 1), port(Kind.BUS, Direction.EAST));
+        setPort(helper, new BlockPos(1, 1, 1), Kind.BUS, Direction.EAST);
         BlockPos cableAt = helper.absolutePos(new BlockPos(1, 1, 1));
         CableBlock.attach(level, cableAt, Kind.BUS, Direction.UP);
         // Resting on the cable, so it doesn't fall.
@@ -1330,7 +1333,7 @@ public final class QboticsGameTests {
         ServerLevel level = helper.getLevel();
         helper.setBlock(computerPos, QboticsContent.COMPUTER_BLOCK.get());
         helper.setBlock(storePos, QboticsContent.INTERFACE_BLOCK.get());
-        helper.setBlock(cablePos, port(Kind.BUS, Direction.SOUTH));
+        setPort(helper, cablePos, Kind.BUS, Direction.SOUTH);
         BlockPos storeAt = helper.absolutePos(storePos);
         BlockPos cableAt = helper.absolutePos(cablePos);
 

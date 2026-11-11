@@ -58,7 +58,7 @@ public class PlateItem extends Item {
         Direction side = onCable ? face : face.getOpposite();
         BlockState there = level.getBlockState(pos);
         boolean cableThere = there.getBlock() instanceof CableBlock;
-        if (cableThere && CableBlock.plateKind(there, side) != null) {
+        if (cableThere && CableBlock.plateKind(level, pos, side) != null) {
             return fail(player, "message.qbotics.plate_taken");
         }
         if (!cableThere && !there.canBeReplaced()) {

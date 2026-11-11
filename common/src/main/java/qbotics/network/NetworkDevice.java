@@ -18,6 +18,21 @@ public interface NetworkDevice {
         Kind(String word) {
             this.word = word;
         }
+
+        /** True for the kinds that are plates on a cable. */
+        public boolean isPlate() {
+            return this == INPUT || this == OUTPUT || this == BUS;
+        }
+
+        /** The plate kind with this word, or null if there is none. */
+        public static @org.jspecify.annotations.Nullable Kind plate(String word) {
+            for (Kind kind : values()) {
+                if (kind.isPlate() && kind.word.equals(word)) {
+                    return kind;
+                }
+            }
+            return null;
+        }
     }
 
     /** Identifies this placed block. Its hardware (MAC) address is made from it. */

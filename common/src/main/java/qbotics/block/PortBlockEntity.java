@@ -18,34 +18,74 @@ import qbotics.network.AccessFace;
 import qbotics.network.Addresses;
 import qbotics.network.CableNetwork;
 import qbotics.network.Medium;
+import qbotics.network.NetworkDevice;
 
 /**
  * What a cable remembers about the plates it carries: up to six, one per side (see
  * {@link CableBlock}). Each plate is a device of its own on the network, a
- * {@link CablePort}. Only cables with at least one plate have one of these.
+ * {@link CablePort}. Every cable has one of these, most of them empty.
  *
- * <p>Which sides carry which kind of plate is in the cable's block state; this holds the
- * rest (who each plate is, its name and address). A plate the block state shows but nothing
- * was saved for is simply given a new identity.
+ * <p>This is where a cable's plates are: which sides carry which kind of plate, and who
+ * each one is (its name, address and what it carries). The block state only has the arms.
  */
 public class PortBlockEntity extends BlockEntity {
     private final Map<Direction, CablePort> ports = new EnumMap<>(Direction.class);
+    /**
+     * The kind on each side, by side number, for drawing: replaced whole whenever the plates
+     * change, so the game's drawing threads always read a finished copy.
+     */
+    private volatile NetworkDevice.@Nullable Kind[] look = new NetworkDevice.Kind[6];
 
     public PortBlockEntity(BlockPos pos, BlockState state) {
         super(QboticsContent.PORT_BLOCK_ENTITY.get(), pos, state);
-        CableNetwork.changed();
     }
 
     /** The plate on a side, or null if that side carries none. */
     public @Nullable CablePort port(Direction side) {
-        if (CableBlock.plateKind(getBlockState(), side) == null) {
-            CablePort gone = ports.remove(side);
-            if (gone != null) {
-                gone.detached = true;
-            }
-            return null;
+        return ports.get(side);
+    }
+
+    /** The kind of plate on a side, or null. */
+    public NetworkDevice.@Nullable Kind kindAt(Direction side) {
+        CablePort port = ports.get(side);
+        return port == null ? null : port.kind;
+    }
+
+    public boolean hasPlates() {
+        return !ports.isEmpty();
+    }
+
+    /** One bit for each side that carries a plate, by side number. */
+    public int plateMask() {
+        int mask = 0;
+        for (Direction side : ports.keySet()) {
+            mask |= 1 << side.get3DDataValue();
         }
-        return ports.computeIfAbsent(side, s -> new CablePort(this, s));
+        return mask;
+    }
+
+    /** The kind on each side by side number, for drawing. Never changed once handed out. */
+    public NetworkDevice.@Nullable Kind[] look() {
+        return look;
+    }
+
+    private void lookChanged() {
+        NetworkDevice.Kind[] kinds = new NetworkDevice.Kind[6];
+        for (Map.Entry<Direction, CablePort> entry : ports.entrySet()) {
+            kinds[entry.getKey().get3DDataValue()] = entry.getValue().kind;
+        }
+        look = kinds;
+    }
+
+    /** Puts a new plate on a side (which must be free) and returns it. */
+    CablePort add(Direction side, NetworkDevice.Kind kind, Medium medium) {
+        CablePort port = new CablePort(this, side);
+        port.kind = kind;
+        port.medium = medium;
+        ports.put(side, port);
+        lookChanged();
+        setChanged();
+        return port;
     }
 
     /** Every plate on this cable. */
@@ -66,13 +106,16 @@ public class PortBlockEntity extends BlockEntity {
         if (gone != null) {
             gone.detached = true;
         }
+        lookChanged();
         setChanged();
     }
 
     @Override
     public void setRemoved() {
         super.setRemoved();
-        CableNetwork.changed();
+        if (!ports.isEmpty()) {
+            CableNetwork.changed(); // its plates leave the network (an unloaded chunk, say)
+        }
     }
 
     @Override
@@ -87,6 +130,7 @@ public class PortBlockEntity extends BlockEntity {
             child.putInt("host", port.hostNumber);
             child.putString("face", port.accessFace.word());
             child.putString("medium", port.medium.word);
+            child.putString("kind", port.kind.word);
         }
     }
 
@@ -99,7 +143,12 @@ public class PortBlockEntity extends BlockEntity {
             if (child == null) {
                 continue;
             }
+            NetworkDevice.Kind kind = NetworkDevice.Kind.plate(child.getStringOr("kind", ""));
+            if (kind == null) {
+                continue; // saved before plates were kept here, or unreadable: the side is left bare
+            }
             CablePort port = new CablePort(this, side);
+            port.kind = kind;
             port.deviceId = child.read("device_id", UUIDUtil.CODEC).orElse(null);
             port.owner = child.read("owner", UUIDUtil.CODEC).orElse(null);
             port.name = Addresses.cleanName(child.getStringOr("name", ""));
@@ -108,6 +157,10 @@ public class PortBlockEntity extends BlockEntity {
             port.accessFace = face == null ? AccessFace.NEAR : face;
             port.medium = Medium.parse(child.getStringOr("medium", ""));
             ports.put(side, port);
+        }
+        lookChanged();
+        if (!ports.isEmpty()) {
+            CableNetwork.changed(); // plates coming in with a loaded chunk join the network
         }
         // In a player's game the plates' colours come from this, so the block is drawn again.
         if (level != null && level.isClientSide()) {

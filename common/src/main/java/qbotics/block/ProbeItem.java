@@ -95,7 +95,7 @@ public class ProbeItem extends Item {
      */
     public static ProbePayloads.@Nullable Info inspect(ServerLevel level, BlockPos pos, Vec3 clicked) {
         BlockState state = level.getBlockState(pos);
-        int side = state.getBlock() instanceof CableBlock ? sideNumber(CableBlock.plateAt(state, pos, clicked)) : -1;
+        int side = state.getBlock() instanceof CableBlock ? sideNumber(CableBlock.plateAt(level, pos, clicked)) : -1;
         if (state.getBlock() instanceof CableBlock && side < 0) {
             return null; // the cable itself has no address
         }
@@ -146,7 +146,7 @@ public class ProbeItem extends Item {
                 return InteractionResult.PASS;
             }
             BlockState state = level.getBlockState(pos);
-            boolean device = state.getBlock() instanceof CableBlock ? CableBlock.plateAt(state, pos, context.getClickLocation()) != null
+            boolean device = state.getBlock() instanceof CableBlock ? CableBlock.plateAt(level, pos, context.getClickLocation()) != null
                     : level.getBlockEntity(pos) instanceof NetworkDevice;
             return device ? InteractionResult.SUCCESS : InteractionResult.PASS;
         }
