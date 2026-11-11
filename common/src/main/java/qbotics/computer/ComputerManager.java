@@ -160,6 +160,24 @@ public final class ComputerManager {
             reply(playerId, request, HostFileSystem.EACCES, new byte[0]);
             return;
         }
+        if (ComputerSettings.covers(request.path())) {
+            // The settings page isn't on the drive: it is written from, and applied to, the computer itself.
+            Viewing viewing = viewers.get(playerId);
+            boolean page = request.path().equals(ComputerSettings.PATH);
+            if (!page || !(player.level().getBlockEntity(viewing.pos()) instanceof qbotics.block.ComputerBlockEntity block)) {
+                reply(playerId, request, HostFileSystem.EACCES, new byte[0]);
+            } else if (request.op() == IdePayloads.FileRequest.READ) {
+                reply(playerId, request, 0, ComputerSettings.read(player.level(), block).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } else if (request.op() == IdePayloads.FileRequest.WRITE) {
+                String problem = ComputerSettings.write(player.level(), block, new String(request.data(), java.nio.charset.StandardCharsets.UTF_8));
+                // A refusal carries its reason, which the editor shows.
+                reply(playerId, request, problem == null ? 0 : HostFileSystem.EINVAL,
+                        problem == null ? new byte[0] : problem.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } else {
+                reply(playerId, request, HostFileSystem.EACCES, new byte[0]);
+            }
+            return;
+        }
         HostFileSystem drive = computer.drive();
         FILE_WORKER.execute(() -> {
             try {

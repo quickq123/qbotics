@@ -37,6 +37,76 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
     private String name = "";
     private int hostNumber;
 
+    /** Who may log in to this computer from another one with ssh. */
+    public enum RemoteLogin {
+        /** Only computers of this computer's owner. How every computer starts. */
+        OWNER("owner"),
+        /** The owner's computers, and anyone who gives the password. */
+        PASSWORD("password"),
+        OFF("off");
+
+        public final String word;
+
+        RemoteLogin(String word) {
+            this.word = word;
+        }
+
+        public static @Nullable RemoteLogin parse(String word) {
+            for (RemoteLogin login : values()) {
+                if (login.word.equals(word)) {
+                    return login;
+                }
+            }
+            return null;
+        }
+    }
+
+    private RemoteLogin remoteLogin = RemoteLogin.OWNER;
+    /** The password is not kept: only a scrambled form that a guess can be checked against. Empty for none. */
+    private String passwordHash = "";
+    private String passwordSalt = "";
+
+    public RemoteLogin remoteLogin() {
+        return remoteLogin;
+    }
+
+    public void setRemoteLogin(RemoteLogin login) {
+        remoteLogin = login;
+        setChanged();
+    }
+
+    public boolean hasPassword() {
+        return !passwordHash.isEmpty();
+    }
+
+    /** Sets the password; an empty one removes it. */
+    public void setPassword(String password) {
+        if (password.isEmpty()) {
+            passwordHash = "";
+            passwordSalt = "";
+        } else {
+            passwordSalt = UUID.randomUUID().toString();
+            passwordHash = scramble(passwordSalt, password);
+        }
+        setChanged();
+    }
+
+    public boolean checkPassword(String guess) {
+        return hasPassword() && java.security.MessageDigest.isEqual(
+                passwordHash.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                scramble(passwordSalt, guess).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private static String scramble(String salt, String password) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest((salt + ":" + password).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     public ComputerBlockEntity(BlockPos pos, BlockState state) {
         super(QboticsContent.COMPUTER_BLOCK_ENTITY.get(), pos, state);
         CableNetwork.changed();
@@ -128,6 +198,9 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
         output.storeNullable("drive_id", UUIDUtil.CODEC, driveId);
         output.putString("name", name);
         output.putInt("host", hostNumber);
+        output.putString("remote_login", remoteLogin.word);
+        output.putString("password_hash", passwordHash);
+        output.putString("password_salt", passwordSalt);
     }
 
     // The drive ID moves between the block and its item as a data component.
@@ -167,5 +240,9 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice {
         driveId = input.read("drive_id", UUIDUtil.CODEC).orElse(null);
         name = Addresses.cleanName(input.getStringOr("name", ""));
         hostNumber = input.getIntOr("host", 0);
+        RemoteLogin saved = RemoteLogin.parse(input.getStringOr("remote_login", ""));
+        remoteLogin = saved == null ? RemoteLogin.OWNER : saved;
+        passwordHash = input.getStringOr("password_hash", "");
+        passwordSalt = input.getStringOr("password_salt", "");
     }
 }

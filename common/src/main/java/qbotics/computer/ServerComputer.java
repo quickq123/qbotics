@@ -406,6 +406,7 @@ public final class ServerComputer {
             "Python:  run <file.py>      run a program (python <file.py> also works)",
             "         python             the Python prompt; exit() comes back here",
             "Editor:  edit <file>        open a file in the editor",
+            "         settings           this computer's name, remote login and antenna",
             "Network: devices            list the blocks cabled to this computer",
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
             "Other:   clear   help       Ctrl+C stops a running program",
@@ -447,6 +448,7 @@ public final class ServerComputer {
                 case "cp" -> drive.call(HostFileSystem.WRITE, intoFolder(path(args, 1, name), args.get(0)),
                         drive.call(HostFileSystem.READ, path(args, 0, name), new byte[0]));
                 case "edit" -> listener.openInEditor(deviceId, path(args, 0, name));
+                case "settings" -> listener.openInEditor(deviceId, ComputerSettings.PATH);
                 case "run" -> runFile(computer, path(args, 0, name));
                 case "devices", "ifconfig" -> runPython(computer,
                         "import logistics\nlogistics._print_devices(" + (args.isEmpty() ? "" : pyString(args.getFirst())) + ")");

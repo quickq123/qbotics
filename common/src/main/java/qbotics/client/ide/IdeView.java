@@ -12,6 +12,7 @@ import qbotics.client.ide.IdeSession.Focus;
 import qbotics.client.ide.IdeSession.Node;
 import qbotics.client.ide.IdeSession.Tab;
 import qbotics.client.ide.Ui.Rect;
+import qbotics.computer.ComputerSettings;
 import qbotics.computer.ServerComputer;
 import qbotics.computer.Terminal;
 import qbotics.engine.HostFileSystem;
@@ -243,7 +244,11 @@ final class IdeView {
     private void drawTitleBar(Ui ui) {
         ui.fill(0, 0, viewWidth, TITLE_H, Ui.BAR_BG);
         ui.text("QBOTICS", 6, 4, Ui.TEXT_BRIGHT);
-        ui.text("Computer", 6 + ui.textWidth("QBOTICS") + 6, 4, Ui.TEXT_DIM);
+        int computerX = 6 + ui.textWidth("QBOTICS") + 6;
+        ui.text("Computer", computerX, 4, Ui.TEXT_DIM);
+        // This computer's settings page opens in the editor, like any other file.
+        button(ui, computerX + ui.textWidth("Computer") + 8, 1, TITLE_H - 2, "Settings", false, true, Ui.BAR_BG,
+                () -> openFile(ComputerSettings.PATH));
 
         Tab tab = session.active();
         boolean hasFile = tab != null && tab.view != null;
@@ -599,12 +604,24 @@ final class IdeView {
         long version = buffer.version();
         backend.file(FileRequest.WRITE, tab.path, bytes, (errno, data) -> {
             if (errno != 0) {
-                toast("Could not save: " + describe(errno, tab.path), true);
+                // The settings page says in words what was wrong with it.
+                toast("Could not save: " + (data.length > 0 ? new String(data, StandardCharsets.UTF_8) : describe(errno, tab.path)), true);
                 return;
             }
             buffer.markSaved(version);
-            toast("Saved " + tab.path, false);
-            loadFolder(Paths.parent(tab.path));
+            if (tab.path.equals(ComputerSettings.PATH)) {
+                // Show the settings as the computer now has them (a new password is hidden again).
+                toast("Settings saved.", false);
+                backend.file(FileRequest.READ, tab.path, new byte[0], (readErrno, fresh) -> {
+                    if (readErrno == 0 && tab.view != null && !tab.view.buffer.isDirty()) {
+                        tab.view.buffer.replaceAll(new String(fresh, StandardCharsets.UTF_8).stripTrailing());
+                        tab.view.buffer.markSaved();
+                    }
+                });
+            } else {
+                toast("Saved " + tab.path, false);
+                loadFolder(Paths.parent(tab.path));
+            }
             if (afterwards != null) {
                 afterwards.run();
             }

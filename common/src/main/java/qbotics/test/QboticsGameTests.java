@@ -64,6 +64,7 @@ public final class QboticsGameTests {
             Map.entry("fluid_and_energy", QboticsGameTests::fluidAndEnergy),
             Map.entry("slots_and_faces", QboticsGameTests::slotsAndFaces),
             Map.entry("name_filters", QboticsGameTests::nameFilters),
+            Map.entry("computer_settings", QboticsGameTests::computerSettings),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -823,6 +824,42 @@ public final class QboticsGameTests {
             helper.assertTrue(store.canPlaceItem(0, new ItemStack(Blocks.SPRUCE_LOG)) && !store.canPlaceItem(0, new ItemStack(Items.COAL))
                     && store.canPlaceItem(3, new ItemStack(Items.CHARCOAL)), "slot filters should follow the tag and the alternatives");
         });
+    }
+
+    /** The settings page: what it shows, what saving changes, and what it refuses. */
+    private static void computerSettings(GameTestHelper helper) {
+        BlockPos computerPos = new BlockPos(0, 1, 0);
+        ServerLevel level = helper.getLevel();
+        helper.setBlock(computerPos, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity computer = helper.getBlockEntity(computerPos, ComputerBlockEntity.class);
+        String page = qbotics.computer.ComputerSettings.read(level, computer);
+        helper.assertTrue(page.contains("\"allow\": \"owner\"") && page.contains("\"password\": \"\"") && page.contains("_antenna")
+                && page.contains("192.168.1."), "a new computer's settings page was:\n" + page);
+
+        // With an antenna the page shows it too; saving changes the computer and the antenna.
+        helper.setBlock(computerPos.above(), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        AntennaBlockEntity antenna = helper.getBlockEntity(computerPos.above(), AntennaBlockEntity.class);
+        String edited = qbotics.computer.ComputerSettings.read(level, computer)
+                .replace("\"name\": \"\"", "\"name\": \"base camp\"")
+                .replace("\"allow\": \"owner\"", "\"allow\": \"password\"")
+                .replace("\"password\": \"\"", "\"password\": \"open sesame\"")
+                .replace("\"access\": \"private\"", "\"access\": \"public\"")
+                .replace("\"frequency\": \"1\"", "\"frequency\": \"mine ops\"");
+        helper.assertTrue(qbotics.computer.ComputerSettings.write(level, computer, edited) == null, "the edited page should save");
+        helper.assertTrue(computer.deviceName().equals("base_camp") && computer.remoteLogin() == ComputerBlockEntity.RemoteLogin.PASSWORD
+                && computer.checkPassword("open sesame") && !computer.checkPassword("open sesame!")
+                && antenna.access() == RadioNetwork.Access.PUBLIC && antenna.frequency().equals("mine_ops"), "saving should apply every setting");
+        String saved = qbotics.computer.ComputerSettings.read(level, computer);
+        helper.assertTrue(saved.contains("\"password\": \"********\"") && !saved.contains("sesame"), "the password must never be shown:\n" + saved);
+        // Saving the page untouched keeps the password; emptying it while passwords are required is refused.
+        helper.assertTrue(qbotics.computer.ComputerSettings.write(level, computer, saved) == null && computer.checkPassword("open sesame"),
+                "saving the page as shown should keep the password");
+        String problem = qbotics.computer.ComputerSettings.write(level, computer, saved.replace("\"password\": \"********\"", "\"password\": \"\""));
+        helper.assertTrue(problem != null && problem.contains("set a password") && computer.hasPassword(), "refused, but said: " + problem);
+        helper.assertTrue(qbotics.computer.ComputerSettings.write(level, computer, saved.replace("\"public\"", "\"everyone\"")).contains("private")
+                && antenna.access() == RadioNetwork.Access.PUBLIC, "a wrong access word should be explained and change nothing");
+        helper.assertTrue(qbotics.computer.ComputerSettings.write(level, computer, "{ not json").contains("valid JSON"), "broken JSON should be refused");
+        helper.succeed();
     }
 
     /** The Network Probe reads any device's name and addresses, picks out one plate on a cable, and renames. */
