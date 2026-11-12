@@ -683,6 +683,10 @@ asyncio.run(main())
 > page), and Mustache-style sections in the state template (`{{#list}}`, `{{^list}}`, `{{.}}`). Not yet: flex `gap`,
 > select/textarea/checkbox, typing in the world.
 >
+> **Control Panel additions (built 2026-11-12):** themes (dark, light, industrial, blueprint, terminal; `panel.theme`),
+> and widgets: dial (270-degree knob, set by clicking around it), number (- value +, by step), item display (the item
+> renderer draws the icon on the panel and in the close-up; a click is a press).
+>
 > **Limits (decided 2026-11-12: "limit by what could be abused to lag the server or cause problems"):** Web Panels in use
 > per player (`web_panels_per_player`, 16; checked when a program opens one, among loaded screens; no bricking); a
 > page resent at most once a second per screen (state still 10/s); each client runs only the 8 nearest scripted panels'

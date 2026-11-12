@@ -227,9 +227,38 @@ def _spec(fields):
     return spec
 
 
+THEMES = ("dark", "light", "industrial", "blueprint", "terminal")
+
+
 class Panel(_Display):
     """A Control Panel: widgets on a grid of cells, four to a block each way. at=(x, y) is a
-    widget's top-left cell (0, 0 is the panel's top left) and span=(w, h) its size in cells."""
+    widget's top-left cell (0, 0 is the panel's top left) and span=(w, h) its size in cells.
+    panel.theme sets its look: one of display.THEMES."""
+
+    @property
+    def theme(self):
+        return _draw(self, "theme", None)
+
+    @theme.setter
+    def theme(self, name):
+        _draw(self, "theme", name)
+
+    def dial(self, label, min=0, max=100, at=(0, 0), span=(2, 2), value=None, step=1, unit="", color=None):
+        """A round knob from min to max: players click around it to turn it. .value reads or
+        sets it; on_change runs when a player turns it."""
+        return self._add("dial", label=label, min=min, max=max, at=at, span=span,
+                         value=min if value is None else value, step=step, unit=unit, color=color)
+
+    def number(self, label, min=0, max=100, at=(0, 0), span=(3, 1), value=0, step=1, unit="", color=None):
+        """A number with - and + either side: each click takes a step off or adds one. .value
+        reads or sets it; on_change runs when a player changes it."""
+        return self._add("number", label=label, min=min, max=max, at=at, span=span, value=value, step=step,
+                         unit=unit, color=color)
+
+    def item(self, label, item, at=(0, 0), span=(2, 2), count=0, color=None):
+        """An item's picture, with a label and a count (.value; 0 shows none). Change the item
+        with .set(item="minecraft:coal"). on_press runs when a player clicks it."""
+        return self._add("item", label=label, item=item, at=at, span=span, value=count, color=color)
 
     def clear(self):
         """Takes every widget off the panel."""

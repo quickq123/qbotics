@@ -129,6 +129,20 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
                 buffer.addVertex(pose, f.x1(), f.y0(), f.z()).setColor(f.color()).setLight(FULL_BRIGHT);
             }
         });
+        // Item displays: the item renderer, flat on the face.
+        for (WorldCanvas.Item item : canvas.items) {
+            net.minecraft.world.item.ItemStack stack = WebItems.stack(item.id());
+            if (stack.isEmpty()) {
+                continue;
+            }
+            var render = new net.minecraft.client.renderer.item.ItemStackRenderState();
+            items.updateForTopItem(render, stack, net.minecraft.world.item.ItemDisplayContext.GUI, net.minecraft.client.Minecraft.getInstance().level, null, 0);
+            poseStack.pushPose();
+            poseStack.translate(item.x() + item.size() / 2f, item.y() + item.size() / 2f, canvas.layer + 0.3f);
+            poseStack.scale(item.size(), -item.size(), item.size() * 0.02f);
+            render.submit(poseStack, collector, FULL_BRIGHT, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, 0);
+            poseStack.popPose();
+        }
         float textZ = canvas.layer + 0.1f;
         for (WorldCanvas.Text t : canvas.texts) {
             poseStack.pushPose();
@@ -183,6 +197,16 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         }
 
         record Fill(float x0, float y0, float x1, float y1, float z, int color) {
+        }
+
+        record Item(String id, int x, int y, int size) {
+        }
+
+        final List<Item> items = new ArrayList<>();
+
+        @Override
+        public void item(String id, int x, int y, int size) {
+            items.add(new Item(id, x, y, size));
         }
 
         final Font font;

@@ -171,5 +171,17 @@ public class CloseUpScreen extends Screen {
         public int width(String text) {
             return font.width(text);
         }
+
+        @Override
+        public void item(String id, int x, int y, int size) {
+            net.minecraft.world.item.ItemStack stack = WebItems.stack(id);
+            if (!stack.isEmpty()) {
+                graphics.pose().pushMatrix();
+                graphics.pose().translate(x, y);
+                graphics.pose().scale(size / 16f, size / 16f);
+                graphics.item(stack, 0, 0);
+                graphics.pose().popMatrix();
+            }
+        }
     }
 }

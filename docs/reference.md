@@ -1261,6 +1261,9 @@ later is drawn over one placed before.
 | Label | `panel.label(text, at, span=(4, 1), color=None)` | Text. Two or more cells high, short text is drawn large |
 | Readout | `panel.readout(label, at, span=(2, 2), value=0, unit="", color=None)` | `.value`, shown as a number |
 | Graph | `panel.graph(label, at, span=(4, 2), min=0, max=0, unit="", color=None)` | `graph.add(value)` adds a point; it shows the last 60. With `min` and `max` equal, it scales itself |
+| Dial | `panel.dial(label, min=0, max=100, at, span=(2, 2), value=None, step=1, unit="", color=None)` | `.value`: a round knob from bottom left (min) clockwise to bottom right (max); players click around it to turn it |
+| Number | `panel.number(label, min=0, max=100, at, span=(3, 1), value=0, step=1, unit="", color=None)` | `.value`, with - and + either side: each click takes a step off or adds one. Its label shows when it is two cells tall |
+| Item | `panel.item(label, item, at, span=(2, 2), count=0, color=None)` | An item's picture (`"minecraft:coal"` or `"coal"`), with its label and a count (`.value`; 0 shows none). `.set(item="...")` changes it; `on_press` runs when a player clicks it |
 
 Every widget has:
 
@@ -1273,6 +1276,10 @@ Every widget has:
 | `widget.remove()` | Takes it off the panel |
 | `widget.on_press(function)` | For a button: runs the function when a player presses it. It gets `.player` |
 | `widget.on_change(function)` | For a toggle or a slider: runs the function when a player changes it. It gets `.value` and `.player` |
+
+**Themes.** `panel.theme = "light"` changes the panel's look: `"dark"` (the default), `"light"`,
+`"industrial"` (yellow on charcoal), `"blueprint"` (white on blue) or `"terminal"` (green on
+black); `display.THEMES` lists them. Widgets' own `color=` still applies.
 
 And the panel: `panel.clear()` takes every widget off; `panel.size()` is `(columns, rows)`;
 `panel.on_touch(function)` runs for every press and change on it (the event has `.widget`, the

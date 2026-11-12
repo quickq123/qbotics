@@ -43,11 +43,12 @@ public final class ClientDisplays {
 
     /** One widget on a Control Panel, as the server described it. */
     public record Widget(int id, String type, String label, int x, int y, int w, int h, int color,
-            double min, double max, double value, String unit, int presses, double[] history) {
+            double min, double max, double value, String unit, int presses, double[] history, String item) {
     }
 
     /** A Control Panel's screen. */
     public static final class PanelView {
+        public String theme = "dark";
         public int cols;
         public int rows;
         public List<Widget> widgets = List.of();
@@ -109,6 +110,7 @@ public final class ClientDisplays {
             JsonObject state = JsonParser.parseString(payload.json()).getAsJsonObject();
             view.cols = state.get("cols").getAsInt();
             view.rows = state.get("rows").getAsInt();
+            view.theme = state.has("theme") ? state.get("theme").getAsString() : "dark";
             List<Widget> widgets = new ArrayList<>();
             for (JsonElement element : state.getAsJsonArray("widgets")) {
                 JsonObject w = element.getAsJsonObject();
@@ -123,7 +125,7 @@ public final class ClientDisplays {
                 Widget widget = new Widget(w.get("id").getAsInt(), w.get("type").getAsString(), w.get("label").getAsString(),
                         w.get("x").getAsInt(), w.get("y").getAsInt(), w.get("w").getAsInt(), w.get("h").getAsInt(), w.get("color").getAsInt(),
                         w.get("min").getAsDouble(), w.get("max").getAsDouble(), w.get("value").getAsDouble(), w.get("unit").getAsString(),
-                        w.get("presses").getAsInt(), history);
+                        w.get("presses").getAsInt(), history, w.has("item") ? w.get("item").getAsString() : "");
                 long[] seen = view.flashes.get(widget.id());
                 if (seen == null) {
                     view.flashes.put(widget.id(), new long[] {widget.presses(), 0});

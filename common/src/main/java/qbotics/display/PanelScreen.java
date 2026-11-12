@@ -19,7 +19,10 @@ public final class PanelScreen extends ScreenContent {
     public static final int CELLS_PER_BLOCK = 4;
     public static final int MAX_WIDGETS = 128;
     public static final int GRAPH_POINTS = 60;
-    public static final Set<String> TYPES = Set.of("button", "toggle", "slider", "gauge", "lamp", "label", "readout", "graph");
+    public static final Set<String> TYPES = Set.of("button", "toggle", "slider", "gauge", "lamp", "label", "readout", "graph",
+            "dial", "number", "item");
+    /** The looks a panel can have. */
+    public static final java.util.List<String> THEMES = java.util.List.of("dark", "light", "industrial", "blueprint", "terminal");
 
     /** One widget. Values are doubles; a toggle or a lamp is on at 1. */
     static final class Widget {
@@ -36,6 +39,8 @@ public final class PanelScreen extends ScreenContent {
         double step;
         double value;
         String unit = "";
+        /** For an item display: the item shown ("minecraft:coal"). */
+        String item = "";
         List<Double> history = new ArrayList<>();
         /** Goes up with each press, so players' games can flash the button. */
         int presses;
@@ -60,6 +65,9 @@ public final class PanelScreen extends ScreenContent {
             json.addProperty("value", value);
             json.addProperty("unit", unit);
             json.addProperty("presses", presses);
+            if (!item.isEmpty()) {
+                json.addProperty("item", item);
+            }
             if (type.equals("graph")) {
                 JsonArray points = new JsonArray();
                 history.forEach(points::add);
@@ -73,6 +81,7 @@ public final class PanelScreen extends ScreenContent {
     private int nextId = 1;
     private int cols = CELLS_PER_BLOCK;
     private int rows = CELLS_PER_BLOCK;
+    private String theme = "dark";
 
     @Override
     protected void relayout() {
@@ -93,6 +102,7 @@ public final class PanelScreen extends ScreenContent {
         JsonObject state = new JsonObject();
         state.addProperty("cols", cols);
         state.addProperty("rows", rows);
+        state.addProperty("theme", theme);
         JsonArray list = new JsonArray();
         widgets.values().forEach(widget -> list.add(widget.toJson()));
         state.add("widgets", list);
@@ -123,6 +133,13 @@ public final class PanelScreen extends ScreenContent {
                 case "max" -> widget.max = value.getAsDouble();
                 case "step" -> widget.step = Math.max(0, value.getAsDouble());
                 case "unit" -> widget.unit = printable(value.isJsonNull() ? "" : value.getAsString()).replace('\n', ' ');
+                case "item" -> {
+                    String id = value.isJsonNull() ? "" : value.getAsString().strip();
+                    if (id.length() > 100) {
+                        throw new IllegalArgumentException("That item name is too long.");
+                    }
+                    widget.item = id.isEmpty() || id.contains(":") ? id : "minecraft:" + id;
+                }
                 case "value" -> setValue(widget, value);
                 case "type" -> {
                 }
@@ -132,7 +149,7 @@ public final class PanelScreen extends ScreenContent {
         if (widget.max < widget.min) {
             throw new IllegalArgumentException("A widget's max (" + widget.max + ") is below its min (" + widget.min + ").");
         }
-        if (widget.type.equals("slider")) {
+        if (widget.type.equals("slider") || widget.type.equals("dial") || widget.type.equals("number")) {
             widget.value = snap(widget, widget.value);
         }
     }
@@ -179,6 +196,17 @@ public final class PanelScreen extends ScreenContent {
                 return size;
             }
             case "clear" -> widgets.clear();
+            case "theme" -> {
+                JsonElement name = arg(args, 0);
+                if (name == null || name.isJsonNull()) {
+                    return new JsonPrimitive(theme);
+                }
+                String wanted = name.getAsString().toLowerCase(java.util.Locale.ROOT);
+                if (!THEMES.contains(wanted)) {
+                    throw new IllegalArgumentException("There is no theme called " + name.getAsString() + ". The themes are: " + String.join(", ", THEMES) + ".");
+                }
+                theme = wanted;
+            }
             case "add" -> {
                 JsonElement specElement = arg(args, 0);
                 if (specElement == null || !specElement.isJsonObject()) {
@@ -196,6 +224,9 @@ public final class PanelScreen extends ScreenContent {
                 widget.type = type;
                 if (type.equals("toggle") || type.equals("lamp")) {
                     widget.max = 1;
+                }
+                if (type.equals("number")) {
+                    widget.step = 1;
                 }
                 apply(widget, spec);
                 widget.id = nextId++;
@@ -239,9 +270,41 @@ public final class PanelScreen extends ScreenContent {
         event.addProperty("widget", hit.id);
         event.addProperty("label", hit.label);
         switch (hit.type) {
-            case "button" -> {
+            case "button", "item" -> {
                 hit.presses++;
                 event.addProperty("event", "press");
+            }
+            case "dial" -> {
+                // Round from bottom left (min) clockwise to bottom right (max): 270 degrees.
+                double cx = hit.x + hit.w / 2.0;
+                double cy = hit.y + hit.h / 2.0;
+                double angle = Math.toDegrees(Math.atan2(-(gy - cy), gx - cx));
+                double turned = 225 - angle;
+                turned = ((turned % 360) + 360) % 360;
+                if (turned > 270) {
+                    turned = turned > 315 ? 0 : 270; // in the gap at the bottom: the nearer end
+                }
+                double before = hit.value;
+                hit.value = snap(hit, hit.min + turned / 270 * (hit.max - hit.min));
+                if (hit.value == before) {
+                    return null;
+                }
+                event.addProperty("event", "change");
+            }
+            case "number" -> {
+                // The left third takes a step off, the right third adds one.
+                double along = (gx - hit.x) / hit.w;
+                double step = hit.step > 0 ? hit.step : 1;
+                double before = hit.value;
+                if (along < 1 / 3.0) {
+                    hit.value = snap(hit, hit.value - step);
+                } else if (along > 2 / 3.0) {
+                    hit.value = snap(hit, hit.value + step);
+                }
+                if (hit.value == before) {
+                    return null;
+                }
+                event.addProperty("event", "change");
             }
             case "toggle" -> {
                 hit.value = hit.value != 0 ? 0 : 1;
@@ -296,12 +359,14 @@ public final class PanelScreen extends ScreenContent {
                 widget.step = json.get("step").getAsDouble();
                 widget.value = json.get("value").getAsDouble();
                 widget.unit = json.get("unit").getAsString();
+                widget.item = json.has("item") ? json.get("item").getAsString() : "";
                 if (json.has("history")) {
                     json.getAsJsonArray("history").forEach(point -> widget.history.add(point.getAsDouble()));
                 }
                 widgets.put(widget.id, widget);
             }
         }
+        theme = saved.has("theme") && THEMES.contains(saved.get("theme").getAsString()) ? saved.get("theme").getAsString() : "dark";
         nextId = saved.has("next_id") ? saved.get("next_id").getAsInt() : widgets.keySet().stream().mapToInt(i -> i + 1).max().orElse(1);
         version++;
     }

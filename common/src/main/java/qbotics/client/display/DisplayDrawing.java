@@ -13,15 +13,40 @@ public final class DisplayDrawing {
     /** A control panel's grid cell. */
     public static final int CELL = 32;
 
-    public static final int PANEL_BG = 0xFF1B1F24;
-    private static final int WIDGET_BG = 0xFF262B33;
-    private static final int TRACK = 0xFF11141A;
-    private static final int TEXT = 0xFFE8E8E8;
-    private static final int TEXT_DIM = 0xFF9AA3AE;
-    private static final int BLUE = 0xFF3A6EA5;
-    private static final int GREEN = 0xFF4CAF50;
-    private static final int RED = 0xFFE04848;
-    private static final int CYAN = 0xFF4CC3D9;
+    /** A Control Panel's look: its background, widgets' background, tracks, text and accents. */
+    public record Theme(int panel, int widget, int track, int text, int dim, int blue, int green, int red, int cyan) {
+    }
+
+    public static final java.util.Map<String, Theme> THEMES = java.util.Map.of(
+            "dark", new Theme(0xFF1B1F24, 0xFF262B33, 0xFF11141A, 0xFFE8E8E8, 0xFF9AA3AE, 0xFF3A6EA5, 0xFF4CAF50, 0xFFE04848, 0xFF4CC3D9),
+            "light", new Theme(0xFFE9ECEF, 0xFFFFFFFF, 0xFFCED4DA, 0xFF212529, 0xFF6C757D, 0xFF1C7ED6, 0xFF2F9E44, 0xFFE03131, 0xFF1098AD),
+            "industrial", new Theme(0xFF2B2B2B, 0xFF3A3A3A, 0xFF1A1A1A, 0xFFF2F2F2, 0xFFC9B26B, 0xFFE0A800, 0xFF8BC34A, 0xFFFF5722, 0xFFFFC107),
+            "blueprint", new Theme(0xFF0B3D91, 0xFF0E4AAE, 0xFF082F70, 0xFFFFFFFF, 0xFFA9C7F5, 0xFF5AA9FF, 0xFF7CF2D3, 0xFFFF8A80, 0xFF9AE6FF),
+            "terminal", new Theme(0xFF050805, 0xFF0B140B, 0xFF000000, 0xFF33FF66, 0xFF1E9E3E, 0xFF33FF66, 0xFF33FF66, 0xFFFF4040, 0xFF66FFCC));
+
+    // The colours drawing uses now: set from the panel's theme as each panel is drawn (render thread only).
+    public static int PANEL_BG = 0xFF1B1F24;
+    private static int WIDGET_BG = 0xFF262B33;
+    private static int TRACK = 0xFF11141A;
+    private static int TEXT = 0xFFE8E8E8;
+    private static int TEXT_DIM = 0xFF9AA3AE;
+    private static int BLUE = 0xFF3A6EA5;
+    private static int GREEN = 0xFF4CAF50;
+    private static int RED = 0xFFE04848;
+    private static int CYAN = 0xFF4CC3D9;
+
+    private static void use(String name) {
+        Theme t = THEMES.getOrDefault(name, THEMES.get("dark"));
+        PANEL_BG = t.panel();
+        WIDGET_BG = t.widget();
+        TRACK = t.track();
+        TEXT = t.text();
+        TEXT_DIM = t.dim();
+        BLUE = t.blue();
+        GREEN = t.green();
+        RED = t.red();
+        CYAN = t.cyan();
+    }
 
     private DisplayDrawing() {
     }
@@ -34,6 +59,10 @@ public final class DisplayDrawing {
         void text(String text, float x, float y, int argb, float size);
 
         int width(String text);
+
+        /** An item's icon, size x size, top left at (x, y). Canvases that can't draw items skip it. */
+        default void item(String id, int x, int y, int size) {
+        }
     }
 
     public static int textWidth(ClientDisplays.TextView view) {
@@ -84,6 +113,7 @@ public final class DisplayDrawing {
     // ---- control panel ---------------------------------------------------------------------
 
     public static void drawPanel(Canvas canvas, ClientDisplays.PanelView view) {
+        use(view.theme);
         canvas.fill(0, 0, panelWidth(view), panelHeight(view), PANEL_BG);
         for (ClientDisplays.Widget widget : view.widgets) {
             if (widget.x() < 0 || widget.y() < 0 || widget.x() >= view.cols || widget.y() >= view.rows) {
@@ -233,6 +263,64 @@ public final class DisplayDrawing {
                     c.fill(lx + 2, ly + 2, lx + size / 2, ly + size / 2, lighter(color));
                 }
                 c.text(fit(c, w.label(), x1 - (lx + size + 4), 1), lx + size + 4, midY, on ? TEXT : TEXT_DIM, 1);
+            }
+            case "dial" -> {
+                c.fill(x0, y0, x1, y1, WIDGET_BG);
+                centered(c, w.label(), x0, x1, y0 + 2, TEXT_DIM, 1);
+                centered(c, withUnit(w), x0, x1, y1 - 10, TEXT, 1);
+                float cx = (x0 + x1) / 2f;
+                float cy = (y0 + y1) / 2f + 1;
+                float r = Math.max(4, Math.min(width, height) / 2f - 13);
+                double f = fraction(w, w.value());
+                int color = accent(w, BLUE);
+                int dots = Math.max(12, (int) (r * 1.6));
+                for (int i = 0; i <= dots; i++) {
+                    double t = i / (double) dots;
+                    double a = Math.toRadians(225 - 270 * t);
+                    int dx = (int) Math.round(cx + r * Math.cos(a));
+                    int dy = (int) Math.round(cy - r * Math.sin(a));
+                    c.fill(dx - 1, dy - 1, dx + 2, dy + 2, t <= f ? color : TRACK);
+                }
+                double a = Math.toRadians(225 - 270 * f);
+                for (int i = 0; i < 6; i++) {
+                    float k = r * (0.15f + 0.13f * i);
+                    int dx = (int) Math.round(cx + k * Math.cos(a));
+                    int dy = (int) Math.round(cy - k * Math.sin(a));
+                    c.fill(dx - 1, dy - 1, dx + 1, dy + 1, TEXT);
+                }
+            }
+            case "number" -> {
+                c.fill(x0, y0, x1, y1, WIDGET_BG);
+                int top = y0;
+                if (height >= 40) {
+                    centered(c, w.label(), x0, x1, y0 + 2, TEXT_DIM, 1);
+                    top = y0 + 12;
+                }
+                int third = width / 3;
+                int color = accent(w, BLUE);
+                c.fill(x0 + 2, top + 2, x0 + third - 2, y1 - 2, color);
+                c.fill(x1 - third + 2, top + 2, x1 - 2, y1 - 2, color);
+                float my = (top + y1) / 2f - 4;
+                centered(c, "-", x0, x0 + third, my, TEXT, 1);
+                centered(c, "+", x1 - third, x1, my, TEXT, 1);
+                centered(c, withUnit(w), x0 + third, x1 - third, my, TEXT, 1);
+            }
+            case "item" -> {
+                c.fill(x0, y0, x1, y1, WIDGET_BG);
+                int labelRoom = w.label().isEmpty() ? 0 : 11;
+                int size = Math.max(8, Math.min(Math.min(width - 6, height - 6 - labelRoom), 48));
+                int ix = (x0 + x1 - size) / 2;
+                int iy = y0 + 3;
+                if (!w.item().isEmpty()) {
+                    c.item(w.item(), ix, iy, size);
+                }
+                if (w.value() != 0) {
+                    String count = number(w.value());
+                    c.text(count, ix + size - c.width(count) + 1, iy + size - 8, TEXT, 1);
+                }
+                if (labelRoom > 0) {
+                    centered(c, w.label(), x0, x1, y1 - 10, view.flashing(w) ? accent(w, BLUE) : TEXT_DIM, 1);
+                }
             }
             case "label" -> {
                 float size = height >= 30 && c.width(w.label()) * 2 <= width ? 2 : 1;

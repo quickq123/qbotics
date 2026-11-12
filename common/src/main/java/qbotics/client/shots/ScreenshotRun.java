@@ -433,6 +433,8 @@ public final class ScreenshotRun {
         then(20, minecraft -> onServer(minecraft, ScreenshotRun::buildDisplays));
         view("17-displays", new Vec3(22.5, 1.6, 5.2), new Vec3(22.5, 1.0, 0.5));
         view("17b-control-panel", new Vec3(25.0, 1.4, 2.6), new Vec3(25.0, 1.0, 0.5));
+        then(5, minecraft -> onServer(minecraft, ScreenshotRun::buildThemedPanel));
+        view("17c-themed-panel", new Vec3(28.0, 1.4, 2.6), new Vec3(28.0, 1.0, 0.5));
         then(10, minecraft -> {
             minecraft.options.hideGui = false;
             onServer(minecraft, player -> {
@@ -642,6 +644,7 @@ public final class ScreenshotRun {
             }
             for (int x = 0; x < 2; x++) {
                 level.setBlock(base.offset(24 + x, y, 0), panel, Block.UPDATE_ALL);
+                level.setBlock(base.offset(27 + x, y, 0), panel, Block.UPDATE_ALL);
             }
         }
         // Facing south, a screen's right is east: the top-left blocks are the westmost of the top row.
@@ -679,6 +682,22 @@ public final class ScreenshotRun {
                 point.addProperty("value", 50 + 30 * Math.sin(i / 6.0) + (i % 7) * 2);
                 draw(c, "set", 8, point);
             }
+        }
+    }
+
+    /** A second Control Panel: a theme, and the dial, number and item widgets. */
+    private static void buildThemedPanel(ServerPlayer player) {
+        if (player.level().getBlockEntity(base.offset(27, 1, 0)) instanceof qbotics.block.DisplayBlockEntity themed && themed.content() != null) {
+            var c = themed.content();
+            draw(c, "clear");
+            draw(c, "theme", "industrial");
+            draw(c, "add", widget("label", "Smeltery", 0, 0, 8, 1));
+            draw(c, "add", widget("dial", "Heat", 0, 1, 3, 3, "min", 0, "max", 100, "value", 70, "unit", "%"));
+            draw(c, "add", widget("number", "Batch", 3, 1, 5, 1, "min", 1, "max", 64, "value", 16));
+            draw(c, "add", widget("item", "Iron", 3, 2, 2, 2, "item", "minecraft:iron_ingot", "value", 128));
+            draw(c, "add", widget("item", "Coal", 5, 2, 2, 2, "item", "minecraft:coal_block", "value", 40));
+            draw(c, "add", widget("button", "Start", 0, 5, 4, 1, "color", "green"));
+            draw(c, "add", widget("gauge", "Fuel", 0, 6, 8, 1, "min", 0, "max", 100, "value", 35));
         }
     }
 

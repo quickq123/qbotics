@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -72,6 +72,7 @@ public final class QboticsGameTests {
             Map.entry("web_layout", QboticsGameTests::webLayout),
             Map.entry("web_forms", QboticsGameTests::webForms),
             Map.entry("web_panel_limit", QboticsGameTests::webPanelLimit),
+            Map.entry("panel_widgets", QboticsGameTests::panelWidgets),
             Map.entry("web_canvas_pictures", QboticsGameTests::webCanvasPictures),
             Map.entry("web_panel", QboticsGameTests::webPanel),
             Map.entry("web_storage", QboticsGameTests::webStorage),
@@ -3697,6 +3698,63 @@ public final class QboticsGameTests {
             assertScreen(helper, computer, "first shown", "refused: Its owner already has 1 Web Panels in use", "web_panels_per_player = 1",
                     "second shown");
             qbotics.QboticsConfig.webPanelsPerPlayer = before;
+        });
+    }
+
+    /** Control Panel themes, and the dial, number input and item display widgets, used as players use them. */
+    private static void panelWidgets(GameTestHelper helper) {
+        net.minecraft.world.level.block.state.BlockState panelBlock = QboticsContent.CONTROL_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH);
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 1));
+        for (BlockPos at : List.of(new BlockPos(0, 1, 2), new BlockPos(1, 1, 2), new BlockPos(0, 2, 2), new BlockPos(1, 2, 2))) {
+            helper.setBlock(at, panelBlock);
+        }
+        String program = String.join("\n",
+                "import events",
+                "import display",
+                "from logistics import network",
+                "p = network().panel()",
+                "p.clear()",
+                "p.theme = 'blueprint'",
+                "print('theme', p.theme, len(display.THEMES))",
+                "d = p.dial('Speed', 0, 100, at=(0, 0), span=(2, 2))",
+                "n = p.number('Count', 0, 10, at=(2, 0), span=(3, 1), value=5)",
+                "it = p.item('Coal', 'coal', at=(5, 0), span=(2, 2), count=64)",
+                "d.on_change(lambda e: print('dial', e.value))",
+                "n.on_change(lambda e: print('number', e.value))",
+                "it.on_press(lambda e: print('item pressed by', e.player))",
+                "try:",
+                "    p.theme = 'neon'",
+                "except Exception as e:",
+                "    print('no such theme:', e)",
+                "events.run()",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/w.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /w.py");
+        boolean[] clicked = {false};
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "theme blueprint 5", "no such theme:");
+            // Facing south, the panel's right is east: its top-left block is the top one furthest west.
+            qbotics.block.DisplayBlockEntity screen = qbotics.display.Displays.screenOf(helper.getLevel(), helper.absolutePos(new BlockPos(0, 2, 2)));
+            helper.assertTrue(screen != null && screen.content() instanceof qbotics.display.PanelScreen, "one 2x2 control panel");
+            qbotics.display.PanelScreen panel = (qbotics.display.PanelScreen) screen.content();
+            String state = panel.state().toString();
+            helper.assertTrue(state.contains("\"theme\":\"blueprint\"") && state.contains("\"item\":\"minecraft:coal\"")
+                    && state.contains("\"type\":\"dial\"") && state.contains("\"type\":\"number\""), "the panel's state: " + state);
+            helper.assertTrue(!panel.listeners().isEmpty(), "the program listens");
+            if (!clicked[0]) {
+                net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+                // An 8 x 8 cell panel: the dial's top (cell 1, 0.2) is half way; the number's right third adds one; the item.
+                qbotics.display.Displays.touched(helper.getLevel(), screen, 1.0 / 8, 0.2 / 8, player);
+                qbotics.display.Displays.touched(helper.getLevel(), screen, 4.7 / 8, 0.5 / 8, player);
+                qbotics.display.Displays.touched(helper.getLevel(), screen, 6.0 / 8, 1.0 / 8, player);
+                clicked[0] = true;
+            }
+            assertScreen(helper, computer, "dial 50", "number 6", "item pressed by");
         });
     }
 
