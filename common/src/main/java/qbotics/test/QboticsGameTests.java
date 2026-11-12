@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -71,6 +71,7 @@ public final class QboticsGameTests {
             Map.entry("web_page", QboticsGameTests::webPage),
             Map.entry("web_layout", QboticsGameTests::webLayout),
             Map.entry("web_forms", QboticsGameTests::webForms),
+            Map.entry("web_panel_limit", QboticsGameTests::webPanelLimit),
             Map.entry("web_canvas_pictures", QboticsGameTests::webCanvasPictures),
             Map.entry("web_panel", QboticsGameTests::webPanel),
             Map.entry("web_storage", QboticsGameTests::webStorage),
@@ -3657,6 +3658,46 @@ public final class QboticsGameTests {
         helper.assertTrue(canvas.getRGB(31, 1) == 0xFFFF0000, "an <img> on the page");
         helper.assertTrue(canvas.getRGB(41, 1) == 0xFF0000FF && canvas.getRGB(47, 7) == 0xFF0000FF, "part of a picture: the blue half, scaled up");
         helper.succeed();
+    }
+
+    /** A player's Web Panels in use are limited (here to 1): a program can't open another of theirs; clearing one frees it. */
+    private static void webPanelLimit(GameTestHelper helper) {
+        UUID owner = UUID.randomUUID();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        net.minecraft.world.level.block.state.BlockState web = QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH);
+        helper.setBlock(new BlockPos(0, 2, 0), web);
+        helper.setBlock(new BlockPos(2, 1, 0), web);
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.CABLE_BLOCK.get());
+        for (BlockPos at : List.of(new BlockPos(0, 2, 0), new BlockPos(2, 1, 0))) {
+            helper.getBlockEntity(at, qbotics.block.DisplayBlockEntity.class).claim(owner);
+        }
+        int before = qbotics.QboticsConfig.webPanelsPerPlayer;
+        qbotics.QboticsConfig.webPanelsPerPlayer = 1;
+        String program = String.join("\n",
+                "from logistics import network",
+                "panels = network().web_panels()",
+                "panels[0].html('<p>first</p>')",
+                "print('first shown')",
+                "try:",
+                "    panels[1].html('<p>second</p>')",
+                "except Exception as e:",
+                "    print('refused:', e)",
+                "panels[0].clear()",
+                "panels[1].html('<p>second</p>')",
+                "print('second shown')",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/limit.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /limit.py");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "first shown", "refused: Its owner already has 1 Web Panels in use", "web_panels_per_player = 1",
+                    "second shown");
+            qbotics.QboticsConfig.webPanelsPerPlayer = before;
+        });
     }
 
     private static void ironQbot(GameTestHelper helper) {

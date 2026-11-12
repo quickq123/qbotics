@@ -372,6 +372,27 @@ public final class ClientWebPanels {
         });
     }
 
+    /** How many panels' scripts run at once in this game: the nearest. Others wait (a wall of scripted panels can't lag the game). */
+    private static final int MAX_RUNNING_SCRIPTS = 8;
+
+    /** True if this panel is among the nearest few with scripts, so its timers and animations may run. Render thread. */
+    private static boolean mayRunScripts(WebView view) {
+        var player = Minecraft.getInstance().player;
+        if (player == null) {
+            return false;
+        }
+        double mine = player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(view.origin));
+        int nearer = 0;
+        long now = System.currentTimeMillis();
+        for (WebView other : VIEWS.values()) {
+            if (other != view && WebScript.hasScripts(other.html) && now - other.lastSeen < 3000
+                    && player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(other.origin)) < mine) {
+                nearer++;
+            }
+        }
+        return nearer < MAX_RUNNING_SCRIPTS;
+    }
+
     /** Animation and timers: the scripts are woken again, at most 20 times a second, while someone is looking. */
     private static final java.util.concurrent.ScheduledExecutorService TICKER = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable, "qbotics-web-timers");
@@ -386,8 +407,8 @@ public final class ClientWebPanels {
         view.tickQueued = true;
         TICKER.schedule(() -> Minecraft.getInstance().execute(() -> {
             view.tickQueued = false;
-            if (System.currentTimeMillis() - view.lastSeen > 3000) {
-                view.tickWaiting = true; // nobody is looking: wait until someone does
+            if (System.currentTimeMillis() - view.lastSeen > 3000 || !mayRunScripts(view)) {
+                view.tickWaiting = true; // nobody is looking, or nearer panels are running: wait
                 return;
             }
             view.scriptActions.add(WebScript::tick);
@@ -430,7 +451,7 @@ public final class ClientWebPanels {
         }
         sweep();
         sendTyping(view, false);
-        if (view.tickWaiting) {
+        if (view.tickWaiting && mayRunScripts(view)) {
             view.tickWaiting = false;
             view.scriptActions.add(WebScript::tick);
         }

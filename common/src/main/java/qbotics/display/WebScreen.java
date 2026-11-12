@@ -30,6 +30,14 @@ public final class WebScreen extends ScreenContent {
     private long imagesVersion = 1;
     public static final int MAX_IMAGES = 8;
 
+    /** When the page itself was last sent to players (ms): a page goes out at most once a second. */
+    long lastPageSent;
+
+    /** In use: it shows a page. */
+    public synchronized boolean inUse() {
+        return !html.isEmpty();
+    }
+
     public synchronized boolean imagesChangedSince(long version) {
         return imagesVersion > version;
     }

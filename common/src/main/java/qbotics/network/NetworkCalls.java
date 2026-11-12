@@ -535,6 +535,10 @@ public final class NetworkCalls {
                 if (REMOTE.containsKey(display)) {
                     throw new CallError("A display can only be drawn on from a computer on its own network.");
                 }
+                String refused = qbotics.display.Displays.overLimit(level, display);
+                if (refused != null) {
+                    throw new CallError(refused);
+                }
                 qbotics.computer.ServerComputer computer = runningAt(level, computerPos);
                 JsonObject opened = display.describe();
                 opened.addProperty("handle", qbotics.display.Displays.open(level, computerPos, computer.deviceId(), display));

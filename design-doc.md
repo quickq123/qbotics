@@ -683,6 +683,11 @@ asyncio.run(main())
 > page), and Mustache-style sections in the state template (`{{#list}}`, `{{^list}}`, `{{.}}`). Not yet: flex `gap`,
 > select/textarea/checkbox, typing in the world.
 >
+> **Limits (decided 2026-11-12: "limit by what could be abused to lag the server or cause problems"):** Web Panels in use
+> per player (`web_panels_per_player`, 16; checked when a program opens one, among loaded screens; no bricking); a
+> page resent at most once a second per screen (state still 10/s); each client runs only the 8 nearest scripted panels'
+> scripts. Monitors and Control Panels are cheap and unlimited.
+>
 > **Form controls (built 2026-11-12):** `select` (a list in the close-up, a window of buttons from the world), `textarea`
 > (multi-line, Enter adds a line), checkbox and radio (a click flips them, in the world too), all rewritten before
 > layout with `data-input="kind:name"` so a click knows what it hit; values per player, sent as events; scripts read

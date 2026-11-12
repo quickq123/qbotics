@@ -17,6 +17,8 @@ public final class QboticsConfig {
     public static volatile int antennasPerPlayer = 10;
     /** Active Qbots a player may own; -1 for no limit. */
     public static volatile int qbotsPerPlayer = 5;
+    /** Web Panels in use (with a page, loaded) per player: each costs every nearby player's game to draw. */
+    public static volatile int webPanelsPerPlayer = 16;
     /** Servers (2 MB each) a player may have active. */
     public static volatile int serversPerPlayer = 2;
     /** Server operators may have any number of active devices. */

@@ -253,6 +253,14 @@ public final class Displays {
                     continue;
                 }
                 boolean full = had == null || had.content() != content || had.shape() != shape;
+                if (!full && content instanceof WebScreen web && web.pageChangedSince(had.version())) {
+                    // A page goes out at most once a second: a program rewriting a big page fast can't flood players.
+                    long now = System.currentTimeMillis();
+                    if (now - web.lastPageSent < 1000) {
+                        continue;
+                    }
+                    web.lastPageSent = now;
+                }
                 Qbotics.platform().sendToPlayer(player, payload(pos, content, full ? 0 : had.version()));
                 sent.put(player.getUUID(), new Sent(content, shape, version));
             }
@@ -360,6 +368,30 @@ public final class Displays {
         int id = NEXT_HANDLE.getAndIncrement();
         HANDLES.put(id, new Handle(computer, level.dimension(), computerPos.immutable(), display, content));
         return id;
+    }
+
+    /**
+     * Why a program may not open this display, or null if it may: a Web Panel over its owner's
+     * limit of panels in use (each costs every nearby player's game to draw). Counted among
+     * loaded screens.
+     */
+    public static @Nullable String overLimit(ServerLevel level, DisplayBlockEntity display) {
+        int limit = qbotics.QboticsConfig.webPanelsPerPlayer;
+        UUID owner = display.owner();
+        if (!(display.content() instanceof WebScreen) || owner == null || limit < 0 || qbotics.limits.Limits.exempt(level.getServer(), owner)) {
+            return null;
+        }
+        int inUse = 0;
+        for (DisplayBlockEntity other : LIVE.keySet()) {
+            if (other != display && !other.isRemoved() && owner.equals(other.owner()) && other.content() instanceof WebScreen web && web.inUse()) {
+                inUse++;
+            }
+        }
+        if (inUse >= limit) {
+            return "Its owner already has " + inUse + " Web Panels in use, the most this server allows (web_panels_per_player = "
+                    + limit + "). Clear one (web.clear()) or break it.";
+        }
+        return null;
     }
 
     /** A program wants this display's touches and presses pushed to its event queue. */

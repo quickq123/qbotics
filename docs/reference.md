@@ -1484,10 +1484,21 @@ when it loads; after that, `panel.onState` is how a script hears changes.
 **Crafting (placeholder):** makes 2: `IRI` / `ISI` / `ICI`: iron around RAM, an LED Screen and a
 cable.
 
-### 7c.6 Not yet
+### 7c.6 Limits
 
-Display limits per player (section 9b counts computers and antennas only), themes, and widgets
-bound straight to an action without code are planned but not built.
+Screens are drawn by each player's game, so what is limited is what could flood players or slow
+their games, not how many screens there are:
+
+- **Web Panels in use:** a player may have up to `limits.web_panels_per_player` (16) Web Panels
+  showing a page, in loaded areas. A program that tries to show another of theirs is told so
+  (clear one with `web.clear()`, or break it). Text Monitors and Control Panels have no limit.
+- **Updates:** what a screen shows goes to nearby players at most ten times a second, and a Web
+  Panel's whole page at most once a second (its state, the part that usually changes, still
+  updates ten times a second). A program changing things faster only sends the latest.
+- **Scripts:** each player's game runs the scripts of the 8 nearest scripted Web Panels at a time;
+  the others wait, showing their last picture, until you come closer.
+
+Widgets bound straight to an action without code are planned but not built.
 
 **Recipes (placeholders):** Text Monitor (makes 2): `III` / `ISI` / `ICI` (iron, an LCD Screen,
 a cable). Control Panel (makes 2): `BLB` / `ISI` / `ICI` (stone buttons and a lever over iron, an
@@ -2003,6 +2014,7 @@ even across restarts, until someone opens it again.
 | `limits.computers_per_player` | 10 | Active computers per player; -1 for no limit |
 | `limits.antennas_per_player` | 10 | Active antennas per player; -1 for no limit |
 | `limits.qbots_per_player` | 5 | Active Qbots per player; -1 for no limit |
+| `limits.web_panels_per_player` | 16 | Web Panels a player may have showing a page (in loaded areas); -1 for no limit (section 7c.6) |
 | `limits.servers_per_player` | 2 | Active Servers per player; -1 for no limit |
 | `limits.operators_exempt` | true | Operators have no limit |
 | `boot.per_tick` | 4 | Computers started per tick as they come back on |
