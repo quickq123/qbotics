@@ -21,6 +21,8 @@ public record TerminalInputPayload(UUID deviceId, byte action, String line) impl
     public static final byte CLOSE = 2;
     /** The editor's Run button; line is the file's path. */
     public static final byte RUN_FILE = 3;
+    /** Ctrl+Z: pause what is running, or carry on if it is paused. */
+    public static final byte PAUSE = 4;
 
     public static final int MAX_LINE_LENGTH = 256;
 
@@ -45,6 +47,7 @@ public record TerminalInputPayload(UUID deviceId, byte action, String line) impl
             case INTERRUPT -> manager.onInterrupt(player, deviceId);
             case CLOSE -> manager.closeTerminal(player);
             case RUN_FILE -> manager.onRunFile(player, deviceId, line);
+            case PAUSE -> manager.onPause(player, deviceId);
             default -> {
             }
         }

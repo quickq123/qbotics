@@ -509,6 +509,20 @@ public final class ComputerManager {
         }
     }
 
+    /** Ctrl+Z in the terminal the player has open. */
+    public void onPause(ServerPlayer player, UUID deviceId) {
+        ServerComputer computer = viewedComputer(player, deviceId);
+        if (computer != null) {
+            computer.togglePause();
+        }
+    }
+
+    /** The computer a player has open in the editor, or null. */
+    public UUID viewedDevice(UUID player) {
+        Viewing viewing = viewers.get(player);
+        return viewing == null ? null : viewing.deviceId();
+    }
+
     /** Ctrl+C in the terminal the player has open. */
     public void onInterrupt(ServerPlayer player, UUID deviceId) {
         ServerComputer computer = viewedComputer(player, deviceId);

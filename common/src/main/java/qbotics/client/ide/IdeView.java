@@ -970,7 +970,7 @@ final class IdeView {
         }
         int[] selection = terminalSelection();
         String hint = selection != null ? "Ctrl+C copies the selected text"
-                : session.terminalScroll > 0 ? "Scrolled back - type or press End to return" : "Ctrl+C stops a program   Drag to select";
+                : session.terminalScroll > 0 ? "Scrolled back - type or press End to return" : "Ctrl+C stops a program   Ctrl+Z pauses   Drag to select";
         ui.text(hint, r.right() - ui.textWidth(hint) - 10, r.y() + 3, session.terminalScroll > 0 ? Ui.FOLDER : Ui.TEXT_DIM);
 
         int left = r.x() + 8;
@@ -1095,6 +1095,8 @@ final class IdeView {
                 session.terminalInputCursor = 0;
                 backend.terminalInput(TerminalInputPayload.INTERRUPT, "");
             }
+        } else if (event.hasControlDown() && event.key() == InputConstants.KEY_Z) {
+            backend.terminalInput(TerminalInputPayload.PAUSE, ""); // pause the program, or carry on
         } else if (event.isPaste()) {
             terminalPaste();
         } else {

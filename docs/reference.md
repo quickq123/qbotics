@@ -109,6 +109,7 @@ Resting the mouse on a function name shows how to call it and what it does.
 |---|---|
 | Drag | Selects text. Double-click selects a word |
 | Ctrl+C | Copies the selection; with nothing selected, stops the program |
+| Ctrl+Z | Pauses the running program where it is (`[paused]`); again, it carries on. In an ssh session it pauses the program on the computer logged in to |
 | Ctrl+V | Pastes; each pasted line is entered |
 | Right-click | Copy, Copy All, Paste, Select All |
 | Click on the line being typed | Puts the cursor there |
@@ -1428,6 +1429,7 @@ your laptop gets *their* laptop computer, not yours.
 |---|---|
 | Right-click in the air | The laptop: editor, terminal and files, as on a computer (there is no Settings page) |
 | Sneak and right-click in the air | Its two hard-drive slots. The drives appear at `/net/disks/disk1` and `/net/disks/disk2`, for carrying and copying files |
+| Right-click a computer or Qbot of yours | A **direct connection**: that machine's own editor and terminal, as if you were at its keyboard. For a Qbot this is the way to edit its files and use its shell by hand; its program keeps running, Ctrl+C stops it and Ctrl+Z pauses it. Someone else's machine can't be opened this way: ssh in, if its owner allows |
 
 - **It runs while you are online and carry a laptop** (anywhere in your inventory), even with
   its screen closed. Otherwise what it runs is **held**: paused until you are back with a
@@ -1443,8 +1445,7 @@ your laptop gets *their* laptop computer, not yours.
 - A laptop isn't on a cable network, so calls such as `network().bus()` say to use ssh.
 - `laptops.enabled = false` in the server config stops laptops opening.
 
-Not yet: connecting by right-clicking a Qbot or computer with the laptop, Ctrl+Z to pause, and
-showing the line a program is on (with a Step key).
+Not yet: showing the line a program is on as it runs or is paused, with a Step key.
 
 ## 8. The Network Probe
 

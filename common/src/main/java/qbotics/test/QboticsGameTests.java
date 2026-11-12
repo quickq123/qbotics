@@ -60,6 +60,7 @@ public final class QboticsGameTests {
             Map.entry("universal_serial_bus", QboticsGameTests::universalSerialBus),
             Map.entry("bus_tunnels", QboticsGameTests::busTunnels),
             Map.entry("laptop", QboticsGameTests::laptop),
+            Map.entry("laptop_connect", QboticsGameTests::laptopConnect),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
             Map.entry("computer_interrupt_ignored", QboticsGameTests::computerInterruptIgnored),
@@ -2389,6 +2390,73 @@ public final class QboticsGameTests {
         computer.submitLine("python");
         computer.submitLine("print('lap', 6 * 7)");
         helper.succeedWhen(() -> assertScreen(helper, computer, "lap 42\n"));
+    }
+
+    /**
+     * A laptop connects straight to its player's own Qbot (its editor and terminal), not to
+     * someone else's computer; and Ctrl+Z pauses a running program where it is, then lets it on.
+     */
+    private static void laptopConnect(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ComputerManager manager = ComputerManager.get(level.getServer());
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        BlockPos qbotPos = new BlockPos(1, 1, 1);
+        helper.setBlock(qbotPos, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(qbotPos, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(player.getUUID());
+        helper.setBlock(new BlockPos(0, 1, 0), QboticsContent.COMPUTER_BLOCK.get());
+        qbotics.block.ComputerBlockEntity theirs = helper.getBlockEntity(new BlockPos(0, 1, 0), qbotics.block.ComputerBlockEntity.class);
+        theirs.onPlaced(UUID.randomUUID());
+        helper.assertTrue(qbotics.laptop.LaptopItem.connect(player, theirs) == net.minecraft.world.InteractionResult.FAIL
+                && manager.viewedDevice(player.getUUID()) == null, "someone else's computer isn't the laptop's to open");
+        try {
+            qbotics.laptop.LaptopItem.connect(player, qbot);
+        } catch (RuntimeException noClient) {
+            // A test player has no game to send the screen to; the connection is made before that.
+        }
+        helper.assertTrue(qbot.deviceId().equals(manager.viewedDevice(player.getUUID())), "the laptop should open its player's own Qbot");
+        ServerComputer computer = manager.getOrStart(qbot);
+        for (String line : List.of("python", "import time", "n = 0", "while True:", "    n += 1", "    print('tick', n)", "    time.sleep(0.1)", "")) {
+            computer.submitLine(line);
+        }
+        int[] step = {0};
+        int[] seen = new int[1];
+        long[] since = new long[1];
+        helper.succeedWhen(() -> {
+            long now = level.getGameTime();
+            switch (step[0]) {
+                case 0 -> {
+                    if (lastTick(computer) >= 2) {
+                        computer.togglePause(); // Ctrl+Z
+                        step[0] = 1;
+                    }
+                }
+                case 1 -> {
+                    if (screen(computer).contains("[paused")) {
+                        seen[0] = lastTick(computer);
+                        since[0] = now;
+                        step[0] = 2;
+                    }
+                }
+                case 2 -> {
+                    if (now - since[0] >= 40) {
+                        helper.assertTrue(lastTick(computer) <= seen[0] + 1, "paused, it should print nothing more: " + seen[0] + " then " + lastTick(computer));
+                        seen[0] = lastTick(computer);
+                        computer.togglePause(); // Ctrl+Z again
+                        step[0] = 3;
+                    }
+                }
+                case 3 -> {
+                    if (lastTick(computer) > seen[0] && screen(computer).contains("[carrying on]")) {
+                        computer.interrupt();
+                        step[0] = 4;
+                    }
+                }
+                default -> {
+                }
+            }
+            helper.assertTrue(step[0] == 4, "waiting at step " + step[0]);
+        });
     }
 
     private static void ironQbot(GameTestHelper helper) {

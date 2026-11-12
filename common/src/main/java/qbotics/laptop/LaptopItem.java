@@ -42,6 +42,41 @@ public class LaptopItem extends Item {
         return InteractionResult.SUCCESS;
     }
 
+    /**
+     * Right-click a computer or Qbot with the laptop: a direct connection, its editor and
+     * terminal, as if you were at its keyboard (for a Qbot, the only way in by hand). Only your
+     * own; for anyone else's, ssh in, if its owner allows.
+     */
+    @Override
+    public InteractionResult useOn(net.minecraft.world.item.context.UseOnContext context) {
+        Level level = context.getLevel();
+        if (!(level.getBlockEntity(context.getClickedPos()) instanceof qbotics.block.ComputerBlockEntity computer)) {
+            return InteractionResult.PASS;
+        }
+        if (!(context.getPlayer() instanceof ServerPlayer player)) {
+            return InteractionResult.SUCCESS;
+        }
+        return connect(player, computer);
+    }
+
+    /** Opens a computer or Qbot's editor and terminal for this player, if they may. */
+    public static InteractionResult connect(ServerPlayer player, qbotics.block.ComputerBlockEntity computer) {
+        if (!QboticsConfig.laptopsEnabled) {
+            player.sendOverlayMessage(Component.translatable("message.qbotics.laptop.disabled"));
+            return InteractionResult.FAIL;
+        }
+        if (computer.bricked()) {
+            player.sendOverlayMessage(qbotics.limits.Limits.tryActivate(player.level(), computer, player));
+            return InteractionResult.SUCCESS;
+        }
+        if (!player.getUUID().equals(computer.owner())) {
+            player.sendOverlayMessage(Component.translatable("message.qbotics.laptop.not_yours"));
+            return InteractionResult.FAIL;
+        }
+        qbotics.computer.ComputerManager.get(player.level().getServer()).openTerminal(player, computer);
+        return InteractionResult.SUCCESS;
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> lines, TooltipFlag flag) {
         lines.accept(Component.translatable("item.qbotics.laptop.tip").withStyle(net.minecraft.ChatFormatting.GRAY));

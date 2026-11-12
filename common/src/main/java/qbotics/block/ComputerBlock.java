@@ -70,6 +70,16 @@ public class ComputerBlock extends BaseEntityBlock {
         }
     }
 
+    /** With a laptop in hand, the laptop decides (it connects to this computer); see LaptopItem.useOn. */
+    @Override
+    protected InteractionResult useItemOn(net.minecraft.world.item.ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+            net.minecraft.world.InteractionHand hand, BlockHitResult hit) {
+        if (stack.getItem() instanceof qbotics.laptop.LaptopItem) {
+            return InteractionResult.PASS;
+        }
+        return super.useItemOn(stack, state, level, pos, player, hand, hit);
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (ProbeItem.heldBy(player)) {

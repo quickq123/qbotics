@@ -79,6 +79,24 @@ public final class ServerComputer {
         }
     }
 
+    /**
+     * Ctrl+Z: pauses what is running, where it is, or lets a paused program carry on. During
+     * an ssh session it goes to the computer logged in to, as Ctrl+C does.
+     */
+    public void togglePause() {
+        ServerComputer remote = sshRemote;
+        if (remote != null) {
+            remote.togglePause();
+            return;
+        }
+        Computer current = vm;
+        if (!running || current == null) {
+            return; // nothing running: nothing to pause
+        }
+        current.paused = !current.paused;
+        terminal.write(current.paused ? "\n[paused - Ctrl+Z carries on, Ctrl+C stops]\n" : "[carrying on]\n");
+    }
+
     /** Pause: the program waits where it is until Run (Resume) or Stop. */
     public void pauseProgram() {
         Computer current = vm;

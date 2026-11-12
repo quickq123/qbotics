@@ -242,3 +242,6 @@ LAPTOP
      in the laptop terminal  ssh <antenna address>:<port>  logs in.
  92. Start a loop printing in the laptop, close it, put the laptop in a chest: its output stops
      (held). Take it back: it carries on. Craft a second laptop: same files, same shell.
+ 93. Right-click one of your Qbots with the laptop: its editor and terminal open. Edit its
+     startup.py, type  run startup.py . Ctrl+Z pauses it ([paused]), Ctrl+Z again carries on,
+     Ctrl+C stops it. Right-click someone else's computer: refused, "ssh in instead".
