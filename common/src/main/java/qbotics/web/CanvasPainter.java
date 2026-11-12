@@ -96,6 +96,12 @@ public final class CanvasPainter {
 
     /** Carries out drawing calls: [name, arguments...] each. Other canvases (for drawImage) by number. */
     public void run(JsonArray ops, IntFunction<@Nullable BufferedImage> canvases) {
+        run(ops, canvases, url -> null);
+    }
+
+    /** As run, with pictures by address (item:..., image:...) for drawImage. */
+    public void run(JsonArray ops, IntFunction<@Nullable BufferedImage> canvases,
+            java.util.function.Function<String, @Nullable BufferedImage> pictures) {
         Graphics2D g = image.createGraphics();
         try {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -104,7 +110,7 @@ public final class CanvasPainter {
             for (JsonElement element : ops) {
                 JsonArray op = element.getAsJsonArray();
                 try {
-                    step(g, op, canvases);
+                    step(g, op, canvases, pictures);
                 } catch (RuntimeException e) {
                     // A call with wrong arguments is skipped, as a browser ignores it.
                 }
@@ -125,7 +131,8 @@ public final class CanvasPainter {
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.clamp(state.alpha, 0f, 1f)));
     }
 
-    private void step(Graphics2D g, JsonArray op, IntFunction<@Nullable BufferedImage> canvases) {
+    private void step(Graphics2D g, JsonArray op, IntFunction<@Nullable BufferedImage> canvases,
+            java.util.function.Function<String, @Nullable BufferedImage> pictures) {
         String name = op.get(0).getAsString();
         switch (name) {
             case "save" -> saved.push(state.copy());
@@ -235,11 +242,18 @@ public final class CanvasPainter {
                     g.draw(state.font.createGlyphVector(WebPage.FRC, text).getOutline(x, y));
                 }
             }
-            case "drawCanvas" -> {
-                BufferedImage other = canvases.apply((int) d(op, 1));
+            case "drawCanvas", "drawUrl" -> {
+                BufferedImage other = name.equals("drawCanvas") ? canvases.apply((int) d(op, 1)) : pictures.apply(op.get(1).getAsString());
                 if (other != null) {
                     apply(g);
-                    if (op.size() >= 6) {
+                    // Pixels stay sharp: item icons and pictures are pixel art.
+                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                    int n = op.size() - 2;
+                    if (n >= 8) {
+                        // drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh): part of the picture
+                        g.drawImage(other, (int) d(op, 6), (int) d(op, 7), (int) (d(op, 6) + d(op, 8)), (int) (d(op, 7) + d(op, 9)),
+                                (int) d(op, 2), (int) d(op, 3), (int) (d(op, 2) + d(op, 4)), (int) (d(op, 3) + d(op, 5)), null);
+                    } else if (n >= 4) {
                         g.drawImage(other, (int) d(op, 2), (int) d(op, 3), (int) d(op, 4), (int) d(op, 5), null);
                     } else {
                         g.drawImage(other, (int) d(op, 2), (int) d(op, 3), null);

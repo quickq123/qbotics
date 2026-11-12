@@ -703,7 +703,8 @@ asyncio.run(main())
 > calls are batched and painted with Java 2D. Clicks go to scripts first; `panel.send` reaches `@web.on` with `.data`;
 > script errors reach the close-up and an `error` event. Measured: QuickJS on Chicory runs all compiled, a few million
 > steps a second (fib(24) 340 ms); a frame of the test animation ~17 ms (scripts 5, layout 11). A later speed-up: split
-> QuickJS's interpreter loop as the Python engine's was. Not yet: fetch (by design), modules, drawImage of pictures.
+> QuickJS's interpreter loop as the Python engine's was. Not yet: fetch (by design), modules. `drawImage` (built): canvases, `<img>` and `Image` with item: (the item's
+> texture, else a block's side, read from the resources) and image: (Qbot pictures), nearest-neighbour.
 
 **Principle:** Python owns the data and the actions. The panel only displays and handles interaction on screen.
 

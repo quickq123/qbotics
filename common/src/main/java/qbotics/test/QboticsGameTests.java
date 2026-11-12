@@ -71,6 +71,7 @@ public final class QboticsGameTests {
             Map.entry("web_page", QboticsGameTests::webPage),
             Map.entry("web_layout", QboticsGameTests::webLayout),
             Map.entry("web_forms", QboticsGameTests::webForms),
+            Map.entry("web_canvas_pictures", QboticsGameTests::webCanvasPictures),
             Map.entry("web_panel", QboticsGameTests::webPanel),
             Map.entry("web_storage", QboticsGameTests::webStorage),
             Map.entry("qbot_camera", QboticsGameTests::qbotCamera),
@@ -3611,6 +3612,50 @@ public final class QboticsGameTests {
                 + "document.querySelector('[name=pump]').checked + ' ' + document.querySelector('[value=slow]').checked;</script></body>"),
                 256, 192, "{}");
         helper.assertTrue(script.html().contains(">Coal true true true<"), "scripts read the controls: " + script.html());
+        helper.succeed();
+    }
+
+    /** A canvas draws pictures: a Qbot's (image:), an item's icon (item:), an <img> on the page, part of one, at their size or scaled. */
+    private static void webCanvasPictures(GameTestHelper helper) {
+        java.awt.image.BufferedImage red = new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.image.BufferedImage green = new java.awt.image.BufferedImage(4, 4, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 4; y++) {
+            for (int x = 0; x < 4; x++) {
+                if (x < 2 && y < 2) {
+                    red.setRGB(x, y, 0xFFFF0000);
+                }
+                green.setRGB(x, y, x < 2 ? 0xFF00FF00 : 0xFF0000FF); // left half green, right half blue
+            }
+        }
+        java.util.List<String> errors = new java.util.ArrayList<>();
+        qbotics.web.WebScript script = new qbotics.web.WebScript(new qbotics.web.WebScript.Hooks() {
+            public void send(String n, String d) { }
+            public void log(String l) { }
+            public void error(String m) { errors.add(m); }
+            public String value(String f) { return null; }
+            public void setValue(String f, String v) { }
+        });
+        script.pictures(url -> url.equals("image:cam") ? red : url.equals("item:minecraft:diamond") ? green : null);
+        script.load(String.join("\n",
+                "<body><img id='cam' src='image:cam'><canvas id='c' width='64' height='32'></canvas><p id='out'></p><script>",
+                "const g = document.getElementById('c').getContext('2d');",
+                "const cam = new Image(); cam.src = 'image:cam';",
+                "g.drawImage(cam, 0, 0, 10, 10);",
+                "const gem = new Image(); gem.src = 'item:minecraft:diamond';",
+                "g.drawImage(gem, 20, 0);",
+                "g.drawImage(document.getElementById('cam'), 30, 0, 4, 4);",
+                "g.drawImage(gem, 2, 0, 2, 4, 40, 0, 8, 8);",
+                "document.getElementById('out').textContent = gem.width + 'x' + gem.height;",
+                "</script></body>"), 128, 64, "{}");
+        helper.assertTrue(errors.isEmpty(), "no errors: " + errors);
+        helper.assertTrue(script.html().contains(">4x4<"), "a picture knows its size: " + script.html());
+        int number = Integer.parseInt(script.html().replaceAll("(?s).*src=\"canvas:(\\d+)\".*", "$1"));
+        java.awt.image.BufferedImage canvas = script.canvas(number);
+        helper.assertTrue(canvas.getRGB(5, 5) == 0xFFFF0000 && canvas.getRGB(9, 9) == 0xFFFF0000, "the picture, scaled to 10x10");
+        helper.assertTrue(canvas.getRGB(20, 0) == 0xFF00FF00 && canvas.getRGB(23, 3) == 0xFF0000FF && (canvas.getRGB(24, 0) >>> 24) == 0,
+                "the item's icon at its own size");
+        helper.assertTrue(canvas.getRGB(31, 1) == 0xFFFF0000, "an <img> on the page");
+        helper.assertTrue(canvas.getRGB(41, 1) == 0xFF0000FF && canvas.getRGB(47, 7) == 0xFF0000FF, "part of a picture: the blue half, scaled up");
         helper.succeed();
     }
 

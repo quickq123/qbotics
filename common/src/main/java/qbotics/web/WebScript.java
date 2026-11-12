@@ -47,6 +47,13 @@ public final class WebScript {
     private final JsRuntime js;
     private final Hooks hooks;
     private final Map<Integer, CanvasPainter> canvases = new HashMap<>();
+    /** Pictures a script draws (item:..., image:...); none until the game gives a way to find them. */
+    private java.util.function.Function<String, @Nullable BufferedImage> pictures = url -> null;
+
+    /** How the game finds the pictures a script draws with drawImage (on the worker). */
+    public void pictures(java.util.function.Function<String, @Nullable BufferedImage> find) {
+        pictures = find;
+    }
     private final long start = System.nanoTime();
     private String html = "";
     private boolean htmlChanged;
@@ -105,6 +112,10 @@ public final class WebScript {
                 }
                 case "value" -> {
                     return hooks.value(arg);
+                }
+                case "image_size" -> {
+                    BufferedImage picture = pictures.apply(arg);
+                    return picture == null ? null : picture.getWidth() + "," + picture.getHeight();
                 }
                 case "set_value" -> {
                     JsonArray request = JsonParser.parseString(arg).getAsJsonArray();
@@ -191,7 +202,7 @@ public final class WebScript {
             painter.run(canvas.get(4).getAsJsonArray(), n -> {
                 CanvasPainter other = canvases.get(n);
                 return other == null ? null : other.image();
-            });
+            }, pictures);
             canvasesChanged = true;
         }
     }

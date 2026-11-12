@@ -433,7 +433,14 @@
       measureText(t) { return { width: +host("measure", JSON.stringify([state.font, String(t)])) }; },
       createLinearGradient(x0, y0, x1, y1) { return { kind: "linear", at: [+x0, +y0, +x1, +y1], stops: [], addColorStop(o, c) { this.stops.push([+o, String(c)]); } }; },
       createRadialGradient(x0, y0, r0, x1, y1, r1) { return { kind: "radial", at: [+x1, +y1, +r1], stops: [], addColorStop(o, c) { this.stops.push([+o, String(c)]); } }; },
-      drawImage(image, ...a) { if (image && image.localName === "canvas") op("drawCanvas", image.number, ...a.map(Number)); },
+      // A canvas, an <img> or an Image: item:minecraft:diamond, image:name (a Qbot's picture), or canvas.
+      drawImage(image, ...a) {
+        if (!image) return;
+        if (image.localName === "canvas" && image.number) { op("drawCanvas", image.number, ...a.map(Number)); return; }
+        const src = image.src || (image.getAttribute ? image.getAttribute("src") : "");
+        if (src) op("drawUrl", String(src), ...a.map(Number));
+      },
+      imageSmoothingEnabled: false,
       setLineDash(d) { op("dash", (d || []).map(Number)); },
     };
     for (const name of Object.keys(state)) {
@@ -510,6 +517,19 @@
   window.cancelAnimationFrame = id => { frames = frames.filter(f => f.id !== id); };
   window.performance = { now: () => now };
   window.alert = text => host("log", "alert: " + String(text));
+  // Pictures a page can draw: items' icons and a Qbot's pictures. They are there at once.
+  class Picture {
+    constructor(width, height) { this.localName = "img"; this.srcText = ""; this.onload = null; this.wanted = [width, height]; }
+    get src() { return this.srcText; }
+    set src(v) { this.srcText = String(v); if (this.onload) setTimeout(() => this.onload && this.onload({ type: "load" }), 0); }
+    get complete() { return true; }
+    size() { const s = host("image_size", this.srcText); return s ? s.split(",").map(Number) : [0, 0]; }
+    get width() { return this.wanted[0] || this.size()[0]; }
+    get height() { return this.wanted[1] || this.size()[1]; }
+    get naturalWidth() { return this.size()[0]; }
+    get naturalHeight() { return this.size()[1]; }
+  }
+  window.Image = Picture;
   window.HTMLElement = Element;
   window.Element = Element;
   window.Node = Node;

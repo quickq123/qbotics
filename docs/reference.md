@@ -1423,7 +1423,7 @@ is at most 128 KB, its state 32 KB.
 | CSS grid: `grid-template-columns` (px, %, em, `fr`, `auto`, `minmax()`, `repeat()` with a number, `auto-fill` or `auto-fit`), `grid-column` (`span 2`, `1 / 3`, `1 / -1`), `gap`, `row-gap`, `column-gap`; items placed row by row and stretched to their row | |
 | Fonts: sans-serif, serif, monospace; bold, italic; underline, line-through | File inputs, sliders (`type="range"`), colour pickers |
 | Linear and radial gradients; item icons (`item:`) | |
-| Text fields, textareas, checkboxes, radio buttons, selects; scrolling (page and `overflow: auto` boxes) | `<canvas>` `drawImage` of pictures, `getImageData` |
+| Text fields, textareas, checkboxes, radio buttons, selects; scrolling (page and `overflow: auto` boxes) | `<canvas>` `getImageData`, `putImageData` |
 | JavaScript: the DOM, events, timers, `<canvas>` (below) | `fetch`, modules (`import`), web fonts |
 | `@media` by the panel's size, CSS variables, `:hover`, `:active`, `:nth-child` | |
 
@@ -1472,6 +1472,7 @@ def scram(e):
 | `setTimeout`, `setInterval`, `requestAnimationFrame` | Timers and animation (up to about 10 frames a second, only while someone is looking) |
 | `console.log` | To the game's log |
 | `<canvas>`, `getContext("2d")` | Rectangles, paths, arcs, curves, text, gradients, transforms, `save`/`restore`, `clip`, line dashes |
+| `ctx.drawImage(picture, x, y [, w, h])`, or with a part `(picture, sx, sy, sw, sh, x, y, w, h)` | Draws another canvas, an `<img>` on the page, or `new Image()` with `src` `"item:minecraft:diamond"` (the item's texture; a block's side) or `"image:cam"` (a Qbot's picture given with `web.image`). Pixels stay sharp. Pictures are there at once (`onload` runs straight away) |
 
 A script that throws shows its error at the top of the close-up, and the program hears it as an
 `"error"` event. A script gets 16 MB, and a run is stopped after 0.4 s (loading) or 60 ms (an event

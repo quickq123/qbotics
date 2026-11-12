@@ -311,6 +311,7 @@ public final class ClientWebPanels {
                     // The page's scripts own the page: they start with it, hear the state and the player, and change it.
                     if (view.script == null || view.scriptGeneration != generation) {
                         view.script = new WebScript(hooks(view));
+                        view.script.pictures(url -> url.startsWith("item:") ? WebItemImages.icon(url.substring(5)) : image(view, url));
                         view.scriptGeneration = generation;
                         view.scriptState = state;
                         view.script.load(WebTemplate.fill(html, state), width, height, state);
