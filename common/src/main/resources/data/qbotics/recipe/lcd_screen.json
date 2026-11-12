@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "T": "minecraft:redstone_torch",
+    "L": "qbotics:liquid_crystal_panel",
+    "P": "minecraft:glass_pane"
+  },
+  "pattern": [
+    "TLP",
+    "TLP",
+    "TLP"
+  ],
+  "result": {
+    "id": "qbotics:lcd_screen",
+    "count": 4
+  }
+}

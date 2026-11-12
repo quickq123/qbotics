@@ -4,7 +4,7 @@
   "key": {
     "C": "qbotics:cable",
     "M": "qbotics:motherboard",
-    "S": "qbotics:screen"
+    "S": "qbotics:lcd_screen"
   },
   "pattern": [
     "CCC",

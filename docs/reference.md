@@ -31,6 +31,23 @@ Contents
 Right-click a computer to open its screen: files on the left, the editor in the middle, the
 terminal below, and an optional Python scratchpad on the right.
 
+### 1.0 Crafting: screens and the computer
+
+Screens come in two tiers. The **LCD Screen** is the early-game one; the **LED Screen** costs
+glowstone and gold.
+
+| Result | Pattern | Ingredients |
+|---|---|---|
+| 3 Liquid Crystal Panel | `PRP` / `SGP` / `PBP` | Glass panes, with red, green and blue dye down the middle and redstone dust on the left of the middle row |
+| 4 LCD Screen | `TLP` / `TLP` / `TLP` | A column each of redstone torches, Liquid Crystal Panels and glass panes |
+| 3 Light Emitting Diode | `GGG` / `RNB` / `GGG` | Red, green and blue dye between two rows of glowstone dust |
+| 4 LED Screen | `ODL` / `ODL` / `ODL` | A column each of gold ingots, Light Emitting Diodes and glass blocks |
+| Motherboard | `CCC` / `LGL` / `CCC` | Copper ingots above and below; glass, green dye, glass between |
+| Computer | `CCC` / `CMC` / `CSC` | Seven cables, a motherboard in the middle, an **LCD Screen** at the bottom middle |
+
+The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (section 7c). A
+Screen made before the two tiers is an "Old Screen": craft it on its own into an LED Screen.
+
 ### 1.1 Terminal commands
 
 | Command | What it does |
@@ -1249,8 +1266,9 @@ events.run()
 Display limits per player (section 9b counts computers and antennas only), themes, and widgets
 bound straight to an action without code are planned but not built.
 
-**Recipes (placeholders):** Text Monitor (makes 2): `III` / `ISI` / `ICI` (iron, a screen, a
-cable). Control Panel (makes 2): `BLB` / `ISI` / `ICI` (stone buttons and a lever over the same).
+**Recipes (placeholders):** Text Monitor (makes 2): `III` / `ISI` / `ICI` (iron, an LCD Screen,
+a cable). Control Panel (makes 2): `BLB` / `ISI` / `ICI` (stone buttons and a lever over iron, an
+LED Screen and a cable).
 
 ---
 

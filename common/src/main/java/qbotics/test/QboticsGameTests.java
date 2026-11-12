@@ -197,20 +197,37 @@ public final class QboticsGameTests {
 
     /** Cable in the shape of leggings, redstone in the middle, glass at the bottom middle. */
     private static void computerRecipe(GameTestHelper helper) {
-        // The parts first: four screens from lines of glowstone dust, dye and glass pane; a motherboard from copper, glass and green dye.
+        // The parts first. LCD: three Liquid Crystal Panels from glass panes, dyes and redstone; four LCD
+        // Screens from torches, panels and panes. LED: three diodes from glowstone and dyes; four LED
+        // Screens from gold, diodes and glass. A motherboard from copper, glass and green dye.
         ItemStack g = new ItemStack(Items.GLOWSTONE_DUST);
         ItemStack p = new ItemStack(Blocks.GLASS_PANE);
-        ItemStack screens = craft(helper,
-                g, new ItemStack(Items.RED_DYE), p,
-                g, new ItemStack(Items.GREEN_DYE), p,
-                g, new ItemStack(Items.BLUE_DYE), p);
+        ItemStack red = new ItemStack(Items.RED_DYE);
+        ItemStack green = new ItemStack(Items.GREEN_DYE);
+        ItemStack blue = new ItemStack(Items.BLUE_DYE);
+        ItemStack panels = craft(helper,
+                p, red, p,
+                new ItemStack(Items.REDSTONE), green, p,
+                p, blue, p);
+        ItemStack t = new ItemStack(Blocks.REDSTONE_TORCH);
+        ItemStack panel = panels.copyWithCount(1);
+        ItemStack screens = craft(helper, t, panel, p, t, panel, p, t, panel, p);
+        ItemStack diodes = craft(helper, g, g, g, red, green, blue, g, g, g);
+        ItemStack gold = new ItemStack(Items.GOLD_INGOT);
+        ItemStack diode = diodes.copyWithCount(1);
+        ItemStack glassBlock = new ItemStack(Blocks.GLASS);
+        ItemStack ledScreens = craft(helper, gold, diode, glassBlock, gold, diode, glassBlock, gold, diode, glassBlock);
+        helper.assertTrue(panels.getCount() == 3 && panels.getItem().toString().equals("qbotics:liquid_crystal_panel")
+                && diodes.getCount() == 3 && diodes.getItem().toString().equals("qbotics:light_emitting_diode")
+                && ledScreens.getCount() == 4 && ledScreens.getItem().toString().equals("qbotics:led_screen"),
+                "the screen parts gave " + panels + ", " + diodes + ", " + ledScreens);
         ItemStack copper = new ItemStack(Items.COPPER_INGOT);
         ItemStack glass = new ItemStack(Blocks.GLASS);
         ItemStack motherboard = craft(helper,
                 copper, copper, copper,
                 glass, new ItemStack(Items.GREEN_DYE), glass,
                 copper, copper, copper);
-        helper.assertTrue(screens.getCount() == 4 && screens.getItem().toString().equals("qbotics:screen"), "the screen recipe gave " + screens);
+        helper.assertTrue(screens.getCount() == 4 && screens.getItem().toString().equals("qbotics:lcd_screen"), "the LCD screen recipe gave " + screens);
         helper.assertTrue(motherboard.getCount() == 1 && motherboard.getItem().toString().equals("qbotics:motherboard"),
                 "the motherboard recipe gave " + motherboard);
 

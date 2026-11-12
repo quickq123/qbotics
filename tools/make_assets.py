@@ -256,7 +256,11 @@ write_json("assets/qbotics/lang/en_us.json", {
     "message.qbotics.tunnel.cancelled": "Tunnel: choice cleared.",
     "message.qbotics.tunnel.refused": "No tunnel: %s",
     "message.qbotics.probe_no_slots": "That block has no screen to show slots on.",
-    "item.qbotics.screen": "Screen",
+    "item.qbotics.screen": "Old Screen (craft it into an LED Screen)",
+    "item.qbotics.liquid_crystal_panel": "Liquid Crystal Panel",
+    "item.qbotics.lcd_screen": "LCD Screen",
+    "item.qbotics.light_emitting_diode": "Light Emitting Diode",
+    "item.qbotics.led_screen": "LED Screen",
     "item.qbotics.motherboard": "Motherboard",
     "message.qbotics.probe_nothing": "That isn't a network device. Aim at a computer, an interface, an antenna or a plate.",
     "screen.qbotics.probe": "Network Probe",
@@ -410,7 +414,7 @@ write_json("data/qbotics/recipe/cable_horizontal.json",
 # Computer: cable in the shape of leggings, a motherboard in the middle, a screen at the bottom middle.
 write_json("data/qbotics/recipe/computer.json", shaped(
     ["CCC", "CMC", "CSC"],
-    {"C": "qbotics:cable", "M": "qbotics:motherboard", "S": "qbotics:screen"},
+    {"C": "qbotics:cable", "M": "qbotics:motherboard", "S": "qbotics:lcd_screen"},
     "qbotics:computer"))
 
 # ---- parts: the screen and the motherboard --------------------------------------------
@@ -428,6 +432,64 @@ def screen_item():
                 px[y][x] = glow if y in (5, 6, 8, 9) and 3 <= x <= 12 else SCREEN
     for x in range(6, 10):
         px[13][x] = EDGE     # a short stand
+    return px
+
+
+def lcd_screen_item():
+    """An early display: an iron frame around a grey-green backlit panel with dark segments."""
+    back, segment = (150, 172, 132), (52, 66, 48)
+    px = [[None] * 16 for _ in range(16)]
+    for y in range(3, 13):
+        for x in range(1, 15):
+            if x in (1, 14) or y in (3, 12):
+                px[y][x] = CASE_DARK if (x == 14 or y == 12) else CASE_LIGHT
+            else:
+                px[y][x] = back
+    for x in range(3, 13):
+        if x not in (6, 10):
+            px[5][x] = segment
+    for x in range(3, 9):
+        px[8][x] = segment
+    for x in range(3, 11):
+        if x % 2 == 1:
+            px[10][x] = segment
+    for x in range(6, 10):
+        px[13][x] = EDGE     # a short stand
+    return px
+
+
+def liquid_crystal_panel_item():
+    """A thin sheet of glass with a faint red, green and blue film and a pale shine."""
+    px = [[None] * 16 for _ in range(16)]
+    film = ((206, 150, 150), (150, 200, 156), (150, 162, 214))
+    for y in range(2, 14):
+        for x in range(3, 13):
+            if x in (3, 12) or y in (2, 13):
+                px[y][x] = (172, 196, 200)
+            else:
+                px[y][x] = film[(y - 3) * 3 // 10 % 3]
+    for i in range(4):
+        px[4 + i][9 - i] = (236, 246, 248)   # the shine
+    return px
+
+
+def light_emitting_diode_item():
+    """A small bulb: a clear dome lit red, green and blue, on two metal legs."""
+    px = [[None] * 16 for _ in range(16)]
+    colours = ((236, 70, 60), (90, 220, 100), (80, 120, 240))
+    for y in range(3, 10):
+        for x in range(5, 11):
+            if y == 3 and x in (5, 10):
+                continue
+            px[y][x] = colours[(x - 5) // 2]
+    px[4][6] = (250, 250, 250)
+    px[5][6] = (250, 250, 250)
+    for x in range(4, 12):
+        px[10][x] = (200, 200, 204)          # the rim
+    for y in range(11, 15):
+        px[y][6] = EDGE
+        px[y][9] = EDGE
+    px[14][9] = None                         # one leg is shorter, as on a real one
     return px
 
 
@@ -454,7 +516,9 @@ def motherboard_item():
     return px
 
 
-for part, picture in (("screen", screen_item()), ("motherboard", motherboard_item())):
+for part, picture in (("screen", screen_item()), ("led_screen", screen_item()), ("lcd_screen", lcd_screen_item()),
+                      ("liquid_crystal_panel", liquid_crystal_panel_item()),
+                      ("light_emitting_diode", light_emitting_diode_item()), ("motherboard", motherboard_item())):
     write_png("assets/qbotics/textures/item/%s.png" % part, picture)
     write_json("assets/qbotics/models/item/%s.json" % part, {
         "parent": "minecraft:item/generated",
@@ -463,12 +527,29 @@ for part, picture in (("screen", screen_item()), ("motherboard", motherboard_ite
     write_json("assets/qbotics/items/%s.json" % part, {
         "model": {"type": "minecraft:model", "model": "qbotics:item/%s" % part},
     })
-# Screen: lines of glowstone dust, dye and glass pane, standing side by side. Makes four.
-write_json("data/qbotics/recipe/screen.json", shaped(
-    ["GRP", "GEP", "GBP"],
-    {"G": "minecraft:glowstone_dust", "R": "minecraft:red_dye", "E": "minecraft:green_dye", "B": "minecraft:blue_dye",
-     "P": "minecraft:glass_pane"},
-    "qbotics:screen", 4))
+# Screens come in two tiers (decided 2026-11-12). Early game, the LCD Screen: a Liquid Crystal
+# Panel is glass panes around red, green and blue dye down the middle and redstone dust (makes
+# three); an LCD Screen is a column of redstone torches, panels and glass panes (makes four).
+write_json("data/qbotics/recipe/liquid_crystal_panel.json", shaped(
+    ["PRP", "SGP", "PBP"],
+    {"P": "minecraft:glass_pane", "R": "minecraft:red_dye", "S": "minecraft:redstone", "G": "minecraft:green_dye",
+     "B": "minecraft:blue_dye"},
+    "qbotics:liquid_crystal_panel", 3))
+write_json("data/qbotics/recipe/lcd_screen.json", shaped(
+    ["TLP", "TLP", "TLP"], {"T": "minecraft:redstone_torch", "L": "qbotics:liquid_crystal_panel", "P": "minecraft:glass_pane"},
+    "qbotics:lcd_screen", 4))
+# Mid game, the LED Screen: a Light Emitting Diode is red, green and blue dye between two rows
+# of glowstone dust (makes three); an LED Screen is a column of gold, diodes and glass (makes four).
+write_json("data/qbotics/recipe/light_emitting_diode.json", shaped(
+    ["GGG", "RNB", "GGG"],
+    {"G": "minecraft:glowstone_dust", "R": "minecraft:red_dye", "N": "minecraft:green_dye", "B": "minecraft:blue_dye"},
+    "qbotics:light_emitting_diode", 3))
+write_json("data/qbotics/recipe/led_screen.json", shaped(
+    ["ODL", "ODL", "ODL"], {"O": "minecraft:gold_ingot", "D": "qbotics:light_emitting_diode", "L": "minecraft:glass"},
+    "qbotics:led_screen", 4))
+# The screen from before the tiers is no longer made; one already made becomes an LED Screen.
+write_json("data/qbotics/recipe/screen.json", {"type": "minecraft:crafting_shapeless", "category": "redstone",
+                                              "ingredients": ["qbotics:screen"], "result": {"id": "qbotics:led_screen"}})
 # Motherboard: copper above and below glass, green dye, glass.
 write_json("data/qbotics/recipe/motherboard.json", shaped(
     ["CCC", "LGL", "CCC"],
@@ -1094,10 +1175,10 @@ write_json("data/qbotics/recipe/chunk_loader_upgrade.json", shaped(
                             "M": "qbotics:motherboard", "G": "minecraft:gold_nugget"}, "qbotics:chunk_loader_upgrade"))
 # Placeholders: a Text Monitor is a screen in iron, over a cable; a Control Panel adds a button and a lever.
 write_json("data/qbotics/recipe/text_monitor.json", shaped(
-    ["III", "ISI", "ICI"], {"I": "minecraft:iron_ingot", "S": "qbotics:screen", "C": "qbotics:cable"}, "qbotics:text_monitor", 2))
+    ["III", "ISI", "ICI"], {"I": "minecraft:iron_ingot", "S": "qbotics:lcd_screen", "C": "qbotics:cable"}, "qbotics:text_monitor", 2))
 write_json("data/qbotics/recipe/control_panel.json", shaped(
     ["BLB", "ISI", "ICI"], {"B": "minecraft:stone_button", "L": "minecraft:lever", "I": "minecraft:iron_ingot",
-                            "S": "qbotics:screen", "C": "qbotics:cable"}, "qbotics:control_panel", 2))
+                            "S": "qbotics:led_screen", "C": "qbotics:cable"}, "qbotics:control_panel", 2))
 for display in ("text_monitor", "control_panel"):
     write_json("data/qbotics/loot_table/blocks/%s.json" % display,
                drops_itself("qbotics:%s" % display, copy_components=["minecraft:custom_name"]))

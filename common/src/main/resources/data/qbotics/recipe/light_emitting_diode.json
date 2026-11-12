@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "G": "minecraft:glowstone_dust",
+    "R": "minecraft:red_dye",
+    "N": "minecraft:green_dye",
+    "B": "minecraft:blue_dye"
+  },
+  "pattern": [
+    "GGG",
+    "RNB",
+    "GGG"
+  ],
+  "result": {
+    "id": "qbotics:light_emitting_diode",
+    "count": 3
+  }
+}

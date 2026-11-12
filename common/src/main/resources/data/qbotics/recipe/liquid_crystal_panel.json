@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "P": "minecraft:glass_pane",
+    "R": "minecraft:red_dye",
+    "S": "minecraft:redstone",
+    "G": "minecraft:green_dye",
+    "B": "minecraft:blue_dye"
+  },
+  "pattern": [
+    "PRP",
+    "SGP",
+    "PBP"
+  ],
+  "result": {
+    "id": "qbotics:liquid_crystal_panel",
+    "count": 3
+  }
+}

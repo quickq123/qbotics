@@ -475,7 +475,7 @@ public final class ScreenshotRun {
                     new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM)),
                     new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.FLUID)),
                     new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.UNIVERSAL)),
-                    new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("screen"))),
+                    new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("lcd_screen"))),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("motherboard"))),
                 };
                 for (int slot = 0; slot < items.length; slot++) {

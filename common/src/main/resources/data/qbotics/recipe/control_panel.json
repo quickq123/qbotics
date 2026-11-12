@@ -5,7 +5,7 @@
     "B": "minecraft:stone_button",
     "L": "minecraft:lever",
     "I": "minecraft:iron_ingot",
-    "S": "qbotics:screen",
+    "S": "qbotics:led_screen",
     "C": "qbotics:cable"
   },
   "pattern": [

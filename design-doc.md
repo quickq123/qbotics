@@ -1571,6 +1571,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | Logic Pin, Placer and Breaker built (§11.0.1), with the defaults listed there: strong power from an output pin, `wait_for` on counted events, netherite-tool speed for the Breaker, and placeholder recipes. Cables are now solid to fluids | Built 2026-11-11 |
 | 2026-11-11 | The cable's model is built in code: the block state keeps only the arms, and every cable has a block entity that keeps its plates (kind, medium, identity), which the model reads when drawing. Clears the way for the Logic Pin, Placer and Breaker (§11.0.1). Plates from worlds saved before this are dropped | Built 2026-11-11 |
 | 2026-11-11 | Much later: a recipe viewer (JEI) hands the player ready-made `Recipe` code for a recipe | Idea; not designed |
+| 2026-11-12 | Screens in two tiers, for early and mid game: LCD Screen (from Liquid Crystal Panels: glass panes, RGB dye, redstone; then redstone torches and panes) for the Computer and Text Monitor; LED Screen (from Light Emitting Diodes: glowstone and RGB dye; then gold and glass) for the Control Panel. The old Screen is no longer made; existing ones craft into LED Screens | Built 2026-11-12 |
 | 2026-11-12 | Tunnels between buses: each end offers other mods the container behind the other end; linked with the probe or `bus.tunnel()`; same network or across Transport antennas with rate caps; tunnelled buses stay usable by programs (§11.0.6) | Built 2026-11-12 |
 | 2026-11-12 | Input and Output plates removed; the bus is the one plate per medium, renamed Item, Fluid and Energy Serial Bus (`CCC`/`HCX`/`CCC` recipes), plus the Universal Serial Bus (USB) carrying all three. No direction setting. Saved Inputs and Outputs load as buses (§11.0) | Built 2026-11-12 |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
@@ -1622,9 +1623,12 @@ All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G
 |---|---|---|
 | **16 Cable** | `IRI` / `IRI` / `IRI` | Vertical lines: 6 iron, 3 redstone |
 | **16 Cable** | `III` / `RRR` / `III` | Horizontal lines: the same ingredients |
-| **Screen** (a part; makes 4) | `GRP` / `GEP` / `GBP` | Three upright lines side by side: glowstone dust, then red, green and blue dye, then glass panes. Will also be used for monitors |
+| **Liquid Crystal Panel** (a part; makes 3) | `PRP` / `SGP` / `PBP` | Glass panes; red, green and blue dye down the middle; redstone dust left of the middle row |
+| **LCD Screen** (early tier; makes 4) | `TLP` / `TLP` / `TLP` | Columns of redstone torches, Liquid Crystal Panels, glass panes. Used by the Computer and Text Monitor |
+| **Light Emitting Diode** (a part; makes 3) | `GGG` / `RNB` / `GGG` | Red, green and blue dye between rows of glowstone dust |
+| **LED Screen** (mid tier; makes 4) | `ODL` / `ODL` / `ODL` | Columns of gold ingots, Light Emitting Diodes, glass blocks. Used by the Control Panel |
 | **Motherboard** (a part) | `CCC` / `LGL` / `CCC` | Copper ingots above and below; glass, green dye, glass between. The core of every computer |
-| **Computer** | `CCC` / `CMC` / `CSC` | Cable in the shape of leggings, a motherboard in the middle, a screen at the bottom middle. Costs 7 cables, 1 motherboard, 1 screen |
+| **Computer** | `CCC` / `CMC` / `CSC` | Cable in the shape of leggings, a motherboard in the middle, an LCD Screen at the bottom middle. Costs 7 cables, 1 motherboard, 1 LCD Screen |
 
 **Placeholders, not decided:** the item blocks need recipes to be craftable at all, so each is four cables around the vanilla block it most resembles.
 

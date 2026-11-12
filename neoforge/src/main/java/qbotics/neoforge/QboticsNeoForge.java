@@ -177,7 +177,13 @@ public final class QboticsNeoForge {
             BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, CABLE.get()));
 
     // Parts: made in the crafting grid, used up in other recipes.
+    /** The screen from before the two tiers: still here so old ones aren't lost; it crafts into an LED Screen. */
     private static final DeferredItem<net.minecraft.world.item.Item> SCREEN_ITEM = ITEMS.registerSimpleItem("screen");
+    // Screens, in two tiers: LCD (early game) and LED (mid game), and the parts each is made from.
+    private static final DeferredItem<net.minecraft.world.item.Item> LIQUID_CRYSTAL_PANEL = ITEMS.registerSimpleItem("liquid_crystal_panel");
+    private static final DeferredItem<net.minecraft.world.item.Item> LCD_SCREEN = ITEMS.registerSimpleItem("lcd_screen");
+    private static final DeferredItem<net.minecraft.world.item.Item> LIGHT_EMITTING_DIODE = ITEMS.registerSimpleItem("light_emitting_diode");
+    private static final DeferredItem<net.minecraft.world.item.Item> LED_SCREEN = ITEMS.registerSimpleItem("led_screen");
     private static final DeferredItem<net.minecraft.world.item.Item> MOTHERBOARD_ITEM = ITEMS.registerSimpleItem("motherboard");
     private static final DeferredItem<qbotics.block.ProbeItem> PROBE_ITEM = ITEMS.registerItem("probe",
             properties -> new qbotics.block.ProbeItem(properties.stacksTo(1)));
@@ -253,7 +259,10 @@ public final class QboticsNeoForge {
                         output.accept(IRON_QBOT_ITEM.get());
                         output.accept(TRANSPORT_UPGRADE.get());
                         output.accept(CHUNK_LOADER_UPGRADE.get());
-                        output.accept(SCREEN_ITEM.get());
+                        output.accept(LIQUID_CRYSTAL_PANEL.get());
+                        output.accept(LCD_SCREEN.get());
+                        output.accept(LIGHT_EMITTING_DIODE.get());
+                        output.accept(LED_SCREEN.get());
                         output.accept(MOTHERBOARD_ITEM.get());
                     })
                     .build());

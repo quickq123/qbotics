@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "O": "minecraft:gold_ingot",
+    "D": "qbotics:light_emitting_diode",
+    "L": "minecraft:glass"
+  },
+  "pattern": [
+    "ODL",
+    "ODL",
+    "ODL"
+  ],
+  "result": {
+    "id": "qbotics:led_screen",
+    "count": 4
+  }
+}
