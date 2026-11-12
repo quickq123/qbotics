@@ -294,3 +294,41 @@ class _Tanks:
 
 
 tanks = _Tanks()
+
+
+class Picture:
+    """A picture the Qbot took (snapshot()): .width and .height in pixels. block_at(x, y)
+    says what a pixel shows: a block's id ("minecraft:stone"), "monster", "animal", "player"
+    or "creature" for a creature, or None for the sky. Show it on a web panel with
+    web.image("name", picture) and <img src="image:name">."""
+
+    def __init__(self, info):
+        self.id = info["id"]
+        self.width = info["width"]
+        self.height = info["height"]
+        self._names = info["names"]
+        self._pixels = info["pixels"]
+
+    def block_at(self, x, y):
+        if not (0 <= x < self.width and 0 <= y < self.height):
+            raise IndexError("the picture is %d x %d" % (self.width, self.height))
+        name = self._names[ord(self._pixels[y * self.width + x]) - 256]
+        return name or None
+
+    def counts(self):
+        """How many pixels show each thing: {"minecraft:stone": 812, ...} (the sky is None)."""
+        seen = {}
+        for ch in self._pixels:
+            name = self._names[ord(ch) - 256] or None
+            seen[name] = seen.get(name, 0) + 1
+        return seen
+
+    def __repr__(self):
+        return "<Picture %d x %d>" % (self.width, self.height)
+
+
+def snapshot(width=64, height=48, pitch=0):
+    """Takes a picture of what is in front of it, up to 32 blocks away: blocks, fluids and
+    creatures. pitch tilts the camera up (positive) or down, in degrees. At most 128 x 96
+    pixels, and one picture a second."""
+    return Picture(_q("qbot_snapshot", width, height, pitch))

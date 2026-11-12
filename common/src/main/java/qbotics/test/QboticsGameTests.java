@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -71,6 +71,7 @@ public final class QboticsGameTests {
             Map.entry("web_page", QboticsGameTests::webPage),
             Map.entry("web_panel", QboticsGameTests::webPanel),
             Map.entry("web_storage", QboticsGameTests::webStorage),
+            Map.entry("qbot_camera", QboticsGameTests::qbotCamera),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -3021,6 +3022,7 @@ public final class QboticsGameTests {
             helper.assertTrue(filled.contains("Iron: 128") && filled.contains("copper &lt;b&gt;") && filled.contains("then copper") && !filled.contains("{{"),
                     "the state fills the page");
             if (!clicked[0]) {
+                helper.assertTrue(!screen.listeners().isEmpty(), "the program listens for clicks");
                 // Lay the page out as a player's game would, keep a picture of it, and click its button.
                 qbotics.web.WebPage laid = new qbotics.web.WebPage(url -> null);
                 laid.load(filled, "html { background: #0e1216; color: #e6e8ea; } body { margin: 8px; font-family: sans-serif; font-size: 14px; }");
@@ -3118,6 +3120,58 @@ public final class QboticsGameTests {
                 sent[0] = true;
             }
             assertScreen(helper, computer, "search iron True input");
+        });
+    }
+
+    /**
+     * A Qbot's camera: a picture of a stone wall with a pig before it, what its pixels show,
+     * one picture a second, and the picture put on a web panel beside it.
+     */
+    private static void qbotCamera(GameTestHelper helper) {
+        BlockPos start = new BlockPos(1, 1, 5);
+        helper.setBlock(start, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(start, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        for (int x = -2; x <= 4; x++) {
+            for (int y = 0; y <= 4; y++) {
+                helper.setBlock(new BlockPos(x, y, 1), Blocks.STONE);
+            }
+        }
+        helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.PIG, new BlockPos(1, 1, 3));
+        helper.setBlock(new BlockPos(2, 1, 5), QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH));
+        String program = String.join("\n",
+                "import qbot",
+                "from logistics import network",
+                "pic = qbot.snapshot(32, 24)",
+                "print('pic', pic.width, pic.height)",
+                "print('middle', pic.block_at(16, 12))",
+                "print('top', pic.block_at(16, 0))",
+                "seen = pic.counts()",
+                "print('stone', seen.get('minecraft:stone', 0) > 100, 'pig', seen.get('animal', 0) > 0)",
+                "try:",
+                "    qbot.snapshot()",
+                "except qbot.QbotError as e:",
+                "    print('again:', e)",
+                "web = network().web_panel()",
+                "web.html('<img src=\"image:cam\">')",
+                "web.image('cam', pic)",
+                "print('shown')",
+                "");
+        ServerComputer computer = ComputerManager.get(helper.getLevel().getServer()).getOrStart(qbot);
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/cam.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /cam.py");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "pic 32 24", "middle animal", "stone True pig True", "again: A Qbot takes one picture a second", "shown");
+            qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(2, 1, 5), qbotics.block.DisplayBlockEntity.class);
+            qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();
+            qbotics.camera.Picture picture = web.images().get("cam");
+            helper.assertTrue(picture != null && picture.width() == 32 && picture.data().length == 32 * 24 * qbotics.camera.Picture.BYTES_PER_PIXEL,
+                    "the picture is on the panel");
         });
     }
 

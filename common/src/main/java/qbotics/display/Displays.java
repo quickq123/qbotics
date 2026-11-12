@@ -269,7 +269,9 @@ public final class Displays {
         if (content instanceof WebScreen web) {
             synchronized (web) {
                 boolean page = since == 0 || web.pageChangedSince(since);
-                return new DisplayPayloads.Web(pos, web.pixelWidth(), web.pixelHeight(), page, page ? web.html() : "", web.stateJson());
+                boolean pictures = since == 0 || web.imagesChangedSince(since);
+                return new DisplayPayloads.Web(pos, web.pixelWidth(), web.pixelHeight(), page, page ? web.html() : "", web.stateJson(),
+                        pictures ? web.images() : null);
             }
         }
         return new DisplayPayloads.Panel(pos, ((PanelScreen) content).state().toString());

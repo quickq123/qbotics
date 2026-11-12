@@ -1533,6 +1533,37 @@ the Qbot; the default), `"far"`, `"top"`, `"bottom"`, `"left"`, `"right"`. From 
 furnace, `inventory.drop(Side.FRONT, "raw_iron", 16, face="top")` fills its input and
 `face="left"` (or right) its fuel.
 
+### 7d.3b The camera: pictures of what it sees
+
+```python
+import qbot
+from logistics import network
+
+pic = qbot.snapshot()                # 64 x 48 pixels of what is in front of it
+print(pic.block_at(32, 24))          # "minecraft:stone", "monster", ... or None for the sky
+print(pic.counts())                  # how many pixels show each thing
+
+web = network().web_panel("camera")
+web.html('<img src="image:cam" style="width: 256px; height: 192px">')
+web.image("cam", pic)                # players see the picture, coloured from the real textures
+```
+
+| Call | Does |
+|---|---|
+| `qbot.snapshot(width=64, height=48, pitch=0)` | A picture of what is in front of it, up to 32 blocks away. `pitch` tilts the camera up (positive) or down, in degrees. At most 128 x 96, one a second |
+| `pic.width`, `pic.height` | Its size in pixels |
+| `pic.block_at(x, y)` | What a pixel shows: a block's id, `"monster"`, `"animal"`, `"player"` or `"creature"`, or `None` for the sky (0, 0 is the top left) |
+| `pic.counts()` | How many pixels show each thing |
+| `web.image(name, pic)` | Puts it on a web panel, as `<img src="image:name">` (up to 8 on a panel; `None` takes one off) |
+
+The picture is taken on the server: a ray goes from the Qbot's front through each pixel and
+records what it hits (blocks, fluids, creatures) and how lit it is. Each player's game then
+colours it from the block textures it has (resource packs and modded blocks included), shaded by
+light and distance; creatures are flat shapes in a colour by kind (red monsters, green animals,
+blue players). On a panel a picture is shown pixelated, two CSS pixels to a pixel unless CSS sizes
+it. Pictures are kept on the server for a while (the latest 256), not with the world: after a
+restart, take them again.
+
 ### 7d.4 Not yet
 
 Better tiers (diamond, with a full chest of slots), inventory filters, pipes and hoppers reaching

@@ -25,6 +25,18 @@ public final class WebScreen extends ScreenContent {
     private JsonObject state = new JsonObject();
     /** The version at which the page itself last changed (not only its state). */
     private long pageVersion = 1;
+    /** Pictures the page shows as image:name (Qbot snapshots), and when they last changed. */
+    private final java.util.LinkedHashMap<String, qbotics.camera.Picture> images = new java.util.LinkedHashMap<>();
+    private long imagesVersion = 1;
+    public static final int MAX_IMAGES = 8;
+
+    public synchronized boolean imagesChangedSince(long version) {
+        return imagesVersion > version;
+    }
+
+    public synchronized java.util.Map<String, qbotics.camera.Picture> images() {
+        return new java.util.LinkedHashMap<>(images);
+    }
 
     @Override
     protected void relayout() {
@@ -94,14 +106,39 @@ public final class WebScreen extends ScreenContent {
                 }
                 return JsonNull.INSTANCE;
             }
+            case "image" -> {
+                // ["image", name, picture number or None]
+                String name = stringArg(args, 0);
+                if (name.isEmpty() || name.length() > 32) {
+                    throw new IllegalArgumentException("A picture's name is 1 to 32 characters.");
+                }
+                JsonElement number = arg(args, 1);
+                if (number == null || number.isJsonNull()) {
+                    images.remove(name);
+                } else {
+                    qbotics.camera.Picture picture = qbotics.camera.Camera.get(intArg(args, 1, "The picture"));
+                    if (picture == null) {
+                        throw new IllegalArgumentException("That picture is no longer kept: take it again.");
+                    }
+                    if (!images.containsKey(name) && images.size() >= MAX_IMAGES) {
+                        throw new IllegalArgumentException("A web panel holds up to " + MAX_IMAGES + " pictures; take one off with image(name, None).");
+                    }
+                    images.put(name, picture);
+                }
+                version++;
+                imagesVersion = version;
+                return JsonNull.INSTANCE;
+            }
             case "get_state" -> {
                 return state.deepCopy();
             }
             case "clear" -> {
                 html = "";
                 state = new JsonObject();
+                images.clear();
                 version++;
                 pageVersion = version;
+                imagesVersion = version;
                 return JsonNull.INSTANCE;
             }
             default -> throw new IllegalArgumentException("A web panel can't " + method + ".");

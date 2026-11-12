@@ -51,6 +51,24 @@ final class QbotCalls {
     private QbotCalls() {
     }
 
+    /** When each Qbot last took a picture (game time): one a second each. */
+    private static final java.util.Map<java.util.UUID, Long> LAST_PICTURE = new java.util.HashMap<>();
+
+    /** A picture of what is in front of it (design doc §8): see qbotics.camera.Camera. */
+    private static JsonElement snapshot(ServerLevel level, QbotBlockEntity qbot, int width, int height, double pitch) {
+        long now = level.getGameTime();
+        Long last = LAST_PICTURE.get(qbot.deviceId());
+        if (last != null && now - last < 20 && now >= last) {
+            throw new CallError("A Qbot takes one picture a second; wait a moment.");
+        }
+        if (width < 1 || height < 1 || width > qbotics.camera.Camera.MAX_WIDTH || height > qbotics.camera.Camera.MAX_HEIGHT) {
+            throw new CallError("A picture is 1 to " + qbotics.camera.Camera.MAX_WIDTH + " pixels wide and 1 to "
+                    + qbotics.camera.Camera.MAX_HEIGHT + " high.");
+        }
+        LAST_PICTURE.put(qbot.deviceId(), now);
+        return qbotics.camera.Camera.snapshot(level, qbot.getBlockPos(), qbot.facing(), width, height, pitch);
+    }
+
     static JsonElement call(String method, ServerLevel level, BlockPos computerPos, JsonArray args) {
         QbotBlockEntity qbot = qbot(level, computerPos);
         return switch (method) {
@@ -76,6 +94,8 @@ final class QbotCalls {
                     args.get(4).getAsBoolean(), NetworkCalls.string(args, 5));
             case "qbot_pump" -> pump(level, qbot, side(qbot, args));
             case "qbot_pour" -> pour(level, qbot, side(qbot, args), NetworkCalls.string(args, 2));
+            case "qbot_snapshot" -> snapshot(level, qbot, NetworkCalls.wholeNumber(args, 1, "width"), NetworkCalls.wholeNumber(args, 2, "height"),
+                    args.get(3).getAsDouble());
             default -> throw new CallError("This computer doesn't know the call '" + method + "'.");
         };
     }

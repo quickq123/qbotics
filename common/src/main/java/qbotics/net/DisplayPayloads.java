@@ -74,7 +74,8 @@ public final class DisplayPayloads {
      * Server to client: a Web Panel's page and state. The page is sent only when it has
      * changed (hasPage); its state every time it changes. Width and height in CSS pixels.
      */
-    public record Web(BlockPos origin, int width, int height, boolean hasPage, String html, String state) implements CustomPacketPayload {
+    public record Web(BlockPos origin, int width, int height, boolean hasPage, String html, String state,
+            java.util.@org.jspecify.annotations.Nullable Map<String, qbotics.camera.Picture> images) implements CustomPacketPayload {
         public static final Type<Web> TYPE = new Type<>(Qbotics.id("display_web"));
         public static final StreamCodec<ByteBuf, Web> STREAM_CODEC = StreamCodec.of(
                 (buffer, payload) -> {
@@ -84,9 +85,44 @@ public final class DisplayPayloads {
                     ByteBufCodecs.BOOL.encode(buffer, payload.hasPage());
                     ByteBufCodecs.stringUtf8(1 << 20).encode(buffer, payload.html());
                     ByteBufCodecs.stringUtf8(1 << 18).encode(buffer, payload.state());
+                    // The pictures, only when they changed (-1: unchanged).
+                    if (payload.images() == null) {
+                        ByteBufCodecs.VAR_INT.encode(buffer, -1);
+                    } else {
+                        ByteBufCodecs.VAR_INT.encode(buffer, payload.images().size());
+                        payload.images().forEach((name, picture) -> {
+                            ByteBufCodecs.stringUtf8(64).encode(buffer, name);
+                            ByteBufCodecs.VAR_INT.encode(buffer, picture.width());
+                            ByteBufCodecs.VAR_INT.encode(buffer, picture.height());
+                            BlockPos.STREAM_CODEC.encode(buffer, picture.origin());
+                            ByteBufCodecs.BYTE_ARRAY.encode(buffer, picture.data());
+                        });
+                    }
                 },
-                buffer -> new Web(BlockPos.STREAM_CODEC.decode(buffer), ByteBufCodecs.VAR_INT.decode(buffer), ByteBufCodecs.VAR_INT.decode(buffer),
-                        ByteBufCodecs.BOOL.decode(buffer), ByteBufCodecs.stringUtf8(1 << 20).decode(buffer), ByteBufCodecs.stringUtf8(1 << 18).decode(buffer)));
+                buffer -> {
+                    BlockPos origin = BlockPos.STREAM_CODEC.decode(buffer);
+                    int width = ByteBufCodecs.VAR_INT.decode(buffer);
+                    int height = ByteBufCodecs.VAR_INT.decode(buffer);
+                    boolean hasPage = ByteBufCodecs.BOOL.decode(buffer);
+                    String html = ByteBufCodecs.stringUtf8(1 << 20).decode(buffer);
+                    String state = ByteBufCodecs.stringUtf8(1 << 18).decode(buffer);
+                    int count = ByteBufCodecs.VAR_INT.decode(buffer);
+                    java.util.Map<String, qbotics.camera.Picture> images = null;
+                    if (count >= 0) {
+                        images = new java.util.LinkedHashMap<>();
+                        for (int i = 0; i < Math.min(count, 16); i++) {
+                            String name = ByteBufCodecs.stringUtf8(64).decode(buffer);
+                            int w = ByteBufCodecs.VAR_INT.decode(buffer);
+                            int h = ByteBufCodecs.VAR_INT.decode(buffer);
+                            BlockPos at = BlockPos.STREAM_CODEC.decode(buffer);
+                            byte[] data = ByteBufCodecs.BYTE_ARRAY.decode(buffer);
+                            if (w > 0 && h > 0 && data.length == w * h * qbotics.camera.Picture.BYTES_PER_PIXEL) {
+                                images.put(name, new qbotics.camera.Picture(w, h, at, data));
+                            }
+                        }
+                    }
+                    return new Web(origin, width, height, hasPage, html, state, images);
+                });
 
         @Override
         public Type<Web> type() {

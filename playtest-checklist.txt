@@ -292,3 +292,8 @@ WEB PANEL
 112. A storage page: {{#items}}<div><img src="item:{{id}}"> {{name}} {{count}}</div>{{/items}} in a box with
      overflow: auto, and <input name="search">. Set web.state['items'] from a bus's contents: icons show (3D for
      blocks). In the close-up the wheel scrolls the list; type in the field and @web.on('search') filters the list.
+
+QBOT CAMERA
+113. A Qbot facing something interesting, a Web Panel on its network (or a computer's: pictures are kept by
+     number). pic = qbot.snapshot() ; print(pic.counts()) ; web.html('<img src="image:cam" style="width:256px">') ;
+     web.image('cam', pic). The panel shows the view in the blocks' own textures; a mob in front shows as a red shape.

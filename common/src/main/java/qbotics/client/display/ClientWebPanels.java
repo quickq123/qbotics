@@ -70,6 +70,8 @@ public final class ClientWebPanels {
         /** Typing not yet sent to the program, and when the last key was. */
         boolean typingPending;
         long lastKey;
+        /** The pictures the page shows as image:name, coloured. */
+        volatile Map<String, BufferedImage> pictures = Map.of();
         /** Worker only. */
         @Nullable WebPage page;
         /** A finished picture and its item icons, handed from the worker to the render thread. */
@@ -155,8 +157,23 @@ public final class ClientWebPanels {
             view.html = payload.html();
         }
         view.state = payload.state();
+        if (payload.images() != null) {
+            Map<String, BufferedImage> pictures = new HashMap<>();
+            payload.images().forEach((name, picture) -> pictures.put(name, PictureColors.colorize(picture)));
+            view.pictures = pictures;
+        }
         view.dirty = true;
         schedule(view);
+    }
+
+    /** A picture's natural size on the page: two CSS pixels to each of its pixels. */
+    private static float @Nullable [] imageSize(WebView view, String url) {
+        BufferedImage picture = url.startsWith("image:") ? view.pictures.get(url.substring(6)) : null;
+        return picture == null ? null : new float[] {picture.getWidth() * 2, picture.getHeight() * 2};
+    }
+
+    private static @Nullable BufferedImage image(WebView view, String url) {
+        return url.startsWith("image:") ? view.pictures.get(url.substring(6)) : null;
     }
 
     /** Texture pixels per CSS pixel: twice for small panels, so their text is sharp. */
@@ -184,14 +201,14 @@ public final class ClientWebPanels {
             float shownScroll = scroll;
             try {
                 if (view.page == null) {
-                    view.page = new WebPage(url -> null);
+                    view.page = new WebPage(url -> imageSize(view, url));
                 }
                 if (page != null) {
                     view.page.load(page, PANEL_CSS);
                     view.contentHeight = view.page.layout(width, height);
                 }
                 shownScroll = Math.clamp(scroll, 0, Math.max(0, view.contentHeight - height));
-                image = toNative(WebPainter.paint(view.page, shownScroll, scale, url -> null, overlays));
+                image = toNative(WebPainter.paint(view.page, shownScroll, scale, url -> image(view, url), overlays));
             } catch (RuntimeException e) {
                 Qbotics.LOGGER.warn("A web panel's page couldn't be drawn", e);
             }

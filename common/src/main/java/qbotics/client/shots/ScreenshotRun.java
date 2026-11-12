@@ -161,6 +161,7 @@ public final class ScreenshotRun {
             onServer(minecraft, ScreenshotRun::buildScene);
         });
         // Everything, then each part closer up.
+        then(20, minecraft -> onServer(minecraft, ScreenshotRun::showCamera));
         view("01-overview", new Vec3(6.5, 6.5, 8.5), new Vec3(6.5, 0.5, -2.0));
         view("02-plates-front", new Vec3(2.5, 2.4, 3.0), new Vec3(2.5, 1.5, 0.5));
         view("02b-fluid-and-energy-plates", new Vec3(5.5, 3.4, 1.4), new Vec3(5.5, 1.4, -2.0));
@@ -178,6 +179,7 @@ public final class ScreenshotRun {
         then(10, minecraft -> minecraft.setScreen(new qbotics.client.display.WebCloseUpScreen(base.offset(21, 1, -5))));
         then(40, minecraft -> shot(minecraft, "08e-web-close-up"));
         then(5, minecraft -> minecraft.setScreen(null));
+        view("08f-qbot-camera", new Vec3(26.0, 1.0, -2.4), new Vec3(26.0, 1.0, -5.0));
 
         // The screens.
         then(15, minecraft -> onServer(minecraft, player -> {
@@ -565,6 +567,22 @@ public final class ScreenshotRun {
         then(0, Minecraft::stop);
     }
 
+    /** Takes the camera's picture once the scene stands, and shows it on the camera panel. */
+    private static void showCamera(net.minecraft.server.level.ServerPlayer player) {
+        if (player.level().getBlockEntity(base.offset(25, 1, -5)) instanceof qbotics.block.DisplayBlockEntity panel
+                && panel.content() instanceof qbotics.display.WebScreen web && player.level() instanceof net.minecraft.server.level.ServerLevel level) {
+            com.google.gson.JsonObject picture = qbotics.camera.Camera.snapshot(level, base.offset(9, 2, 5), Direction.NORTH, 96, 72, -12);
+            com.google.gson.JsonArray page = new com.google.gson.JsonArray();
+            page.add("<html><body style='margin: 6px'><div style='color: #ffb347; font-size: 15px; margin-bottom: 4px'>Qbot camera</div>"
+                    + "<img src='image:cam' style='width: 244px; height: 183px; border: 1px solid #3a5068'></body></html>");
+            web.op("page", page);
+            com.google.gson.JsonArray image = new com.google.gson.JsonArray();
+            image.add("cam");
+            image.add(picture.get("id"));
+            web.op("image", image);
+        }
+    }
+
     // ---- the scene ----------------------------------------------------------------------
 
     /** A drawing call on a display, as a program makes it. */
@@ -806,6 +824,17 @@ public final class ScreenshotRun {
                     + "{\"id\": \"minecraft:redstone\", \"name\": \"Redstone Dust\", \"count\": 2210},"
                     + "{\"id\": \"minecraft:cobblestone\", \"name\": \"Cobblestone\", \"count\": 18000}]}"));
             web.op("state", state);
+        }
+        // A 2x2 Web Panel showing what a camera at the front of the scene sees, looking back at the setup.
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; j++) {
+                BlockPos at = base.offset(25 + i, j, -5);
+                level.setBlock(at, QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
+                        .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+                if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    qbotics.display.Displays.reform(serverLevel, at);
+                }
+            }
         }
         // Blocks set like this skip the placement logic, so give every cable its arms now.
         for (int x = -2; x <= 16; x++) {

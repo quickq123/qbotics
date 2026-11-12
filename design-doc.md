@@ -349,6 +349,13 @@ gps.dimension()               # e.g. "minecraft:overworld"
 > **Naming:** the mod's mobile robot is the **Qbot**: Q (the author's initial) plus "cube bot". Its Python module is `qbot`, never `turtle` (§2.3).
 
 > **Status (2026-11-11): the Iron Qbot is built** (`docs/reference.md` §7d). Decided by the project owner: a Qbot is a **moving block** (not an entity), drawn by a renderer as a loose, original golem-like robot in white-ish iron that hovers, glides a block per step with a small hop, turns smoothly and swings its arms as it works (so its movement doesn't read as an uncanny slide). It is a computer (own terminal, editor, drive, limits as `qbots_per_player`, Programmer), carries **16 slots (4x4)**, a hand slot for a tool, one upgrade slot (Chunk Loader), a **1,000,000 FE cell** and **two 4,000 mB tanks** (water and lava apart). Iron tier: digs as iron tools, with real tools in hand used when better (wear, Fortune, Silk Touch); moves, turns, inspects six sides, digs, places, uses (blocks and creatures), attacks, drops/sucks/inserts/extracts with faces, moves energy and fluid, pumps and pours. Its program keeps running as it moves. Its main limits by design: iron-level digging and 16 slots, against a later tier's "full chest". Not yet: higher tiers, inventory filters, item/fluid/energy capabilities for pipes, Efficiency, parking on owner logout, the new-terrain rate limit.
+>
+> **Camera (built 2026-11-12, asked for by the project owner):** `qbot.snapshot()` casts a ray per pixel on the server
+> (visual shapes, fluids, creature boxes; barrier, light and structure-void blocks are looked through), up to 32
+> blocks, 128 x 96 at most, one a second per Qbot. Each pixel records block state (or creature kind), face, point on
+> the face, light and distance; players' games colour it from the real block textures (tinted at the place it was
+> taken), shaded by face, light and fog. Programs get what each pixel shows (`block_at`, `counts`). Shown on Web
+> Panels as `<img src="image:name">` via `web.image(name, pic)`. Decided: textured, creatures as coloured shapes.
 
 ### 8.1 Design principles
 
