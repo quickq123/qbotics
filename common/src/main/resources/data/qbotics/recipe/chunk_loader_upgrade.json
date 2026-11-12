@@ -5,7 +5,7 @@
     "O": "minecraft:obsidian",
     "Y": "minecraft:ender_eye",
     "R": "minecraft:redstone",
-    "M": "qbotics:motherboard",
+    "M": "qbotics:integrated_circuit",
     "G": "minecraft:gold_nugget"
   },
   "pattern": [

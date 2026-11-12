@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "qbotics:item/motherboard"
+    "model": "qbotics:item/integrated_circuit"
   }
 }

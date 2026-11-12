@@ -283,7 +283,7 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.lcd_screen": "LCD Screen",
     "item.qbotics.light_emitting_diode": "Light Emitting Diode",
     "item.qbotics.led_screen": "LED Screen",
-    "item.qbotics.motherboard": "Motherboard",
+    "item.qbotics.integrated_circuit": "Integrated Circuit",
     "item.qbotics.laptop": "Laptop",
     "item.qbotics.laptop.tip": "Right-click: your laptop. Sneak + right-click: its drives. On a computer or Qbot of yours: connect to it.",
     "message.qbotics.laptop.not_yours": "That isn't yours to connect to. ssh in instead, if its owner allows.",
@@ -439,13 +439,13 @@ write_json("data/qbotics/recipe/cable.json",
 write_json("data/qbotics/recipe/cable_horizontal.json",
            shaped(["III", "RRR", "III"], CABLE_KEY, "qbotics:cable", 16))
 
-# Computer: cable in the shape of leggings, a motherboard in the middle, a screen at the bottom middle.
+# Computer: cable in the shape of leggings, an integrated circuit in the middle, a screen at the bottom middle.
 write_json("data/qbotics/recipe/computer.json", shaped(
     ["CCC", "CMC", "CSC"],
-    {"C": "qbotics:cable", "M": "qbotics:motherboard", "S": "qbotics:lcd_screen"},
+    {"C": "qbotics:cable", "M": "qbotics:integrated_circuit", "S": "qbotics:lcd_screen"},
     "qbotics:computer"))
 
-# ---- parts: the screen and the motherboard --------------------------------------------
+# ---- parts: the screens and the integrated circuit --------------------------------------------
 
 
 def screen_item():
@@ -540,7 +540,7 @@ def laptop_item():
     return px
 
 
-def motherboard_item():
+def integrated_circuit_item():
     """A green board with copper tracks, a chip in the middle and glass at two corners."""
     board, track, chip, glass = (38, 120, 62), (214, 132, 82), (30, 30, 34), (190, 226, 236)
     px = [[None] * 16 for _ in range(16)]
@@ -565,7 +565,7 @@ def motherboard_item():
 
 for part, picture in (("led_screen", screen_item()), ("lcd_screen", lcd_screen_item()),
                       ("liquid_crystal_panel", liquid_crystal_panel_item()),
-                      ("light_emitting_diode", light_emitting_diode_item()), ("motherboard", motherboard_item()),
+                      ("light_emitting_diode", light_emitting_diode_item()), ("integrated_circuit", integrated_circuit_item()),
                       ("laptop", laptop_item())):
     write_png("assets/qbotics/textures/item/%s.png" % part, picture)
     write_json("assets/qbotics/models/item/%s.json" % part, {
@@ -598,11 +598,11 @@ write_json("data/qbotics/recipe/led_screen.json", shaped(
 # Laptop (design doc §5.6): a USB, a computer (whose files come along) and an Infinite antenna.
 write_json("data/qbotics/recipe/laptop.json", {"type": "minecraft:crafting_shapeless", "category": "redstone",
     "ingredients": ["qbotics:usb", "qbotics:computer", "qbotics:antenna_infinite"], "result": {"id": "qbotics:laptop"}})
-# Motherboard: copper above and below glass, green dye, glass.
-write_json("data/qbotics/recipe/motherboard.json", shaped(
+# Integrated Circuit: copper above and below glass, green dye, glass.
+write_json("data/qbotics/recipe/integrated_circuit.json", shaped(
     ["CCC", "LGL", "CCC"],
     {"C": "minecraft:copper_ingot", "L": "minecraft:glass", "G": "minecraft:green_dye"},
-    "qbotics:motherboard"))
+    "qbotics:integrated_circuit"))
 
 # A broken computer keeps its drive (its files).
 write_json("data/qbotics/loot_table/blocks/computer.json",
@@ -1241,9 +1241,9 @@ write_json("data/qbotics/recipe/hard_drive.json", shaped(
     ["III", "IRI", "IGI"], {"I": "minecraft:iron_ingot", "R": "minecraft:redstone", "G": "minecraft:gold_ingot"}, "qbotics:hard_drive"))
 write_json("data/qbotics/recipe/drive_bay.json", shaped(
     [" C ", "CBC", " C "], {"C": "qbotics:cable", "B": "minecraft:barrel"}, "qbotics:drive_bay"))
-# Placeholder: a Programmer is cables around a motherboard, a computer's heart without its screen.
+# Placeholder: a Programmer is cables around an integrated circuit, a computer's heart without its screen.
 write_json("data/qbotics/recipe/programmer.json", shaped(
-    [" C ", "CMC", " C "], {"C": "qbotics:cable", "M": "qbotics:motherboard"}, "qbotics:programmer"))
+    [" C ", "CMC", " C "], {"C": "qbotics:cable", "M": "qbotics:integrated_circuit"}, "qbotics:programmer"))
 write_json("data/qbotics/loot_table/blocks/programmer.json",
            drops_itself("qbotics:programmer", copy_components=["minecraft:custom_name"]))
 # Placeholder: an Iron Qbot is a computer in iron, over a chest (what it carries).
@@ -1252,14 +1252,14 @@ write_json("data/qbotics/recipe/iron_qbot.json", shaped(
 # A broken Qbot keeps its drive (files), name, and its energy and fluid (custom data); its items fall out.
 write_json("data/qbotics/loot_table/blocks/iron_qbot.json",
            drops_itself("qbotics:iron_qbot", copy_components=["qbotics:drive_id", "minecraft:custom_name", "minecraft:custom_data"]))
-# Placeholders: upgrades are a motherboard with what they do. Transport: ender pearls (things cross a
+# Placeholders: upgrades are an integrated circuit with what they do. Transport: ender pearls (things cross a
 # distance) and a hopper; Chunk Loader: an eye of ender over obsidian.
 write_json("data/qbotics/recipe/transport_upgrade.json", shaped(
     ["EHE", "RMR", "GGG"], {"E": "minecraft:ender_pearl", "H": "minecraft:hopper", "R": "minecraft:redstone",
-                            "M": "qbotics:motherboard", "G": "minecraft:gold_nugget"}, "qbotics:transport_upgrade"))
+                            "M": "qbotics:integrated_circuit", "G": "minecraft:gold_nugget"}, "qbotics:transport_upgrade"))
 write_json("data/qbotics/recipe/chunk_loader_upgrade.json", shaped(
     ["OYO", "RMR", "GGG"], {"O": "minecraft:obsidian", "Y": "minecraft:ender_eye", "R": "minecraft:redstone",
-                            "M": "qbotics:motherboard", "G": "minecraft:gold_nugget"}, "qbotics:chunk_loader_upgrade"))
+                            "M": "qbotics:integrated_circuit", "G": "minecraft:gold_nugget"}, "qbotics:chunk_loader_upgrade"))
 # Placeholders: a Text Monitor is a screen in iron, over a cable; a Control Panel adds a button and a lever.
 write_json("data/qbotics/recipe/text_monitor.json", shaped(
     ["III", "ISI", "ICI"], {"I": "minecraft:iron_ingot", "S": "qbotics:lcd_screen", "C": "qbotics:cable"}, "qbotics:text_monitor", 2))
@@ -1270,10 +1270,10 @@ for display in ("text_monitor", "control_panel"):
     write_json("data/qbotics/loot_table/blocks/%s.json" % display,
                drops_itself("qbotics:%s" % display, copy_components=["minecraft:custom_name"]))
 # Placeholder: the Uplink is expensive, the late-game way out: diamonds and ender eyes around a
-# Long-range Antenna, over a motherboard.
+# Long-range Antenna, over an integrated circuit.
 write_json("data/qbotics/recipe/uplink.json", shaped(
     ["DED", "GAG", "DMD"], {"D": "minecraft:diamond", "E": "minecraft:ender_eye", "G": "minecraft:gold_ingot",
-                            "A": "qbotics:antenna_long", "M": "qbotics:motherboard"}, "qbotics:uplink"))
+                            "A": "qbotics:antenna_long", "M": "qbotics:integrated_circuit"}, "qbotics:uplink"))
 write_json("data/qbotics/loot_table/blocks/uplink.json", drops_itself("qbotics:uplink", copy_components=["minecraft:custom_name"]))
 write_json("data/qbotics/loot_table/blocks/drive_bay.json",
            drops_itself("qbotics:drive_bay", copy_components=["minecraft:custom_name"]))

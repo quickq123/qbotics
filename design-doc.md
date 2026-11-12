@@ -1635,6 +1635,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |
+| 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
 | 2026-11-10 | Look: whitish iron with redstone red; the plates carry no arrows because their shapes show direction | Decided |
 | 2026-11-10 | Network Probe: a hand tool that reads a device's name and addresses with one-click copy, and names the device. Names are the recommended way to address many devices in code | Built; to confirm |
 
@@ -1685,8 +1686,8 @@ All are shaped crafting-table recipes. `I` = iron ingot, `R` = redstone dust, `G
 | **LCD Screen** (early tier; makes 4) | `TLP` / `TLP` / `TLP` | Columns of redstone torches, Liquid Crystal Panels, glass panes. Used by the Computer and Text Monitor |
 | **Light Emitting Diode** (a part; makes 3) | `GGG` / `RNB` / `GGG` | Red, green and blue dye between rows of glowstone dust |
 | **LED Screen** (mid tier; makes 4) | `ODL` / `ODL` / `ODL` | Columns of gold ingots, Light Emitting Diodes, glass blocks. Used by the Control Panel |
-| **Motherboard** (a part) | `CCC` / `LGL` / `CCC` | Copper ingots above and below; glass, green dye, glass between. The core of every computer |
-| **Computer** | `CCC` / `CMC` / `CSC` | Cable in the shape of leggings, a motherboard in the middle, an LCD Screen at the bottom middle. Costs 7 cables, 1 motherboard, 1 LCD Screen |
+| **Integrated Circuit** (a part; was the Motherboard) | `CCC` / `LGL` / `CCC` | Copper ingots above and below; glass, green dye, glass between. The core of every computer |
+| **Computer** | `CCC` / `CMC` / `CSC` | Cable in the shape of leggings, an integrated circuit in the middle, an LCD Screen at the bottom middle. Costs 7 cables, 1 integrated circuit, 1 LCD Screen |
 
 **Placeholders, not decided:** the item blocks need recipes to be craftable at all, so each is four cables around the vanilla block it most resembles.
 

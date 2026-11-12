@@ -220,7 +220,7 @@ public final class QboticsGameTests {
     private static void computerRecipe(GameTestHelper helper) {
         // The parts first. LCD: three Liquid Crystal Panels from glass panes, dyes and redstone; four LCD
         // Screens from torches, panels and panes. LED: three diodes from glowstone and dyes; four LED
-        // Screens from gold, diodes and glass. A motherboard from copper, glass and green dye.
+        // Screens from gold, diodes and glass. An integrated circuit from copper, glass and green dye.
         ItemStack g = new ItemStack(Items.GLOWSTONE_DUST);
         ItemStack p = new ItemStack(Blocks.GLASS_PANE);
         ItemStack red = new ItemStack(Items.RED_DYE);
@@ -244,18 +244,18 @@ public final class QboticsGameTests {
                 "the screen parts gave " + panels + ", " + diodes + ", " + ledScreens);
         ItemStack copper = new ItemStack(Items.COPPER_INGOT);
         ItemStack glass = new ItemStack(Blocks.GLASS);
-        ItemStack motherboard = craft(helper,
+        ItemStack circuit = craft(helper,
                 copper, copper, copper,
                 glass, new ItemStack(Items.GREEN_DYE), glass,
                 copper, copper, copper);
         helper.assertTrue(screens.getCount() == 4 && screens.getItem().toString().equals("qbotics:lcd_screen"), "the LCD screen recipe gave " + screens);
-        helper.assertTrue(motherboard.getCount() == 1 && motherboard.getItem().toString().equals("qbotics:motherboard"),
-                "the motherboard recipe gave " + motherboard);
+        helper.assertTrue(circuit.getCount() == 1 && circuit.getItem().toString().equals("qbotics:integrated_circuit"),
+                "the integrated circuit recipe gave " + circuit);
 
         ItemStack c = new ItemStack(QboticsContent.CABLE_BLOCK.get());
         ItemStack result = craft(helper,
                 c, c, c,
-                c, motherboard, c,
+                c, circuit, c,
                 c, screens.copyWithCount(1), c);
         helper.assertTrue(result.is(QboticsContent.COMPUTER_BLOCK.get().asItem()) && result.getCount() == 1,
                 "recipe should give one computer but gave " + result);

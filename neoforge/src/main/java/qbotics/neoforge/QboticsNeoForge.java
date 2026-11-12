@@ -190,7 +190,7 @@ public final class QboticsNeoForge {
     private static final DeferredItem<net.minecraft.world.item.Item> LCD_SCREEN = ITEMS.registerSimpleItem("lcd_screen");
     private static final DeferredItem<net.minecraft.world.item.Item> LIGHT_EMITTING_DIODE = ITEMS.registerSimpleItem("light_emitting_diode");
     private static final DeferredItem<net.minecraft.world.item.Item> LED_SCREEN = ITEMS.registerSimpleItem("led_screen");
-    private static final DeferredItem<net.minecraft.world.item.Item> MOTHERBOARD_ITEM = ITEMS.registerSimpleItem("motherboard");
+    private static final DeferredItem<net.minecraft.world.item.Item> INTEGRATED_CIRCUIT_ITEM = ITEMS.registerSimpleItem("integrated_circuit");
     private static final DeferredItem<qbotics.block.ProbeItem> PROBE_ITEM = ITEMS.registerItem("probe",
             properties -> new qbotics.block.ProbeItem(properties.stacksTo(1)));
 
@@ -274,7 +274,7 @@ public final class QboticsNeoForge {
                         output.accept(LCD_SCREEN.get());
                         output.accept(LIGHT_EMITTING_DIODE.get());
                         output.accept(LED_SCREEN.get());
-                        output.accept(MOTHERBOARD_ITEM.get());
+                        output.accept(INTEGRATED_CIRCUIT_ITEM.get());
                     })
                     .build());
 

@@ -6,7 +6,7 @@
     "E": "minecraft:ender_eye",
     "G": "minecraft:gold_ingot",
     "A": "qbotics:antenna_long",
-    "M": "qbotics:motherboard"
+    "M": "qbotics:integrated_circuit"
   },
   "pattern": [
     "DED",

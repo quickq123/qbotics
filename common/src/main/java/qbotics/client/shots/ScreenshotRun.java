@@ -530,7 +530,7 @@ public final class ScreenshotRun {
                     new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.FLUID)),
                     new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.UNIVERSAL)),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("lcd_screen"))),
-                    new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("motherboard"))),
+                    new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("integrated_circuit"))),
                 };
                 for (int slot = 0; slot < items.length; slot++) {
                     player.getInventory().setItem(slot, items[slot]);

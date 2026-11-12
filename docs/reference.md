@@ -42,8 +42,8 @@ glowstone and gold.
 | 4 LCD Screen | `TLP` / `TLP` / `TLP` | A column each of redstone torches, Liquid Crystal Panels and glass panes |
 | 3 Light Emitting Diode | `GGG` / `RNB` / `GGG` | Red, green and blue dye between two rows of glowstone dust |
 | 4 LED Screen | `ODL` / `ODL` / `ODL` | A column each of gold ingots, Light Emitting Diodes and glass blocks |
-| Motherboard | `CCC` / `LGL` / `CCC` | Copper ingots above and below; glass, green dye, glass between |
-| Computer | `CCC` / `CMC` / `CSC` | Seven cables, a motherboard in the middle, an **LCD Screen** at the bottom middle |
+| Integrated Circuit | `CCC` / `LGL` / `CCC` | Copper ingots above and below; glass, green dye, glass between |
+| Computer | `CCC` / `CMC` / `CSC` | Seven cables, an integrated circuit in the middle, an **LCD Screen** at the bottom middle |
 
 The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (section 7c).
 
@@ -1049,7 +1049,7 @@ What is loaded is remembered across restarts. Breaking the antenna, taking the u
 switching it off lets the chunks go within a second.
 
 **Recipes (placeholders):** Transport Upgrade: `EHE` / `RMR` / `GGG` (ender pearls and a hopper,
-redstone, a motherboard, gold nuggets). Chunk Loader Upgrade: `OYO` / `RMR` / `GGG` (obsidian and
+redstone, an integrated circuit, gold nuggets). Chunk Loader Upgrade: `OYO` / `RMR` / `GGG` (obsidian and
 an eye of ender over the same).
 
 ### 7.4 Remote login: `ssh`
@@ -1567,7 +1567,7 @@ A request that can't be made raises `requests.RequestException`, saying why.
 - Nothing about you or the server is sent: the request says only that it is from Qbotics.
 
 **Crafting (placeholder):** `DED` / `GAG` / `DMD`: diamonds, ender eyes and gold around a
-Long-range Antenna, over a motherboard.
+Long-range Antenna, over an integrated circuit.
 
 ## 7h. git: GitHub repositories on a computer
 
@@ -1862,7 +1862,7 @@ p.program("miner")            # raises NetworkError if it couldn't, saying why
 The programmer joins the cable network on every side but its programming face, so the computer
 it programs isn't joined to its network through it. Up to 200 files are copied per program.
 
-**Recipe (placeholder):** four cables around a motherboard (` C ` / `CMC` / ` C `).
+**Recipe (placeholder):** four cables around an integrated circuit (` C ` / `CMC` / ` C `).
 
 ---
 

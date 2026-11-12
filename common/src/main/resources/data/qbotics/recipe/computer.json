@@ -3,7 +3,7 @@
   "category": "redstone",
   "key": {
     "C": "qbotics:cable",
-    "M": "qbotics:motherboard",
+    "M": "qbotics:integrated_circuit",
     "S": "qbotics:lcd_screen"
   },
   "pattern": [
