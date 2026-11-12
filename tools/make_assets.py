@@ -222,6 +222,7 @@ write_json("assets/qbotics/lang/en_us.json", {
     "screen.qbotics.antenna.status.inactive": "Inactive antenna",
     "screen.qbotics.antenna.status.no_owner": "No owner: placed by a machine",
     "block.qbotics.control_panel": "Control Panel",
+    "block.qbotics.web_panel": "Web Panel",
     "screen.qbotics.close_up": "Close-up",
     "screen.qbotics.close_up_waiting": "Waiting for the screen...",
     "screen.qbotics.close_up_hint": "Click to touch; drag a slider. Esc closes.",
@@ -734,14 +735,14 @@ write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
     "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
-               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
+               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:web_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
     "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
-               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
+               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:web_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 
@@ -1177,10 +1178,11 @@ def display_front(inside):
 
 write_png("assets/qbotics/textures/block/text_monitor_front.png", display_front(SCREEN))
 write_png("assets/qbotics/textures/block/control_panel_front.png", display_front(PANEL_FACE))
+write_png("assets/qbotics/textures/block/web_panel_front.png", display_front((14, 18, 22)))
 write_png("assets/qbotics/textures/block/display_side.png", case_base())
 # The screen is north in the model, turned to face the way the block does.
 DISPLAY_TURNS = {"north": {}, "east": {"y": 90}, "south": {"y": 180}, "west": {"y": 270}}
-for display in ("text_monitor", "control_panel"):
+for display in ("text_monitor", "control_panel", "web_panel"):
     write_json("assets/qbotics/models/block/%s.json" % display, {
         "parent": "minecraft:block/cube",
         "textures": {
@@ -1387,7 +1389,11 @@ write_json("data/qbotics/recipe/text_monitor.json", shaped(
 write_json("data/qbotics/recipe/control_panel.json", shaped(
     ["BLB", "ISI", "ICI"], {"B": "minecraft:stone_button", "L": "minecraft:lever", "I": "minecraft:iron_ingot",
                             "S": "qbotics:led_screen", "C": "qbotics:cable"}, "qbotics:control_panel", 2))
-for display in ("text_monitor", "control_panel"):
+# Placeholder: a Web Panel is a Control Panel's frame with RAM (pages take memory to lay out).
+write_json("data/qbotics/recipe/web_panel.json", shaped(
+    ["IRI", "ISI", "ICI"], {"I": "minecraft:iron_ingot", "R": "qbotics:ram", "S": "qbotics:led_screen", "C": "qbotics:cable"},
+    "qbotics:web_panel", 2))
+for display in ("text_monitor", "control_panel", "web_panel"):
     write_json("data/qbotics/loot_table/blocks/%s.json" % display,
                drops_itself("qbotics:%s" % display, copy_components=["minecraft:custom_name"]))
 # Placeholder: the Uplink is expensive, the late-game way out: diamonds and ender eyes around a

@@ -1282,6 +1282,79 @@ def update():
 events.run()
 ```
 
+### 7c.5b Web Panels: HTML and CSS
+
+A **Web Panel** shows a page of HTML and CSS. Like the other displays, Web Panels side by side
+join into one screen (up to 8 x 6 blocks), and it is reached over the network. Each block is
+**128 CSS pixels** across, so a 3 x 2 panel is a 384 x 256 page.
+
+```python
+import events
+from logistics import network
+
+net = network()
+web = net.web_panel("smeltery")
+web.show("/app/index.html")         # the page, with its stylesheet
+web.state["iron"] = 1284            # the page shows it where it says {{iron}}
+web.state.update(gold=312, running=5)
+
+@web.on("smelt")                    # <button data-event="smelt">Smelt all</button>
+def smelt(event):
+    print(event.player, "pressed", event.event)
+
+events.run()
+```
+
+```html
+<!-- /app/index.html -->
+<html><head><link rel="stylesheet" href="style.css"></head><body>
+  <h1>Smeltery</h1>
+  <div class="row"><div class="card">Iron <b>{{iron}}</b></div><div class="card">Gold <b>{{gold}}</b></div></div>
+  <p>Furnaces running: {{running}} of 8</p>
+  <button data-event="smelt">Smelt all</button>
+</body></html>
+```
+
+| Call | Does |
+|---|---|
+| `web.show(path)` | Shows a page from the drive. `<link rel="stylesheet" href="...">` files beside it are put into the page |
+| `web.html(text)` | Shows HTML given as text |
+| `web.state[name] = value`, `web.state.update(...)` | Values the page shows. Players see a change at once; the page itself isn't sent again |
+| `web.state[name]`, `web.state.get(name)` | What was last set |
+| `web.on(name, function)` | Runs a function when a player clicks an element with `data-event="name"` or `id="name"` (needs `events.run()`) |
+| `web.on_click(function)` | Runs a function for every such click |
+| `web.size()` | (width, height) in CSS pixels |
+| `web.clear()` | An empty page and no state |
+
+**State in the page.** `{{name}}` is replaced by the value, shown as text (`<` stays `<`, it isn't
+HTML). `{{{name}}}` puts the value in as HTML. A name can reach inside a dict or a list:
+`{{ores.iron}}`, `{{items.0}}`. A name with no value shows nothing. It works anywhere in the page,
+in text or attributes: `style="width: {{progress}}%"`.
+
+**Clicks.** Right-click the panel to click what is under your crosshair. **Sneak + right-click
+with an empty hand** opens it close up, where the mouse hovers (`:hover` and `:active` styles
+show) and clicks. The function gets an Event with `.event` (the `data-event`, or else the `id`),
+`.id`, `.tag`, `.name`, `.value` (the element's attributes) and `.player`.
+
+**How it works.** The server keeps the page and its state; each player's game lays the page out
+and draws it (with litehtml, built into the mod), so a page costs the server almost nothing.
+Pages can't reach the internet or load anything: what they show comes from the program. A page
+is at most 128 KB, its state 32 KB.
+
+**What works (v1):**
+
+| Works | Not yet |
+|---|---|
+| Text and structure: `div`, `span`, `p`, `h1`-`h6`, lists, `a`, `b`, `i`, `table` | Images (`<img>`, `item:` icons) |
+| The box model, colours, backgrounds, borders, rounded corners | CSS grid, `gap` between flex items |
+| Flexbox, floats, `position` (relative, absolute) | Transforms, transitions, animations, shadows |
+| Fonts: sans-serif, serif, monospace; bold, italic; underline, line-through | Scrolling a page taller than its panel |
+| Linear and radial gradients | Form fields you can type in (`input`, `select`, `textarea`) |
+| `@media` by the panel's size, CSS variables, `:hover`, `:active`, `:nth-child` | JavaScript and `<canvas>` (the next step) |
+
+**Crafting (placeholder):** makes 2: `IRI` / `ISI` / `ICI`: iron around RAM, an LED Screen and a
+cable.
+
 ### 7c.6 Not yet
 
 Display limits per player (section 9b counts computers and antennas only), themes, and widgets

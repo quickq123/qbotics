@@ -282,3 +282,10 @@ SERVER
      service stop <name>: its light goes out and it stays stopped.
 109. Sneak + right-click the Server, fit a Chunk Loader Upgrade: "Chunks held: N". Fly far away: its services
      keep running (service log shows new lines when you come back). Switch it off on the same screen.
+
+WEB PANEL
+110. Craft Web Panels (iron, RAM, LED Screen, cable), place 3 x 2 by a computer. Write /app/index.html (a heading,
+     {{iron}}, <button data-event="smelt">) and /app/style.css. web = net.web_panel() ,  web.show('/app/index.html') ,
+     web.state['iron'] = 5 : the panel shows it. Change the state: it updates without flicker.
+111. @web.on('smelt') and events.run(): right-click the button, the program hears it. Sneak + right-click with an
+     empty hand: the close-up, where hovering changes :hover styles.

@@ -40,6 +40,8 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         int width;
         int height;
         @Nullable Object view;
+        /** A Web Panel's picture. */
+        net.minecraft.resources.@Nullable Identifier texture;
     }
 
     @Override
@@ -56,11 +58,16 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         state.width = display.screenWidth();
         state.height = display.screenHeight();
         state.view = state.origin ? ClientDisplays.view(display.getBlockPos()) : null;
+        state.texture = state.view instanceof ClientWebPanels.WebView web ? ClientWebPanels.texture(web) : null;
     }
 
     @Override
     public void submit(State state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState camera) {
         if (!state.origin || state.view == null) {
+            return;
+        }
+        if (state.view instanceof ClientWebPanels.WebView) {
+            submitWeb(state, poseStack, collector);
             return;
         }
         int virtualW;
@@ -111,6 +118,26 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
                     Font.DisplayMode.POLYGON_OFFSET, FULL_BRIGHT, t.color(), 0, 0);
             poseStack.popPose();
         }
+        poseStack.popPose();
+    }
+
+    /** A Web Panel: its page's picture over the whole face. */
+    private static void submitWeb(State state, PoseStack poseStack, SubmitNodeCollector collector) {
+        if (state.texture == null) {
+            return;
+        }
+        poseStack.pushPose();
+        poseStack.translate(0.5, 0.5, 0.5);
+        poseStack.mulPose(Axis.YP.rotationDegrees(-state.facing.toYRot()));
+        poseStack.translate(-0.5 + INSET, 0.5 - INSET, 0.5 + 0.003);
+        float w = state.width - 2 * INSET;
+        float h = state.height - 2 * INSET;
+        collector.submitCustomGeometry(poseStack, RenderTypes.text(state.texture), (pose, buffer) -> {
+            buffer.addVertex(pose, 0, 0, 0).setColor(-1).setUv(0, 0).setLight(FULL_BRIGHT);
+            buffer.addVertex(pose, 0, -h, 0).setColor(-1).setUv(0, 1).setLight(FULL_BRIGHT);
+            buffer.addVertex(pose, w, -h, 0).setColor(-1).setUv(1, 1).setLight(FULL_BRIGHT);
+            buffer.addVertex(pose, w, 0, 0).setColor(-1).setUv(1, 0).setLight(FULL_BRIGHT);
+        });
         poseStack.popPose();
     }
 

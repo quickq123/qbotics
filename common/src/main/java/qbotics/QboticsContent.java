@@ -52,6 +52,7 @@ public final class QboticsContent {
     public static Supplier<BlockEntityType<qbotics.block.DisplayBlockEntity>> DISPLAY_BLOCK_ENTITY;
     public static Supplier<qbotics.block.DisplayBlock> TEXT_MONITOR_BLOCK;
     public static Supplier<qbotics.block.DisplayBlock> CONTROL_PANEL_BLOCK;
+    public static Supplier<qbotics.block.DisplayBlock> WEB_PANEL_BLOCK;
     /** Qbots (design doc §8): the Iron Qbot, its block entity and screen, and the block holding its part models. */
     public static Supplier<qbotics.qbot.QbotBlock> IRON_QBOT_BLOCK;
     public static Supplier<BlockEntityType<qbotics.qbot.QbotBlockEntity>> QBOT_BLOCK_ENTITY;

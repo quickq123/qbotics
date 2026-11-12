@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "R": "qbotics:ram",
+    "S": "qbotics:led_screen",
+    "C": "qbotics:cable"
+  },
+  "pattern": [
+    "IRI",
+    "ISI",
+    "ICI"
+  ],
+  "result": {
+    "id": "qbotics:web_panel",
+    "count": 2
+  }
+}

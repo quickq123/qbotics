@@ -31,7 +31,7 @@ _timers = []      # Timer objects
 _pins = []        # (mac, what, function)
 _watches = []     # (Watch, function)
 _messages = []    # functions
-_displays = []    # (mac, widget number or None, "press", "change" or "touch", function)
+_displays = []    # (mac, widget number, web event name or None, "press", "change", "touch" or "web", function)
 _stopping = False
 _waiting = None   # the request for the next event, while one is outstanding
 # How often watched containers are looked at while running, in milliseconds.
@@ -179,6 +179,10 @@ def _dispatch(info):
     elif kind == "panel" or kind == "touch":
         for mac, widget, what, function in _displays:
             if info["mac"] == mac and (what == "touch" or (widget == info["widget"] and what == info["event"])):
+                function(Event(info))
+    elif kind == "web":
+        for mac, widget, what, function in _displays:
+            if info["mac"] == mac and (what == "touch" or (what == "web" and widget in (None, info["event"], info["id"]))):
                 function(Event(info))
     elif kind == "message":
         from network import Message

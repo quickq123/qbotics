@@ -52,13 +52,17 @@ public class DisplayBlockEntity extends DeviceBlockEntity {
         }
     }
 
-    public boolean isPanel() {
-        return getBlockState().getBlock() instanceof DisplayBlock block && block.panel;
+    public DisplayBlock.Type displayType() {
+        return getBlockState().getBlock() instanceof DisplayBlock block ? block.type : DisplayBlock.Type.MONITOR;
     }
 
     @Override
     public Kind kind() {
-        return isPanel() ? Kind.PANEL : Kind.MONITOR;
+        return switch (displayType()) {
+            case PANEL -> Kind.PANEL;
+            case WEB -> Kind.WEB;
+            default -> Kind.MONITOR;
+        };
     }
 
     /** Only the top-left block is a device on the network; the rest of the screen joins it to cables. */
@@ -154,7 +158,11 @@ public class DisplayBlockEntity extends DeviceBlockEntity {
 
     /** A new, blank screen for a top-left block that had none. */
     public ScreenContent newContent() {
-        return isPanel() ? new PanelScreen() : new TextScreen();
+        return switch (displayType()) {
+            case PANEL -> new PanelScreen();
+            case WEB -> new qbotics.display.WebScreen();
+            default -> new TextScreen();
+        };
     }
 
     /** The content this block had when it was a screen's top-left block, given up as it becomes a part. */

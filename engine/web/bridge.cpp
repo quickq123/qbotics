@@ -260,10 +260,10 @@ static std::string scratch;
 EXPORT("web_alloc") void* web_alloc(int32_t n) { return std::malloc((size_t)n); }
 EXPORT("web_free") void web_free(void* p) { std::free(p); }
 
-// A new page: its HTML, and CSS of the game's own (defaults for panels). Returns 0 if it couldn't be read.
+// A new page: its HTML, and the game's default CSS for panels (added to the browser defaults, so the page's own CSS wins). Returns 0 if it couldn't be read.
 EXPORT("web_load") int32_t web_load(const char* html, int32_t html_len, const char* css, int32_t css_len) {
     doc = litehtml::document::createFromString(litehtml::estring(std::string(html, (size_t)html_len), litehtml::encoding::utf_8),
-                                               &container, litehtml::master_css, std::string(css, (size_t)css_len));
+                                               &container, std::string(litehtml::master_css) + std::string(css, (size_t)css_len));
     return doc ? 1 : 0;
 }
 

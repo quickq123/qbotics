@@ -1,5 +1,5 @@
-# Displays: Text Monitors and Control Panels on the network (design doc §10).
-"""Text Monitors and Control Panels: screens on the network that programs draw on.
+# Displays: Text Monitors, Control Panels and Web Panels on the network (design doc §10).
+"""Text Monitors, Control Panels and Web Panels: screens on the network that programs draw on.
 
     from logistics import network
     net = network()
@@ -15,6 +15,14 @@
     speed = panel.slider("Speed", 0, 100, at=(0, 1), span=(4, 1))
     power = panel.gauge("Power", 0, 1000, unit="FE", at=(0, 2), span=(4, 1))
     power.value = 640
+
+    web = net.web_panel("factory")       # a Web Panel: HTML and CSS
+    web.show("/app/index.html")          # its page; {{iron}} in it shows web.state["iron"]
+    web.state["iron"] = 128
+
+    @web.on("smelt")                     # <button data-event="smelt">
+    def smelt(event):
+        print(event.player, "pressed smelt")
 
 Drawing happens at once (no waiting for the game's next tick). A player right-clicks a
 screen to touch it; sneak and right-click with an empty hand for a close-up view. To act
@@ -265,3 +273,134 @@ class Panel(_Display):
         """A graph of the last 60 values given to add(). With min and max equal, it scales
         itself to the values."""
         return self._add("graph", Graph, label=label, at=at, span=span, min=min, max=max, unit=unit, color=color)
+
+
+def _inline_css(html, folder):
+    # <link rel="stylesheet" href="style.css"> becomes <style> with the file's CSS: a panel
+    # can't fetch anything itself, so the page is sent whole.
+    out = []
+    at = 0
+    while True:
+        start = html.find("<link", at)
+        if start < 0:
+            out.append(html[at:])
+            return "".join(out)
+        end = html.find(">", start)
+        if end < 0:
+            out.append(html[at:])
+            return "".join(out)
+        tag = html[start:end + 1]
+        out.append(html[at:start])
+        at = end + 1
+        href = None
+        for quote in ('"', "'"):
+            i = tag.find("href=" + quote)
+            if i >= 0:
+                j = tag.find(quote, i + 6)
+                href = tag[i + 6:j] if j > i else None
+                break
+        if "stylesheet" not in tag or not href:
+            out.append(tag)
+            continue
+        path = href if href.startswith("/") else folder + "/" + href
+        with open(path) as f:
+            out.append("<style>\n" + f.read() + "\n</style>")
+
+
+class _State:
+    """A web panel's state: values the page shows where it says {{name}}. Setting one sends
+    it to the panel (players see it at once); reading gives what was last set."""
+
+    def __init__(self, panel):
+        self._panel = panel
+        self._values = None
+
+    def _all(self):
+        if self._values is None:
+            self._values = _draw(self._panel, "get_state")
+        return self._values
+
+    def __getitem__(self, name):
+        return self._all()[name]
+
+    def get(self, name, default=None):
+        return self._all().get(name, default)
+
+    def __contains__(self, name):
+        return name in self._all()
+
+    def keys(self):
+        return self._all().keys()
+
+    def items(self):
+        return self._all().items()
+
+    def __setitem__(self, name, value):
+        self.update({name: value})
+
+    def __delitem__(self, name):
+        self.update({name: None})
+
+    def update(self, values=None, **more):
+        """Changes several values at once (one update for the players): state.update(iron=5, gold=2)."""
+        changes = dict(values or {})
+        changes.update(more)
+        _draw(self._panel, "state", changes)
+        values = self._all()
+        for name in changes:
+            if changes[name] is None:
+                values.pop(name, None)
+            else:
+                values[name] = changes[name]
+
+    def __repr__(self):
+        return "<state %r>" % (self._all(),)
+
+
+class WebPanel(_Display):
+    """A Web Panel: a page of HTML and CSS, drawn in each player's game. 128 CSS pixels to a
+    block. The page shows the panel's state where it says {{name}} ({{{name}}} for HTML);
+    clicks on elements with a data-event or an id reach on() and on_click()."""
+
+    def __init__(self, info):
+        _Display.__init__(self, info)
+        self.state = _State(self)
+
+    def size(self):
+        """(width, height) in CSS pixels."""
+        return tuple(_draw(self, "size"))
+
+    def show(self, path):
+        """Shows a page from the drive: index.html, with its <link rel="stylesheet"> files
+        put in. The state is kept."""
+        folder = path[:path.rfind("/")] if "/" in path else "."
+        with open(path) as f:
+            page = f.read()
+        _draw(self, "page", _inline_css(page, folder or "/"))
+
+    def html(self, text):
+        """Shows HTML given as text."""
+        _draw(self, "page", text)
+
+    def clear(self):
+        """An empty page, and no state."""
+        _draw(self, "clear")
+        self.state._values = {}
+
+    def on(self, name, function=None):
+        """Runs a function when a player clicks an element with data-event="name" (or
+        id="name"). It gets an Event with .event, .id, .tag, .name, .value and .player.
+        Needs events.run(). As a decorator: @panel.on("smelt")"""
+        import events
+        if function is None:
+            return lambda f: (self.on(name, f), f)[1]
+        events._on_display(self.mac, name, "web", function)
+        return function
+
+    def on_click(self, function=None):
+        """Runs a function for every click on an element with a data-event or an id."""
+        import events
+        if function is None:
+            return lambda f: (self.on_click(f), f)[1]
+        events._on_display(self.mac, None, "web", function)
+        return function

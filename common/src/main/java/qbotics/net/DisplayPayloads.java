@@ -70,6 +70,44 @@ public final class DisplayPayloads {
     }
 
     /** Server to client: open this screen close up (sneak and right-click). */
+    /**
+     * Server to client: a Web Panel's page and state. The page is sent only when it has
+     * changed (hasPage); its state every time it changes. Width and height in CSS pixels.
+     */
+    public record Web(BlockPos origin, int width, int height, boolean hasPage, String html, String state) implements CustomPacketPayload {
+        public static final Type<Web> TYPE = new Type<>(Qbotics.id("display_web"));
+        public static final StreamCodec<ByteBuf, Web> STREAM_CODEC = StreamCodec.of(
+                (buffer, payload) -> {
+                    BlockPos.STREAM_CODEC.encode(buffer, payload.origin());
+                    ByteBufCodecs.VAR_INT.encode(buffer, payload.width());
+                    ByteBufCodecs.VAR_INT.encode(buffer, payload.height());
+                    ByteBufCodecs.BOOL.encode(buffer, payload.hasPage());
+                    ByteBufCodecs.stringUtf8(1 << 20).encode(buffer, payload.html());
+                    ByteBufCodecs.stringUtf8(1 << 18).encode(buffer, payload.state());
+                },
+                buffer -> new Web(BlockPos.STREAM_CODEC.decode(buffer), ByteBufCodecs.VAR_INT.decode(buffer), ByteBufCodecs.VAR_INT.decode(buffer),
+                        ByteBufCodecs.BOOL.decode(buffer), ByteBufCodecs.stringUtf8(1 << 20).decode(buffer), ByteBufCodecs.stringUtf8(1 << 18).decode(buffer)));
+
+        @Override
+        public Type<Web> type() {
+            return TYPE;
+        }
+    }
+
+    /** Client to server: a player clicked an element of a Web Panel's page (what the page says it was, as JSON). */
+    public record WebClick(BlockPos origin, String element) implements CustomPacketPayload {
+        public static final Type<WebClick> TYPE = new Type<>(Qbotics.id("display_web_click"));
+        public static final StreamCodec<ByteBuf, WebClick> STREAM_CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, WebClick::origin,
+                ByteBufCodecs.stringUtf8(4096), WebClick::element,
+                WebClick::new);
+
+        @Override
+        public Type<WebClick> type() {
+            return TYPE;
+        }
+    }
+
     public record OpenCloseUp(BlockPos origin) implements CustomPacketPayload {
         public static final Type<OpenCloseUp> TYPE = new Type<>(Qbotics.id("display_close_up"));
         public static final StreamCodec<ByteBuf, OpenCloseUp> STREAM_CODEC = StreamCodec.composite(

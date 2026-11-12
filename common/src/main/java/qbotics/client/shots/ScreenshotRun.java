@@ -174,6 +174,7 @@ public final class ScreenshotRun {
         view("08-antennas", new Vec3(12.5, 2.8, -0.6), new Vec3(12.5, 1.2, -3.5));
         view("08b-cable-shapes", new Vec3(3.5, 3.4, -4.6), new Vec3(3.5, 0.5, -7.0));
         view("08c-server", new Vec3(18.5, 1.7, -2.0), new Vec3(18.5, 0.5, -5.0));
+        view("08d-web-panel", new Vec3(22.5, 1.4, -1.6), new Vec3(22.5, 1.0, -5.0));
 
         // The screens.
         then(15, minecraft -> onServer(minecraft, player -> {
@@ -764,6 +765,40 @@ public final class ScreenshotRun {
                 .setValue(qbotics.block.ServerBlock.LIGHTS[2], 1), Block.UPDATE_ALL);
         level.setBlock(base.offset(19, 0, -5), QboticsContent.SERVER_BLOCK.get().defaultBlockState()
                 .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH).setValue(qbotics.block.ComputerBlock.ACTIVE, false), Block.UPDATE_ALL);
+        // A 3x2 Web Panel showing a page, as a program would set it.
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 2; j++) {
+                BlockPos at = base.offset(21 + i, j, -5);
+                level.setBlock(at, QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
+                        .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+                if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    qbotics.display.Displays.reform(serverLevel, at);
+                }
+            }
+        }
+        if (level.getBlockEntity(base.offset(21, 1, -5)) instanceof qbotics.block.DisplayBlockEntity webPanel
+                && webPanel.content() instanceof qbotics.display.WebScreen web) {
+            com.google.gson.JsonArray page = new com.google.gson.JsonArray();
+            page.add(String.join("\n",
+                    "<html><head><style>",
+                    "body { margin: 10px; } h1 { font-size: 24px; margin: 0 0 8px 0; color: #ffb347; }",
+                    ".row { display: flex; justify-content: space-between; margin-bottom: 8px; }",
+                    ".card { flex: 1; margin-right: 6px; padding: 8px; background: #1d2a36; border-radius: 6px; border: 1px solid #3a5068; }",
+                    ".num { font-size: 22px; font-weight: bold; color: #fff; } .bar { height: 10px; background: #233; border-radius: 5px; }",
+                    ".fill { height: 10px; border-radius: 5px; background: linear-gradient(90deg, #e94, #fc6); }",
+                    "button { font-size: 15px; padding: 6px 14px; background: linear-gradient(#4a4, #262); border: none; }",
+                    "</style></head><body>",
+                    "<h1>Smeltery</h1>",
+                    "<div class='row'><div class='card'>Iron<div class='num'>{{iron}}</div></div>",
+                    "<div class='card'>Gold<div class='num'>{{gold}}</div></div><div class='card'>Coal<div class='num'>{{coal}}</div></div></div>",
+                    "<div class='bar'><div class='fill' style='width: {{progress}}%'></div></div>",
+                    "<p>Furnaces running: {{running}} of 8</p><button data-event='smelt'>Smelt all</button>",
+                    "</body></html>"));
+            web.op("page", page);
+            com.google.gson.JsonArray state = new com.google.gson.JsonArray();
+            state.add(com.google.gson.JsonParser.parseString("{\"iron\": 1284, \"gold\": 312, \"coal\": 4096, \"progress\": 62, \"running\": 5}"));
+            web.op("state", state);
+        }
         // Blocks set like this skip the placement logic, so give every cable its arms now.
         for (int x = -2; x <= 16; x++) {
             for (int z = -8; z <= 4; z++) {

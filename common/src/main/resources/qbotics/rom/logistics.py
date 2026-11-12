@@ -941,9 +941,9 @@ _KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay,
 
 
 def _wrap(info):
-    if info["kind"] in ("monitor", "panel"):
+    if info["kind"] in ("monitor", "panel", "web_panel"):
         import display     # the display module brings its own classes
-        return (display.Monitor if info["kind"] == "monitor" else display.Panel)(info)
+        return {"monitor": display.Monitor, "panel": display.Panel, "web_panel": display.WebPanel}[info["kind"]](info)
     return _KINDS.get(info["kind"], Device)(info)
 
 
@@ -1015,6 +1015,15 @@ class Network:
         """A control panel by name or address; with no argument, the network's only one.
         See the display module for what it can do."""
         return self._find(key, "panel")
+
+    def web_panel(self, key=None):
+        """A web panel by name or address; with no argument, the network's only one.
+        See the display module for what it can do."""
+        return self._find(key, "web_panel")
+
+    def web_panels(self):
+        """Every web panel on the network."""
+        return self.devices("web_panel")
 
     def monitors(self):
         """Every text monitor on the network."""

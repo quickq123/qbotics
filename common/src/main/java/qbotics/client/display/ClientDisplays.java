@@ -74,7 +74,8 @@ public final class ClientDisplays {
 
     public static @Nullable Object view(BlockPos origin) {
         sameLevel();
-        return VIEWS.get(origin);
+        Object view = VIEWS.get(origin);
+        return view != null ? view : ClientWebPanels.view(origin);
     }
 
     public static void onText(DisplayPayloads.Text payload) {

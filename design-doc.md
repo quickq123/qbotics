@@ -661,6 +661,17 @@ asyncio.run(main())
 
 ### 10.3 Web panels
 
+> **Status (2026-11-12): v1 built** (`docs/reference.md` §7c.5b), decided by the project owner: litehtml (pinned)
+> compiled to Wasm (`engine/web`, without C++ exceptions; the charset sniffing is cut, pages are UTF-8) and run by
+> Chicory in each player's game; the game answers its font and image questions and paints its display list with
+> Java 2D into a texture, on a background thread. The Web Panel is a display block (joins like the others, 128 CSS px
+> per block). Python: `net.web_panel()`, `show(path)` (stylesheets inlined), `html()`, `state` (sent alone when only
+> it changes; `{{name}}` / `{{{name}}}` fill the page in the player's game), `on(name)`, `on_click()`. Clicks are
+> hit-tested in the player's game (it has the layout) and sent as the element's tag, id, name, data-event and value;
+> the close-up shows :hover and :active. Measured: engine load ~0.3-0.5 s once, a page update ~40 ms off-thread.
+> Not yet (v1 gaps): images and `item:` icons, flex `gap`, form fields, scrolling. JavaScript (QuickJS, per player)
+> and `<canvas>` are the next step, as decided.
+
 **Principle:** Python owns the data and the actions. The panel only displays and handles interaction on screen.
 
 **Goal: cover the broadest set of everyday HTML and CSS.** The panel is a learning tool, so things taught in a typical web course should **just work**, and experienced developers shouldn't keep hitting walls.

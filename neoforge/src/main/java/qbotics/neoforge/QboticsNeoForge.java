@@ -107,6 +107,10 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<qbotics.block.DisplayBlock> CONTROL_PANEL = BLOCKS.registerBlock("control_panel", qbotics.block.DisplayBlock::panel,
             properties -> properties.mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.METAL).lightLevel(state -> 4));
     private static final DeferredItem<BlockItem> CONTROL_PANEL_ITEM = ITEMS.registerSimpleBlockItem(CONTROL_PANEL);
+    /** The Web Panel (design doc §10.3): pages of HTML and CSS, laid out in each player's game. */
+    private static final DeferredBlock<qbotics.block.DisplayBlock> WEB_PANEL = BLOCKS.registerBlock("web_panel", qbotics.block.DisplayBlock::web,
+            properties -> properties.mapColor(MapColor.COLOR_BLACK).strength(1.5f).sound(SoundType.METAL).lightLevel(state -> 4));
+    private static final DeferredItem<BlockItem> WEB_PANEL_ITEM = ITEMS.registerSimpleBlockItem(WEB_PANEL);
     // Qbots (design doc §8): drawn by their renderer, so they can step, turn and swing.
     private static final DeferredBlock<qbotics.qbot.QbotBlock> IRON_QBOT = BLOCKS.registerBlock("iron_qbot", qbotics.qbot.QbotBlock::iron,
             properties -> properties.mapColor(MapColor.METAL).strength(2.5f).sound(SoundType.METAL).noOcclusion());
@@ -180,7 +184,7 @@ public final class QboticsNeoForge {
             BLOCK_ENTITY_TYPES.register("energy_interface",
                     () -> new BlockEntityType<>(qbotics.block.EnergyInterfaceBlockEntity::new, ENERGY_INTERFACE.get()));
     static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.DisplayBlockEntity>> DISPLAY_BLOCK_ENTITY =
-            BLOCK_ENTITY_TYPES.register("display", () -> new BlockEntityType<>(qbotics.block.DisplayBlockEntity::new, TEXT_MONITOR.get(), CONTROL_PANEL.get()));
+            BLOCK_ENTITY_TYPES.register("display", () -> new BlockEntityType<>(qbotics.block.DisplayBlockEntity::new, TEXT_MONITOR.get(), CONTROL_PANEL.get(), WEB_PANEL.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.ProgrammerBlockEntity>> PROGRAMMER_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("programmer", () -> new BlockEntityType<>(qbotics.block.ProgrammerBlockEntity::new, PROGRAMMER.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.uplink.UplinkBlockEntity>> UPLINK_BLOCK_ENTITY =
@@ -277,6 +281,7 @@ public final class QboticsNeoForge {
                         output.accept(PROGRAMMER_ITEM.get());
                         output.accept(TEXT_MONITOR_ITEM.get());
                         output.accept(CONTROL_PANEL_ITEM.get());
+                        output.accept(WEB_PANEL_ITEM.get());
                         output.accept(IRON_QBOT_ITEM.get());
                         output.accept(SERVER_ITEM.get());
                         output.accept(LAPTOP_ITEM.get());
@@ -329,6 +334,7 @@ public final class QboticsNeoForge {
         QboticsContent.DISPLAY_BLOCK_ENTITY = DISPLAY_BLOCK_ENTITY;
         QboticsContent.TEXT_MONITOR_BLOCK = TEXT_MONITOR;
         QboticsContent.CONTROL_PANEL_BLOCK = CONTROL_PANEL;
+        QboticsContent.WEB_PANEL_BLOCK = WEB_PANEL;
         QboticsContent.PROGRAMMER_MENU = PROGRAMMER_MENU;
         QboticsContent.ANTENNA_MENU = ANTENNA_MENU;
         QboticsContent.SERVER_MENU = SERVER_MENU;
@@ -653,6 +659,12 @@ public final class QboticsNeoForge {
                 .playToClient(qbotics.net.DisplayPayloads.Text.TYPE, qbotics.net.DisplayPayloads.Text.STREAM_CODEC)
                 .playToClient(qbotics.net.DisplayPayloads.Panel.TYPE, qbotics.net.DisplayPayloads.Panel.STREAM_CODEC)
                 .playToClient(qbotics.net.DisplayPayloads.OpenCloseUp.TYPE, qbotics.net.DisplayPayloads.OpenCloseUp.STREAM_CODEC)
+                .playToClient(qbotics.net.DisplayPayloads.Web.TYPE, qbotics.net.DisplayPayloads.Web.STREAM_CODEC)
+                .playToServer(qbotics.net.DisplayPayloads.WebClick.TYPE, qbotics.net.DisplayPayloads.WebClick.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.display.Displays.onWebClick(player, payload);
+                    }
+                })
                 .playToServer(qbotics.net.DisplayPayloads.Touch.TYPE, qbotics.net.DisplayPayloads.Touch.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         qbotics.display.Displays.onCloseUpTouch(player, payload);

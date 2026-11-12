@@ -530,7 +530,7 @@ public final class NetworkCalls {
                 // ["display_open", mac]: a handle for drawing on a monitor or panel (see Displays.drawFast).
                 NetworkDevice device = byMac(network, args, 1);
                 if (!(device instanceof qbotics.block.DisplayBlockEntity display) || display.content() == null) {
-                    throw new CallError("Only a text monitor or a control panel can be drawn on; this is " + article(device) + ".");
+                    throw new CallError("Only a text monitor, a control panel or a web panel can be drawn on; this is " + article(device) + ".");
                 }
                 if (REMOTE.containsKey(display)) {
                     throw new CallError("A display can only be drawn on from a computer on its own network.");
@@ -544,7 +544,7 @@ public final class NetworkCalls {
                 // ["display_listen", mac, session]: this computer wants the display's touches pushed to it.
                 NetworkDevice device = byMac(network, args, 1);
                 if (!(device instanceof qbotics.block.DisplayBlockEntity display)) {
-                    throw new CallError("Only a text monitor or a control panel is touched; this is " + article(device) + ".");
+                    throw new CallError("Only a text monitor, a control panel or a web panel is touched; this is " + article(device) + ".");
                 }
                 qbotics.computer.ServerComputer computer = runningAt(level, computerPos);
                 qbotics.display.Displays.listen(display, computer.deviceId(), args.get(2).getAsInt());

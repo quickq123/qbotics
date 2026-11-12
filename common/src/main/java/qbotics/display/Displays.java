@@ -266,7 +266,55 @@ public final class Displays {
                 return new DisplayPayloads.Text(pos, text.cols(), text.rows(), (float) text.scale(), since == 0, text.rowsSince(since));
             }
         }
+        if (content instanceof WebScreen web) {
+            synchronized (web) {
+                boolean page = since == 0 || web.pageChangedSince(since);
+                return new DisplayPayloads.Web(pos, web.pixelWidth(), web.pixelHeight(), page, page ? web.html() : "", web.stateJson());
+            }
+        }
         return new DisplayPayloads.Panel(pos, ((PanelScreen) content).state().toString());
+    }
+
+    /**
+     * A player clicked an element of a Web Panel's page, as their game laid it out: programs
+     * listening are told what it was ({@code data-event} or {@code id}, tag, name, value).
+     */
+    public static void onWebClick(ServerPlayer player, DisplayPayloads.WebClick click) {
+        if (!(player.level() instanceof ServerLevel level) || !level.isLoaded(click.origin())
+                || !(level.getBlockEntity(click.origin()) instanceof DisplayBlockEntity display) || !(display.content() instanceof WebScreen web)) {
+            return;
+        }
+        // The panel may be large: measure to its nearest block, not its corner.
+        double far = Double.MAX_VALUE;
+        Direction right = display.facing().getCounterClockWise();
+        for (int i = 0; i < display.screenWidth(); i++) {
+            for (int j = 0; j < display.screenHeight(); j++) {
+                BlockPos block = click.origin().relative(right, i).below(j);
+                far = Math.min(far, player.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(block)));
+            }
+        }
+        if (far > CLOSE_UP_RANGE * CLOSE_UP_RANGE) {
+            return;
+        }
+        JsonObject element;
+        try {
+            element = JsonParser.parseString(click.element()).getAsJsonObject();
+        } catch (RuntimeException e) {
+            return;
+        }
+        JsonObject event = new JsonObject();
+        event.addProperty("type", "web");
+        for (String field : new String[] {"tag", "id", "name", "value"}) {
+            event.addProperty(field, element.has(field) ? element.get(field).getAsString() : "");
+        }
+        String name = element.has("event") ? element.get("event").getAsString() : "";
+        event.addProperty("event", name.isEmpty() ? event.get("id").getAsString() : name);
+        event.addProperty("mac", display.mac());
+        event.addProperty("panel", display.deviceName());
+        event.addProperty("player", player.getName().getString());
+        level.playSound(null, display.getBlockPos(), SoundEvents.STONE_BUTTON_CLICK_ON, SoundSource.BLOCKS, 0.3f, 1.4f);
+        ComputerManager computers = ComputerManager.get(level.getServer());
+        web.listeners.entrySet().removeIf(listener -> !computers.pushEvent(listener.getKey(), listener.getValue(), event));
     }
 
     // ---- programs: handles and fast drawing -----------------------------------------------

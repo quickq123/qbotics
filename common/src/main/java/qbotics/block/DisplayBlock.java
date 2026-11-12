@@ -37,27 +37,47 @@ import qbotics.display.Displays;
  */
 public class DisplayBlock extends BaseEntityBlock {
     public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
-    /** True for the Control Panel, false for the Text Monitor. */
-    final boolean panel;
+    /** The kinds of display: a Text Monitor, a Control Panel, a Web Panel. */
+    public enum Type {
+        MONITOR, PANEL, WEB
+    }
+
+    final Type type;
     private final MapCodec<DisplayBlock> codec;
 
-    public DisplayBlock(BlockBehaviour.Properties properties, boolean panel) {
+    public DisplayBlock(BlockBehaviour.Properties properties, Type type) {
         super(properties);
-        this.panel = panel;
-        this.codec = simpleCodec(p -> new DisplayBlock(p, panel));
+        this.type = type;
+        this.codec = simpleCodec(p -> new DisplayBlock(p, type));
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
     }
 
     public static DisplayBlock monitor(BlockBehaviour.Properties properties) {
-        return new DisplayBlock(properties, false);
+        return new DisplayBlock(properties, Type.MONITOR);
     }
 
     public static DisplayBlock panel(BlockBehaviour.Properties properties) {
-        return new DisplayBlock(properties, true);
+        return new DisplayBlock(properties, Type.PANEL);
     }
 
-    public boolean isPanel() {
-        return panel;
+    public static DisplayBlock web(BlockBehaviour.Properties properties) {
+        return new DisplayBlock(properties, Type.WEB);
+    }
+
+    public Type type() {
+        return type;
+    }
+
+    /**
+     * A Web Panel is touched in the player's own game, where the page is laid out: it finds
+     * what was clicked and tells the server (see qbotics.client.display.ClientWebPanels).
+     * Set by the client; null on a dedicated server.
+     */
+    public static volatile @Nullable WebTouch webTouch;
+
+    public interface WebTouch {
+        /** A click on a Web Panel at a point of its screen (fractions of its width and height); true if it was handled. */
+        boolean touched(DisplayBlockEntity display, double fx, double fy, boolean closeUp);
     }
 
     @Override
@@ -127,6 +147,15 @@ public class DisplayBlock extends BaseEntityBlock {
     private InteractionResult touch(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (hit.getDirection() != state.getValue(FACING)) {
             return InteractionResult.PASS; // only the screen's face is touched
+        }
+        if (type == Type.WEB) {
+            // Clicked in the player's game, which has the page laid out; the server hears what was clicked.
+            WebTouch hook = webTouch;
+            if (level.isClientSide() && hook != null && level.getBlockEntity(pos) instanceof DisplayBlockEntity display) {
+                double[] at = screenPoint(display, hit.getLocation());
+                hook.touched(display, at[0], at[1], player.isShiftKeyDown() && player.getMainHandItem().isEmpty());
+            }
+            return InteractionResult.SUCCESS;
         }
         if (player instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel
                 && level.getBlockEntity(pos) instanceof DisplayBlockEntity display) {

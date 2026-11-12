@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -69,6 +69,7 @@ public final class QboticsGameTests {
             Map.entry("server_services", QboticsGameTests::serverServices),
             Map.entry("server_chunk_loading", QboticsGameTests::serverChunkLoading),
             Map.entry("web_page", QboticsGameTests::webPage),
+            Map.entry("web_panel", QboticsGameTests::webPanel),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -2955,6 +2956,96 @@ public final class QboticsGameTests {
         String card = page.hit(30, 60);
         helper.assertTrue(card != null && card.contains("\"id\":\"iron\""), "a click on the iron card: " + card);
         helper.succeed();
+    }
+
+    /**
+     * A Web Panel: a program shows a page from its drive (its stylesheet put in), sets state the
+     * page shows as {{name}}, and hears a click on a button, found where the page is laid out.
+     */
+    private static void webPanel(GameTestHelper helper) {
+        net.minecraft.world.level.block.state.BlockState web = QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH);
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 1));
+        helper.setBlock(new BlockPos(0, 1, 2), web);
+        helper.setBlock(new BlockPos(1, 1, 2), web);
+        qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(0, 1, 2), qbotics.block.DisplayBlockEntity.class);
+        helper.assertTrue(panel.isOrigin() && panel.screenWidth() == 2 && panel.content() instanceof qbotics.display.WebScreen,
+                "two web panels make one 2x1 web panel");
+        String page = String.join("\n",
+                "<html><head><link rel=\"stylesheet\" href=\"style.css\"></head><body>",
+                "<h2>Smeltery</h2><div class=\"row\"><span>Iron: {{iron}}</span> <span>Gold: {{gold}}</span>",
+                "<button data-event=\"smelt\">Smelt</button></div><p>First: {{items.0}}, then {{items.1}}. {{missing}}</p>",
+                "</body></html>");
+        String style = ".row { display: flex; gap: 8px; align-items: center; justify-content: space-between; } h2 { color: #ffb347; margin: 0 0 6px 0; }";
+        String program = String.join("\n",
+                "import events",
+                "from logistics import network",
+                "net = network()",
+                "web = net.web_panel()",
+                "print('size', web.size())",
+                "web.show('/app/index.html')",
+                "web.state['iron'] = 128",
+                "web.state.update(gold=64, items=['coal', 'copper <b>'])",
+                "print('state', web.state['iron'], web.state.get('gold'))",
+                "@web.on('smelt')",
+                "def smelt(e):",
+                "    print('smelt by', e.player, e.tag)",
+                "    events.stop()",
+                "events.run()",
+                "print('done')",
+                "");
+        try {
+            java.nio.charset.Charset utf8 = java.nio.charset.StandardCharsets.UTF_8;
+            computer.drive().call(qbotics.engine.HostFileSystem.MKDIR, "/app", new byte[0]);
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/app/index.html", page.getBytes(utf8));
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/app/style.css", style.getBytes(utf8));
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/web.py", program.getBytes(utf8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /web.py");
+        boolean[] clicked = {false};
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "size (256, 128)", "state 128 64");
+            qbotics.display.WebScreen screen = (qbotics.display.WebScreen) panel.content();
+            String html;
+            String state;
+            synchronized (screen) {
+                html = screen.html();
+                state = screen.stateJson();
+            }
+            helper.assertTrue(html.contains("<style>") && html.contains("#ffb347") && !html.contains("<link"), "the stylesheet is put in the page");
+            helper.assertTrue(state.contains("\"iron\":128") && state.contains("copper <b>"), "the state: " + state);
+            String filled = qbotics.web.WebTemplate.fill(html, state);
+            helper.assertTrue(filled.contains("Iron: 128") && filled.contains("copper &lt;b&gt;") && filled.contains("then copper") && !filled.contains("{{"),
+                    "the state fills the page");
+            if (!clicked[0]) {
+                // Lay the page out as a player's game would, keep a picture of it, and click its button.
+                qbotics.web.WebPage laid = new qbotics.web.WebPage(url -> null);
+                laid.load(filled, "html { background: #0e1216; color: #e6e8ea; } body { margin: 8px; font-family: sans-serif; font-size: 14px; }");
+                laid.layout(256, 128);
+                try {
+                    javax.imageio.ImageIO.write(qbotics.web.WebPainter.paint(laid, 0, 2, url -> null), "png",
+                            java.nio.file.Path.of("web-panel-test.png").toFile());
+                } catch (java.io.IOException e) {
+                    throw new IllegalStateException(e);
+                }
+                String hit = null;
+                for (int x = 250; x > 100 && hit == null; x -= 3) {
+                    for (int y = 20; y < 70 && hit == null; y += 3) {
+                        String h = laid.hit(x, y);
+                        hit = h != null && h.contains("smelt") ? h : null;
+                    }
+                }
+                helper.assertTrue(hit != null, "the button is on the page");
+                net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+                BlockPos at = helper.absolutePos(new BlockPos(0, 1, 3));
+                player.setPos(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+                qbotics.display.Displays.onWebClick(player, new qbotics.net.DisplayPayloads.WebClick(panel.getBlockPos(), hit));
+                clicked[0] = true;
+            }
+            assertScreen(helper, computer, "smelt by", "button", "done");
+        });
     }
 
     private static void ironQbot(GameTestHelper helper) {

@@ -43,6 +43,8 @@ public final class QboticsNeoForgeClient {
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientTickEvent.Post event) ->
                     qbotics.client.shots.PlaytestStart.tick(net.minecraft.client.Minecraft.getInstance()));
         }
+        // Web Panels: clicks are found in this game, where their pages are laid out.
+        qbotics.client.display.ClientWebPanels.install();
         // What Text Monitors and Control Panels show, drawn on their faces.
         modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
                 event.registerBlockEntityRenderer(QboticsNeoForge.DISPLAY_BLOCK_ENTITY.get(), NeoDisplayRenderer::new));
@@ -70,6 +72,7 @@ public final class QboticsNeoForgeClient {
             event.register(qbotics.net.DisplayPayloads.Text.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onText(payload));
             event.register(qbotics.net.DisplayPayloads.Panel.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onPanel(payload));
             event.register(qbotics.net.DisplayPayloads.OpenCloseUp.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onOpenCloseUp(payload));
+            event.register(qbotics.net.DisplayPayloads.Web.TYPE, (payload, context) -> qbotics.client.display.ClientWebPanels.onWeb(payload));
             event.register(qbotics.net.ProbePayloads.Info.TYPE, (payload, context) -> qbotics.client.ProbeScreen.show(payload));
             event.register(qbotics.net.XpPayloads.Info.TYPE, (payload, context) -> qbotics.client.XpScreen.show(payload));
             event.register(qbotics.net.GitPayloads.OpenToken.TYPE, (payload, context) -> qbotics.client.GitTokenScreen.show(payload));
