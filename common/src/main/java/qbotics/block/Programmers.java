@@ -143,7 +143,10 @@ public final class Programmers {
         }
         LAST.values().removeIf(tick -> tick < now); // only this tick's matter
         LAST.put(key, now);
-        // Restart it, so the new program's startup.py runs.
+        // Restart it, so the new program's startup.py runs (a Qbot is told to run it).
+        if (target instanceof qbotics.qbot.QbotBlockEntity qbot) {
+            qbot.setProgramRunning(true);
+        }
         manager.remove(target.deviceId());
         manager.getOrStart(target);
         String what = folder.isEmpty() ? "the drive" : "'" + folder + "'";

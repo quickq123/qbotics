@@ -37,6 +37,104 @@ public final class ServerComputer {
     public static final int MAX_SCRATCH_OUTPUT = 8000;
     private static final String STARTUP_FILE = "/startup.py";
 
+    // ---- a Qbot's program: Run, Pause and Stop (design doc §8) ------------------------------
+
+    /** What a Qbot's program is doing, for its screen. */
+    public enum ProgramState { STOPPED, RUNNING, PAUSED }
+
+    private final boolean qbot;
+    private final boolean runOnBoot;
+    /** True from Run until the program ends. */
+    private volatile boolean programActive;
+    /** Set when Stop ended it, so it is told apart from an error. */
+    private volatile boolean stoppedByButton;
+    /** How it last ended, in a few words: "", "Finished", "Stopped", "Error: ...", or why it couldn't start. */
+    private volatile String programStatus = "";
+
+    public ProgramState programState() {
+        Computer current = vm;
+        return !programActive ? ProgramState.STOPPED : current != null && current.paused ? ProgramState.PAUSED : ProgramState.RUNNING;
+    }
+
+    public String programStatus() {
+        return programStatus;
+    }
+
+    /** Run (or, while paused, Resume). Does nothing if a program is already running. */
+    public void runProgram() {
+        Computer current = vm;
+        if (programActive) {
+            if (current != null) {
+                current.paused = false;
+            }
+            return;
+        }
+        if (running) {
+            programStatus = "Busy: something else is running on it.";
+            return;
+        }
+        programActive = true; // at once, so the screen shows it; the job sets the rest
+        if (!jobs.offer(new RunFile(STARTUP_FILE, true))) {
+            programActive = false;
+        }
+    }
+
+    /** Pause: the program waits where it is until Run (Resume) or Stop. */
+    public void pauseProgram() {
+        Computer current = vm;
+        if (programActive && current != null) {
+            current.paused = true;
+        }
+    }
+
+    /** Stop: ends the program at once. Its Python is restarted; files are untouched. */
+    public void stopProgram() {
+        Computer current = vm;
+        if (programActive && current != null) {
+            stoppedByButton = true;
+            current.paused = false;
+            current.stop = Computer.StopMode.HARD;
+        }
+    }
+
+    /** Runs a Qbot's program, startup.py, keeping its state and how it ended. On the computer's thread. */
+    private void runProgramNow(Computer computer) {
+        programActive = true;
+        stoppedByButton = false;
+        if (!exists(STARTUP_FILE)) {
+            programActive = false;
+            programStatus = "No program: install one with a Programmer.";
+            return;
+        }
+        listener.programRunning(deviceId, true);
+        programStatus = "";
+        boolean ended = false;
+        boolean ok = false;
+        try {
+            ok = runFile(computer, STARTUP_FILE);
+            ended = true;
+        } finally {
+            programActive = false;
+            computer.paused = false;
+            programStatus = !ended || stoppedByButton ? "Stopped" : ok ? "Finished" : "Error: " + lastLine();
+            if (!shutDown) {
+                listener.programRunning(deviceId, false);
+            }
+        }
+    }
+
+    /** The last line with anything on it in the terminal: what an error said. */
+    private String lastLine() {
+        java.util.List<String> lines = terminal.full().lines();
+        for (int i = lines.size() - 1; i >= 0; i--) {
+            String line = lines.get(i).strip();
+            if (!line.isEmpty() && !line.endsWith("$")) {
+                return line;
+            }
+        }
+        return "";
+    }
+
     /** Things a computer tells the players looking at it. Called on the computer's thread. */
     public interface Listener {
         void scratchResult(UUID deviceId, UUID player, int runId, boolean ok, String output);
@@ -48,6 +146,10 @@ public final class ServerComputer {
 
         /** This computer's program typed shutdown: switch it off until someone opens it again. */
         void shutDownRequested(UUID deviceId);
+
+        /** A Qbot's program started or ended, so it can be started again after a world reload. */
+        default void programRunning(UUID deviceId, boolean running) {
+        }
     }
 
     private sealed interface Job {
@@ -56,7 +158,12 @@ public final class ServerComputer {
     private record Line(String text) implements Job {
     }
 
-    private record RunFile(String path) implements Job {
+    /** A file to run; program marks a Qbot's Run button (its startup.py, with its state kept). */
+    private record RunFile(String path, boolean program) implements Job {
+        RunFile(String path) {
+            this(path, false);
+        }
+
     }
 
     private record Scratch(UUID player, int runId, String code) implements Job {
@@ -89,6 +196,19 @@ public final class ServerComputer {
 
     ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu, Listener listener,
             Function<String, CompletableFuture<String>> worldCalls) {
+        this(deviceId, driveId, driveFolder, cpu, listener, worldCalls, false, false);
+    }
+
+    /**
+     * @param qbot a Qbot: its program is started by its Run button (or a Programmer), not on
+     *             its own when it boots, unless {@code runOnBoot}
+     * @param runOnBoot for a Qbot, start its program as it boots: it was running when the world
+     *             was saved, or a Programmer has just installed one
+     */
+    ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu, Listener listener,
+            Function<String, CompletableFuture<String>> worldCalls, boolean qbot, boolean runOnBoot) {
+        this.qbot = qbot;
+        this.runOnBoot = runOnBoot;
         this.worldCalls = worldCalls;
         this.deviceId = deviceId;
         this.driveId = driveId;
@@ -325,8 +445,15 @@ public final class ServerComputer {
                 try {
                     if (first) {
                         terminal.clear();
-                        terminal.write("Qbotics computer. Type help for a list of commands.\n");
-                        if (exists(STARTUP_FILE)) {
+                        if (!qbot) {
+                            terminal.write("Qbotics computer. Type help for a list of commands.\n");
+                        }
+                        if (qbot) {
+                            // A Qbot runs its program when told to (Run, a Programmer), or again after a reload.
+                            if (runOnBoot) {
+                                runProgramNow(computer);
+                            }
+                        } else if (exists(STARTUP_FILE)) {
                             runPython(computer, "execfile(" + pyString(STARTUP_FILE) + ")");
                         }
                     }
@@ -335,7 +462,7 @@ public final class ServerComputer {
                 } catch (Restart restart) {
                     // A program that ignored Ctrl+C was stopped mid-step: its Python can't be
                     // trusted afterwards, so the computer starts a fresh one. Files are untouched.
-                    terminal.write("\nStopped. Python was restarted, since the program ignored Ctrl+C.\n");
+                    terminal.write(stoppedByButton ? "\nStopped by its Stop button.\n" : "\nStopped. Python was restarted, since the program ignored Ctrl+C.\n");
                     first = false;
                 }
             }
@@ -515,7 +642,11 @@ public final class ServerComputer {
                 }
                 case RunFile file -> {
                     terminal.write("run " + file.path() + "\n");
-                    runFile(computer, file.path());
+                    if (file.program()) {
+                        runProgramNow(computer);
+                    } else {
+                        runFile(computer, file.path());
+                    }
                 }
                 case Interrupt ignored -> terminal.write("^C\n");
                 case Scratch ignored -> throw new IllegalStateException();
@@ -644,25 +775,27 @@ public final class ServerComputer {
         }
     }
 
-    private void runPython(Computer computer, String source) {
-        runGuarded(computer, () -> computer.exec(source));
+    private boolean runPython(Computer computer, String source) {
+        boolean[] ok = {false};
+        runGuarded(computer, () -> ok[0] = computer.exec(source));
+        return ok[0];
     }
 
-    private void runFile(Computer computer, String path) {
+    private boolean runFile(Computer computer, String path) {
         String file = Paths.resolve(cwd, path);
         try {
             String kind = new String(drive.call(HostFileSystem.STAT, file, new byte[0]), StandardCharsets.UTF_8);
             if (kind.startsWith("d")) {
                 terminal.write(file + " is a folder, not a program.\n");
-                return;
+                return false;
             }
         } catch (FsException e) {
             terminal.write(describe(e, file) + "\n");
-            return;
+            return false;
         }
         // Programs see the shell's folder as their current folder, and start with no event
         // handlers left over from an earlier program (the events module is loaded afresh).
-        runPython(computer, "import os, sys\nos.chdir(" + pyString(cwd) + ")\nsys.modules.pop('events', None)\nexecfile(" + pyString(file) + ")");
+        return runPython(computer, "import os, sys\nos.chdir(" + pyString(cwd) + ")\nsys.modules.pop('events', None)\nexecfile(" + pyString(file) + ")");
     }
 
     private void runScratch(Computer computer, Scratch scratch) {

@@ -10,16 +10,60 @@ import net.minecraft.world.level.material.Fluids;
 import qbotics.qbot.QbotBlockEntity;
 import qbotics.qbot.QbotMenu;
 
-/** A Qbot's screen: its 4x4 inventory, hand and upgrade slots, and gauges for its energy cell and two tanks. */
+/**
+ * A Qbot's screen: its 4x4 inventory, hand and upgrade slots, gauges for its energy cell and
+ * two tanks, and its program's Run (Resume), Pause and Stop buttons over a strip showing what
+ * the program is doing and the last lines it printed.
+ */
 public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
     private static final int GAUGE_W = 14;
     private static final int GAUGE_H = 72;
     private static final int ENERGY = PlateTints.ENERGY;
     private static final int ENERGY_DARK = 0xFF5A1410;
 
+    private net.minecraft.client.gui.components.Button run;
+    private net.minecraft.client.gui.components.Button pause;
+    private net.minecraft.client.gui.components.Button stop;
+    /** How many of the program's last lines show under its state. */
+    private static final int OUTPUT_LINES = 2;
+
     public QbotScreen(QbotMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title, Panels.WIDTH, QbotMenu.TOP_HEIGHT + 96);
         this.inventoryLabelY = QbotMenu.TOP_HEIGHT + 2;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        run = addRenderableWidget(button("screen.qbotics.qbot.run", QbotMenu.RUN_BUTTON, 0));
+        pause = addRenderableWidget(button("screen.qbotics.qbot.pause", QbotMenu.PAUSE_BUTTON, 1));
+        stop = addRenderableWidget(button("screen.qbotics.qbot.stop", QbotMenu.STOP_BUTTON, 2));
+        update();
+    }
+
+    private net.minecraft.client.gui.components.Button button(String label, int id, int place) {
+        return net.minecraft.client.gui.components.Button.builder(Component.translatable(label), button -> {
+            net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+            if (minecraft.gameMode != null) {
+                minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
+            }
+        }).bounds(leftPos + 8 + place * 54, topPos + QbotMenu.BUTTONS_Y, 52, 16).build();
+    }
+
+    /** Run says Resume while paused; each button works only when it would do something. */
+    private void update() {
+        var state = menu.programState();
+        run.setMessage(Component.translatable(state == qbotics.computer.ServerComputer.ProgramState.PAUSED
+                ? "screen.qbotics.qbot.resume" : "screen.qbotics.qbot.run"));
+        run.active = state != qbotics.computer.ServerComputer.ProgramState.RUNNING;
+        pause.active = state == qbotics.computer.ServerComputer.ProgramState.RUNNING;
+        stop.active = state != qbotics.computer.ServerComputer.ProgramState.STOPPED;
+    }
+
+    @Override
+    public void containerTick() {
+        super.containerTick();
+        update();
     }
 
     private int gaugeX(int gauge) {
@@ -58,6 +102,35 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
                 graphics.fill(tx + 1, mark, tx + 5, mark + 1, 0x90FFFFFF);
             }
         }
+        // The program's strip: what it is doing, then its last lines.
+        Panels.sunken(graphics, x + 7, y + QbotMenu.OUTPUT_Y, Panels.WIDTH - 14, 31, 0xFF141414);
+    }
+
+    private void drawProgram(GuiGraphicsExtractor graphics) {
+        var state = menu.programState();
+        int colour = switch (state) {
+            case RUNNING -> 0xFF58E060;
+            case PAUSED -> 0xFFF0B030;
+            case STOPPED -> menu.ending() == QbotMenu.Ending.ERROR ? 0xFFF05050 : 0xFFB0B0B0;
+        };
+        String key = switch (state) {
+            case RUNNING -> "screen.qbotics.qbot.state.running";
+            case PAUSED -> "screen.qbotics.qbot.state.paused";
+            case STOPPED -> "screen.qbotics.qbot.ended." + menu.ending().name().toLowerCase(java.util.Locale.ROOT);
+        };
+        int textX = 10;
+        int width = Panels.WIDTH - 20;
+        graphics.text(font, Component.translatable(key), textX, QbotMenu.OUTPUT_Y + 3, colour, false);
+        List<String> lines = new java.util.ArrayList<>();
+        for (String line : qbotics.client.ide.ClientIde.terminalLines(menu.qbotId())) {
+            if (!line.isBlank() && !line.strip().endsWith("$")) {
+                lines.add(line.strip());
+            }
+        }
+        List<String> last = lines.subList(Math.max(0, lines.size() - OUTPUT_LINES), lines.size());
+        for (int i = 0; i < last.size(); i++) {
+            graphics.text(font, font.plainSubstrByWidth(last.get(i), width), textX, QbotMenu.OUTPUT_Y + 13 + i * 9, 0xFFD8D8D8, false);
+        }
     }
 
     @Override
@@ -65,6 +138,7 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
         super.extractLabels(graphics, mouseX, mouseY);
         graphics.text(font, Component.translatable("screen.qbotics.qbot.hand"), QbotMenu.HAND_X - 1, QbotMenu.HAND_Y + 18, Panels.LABEL, false);
         graphics.text(font, Component.translatable("screen.qbotics.qbot.upgrade"), QbotMenu.HAND_X - 4, QbotMenu.UPGRADE_Y + 18, Panels.LABEL, false);
+        drawProgram(graphics);
     }
 
     @Override

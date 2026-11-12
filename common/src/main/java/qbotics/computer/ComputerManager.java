@@ -148,7 +148,8 @@ public final class ComputerManager {
                                 place == null ? pos : place.pos(), call));
                     });
                     return answer;
-                });
+                }, block instanceof qbotics.qbot.QbotBlockEntity,
+                block instanceof qbotics.qbot.QbotBlockEntity qbot && qbot.programRunning());
         computers.put(block.deviceId(), computer);
         places.put(block.deviceId(), new Viewing(block.deviceId(), dimension, pos));
         booting.remove(block.deviceId());
@@ -297,6 +298,17 @@ public final class ComputerManager {
         }
 
         @Override
+        public void programRunning(UUID deviceId, boolean running) {
+            outbox.add(server -> {
+                Viewing place = places.get(deviceId);
+                net.minecraft.server.level.ServerLevel level = place == null ? null : server.getLevel(place.dimension());
+                if (level != null && level.isLoaded(place.pos()) && level.getBlockEntity(place.pos()) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                    qbot.setProgramRunning(running);
+                }
+            });
+        }
+
+        @Override
         public void openInEditor(UUID deviceId, String path) {
             outbox.add(server -> viewers.forEach((playerId, viewing) -> {
                 ServerPlayer target = server.getPlayerList().getPlayer(playerId);
@@ -434,6 +446,17 @@ public final class ComputerManager {
         ServerComputer computer = getOrStart(block);
         viewers.put(player.getUUID(), new Viewing(deviceId, player.level().dimension(), block.getBlockPos()));
         Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(deviceId, true, computer.asShown(computer.shownTerminal().full())));
+    }
+
+    /**
+     * A player opened a Qbot's screen: they are sent its terminal as it changes, so the screen
+     * can show the last lines its program printed. Nothing opens; there is no editor.
+     */
+    public ServerComputer watchOutput(ServerPlayer player, ComputerBlockEntity block) {
+        ServerComputer computer = getOrStart(block);
+        viewers.put(player.getUUID(), new Viewing(block.deviceId(), player.level().dimension(), block.getBlockPos()));
+        Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(block.deviceId(), false, computer.asShown(computer.shownTerminal().full())));
+        return computer;
     }
 
     /** The player closed the screen. */

@@ -59,6 +59,7 @@ public final class QboticsGameTests {
             Map.entry("computer_interrupt", QboticsGameTests::computerInterrupt),
             Map.entry("universal_serial_bus", QboticsGameTests::universalSerialBus),
             Map.entry("bus_tunnels", QboticsGameTests::busTunnels),
+            Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
             Map.entry("computer_interrupt_ignored", QboticsGameTests::computerInterruptIgnored),
             Map.entry("computer_forgets_calls", QboticsGameTests::computerForgetsCalls),
@@ -2238,6 +2239,101 @@ public final class QboticsGameTests {
      * stone (into its inventory) but not obsidian; places a block; fills its two tanks with
      * water and lava separately; charges its cell; and pours.
      */
+    /** The highest "tick N" a program has printed so far. */
+    private static int lastTick(ServerComputer computer) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("tick (\\d+)").matcher(screen(computer));
+        int last = -1;
+        while (m.find()) {
+            last = Integer.parseInt(m.group(1));
+        }
+        return last;
+    }
+
+    /**
+     * A Qbot's program is worked by its Run, Pause and Stop buttons: it doesn't start on its
+     * own; Pause holds it (a sleeping loop prints nothing more) and Run resumes it; Stop ends
+     * it; and a program that fails says so.
+     */
+    private static void qbotProgramControls(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos at = new BlockPos(1, 1, 1);
+        helper.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(at, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        ServerComputer computer = ComputerManager.get(level.getServer()).getOrStart(qbot);
+        java.util.function.Consumer<String> install = program -> {
+            try {
+                computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/startup.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                throw new IllegalStateException(e);
+            }
+        };
+        install.accept("import time\nn = 0\nwhile True:\n    n += 1\n    print('tick', n)\n    time.sleep(0.1)\n");
+        var STOPPED = ServerComputer.ProgramState.STOPPED;
+        var RUNNING = ServerComputer.ProgramState.RUNNING;
+        var PAUSED = ServerComputer.ProgramState.PAUSED;
+        // Each step waits for what it needs (other tests share the CPU, so timings vary); a step that
+        // checks something hasn't happened waits a fixed while.
+        int[] step = {0};
+        int[] seen = new int[1];
+        long[] since = new long[1];
+        helper.runAfterDelay(20, () -> {
+            helper.assertTrue(computer.programState() == STOPPED && lastTick(computer) < 0, "a Qbot's program should wait for Run");
+            computer.runProgram();
+            step[0] = 1;
+        });
+        helper.succeedWhen(() -> {
+            long now = level.getGameTime();
+            switch (step[0]) {
+                case 1 -> {
+                    if (computer.programState() == RUNNING && lastTick(computer) >= 2) {
+                        computer.pauseProgram();
+                        step[0] = 2;
+                    }
+                }
+                case 2 -> {
+                    helper.assertTrue(computer.programState() == PAUSED, "Pause should hold it");
+                    seen[0] = lastTick(computer);
+                    since[0] = now;
+                    step[0] = 3;
+                }
+                case 3 -> {
+                    if (now - since[0] >= 40) {
+                        helper.assertTrue(lastTick(computer) <= seen[0] + 1 && qbot.programRunning(),
+                                "while paused it should print nothing more: " + seen[0] + " then " + lastTick(computer));
+                        seen[0] = lastTick(computer);
+                        computer.runProgram(); // Resume
+                        step[0] = 4;
+                    }
+                }
+                case 4 -> {
+                    if (lastTick(computer) > seen[0]) {
+                        helper.assertTrue(computer.programState() == RUNNING, "Resume should carry on from where it was");
+                        computer.stopProgram();
+                        step[0] = 5;
+                    }
+                }
+                case 5 -> {
+                    if (computer.programState() == STOPPED && !qbot.programRunning()) {
+                        helper.assertTrue(computer.programStatus().equals("Stopped"), "Stop should end it: " + computer.programStatus());
+                        install.accept("print('starting')\nraise ValueError('boom')\n");
+                        computer.runProgram();
+                        step[0] = 6;
+                    }
+                }
+                case 6 -> {
+                    if (computer.programState() == STOPPED && computer.programStatus().startsWith("Error")) {
+                        helper.assertTrue(computer.programStatus().contains("boom"), "a failing program should say why: " + computer.programStatus());
+                        step[0] = 7;
+                    }
+                }
+                default -> {
+                }
+            }
+            helper.assertTrue(step[0] == 7, "waiting at step " + step[0]);
+        });
+    }
+
     private static void ironQbot(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ComputerManager manager = ComputerManager.get(level.getServer());

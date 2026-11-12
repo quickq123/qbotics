@@ -394,9 +394,24 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
 
     private static final com.mojang.serialization.Codec<List<ItemStack>> STACKS = ItemStack.OPTIONAL_CODEC.listOf();
 
+    /** True while its program runs: after a reload it is started again (from the top). */
+    private boolean programRunning;
+
+    public boolean programRunning() {
+        return programRunning;
+    }
+
+    public void setProgramRunning(boolean running) {
+        if (programRunning != running) {
+            programRunning = running;
+            setChanged();
+        }
+    }
+
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
+        output.putBoolean("program_running", programRunning);
         output.store("items", STACKS, items.getItems());
         output.store("hand", STACKS, hand.getItems());
         output.store("upgrades", STACKS, upgrades.getItems());
@@ -430,6 +445,7 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
     @Override
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
+        programRunning = input.getBooleanOr("program_running", false);
         input.read("items", STACKS).ifPresent(saved -> fill(items, saved));
         input.read("hand", STACKS).ifPresent(saved -> fill(hand, saved));
         input.read("upgrades", STACKS).ifPresent(saved -> fill(upgrades, saved));

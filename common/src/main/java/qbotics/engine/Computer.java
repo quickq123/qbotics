@@ -78,6 +78,33 @@ public final class Computer {
     /** Hard-stop a run after this many slices (a runaway-program guard for tests). */
     public long maxSlices = Long.MAX_VALUE;
     public volatile StopMode stop = StopMode.NONE;
+    /**
+     * Set to hold the program where it is, like a breakpoint: it waits at its next step
+     * (between instructions, in a sleep, or as a world call returns) until cleared. A stop
+     * still ends it.
+     */
+    public volatile boolean paused;
+
+    /** Waits while paused (or until stopped). With the CPU held, it is given up while waiting. */
+    private void holdWhilePaused(boolean holdingCpu) {
+        if (!paused) {
+            return;
+        }
+        if (holdingCpu) {
+            releaseCpu();
+        }
+        try {
+            while (paused && stop == StopMode.NONE) {
+                Thread.sleep(50);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            if (holdingCpu) {
+                acquireCpu();
+            }
+        }
+    }
 
     /** A program is starting: no Ctrl+C has reached it yet. */
     public void beginRun() {
@@ -258,6 +285,13 @@ public final class Computer {
                             // Sleep in short steps so a stop request doesn't wait out a long sleep.
                             long end = System.nanoTime() + args[0] * 1_000_000L;
                             for (long left; stop == StopMode.NONE && (left = end - System.nanoTime()) > 0; ) {
+                                if (paused) {
+                                    // Paused: the sleep stops counting down until it resumes.
+                                    long since = System.nanoTime();
+                                    holdWhilePaused(false);
+                                    end += System.nanoTime() - since;
+                                    continue;
+                                }
                                 Thread.sleep(Math.min(50, left / 1_000_000L + 1));
                             }
                         } catch (InterruptedException e) {
@@ -280,6 +314,7 @@ public final class Computer {
                             case HARD:
                                 throw new HardStop();
                             default:
+                                holdWhilePaused(true);
                                 // End of slice: let any waiting computer have the core.
                                 if (cpu != null && cpu.hasQueuedThreads()) {
                                     cpu.release();
@@ -398,6 +433,7 @@ public final class Computer {
                 acquireCpu();
             }
         }
+        holdWhilePaused(true); // paused while the world answered: hold here, with the answer kept
         byte[] bytes = result.getBytes(StandardCharsets.UTF_8);
         if (bytes.length > MAX_RESULT_BYTES) {
             bytes = "error:the answer is too large for this computer".getBytes(StandardCharsets.UTF_8);

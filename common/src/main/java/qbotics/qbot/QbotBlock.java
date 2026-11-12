@@ -65,8 +65,10 @@ public class QbotBlock extends ComputerBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!ProbeItem.heldBy(player) && player.isShiftKeyDown() && level.getBlockEntity(pos) instanceof QbotBlockEntity qbot) {
-            if (player instanceof ServerPlayer serverPlayer && !qbot.bricked()) {
+        // A Qbot has no terminal or editor of its own (decided 2026-11-12): right-clicking opens its
+        // screen, with its storage and its Run, Pause and Stop buttons. Programs come from a Programmer.
+        if (!ProbeItem.heldBy(player) && level.getBlockEntity(pos) instanceof QbotBlockEntity qbot && !qbot.bricked()) {
+            if (player instanceof ServerPlayer serverPlayer) {
                 serverPlayer.openMenu(qbot);
             }
             return InteractionResult.SUCCESS;

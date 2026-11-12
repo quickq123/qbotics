@@ -27,6 +27,11 @@ public final class ClientIde {
         }
     }
 
+    /** The lines of a computer's terminal as last sent, for a Qbot's screen (no editor is open for it). */
+    public static java.util.List<String> terminalLines(UUID deviceId) {
+        return IdeSession.of(deviceId).terminalLines;
+    }
+
     /** The server opened a drive (a Programmer's) in the editor: files only, no terminal. */
     public static void onOpenEditor(IdePayloads.OpenEditor open) {
         IdeSession session = IdeSession.of(open.deviceId());

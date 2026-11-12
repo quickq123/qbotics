@@ -176,10 +176,15 @@ ANTENNA UPGRADES (build these yourself)
      in python:  import network ,  network.Radio().chunks() .
 
 QBOTS (from the creative tab)
- 69. Place an Iron Qbot: it faces you, hovers and bobs. Sneak + right-click with an empty
-     hand: its 4x4 inventory, hand and upgrade slots, energy gauge and two tanks.
- 70. Right-click it for its terminal:  python ,  import qbot ,  qbot.forward() ,
-     qbot.turn_right() ,  qbot.position() . Watch it glide and turn.
+ 69. Place an Iron Qbot: it faces you, hovers and bobs. Right-click it: its 4x4 inventory,
+     hand and upgrade slots, energy gauge, two tanks, and Run / Pause / Stop. Run says
+     "No program: install one with a Programmer".
+ 70. A Qbot has no terminal: its program comes from a Programmer. Put a Programmer facing it,
+     Edit files on the Programmer's drive, write startup.py:  import qbot ,  qbot.forward() ,
+     qbot.turn_right() ,  print(qbot.position()) . Power the Programmer: the Qbot starts. Watch it
+     glide and turn; its screen shows what it printed. Steps 71-75 are programs the same way.
+ 70b. A long program (a loop with time.sleep): Pause holds it, Run says Resume and carries on;
+     Stop ends it. Break a line in the program (a typo): the screen says it stopped with an error.
  71. Put stone in front:  qbot.dig()  (its arms swing; cobblestone goes into its slots).
      Obsidian in front:  qbot.dig()  says it needs a better tool. Put a diamond pickaxe in its
      hand (screen or  from qbot import tools ,  tools.equip("diamond_pickaxe") ) and dig again.
@@ -210,7 +215,6 @@ SCREENS (two tiers)
      and a Text Monitor take an LCD Screen.
  87. Craft 3 Light Emitting Diodes (glowstone rows around red, green, blue dye), then 4 LED
      Screens (columns: gold ingots, diodes, glass). A Control Panel takes an LED Screen.
- 88. An old Screen from before: craft it alone into an LED Screen.
 
 TUNNELS
  82. Two Item Serial Buses on one network: one under a hopper (pointing up at it), one at a

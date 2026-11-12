@@ -17,8 +17,9 @@ import qbotics.QboticsContent;
 import qbotics.upgrade.UpgradeItem;
 
 /**
- * A Qbot's screen (sneak and right-click it): its 4x4 inventory, the tool in its hand, its
- * upgrade, and gauges for its energy cell and two tanks. {@code qbotics.client.QbotScreen} draws it.
+ * A Qbot's screen (right-click it): its 4x4 inventory, the tool in its hand, its upgrade, gauges
+ * for its energy cell and two tanks, and the Run, Pause and Stop buttons for its program, with
+ * the last lines that program printed. {@code qbotics.client.QbotScreen} draws it.
  */
 public class QbotMenu extends AbstractContainerMenu {
     public static final int GRID_X = 8;
@@ -27,7 +28,15 @@ public class QbotMenu extends AbstractContainerMenu {
     public static final int HAND_Y = 18;
     public static final int UPGRADE_Y = 54;
     public static final int GAUGES_X = 120;
-    public static final int TOP_HEIGHT = 96;
+    /** The row of buttons, and below it the program's state and output. */
+    public static final int BUTTONS_Y = 94;
+    public static final int OUTPUT_Y = 114;
+    public static final int TOP_HEIGHT = 148;
+    public static final int RUN_BUTTON = 0;
+    public static final int PAUSE_BUTTON = 1;
+    public static final int STOP_BUTTON = 2;
+    /** Data: 0-5 energy and tanks, 6 the program's state, 7 how it last ended, 8-15 the Qbot's identity. */
+    private static final int DATA = 16;
     /** Slots: 0-15 the grid, 16 the hand, 17 the upgrade; then the player's. */
     public static final int HAND_SLOT = QbotBlockEntity.SLOTS;
     public static final int UPGRADE_SLOT = HAND_SLOT + 1;
@@ -46,7 +55,10 @@ public class QbotMenu extends AbstractContainerMenu {
                     case 0 -> qbot.energy() & 0xFFFF;
                     case 1 -> (qbot.energy() >>> 16) & 0xFFFF;
                     case 2, 3 -> qbot.tankAmount(index - 2) == 0 ? 0 : BuiltInRegistries.FLUID.getId(qbot.tankFluid(index - 2));
-                    default -> qbot.tankAmount(index - 4);
+                    case 4, 5 -> qbot.tankAmount(index - 4);
+                    case 6 -> program(qbot) == null ? 0 : program(qbot).programState().ordinal();
+                    case 7 -> program(qbot) == null ? 0 : ended(program(qbot).programStatus());
+                    default -> idPart(qbot.deviceId(), index - 8);
                 };
             }
 
@@ -56,15 +68,76 @@ public class QbotMenu extends AbstractContainerMenu {
 
             @Override
             public int getCount() {
-                return 6;
+                return DATA;
             }
         });
+        if (inventory.player instanceof net.minecraft.server.level.ServerPlayer player) {
+            qbotics.computer.ComputerManager.get(player.level().getServer()).watchOutput(player, qbot);
+        }
+    }
+
+    /** How a program last ended, as a number for the screen; see {@link #ending()}. */
+    public enum Ending { NONE, FINISHED, STOPPED, ERROR, NO_PROGRAM, BUSY }
+
+    private static int ended(String status) {
+        Ending ending = status.isEmpty() ? Ending.NONE : status.equals("Finished") ? Ending.FINISHED : status.equals("Stopped") ? Ending.STOPPED
+                : status.startsWith("Error") ? Ending.ERROR : status.startsWith("No program") ? Ending.NO_PROGRAM : Ending.BUSY;
+        return ending.ordinal();
+    }
+
+    private static int idPart(java.util.UUID id, int part) {
+        long bits = part < 4 ? id.getMostSignificantBits() : id.getLeastSignificantBits();
+        return (int) (bits >>> (16 * (3 - part % 4))) & 0xFFFF;
+    }
+
+    /** The Qbot's running computer, or null if it isn't switched on. On the server. */
+    private static qbotics.computer.@Nullable ServerComputer program(QbotBlockEntity qbot) {
+        return qbot.getLevel() == null || qbot.getLevel().getServer() == null ? null
+                : qbotics.computer.ComputerManager.get(qbot.getLevel().getServer()).computer(qbot.deviceId());
+    }
+
+    /** What its program is doing: stopped, running or paused. */
+    public qbotics.computer.ServerComputer.ProgramState programState() {
+        qbotics.computer.ServerComputer.ProgramState[] states = qbotics.computer.ServerComputer.ProgramState.values();
+        return states[Math.clamp(data.get(6), 0, states.length - 1)];
+    }
+
+    public Ending ending() {
+        return Ending.values()[Math.clamp(data.get(7), 0, Ending.values().length - 1)];
+    }
+
+    /** Which Qbot this is (its device identity), to find its terminal's lines in the player's game. */
+    public java.util.UUID qbotId() {
+        long most = 0;
+        long least = 0;
+        for (int part = 0; part < 4; part++) {
+            most = (most << 16) | (data.get(8 + part) & 0xFFFF);
+            least = (least << 16) | (data.get(12 + part) & 0xFFFF);
+        }
+        return new java.util.UUID(most, least);
+    }
+
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        if (qbot == null || !(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) {
+            return false;
+        }
+        qbotics.computer.ServerComputer computer = qbotics.computer.ComputerManager.get(serverPlayer.level().getServer()).getOrStart(qbot);
+        switch (id) {
+            case RUN_BUTTON -> computer.runProgram();
+            case PAUSE_BUTTON -> computer.pauseProgram();
+            case STOP_BUTTON -> computer.stopProgram();
+            default -> {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** In the player's game. */
     public QbotMenu(int containerId, Inventory inventory) {
         this(containerId, inventory, null, new SimpleContainer(QbotBlockEntity.SLOTS), new SimpleContainer(1), new SimpleContainer(1),
-                new SimpleContainerData(6));
+                new SimpleContainerData(DATA));
     }
 
     private QbotMenu(int containerId, Inventory inventory, @Nullable QbotBlockEntity qbot, Container items, Container hand,
@@ -149,5 +222,8 @@ public class QbotMenu extends AbstractContainerMenu {
     public void removed(Player player) {
         super.removed(player);
         items.stopOpen(player);
+        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+            qbotics.computer.ComputerManager.get(serverPlayer.level().getServer()).closeTerminal(serverPlayer);
+        }
     }
 }

@@ -45,8 +45,7 @@ glowstone and gold.
 | Motherboard | `CCC` / `LGL` / `CCC` | Copper ingots above and below; glass, green dye, glass between |
 | Computer | `CCC` / `CMC` / `CSC` | Seven cables, a motherboard in the middle, an **LCD Screen** at the bottom middle |
 
-The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (section 7c). A
-Screen made before the two tiers is an "Old Screen": craft it on its own into an LED Screen.
+The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (section 7c).
 
 ### 1.1 Terminal commands
 
@@ -1274,9 +1273,28 @@ LED Screen and a cable).
 
 ## 7d. Qbots: computers that move
 
-A **Qbot** is a computer in a small robot's body. It runs Python like any computer (right-click
-it for its terminal and editor), and moves one block at a time, digs, places, uses and attacks,
-and carries things. The first is the **Iron Qbot**.
+A **Qbot** is a computer in a small robot's body. It runs a Python program, and moves one block
+at a time, digs, places, uses and attacks, and carries things. The first is the **Iron Qbot**.
+
+A Qbot has **no terminal or editor of its own**: you can't reprogram it on the spot. Its
+program is put on it by a **Programmer** (section 9e), as `startup.py`, and worked from its
+screen:
+
+| Button | Does |
+|---|---|
+| **Run** | Starts its program (`startup.py`) from the top. While paused it says **Resume**, and carries on from where it stopped |
+| **Pause** | Holds the program where it is, like a breakpoint: at its next step, in the middle of a `time.sleep`, or as a world call comes back. Nothing it was doing is lost |
+| **Stop** | Ends the program at once. Its Python is started afresh; its files and what it carries are untouched |
+
+Under the buttons, the screen shows what the program is doing (Running, Paused, Finished,
+Stopped, or Stopped with an error) and the last two lines it printed, so `print` is how a
+program reports, and an error shows there.
+
+- A Programmer that installs a program on a Qbot also starts it.
+- A Qbot whose program was running when its area unloaded (or the world closed) starts it
+  again, from the top, when it loads.
+- `ssh` from a computer still reaches a Qbot's shell (section 7.4).
+
 
 | | Iron Qbot |
 |---|---|
@@ -1290,8 +1308,8 @@ and carries things. The first is the **Iron Qbot**.
 - **No fuel.** Moving and working cost nothing. The energy cell and tanks are things it
   carries, to fill machines and tanks with or bring back.
 - **Placing it:** it faces you, like a computer.
-- **Right-click:** its terminal and editor. **Sneak and right-click with an empty hand:** its
-  inventory, hand and upgrade slots, and gauges for its cell and tanks.
+- **Right-click:** its screen: inventory, hand and upgrade slots, gauges for its cell and
+  tanks, and Run, Pause and Stop with what its program printed.
 - **Breaking it:** its items fall out. Its files (its drive), name, energy and fluid stay with
   the item.
 - It is a computer on the network (cables and devices beside it join it), and counts against

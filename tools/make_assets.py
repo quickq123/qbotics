@@ -174,6 +174,18 @@ write_json("assets/qbotics/lang/en_us.json", {
     "block.qbotics.iron_qbot": "Iron Qbot",
     "block.qbotics.qbot_part": "Qbot Part",
     "screen.qbotics.qbot.hand": "Hand",
+    "screen.qbotics.qbot.run": "Run",
+    "screen.qbotics.qbot.resume": "Resume",
+    "screen.qbotics.qbot.pause": "Pause",
+    "screen.qbotics.qbot.stop": "Stop",
+    "screen.qbotics.qbot.state.running": "Running",
+    "screen.qbotics.qbot.state.paused": "Paused",
+    "screen.qbotics.qbot.ended.none": "Stopped",
+    "screen.qbotics.qbot.ended.finished": "Finished",
+    "screen.qbotics.qbot.ended.stopped": "Stopped",
+    "screen.qbotics.qbot.ended.error": "Stopped with an error",
+    "screen.qbotics.qbot.ended.no_program": "No program: install one with a Programmer",
+    "screen.qbotics.qbot.ended.busy": "Busy",
     "screen.qbotics.qbot.upgrade": "Upgrade",
     "screen.qbotics.qbot.energy": "Energy: %s / %s FE",
     "item.qbotics.chunk_loader_upgrade": "Chunk Loader Upgrade",
@@ -256,7 +268,6 @@ write_json("assets/qbotics/lang/en_us.json", {
     "message.qbotics.tunnel.cancelled": "Tunnel: choice cleared.",
     "message.qbotics.tunnel.refused": "No tunnel: %s",
     "message.qbotics.probe_no_slots": "That block has no screen to show slots on.",
-    "item.qbotics.screen": "Old Screen (craft it into an LED Screen)",
     "item.qbotics.liquid_crystal_panel": "Liquid Crystal Panel",
     "item.qbotics.lcd_screen": "LCD Screen",
     "item.qbotics.light_emitting_diode": "Light Emitting Diode",
@@ -516,7 +527,7 @@ def motherboard_item():
     return px
 
 
-for part, picture in (("screen", screen_item()), ("led_screen", screen_item()), ("lcd_screen", lcd_screen_item()),
+for part, picture in (("led_screen", screen_item()), ("lcd_screen", lcd_screen_item()),
                       ("liquid_crystal_panel", liquid_crystal_panel_item()),
                       ("light_emitting_diode", light_emitting_diode_item()), ("motherboard", motherboard_item())):
     write_png("assets/qbotics/textures/item/%s.png" % part, picture)
@@ -547,9 +558,6 @@ write_json("data/qbotics/recipe/light_emitting_diode.json", shaped(
 write_json("data/qbotics/recipe/led_screen.json", shaped(
     ["ODL", "ODL", "ODL"], {"O": "minecraft:gold_ingot", "D": "qbotics:light_emitting_diode", "L": "minecraft:glass"},
     "qbotics:led_screen", 4))
-# The screen from before the tiers is no longer made; one already made becomes an LED Screen.
-write_json("data/qbotics/recipe/screen.json", {"type": "minecraft:crafting_shapeless", "category": "redstone",
-                                              "ingredients": ["qbotics:screen"], "result": {"id": "qbotics:led_screen"}})
 # Motherboard: copper above and below glass, green dye, glass.
 write_json("data/qbotics/recipe/motherboard.json", shaped(
     ["CCC", "LGL", "CCC"],

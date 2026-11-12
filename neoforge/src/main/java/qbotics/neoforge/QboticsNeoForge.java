@@ -177,8 +177,6 @@ public final class QboticsNeoForge {
             BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, CABLE.get()));
 
     // Parts: made in the crafting grid, used up in other recipes.
-    /** The screen from before the two tiers: still here so old ones aren't lost; it crafts into an LED Screen. */
-    private static final DeferredItem<net.minecraft.world.item.Item> SCREEN_ITEM = ITEMS.registerSimpleItem("screen");
     // Screens, in two tiers: LCD (early game) and LED (mid game), and the parts each is made from.
     private static final DeferredItem<net.minecraft.world.item.Item> LIQUID_CRYSTAL_PANEL = ITEMS.registerSimpleItem("liquid_crystal_panel");
     private static final DeferredItem<net.minecraft.world.item.Item> LCD_SCREEN = ITEMS.registerSimpleItem("lcd_screen");
