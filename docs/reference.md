@@ -192,13 +192,18 @@ words follow the JEI mod's search box.
 | `"*_log"` | Wildcards on the name. `*` is any run of characters, `?` any single one. Without a colon the part after the colon is matched, in any mod |
 | `"minecraft:*_ore"` | Wildcards on the whole name |
 | `"@create"` | Everything from a mod, by its ID or its name. Part of either is enough |
-| `"#minecraft:logs"` | Everything carrying a tag. `#logs` tries `minecraft:logs`, then `c:logs` |
+| `"#minecraft:logs"` | Everything carrying a tag. `#logs` matches `minecraft:logs` or `c:logs`, whichever exists |
 | `"$minecraft:logs"` | The same; `$` is JEI's tag prefix |
 | `"@minecraft *_ore"` | Several words: all must hold |
 | `"-*_slab"` | A word starting with `-` must not hold |
 | `"coal \| charcoal"` | Alternatives |
 
 Fluids use the same words: `"water"`, `"@minecraft"`, `"#c:water"`.
+
+`docs/filters.md` is a longer guide: worked examples, sorting into several chests, and a list
+of useful tags for tools, armour, ores, food and building blocks. To see an item's own name and
+tags in the game, hold the Network Probe and hover over the item; hold Shift for its tags
+(section 8).
 
 A name that doesn't exist is an error that suggests close matches. A filter that nothing in
 the game passes is an error too.
