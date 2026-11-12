@@ -303,6 +303,10 @@ HELPME EXAMPLES
      cd /helpme/displays and cat README.md. Run a few examples: basics/hello.py, storage/count.py, displays/web_storage.
 116. Edit an example, git status shows it, git pull refuses, git pull --force puts the original back.
 
+SHELL SCRIPTS
+117. In /helpme/basics: run setup.sh (each command shows after a +). Write a script whose second line is a typo:
+     it stops there, naming the line. Put  echo hello  in /startup.sh, break and place the computer: it says hello.
+
 QBOT CAMERA
 113. A Qbot facing something interesting, a Web Panel on its network (or a computer's: pictures are kept by
      number). pic = qbot.snapshot() ; print(pic.counts()) ; web.html('<img src="image:cam" style="width:256px">') ;

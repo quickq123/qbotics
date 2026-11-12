@@ -225,12 +225,7 @@ public final class GitService {
                     result = cloneHelpme(drive, dir);
                 }
                 case "pull", "push" -> {
-                    JsonObject meta;
-                    try {
-                        meta = readMeta(drive, dir);
-                    } catch (GitError e) {
-                        return false; // not cloned: the usual call says so
-                    }
+                    JsonObject meta = readMeta(drive, dir); // not cloned: says so, before asking for the Uplink
                     if (!isHelpme(meta)) {
                         return false;
                     }

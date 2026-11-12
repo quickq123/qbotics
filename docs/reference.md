@@ -86,6 +86,35 @@ it, so a `while True` loop with `try`/`except Exception` inside still stops. A p
 does this), a second Ctrl+C stops it for certain. The computer then restarts its Python,
 which loses the variables typed at the `>>>` prompt but not your files.
 
+### 1.1b Shell scripts
+
+A file ending in `.sh` is a **shell script**: commands, one a line, run as if typed.
+
+```sh
+# /startup.sh: runs every time the computer starts
+echo Starting the factory...
+cd /helpme
+git pull
+service start /factory/smelter.py
+run /factory/report.py
+```
+
+- `run setup.sh` or `sh setup.sh` runs one. Each command is shown as it runs, after a `+`.
+- It runs **from its own folder**, so `run hello.py` finds a file beside it. A `cd` in a script
+  lasts until the script ends; the shell is back in its own folder afterwards.
+- Blank lines and lines starting with `#` are skipped.
+- **The first command that fails stops it**, saying which line: a missing file, an unknown
+  command, a `git` that refused, or a program that ended with an error or `sys.exit(1)`.
+- Scripts can run scripts (up to 8 deep).
+- **`/startup.sh`** runs when the computer starts, before `/startup.py`.
+- No variables, `if` or loops: for those, write a Python program and `run` it from the script.
+
+| Command | Does |
+|---|---|
+| `echo <text>` | Prints the text |
+| `sleep <seconds>` | Waits (decimals work; Ctrl+C stops it) |
+| `mkdir -p <folder>` | Makes the folder and any above it, and doesn't mind if it is already there |
+
 ### 1.2 Editor keys
 
 | Key | What it does |
@@ -181,6 +210,7 @@ adds, `logistics` and `network`.
 | `open(path, mode)` | Files on the computer's own drive |
 | `time.sleep(seconds)` | Waits; decimals work |
 | `execfile(path)` | Runs another file |
+| `sys.exit()`, `sys.exit(1)`, `sys.exit("message")` | Ends the program quietly: with nothing or 0 it succeeded; with a number or a message (which is printed) it failed, and a shell script running it stops |
 
 ---
 

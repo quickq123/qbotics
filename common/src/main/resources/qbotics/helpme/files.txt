@@ -3,6 +3,7 @@ basics/README.md
 basics/devices.py
 basics/hello.py
 basics/notes.py
+basics/setup.sh
 displays/README.md
 displays/monitor/status.py
 displays/panel/panel.py

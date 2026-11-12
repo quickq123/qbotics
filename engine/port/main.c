@@ -74,7 +74,21 @@ WASM_EXPORT("mpy_exec") int mpy_exec(const char *src, uint32_t len, int repl) {
         nlr_pop();
         return 0;
     } else {
-        mp_obj_print_exception(&mp_plat_print, MP_OBJ_FROM_PTR(nlr.ret_val));
+        mp_obj_t exc = MP_OBJ_FROM_PTR(nlr.ret_val);
+        if (mp_obj_is_subclass_fast(MP_OBJ_FROM_PTR(mp_obj_get_type(exc)), MP_OBJ_FROM_PTR(&mp_type_SystemExit))) {
+            // sys.exit(): the program ends quietly, as in Python. sys.exit() and sys.exit(0)
+            // are success; a number is failure; a message is printed and is failure.
+            mp_obj_t code = mp_obj_exception_get_value(exc);
+            if (code == mp_const_none || (mp_obj_is_small_int(code) && MP_OBJ_SMALL_INT_VALUE(code) == 0)) {
+                return 0;
+            }
+            if (!mp_obj_is_small_int(code)) {
+                mp_obj_print_helper(&mp_plat_print, code, PRINT_STR);
+                mp_print_str(&mp_plat_print, "\n");
+            }
+            return 1;
+        }
+        mp_obj_print_exception(&mp_plat_print, exc);
         return 1;
     }
 }

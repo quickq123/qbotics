@@ -37,6 +37,8 @@ public final class ServerComputer {
     private static final int MAX_CAT_BYTES = 16 * 1024;
     public static final int MAX_SCRATCH_OUTPUT = 8000;
     private static final String STARTUP_FILE = "/startup.py";
+    /** A shell script run when the computer starts, before startup.py. */
+    private static final String STARTUP_SCRIPT = "/startup.sh";
 
     // ---- a Qbot's program: Run, Pause and Stop (design doc §8) ------------------------------
 
@@ -164,7 +166,7 @@ public final class ServerComputer {
     }
 
     /** Runs a Qbot's program, startup.py, keeping its state and how it ended. On the computer's thread. */
-    private void runProgramNow(Computer computer) {
+    private void runProgramNow(Computer computer) throws InterruptedException {
         programActive = true;
         stoppedByButton = false;
         if (!exists(STARTUP_FILE)) {
@@ -642,8 +644,13 @@ public final class ServerComputer {
                             if (runOnBoot) {
                                 runProgramNow(computer);
                             }
-                        } else if (exists(STARTUP_FILE)) {
-                            runPython(computer, "execfile(" + pyString(STARTUP_FILE) + ")");
+                        } else {
+                            if (exists(STARTUP_SCRIPT)) {
+                                runScript(computer, STARTUP_SCRIPT);
+                            }
+                            if (exists(STARTUP_FILE)) {
+                                runPython(computer, "execfile(" + pyString(STARTUP_FILE) + ")");
+                            }
                         }
                     }
                     shell(computer);
@@ -992,7 +999,10 @@ public final class ServerComputer {
         return ok[0];
     }
 
-    private boolean runFile(Computer computer, String path) {
+    private boolean runFile(Computer computer, String path) throws InterruptedException {
+        if (path.endsWith(".sh")) {
+            return runScript(computer, path);
+        }
         String file = Paths.resolve(cwd, path);
         try {
             String kind = new String(drive.call(HostFileSystem.STAT, file, new byte[0]), StandardCharsets.UTF_8);
@@ -1034,8 +1044,10 @@ public final class ServerComputer {
 
     private static final String HELP = String.join("\n",
             "Files:   ls [folder]   cd <folder>   pwd   cat <file>",
-            "         mkdir <folder>   rm [-r] <path>   mv <from> <to>   cp <from> <to>",
+            "         mkdir [-p] <folder>   rm [-r] <path>   mv <from> <to>   cp <from> <to>",
             "Python:  run <file.py>      run a program (python <file.py> also works)",
+            "Scripts: run <file.sh>      run a file of commands, one a line (sh <file> too); echo <text>; sleep <seconds>",
+            "         startup.sh and startup.py, at the top of the drive, run when the computer starts",
             "         python             the Python prompt; exit() comes back here",
             "Editor:  edit <file>        open a file in the editor",
             "         settings           this computer's name, remote login and antenna",
@@ -1052,7 +1064,7 @@ public final class ServerComputer {
 
     /** The shell's commands, longest first, for spotting one typed without its space. */
     private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "pip", "ifconfig", "python", "mkdir", "clear", "help",
-            "service", "edit", "pwd", "cat", "run", "ssh", "git", "ls", "cd", "rm", "mv", "cp", "py");
+            "service", "sleep", "echo", "edit", "pwd", "cat", "run", "ssh", "git", "sh", "ls", "cd", "rm", "mv", "cp", "py");
 
     /**
      * A hint for a line that isn't a command: the space a command lost ("run9_world.py" is
@@ -1070,12 +1082,14 @@ public final class ServerComputer {
         return "Type help for a list.";
     }
 
-    private void command(Computer computer, String line) throws InterruptedException {
+    /** Carries out one command line. Returns false if it failed (a shell script stops there). */
+    private boolean command(Computer computer, String line) throws InterruptedException {
         List<String> args = splitArguments(line);
         if (args.isEmpty()) {
-            return;
+            return true;
         }
         String name = args.removeFirst();
+        boolean ok = true;
         try {
             switch (name) {
                 case "help" -> terminal.write(HELP);
@@ -1091,7 +1105,26 @@ public final class ServerComputer {
                         terminal.write("... (" + (data.length - MAX_CAT_BYTES) + " more bytes)\n");
                     }
                 }
-                case "mkdir" -> drive.call(HostFileSystem.MKDIR, path(args, 0, name), new byte[0]);
+                case "mkdir" -> {
+                    if (args.remove("-p")) {
+                        // Every folder on the way, and no complaint if it is already there (for scripts run twice).
+                        String target = path(args, 0, name);
+                        StringBuilder at = new StringBuilder();
+                        for (String part : target.split("/")) {
+                            if (part.isEmpty()) {
+                                continue;
+                            }
+                            at.append('/').append(part);
+                            if (!exists(at.toString())) {
+                                drive.call(HostFileSystem.MKDIR, at.toString(), new byte[0]);
+                            } else if (!isFolder(at.toString())) {
+                                throw new FsException(HostFileSystem.ENOTDIR);
+                            }
+                        }
+                    } else {
+                        drive.call(HostFileSystem.MKDIR, path(args, 0, name), new byte[0]);
+                    }
+                }
                 case "rm" -> {
                     boolean recursive = args.remove("-r") | args.remove("-rf");
                     String target = path(args, 0, name);
@@ -1111,7 +1144,21 @@ public final class ServerComputer {
                     terminal.write("Shutting down. Open this computer again to switch it on.\n");
                     listener.shutDownRequested(deviceId);
                 }
-                case "run" -> runFile(computer, path(args, 0, name));
+                case "run" -> ok = runFile(computer, path(args, 0, name));
+                case "sh" -> ok = runScript(computer, path(args, 0, name));
+                case "echo" -> terminal.write(String.join(" ", args) + "\n");
+                case "sleep" -> {
+                    if (args.isEmpty()) {
+                        throw new UsageException("Usage: sleep <seconds>");
+                    }
+                    double seconds;
+                    try {
+                        seconds = Double.parseDouble(args.getFirst());
+                    } catch (NumberFormatException e) {
+                        throw new UsageException("sleep takes a number of seconds, such as sleep 2 or sleep 0.5");
+                    }
+                    ok = runPython(computer, "import time\ntime.sleep(" + Math.max(0, seconds) + ")"); // Ctrl+C stops it
+                }
                 case "ssh" -> {
                     if (args.isEmpty()) {
                         throw new UsageException("Usage: ssh <name or address>   (for example: ssh smelter, or ssh 100.64.0.12:1005)");
@@ -1124,7 +1171,7 @@ public final class ServerComputer {
                     for (String arg : args) {
                         list.append(pyString(arg)).append(',');
                     }
-                    runPython(computer, "import pip\npip.main(" + list.append(']') + ")");
+                    ok = runPython(computer, "import pip\npip.main(" + list.append(']') + ")");
                 }
                 case "service" -> service(args);
                 case "git" -> {
@@ -1133,25 +1180,82 @@ public final class ServerComputer {
                     for (String arg : args) {
                         list.append(pyString(arg)).append(',');
                     }
-                    runPython(computer, "import os, git\nos.chdir(" + pyString(cwd) + ")\ngit._main(" + list.append(']') + ")");
+                    ok = runPython(computer, "import os, git\nos.chdir(" + pyString(cwd) + ")\ngit._main(" + list.append(']') + ")");
                 }
-                case "devices", "ifconfig" -> runPython(computer,
+                case "devices", "ifconfig" -> ok = runPython(computer,
                         "import logistics\nlogistics._print_devices(" + (args.isEmpty() ? "" : pyString(args.getFirst())) + ")");
                 case "python", "py" -> {
                     if (args.isEmpty()) {
                         repl(computer);
                     } else {
-                        runFile(computer, args.getFirst());
+                        ok = runFile(computer, args.getFirst());
                     }
                 }
-                default -> terminal.write("Unknown command: " + name + ". " + suggestion(name) + "\n");
+                default -> {
+                    terminal.write("Unknown command: " + name + ". " + suggestion(name) + "\n");
+                    ok = false;
+                }
             }
         } catch (FsException e) {
             terminal.write(describe(e, args.isEmpty() ? "" : args.getFirst()) + "\n");
+            ok = false;
         } catch (UsageException e) {
             terminal.write(e.getMessage() + "\n");
+            ok = false;
+        }
+        return ok;
+    }
+
+    /** How deep scripts may run scripts (a script that runs itself stops here). */
+    private static final int MAX_SCRIPT_DEPTH = 8;
+    private int scriptDepth;
+
+    /**
+     * A shell script: a file of commands, one a line, run as if typed, from the script's own
+     * folder. Blank lines and # comments are skipped. The first command that fails stops it.
+     * Each command is shown as it runs, after a +. Afterwards the shell is back in its folder.
+     */
+    private boolean runScript(Computer computer, String path) throws InterruptedException {
+        String file = Paths.resolve(cwd, path);
+        String text;
+        try {
+            text = new String(drive.call(HostFileSystem.READ, file, new byte[0]), StandardCharsets.UTF_8);
+        } catch (FsException e) {
+            terminal.write(describe(e, file) + "\n");
+            return false;
+        }
+        if (scriptDepth >= MAX_SCRIPT_DEPTH) {
+            terminal.write("Scripts are running scripts " + MAX_SCRIPT_DEPTH + " deep: " + Paths.name(file) + " doesn't start.\n");
+            return false;
+        }
+        String before = cwd;
+        String folder = file.substring(0, Math.max(1, file.lastIndexOf('/')));
+        cwd = folder;
+        scriptDepth++;
+        try {
+            String[] lines = text.split("\n", -1);
+            for (int number = 1; number <= lines.length; number++) {
+                String line = lines[number - 1].strip();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                if (shutDown) {
+                    return false;
+                }
+                terminal.write("+ " + line + "\n");
+                if (!command(computer, line)) {
+                    terminal.write(Paths.name(file) + " stopped at line " + number + ": " + line + "\n");
+                    return false;
+                }
+            }
+            return true;
+        } finally {
+            scriptDepth--;
+            cwd = before;
         }
     }
+
+
 
     private static final String SERVICE_HELP = String.join("\n",
             "service start <file.py> [name]   run a program in the background, now and whenever the Server comes on",
@@ -1204,7 +1308,7 @@ public final class ServerComputer {
         if (args.size() <= index) {
             throw new UsageException("Usage: " + switch (command) {
                 case "mv", "cp" -> command + " <from> <to>";
-                case "mkdir" -> "mkdir <folder>";
+                case "mkdir" -> "mkdir [-p] <folder>";
                 case "rm" -> "rm [-r] <path>";
                 default -> command + " <file>";
             });

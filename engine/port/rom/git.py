@@ -108,16 +108,14 @@ def _main(args):
     if "-m" in rest:
         i = rest.index("-m")
         if i + 1 >= len(rest):
-            print('git push -m "message"')
-            return
+            raise SystemExit('git push -m "message"')
         message = rest[i + 1]
         rest = rest[:i] + rest[i + 2:]
     folder = rest[0] if rest else None
     try:
         if op == "clone":
             if not rest:
-                print("git clone <url> [folder]")
-                return
+                raise SystemExit("git clone <url> [folder]")
             print("Cloning " + rest[0] + " ...")
             r = clone(rest[0], rest[1] if len(rest) > 1 else None)
             print("%d files from %s, branch %s, at %s." % (r["files"], r["repo"], r["branch"], r["commit"]))
@@ -135,4 +133,5 @@ def _main(args):
         else:
             print(_USAGE)
     except GitError as e:
-        print("git: " + str(e))
+        # Ends as a failure, so a shell script running git stops here.
+        raise SystemExit("git: " + str(e))

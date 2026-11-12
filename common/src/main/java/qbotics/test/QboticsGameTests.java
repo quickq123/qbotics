@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -75,6 +75,7 @@ public final class QboticsGameTests {
             Map.entry("js_engine", QboticsGameTests::jsEngine),
             Map.entry("web_script", QboticsGameTests::webScript),
             Map.entry("helpme", QboticsGameTests::helpme),
+            Map.entry("shell_scripts", QboticsGameTests::shellScripts),
             Map.entry("helpme_storage", QboticsGameTests::helpmeStorage),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
@@ -3448,6 +3449,60 @@ public final class QboticsGameTests {
             String page = qbotics.web.WebTemplate.fill(web.html(), state);
             helper.assertTrue(page.contains("item:minecraft:coal") && page.contains("overflow: auto") && !page.contains("Take 16"),
                     "the page shows the items, with its stylesheet");
+        });
+    }
+
+    /**
+     * Shell scripts: commands run in order from the script's folder; the first failure stops
+     * it (a missing file, a refused git, a program ending with sys.exit(1)); scripts run scripts
+     * (not forever); startup.sh runs when the computer starts.
+     */
+    private static void shellScripts(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        java.util.Map<String, String> files = new java.util.LinkedHashMap<>();
+        files.put("/s/hello.py", "print('hi from python')\n");
+        files.put("/s/setup.sh", "# make a folder and use it\n\necho Setting up\nmkdir -p made\ncd made\nrun ../hello.py\nsleep 0.1\npwd\n");
+        files.put("/s/fail.sh", "echo before the error\ncat missing.txt\necho never shown A\n");
+        files.put("/s/gitfail.sh", "git pull\necho never shown B\n");
+        files.put("/s/quiet.py", "import sys\nprint('quiet ran')\nsys.exit()\n");
+        files.put("/s/loud.py", "import sys\nsys.exit('bye from loud')\n");
+        files.put("/s/exits.sh", "run quiet.py\necho quiet was fine\nrun loud.py\necho never shown C\n");
+        files.put("/s/outer.sh", "sh setup.sh\necho outer done\n");
+        files.put("/s/loop.sh", "sh loop.sh\n");
+        files.put("/startup.sh", "echo started by startup.sh\n");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.MKDIR, "/s", new byte[0]);
+            for (var file : files.entrySet()) {
+                computer.drive().call(qbotics.engine.HostFileSystem.WRITE, file.getKey(), file.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        for (String line : List.of("run /s/setup.sh", "pwd", "sh /s/fail.sh", "sh /s/gitfail.sh", "run /s/exits.sh", "sh /s/outer.sh",
+                "sh /s/loop.sh")) {
+            computer.submitLine(line);
+        }
+        int[] step = {0};
+        ServerComputer[] running = {computer};
+        helper.succeedWhen(() -> {
+            if (step[0] == 0) {
+                String screen = screen(computer);
+                assertScreen(helper, computer, "+ echo Setting up", "Setting up", "hi from python", "/s/made", "before the error",
+                        "fail.sh stopped at line 2: cat missing.txt", "isn't a cloned repository", "gitfail.sh stopped at line 1",
+                        "quiet ran", "quiet was fine", "bye from loud", "exits.sh stopped at line 3", "outer done",
+                        "Scripts are running scripts 8 deep");
+                helper.assertTrue(!screen.contains("never shown") && !screen.contains("Traceback") && !screen.contains("SystemExit"),
+                        "nothing after a failure, and sys.exit is quiet: " + screen);
+                // The shell is back where it was after a script: "pwd" printed "/", not "/s/made".
+                helper.assertTrue(screen.contains("$ pwd\n/\n"), "the shell's folder is its own again: " + screen);
+                // Off and on again: startup.sh runs.
+                ComputerManager manager = ComputerManager.get(helper.getLevel().getServer());
+                manager.remove(computer.deviceId());
+                running[0] = manager.getOrStart(helper.getBlockEntity(new BlockPos(0, 1, 0), ComputerBlockEntity.class));
+                step[0] = 1;
+                helper.fail("next");
+            }
+            assertScreen(helper, running[0], "started by startup.sh");
         });
     }
 
