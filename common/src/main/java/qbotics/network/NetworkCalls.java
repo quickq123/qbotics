@@ -1104,7 +1104,7 @@ public final class NetworkCalls {
         if (match.first() == null) {
             boolean plain = !text.matches(".*[\\s|*?@#$].*");
             if (!plain) {
-                throw new CallError("No " + what + " passes the filter '" + text + "'.");
+                throw new CallError("No " + what + " passes the filter '" + text + "'." + tagHint(registry, text, what));
             }
             List<String> near = NameMatch.closest(registry, text);
             throw new CallError("There is no " + what + " called '" + text + "'. " + (near.isEmpty()
@@ -1112,6 +1112,41 @@ public final class NetworkCalls {
                     : "Did you mean " + String.join(near.size() == 2 ? " or " : ", ", near).replaceAll(", ([^,]+)$", " or $1") + "?"));
         }
         return match;
+    }
+
+    /**
+     * Why the tags in a filter that matched nothing might not be what was meant. The usual
+     * mistake is a block tag (as F3 shows for the block looked at): blocks in the world carry
+     * those, items don't.
+     */
+    private static <T> String tagHint(net.minecraft.core.Registry<T> registry, String text, String what) {
+        StringBuilder hint = new StringBuilder();
+        java.util.regex.Matcher words = java.util.regex.Pattern.compile("(?<![^\\s|-])[#$]([^\\s|]+)").matcher(text.toLowerCase(java.util.Locale.ROOT));
+        while (words.find()) {
+            String name = words.group(1);
+            List<String> ids = name.contains(":") ? List.of(name) : List.of("minecraft:" + name, "c:" + name);
+            boolean itemTag = false;
+            boolean blockTag = false;
+            for (String id : ids) {
+                net.minecraft.resources.Identifier key = net.minecraft.resources.Identifier.tryParse(id);
+                if (key == null) {
+                    continue;
+                }
+                itemTag |= registry.get(net.minecraft.tags.TagKey.create(registry.key(), key)).map(set -> set.size() > 0).orElse(false);
+                blockTag |= registry != BuiltInRegistries.BLOCK
+                        && BuiltInRegistries.BLOCK.get(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK, key)).map(set -> set.size() > 0).orElse(false);
+            }
+            if (itemTag) {
+                continue;
+            }
+            hint.append(blockTag
+                    ? " '#" + name + "' is a block tag: blocks in the world carry it, but no " + what + " does."
+                    : " No " + what + " carries the tag '#" + name + "'.");
+        }
+        if (!hint.isEmpty() && registry == BuiltInRegistries.ITEM) {
+            hint.append(" To see an item's tags, hold the Network Probe, point at the item in an inventory and hold Shift.");
+        }
+        return hint.toString();
     }
 
     private static String nothingThere(ServerLevel level, CablePort port, String what) {

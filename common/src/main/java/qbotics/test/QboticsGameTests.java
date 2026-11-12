@@ -885,6 +885,9 @@ public final class QboticsGameTests {
                 "print(move(bus, store, '#logs'), store.count('*_log'), move(bus, store, '*_ore | coal'), store.count())",
                 "store.set_slot_filter(4, '@nosuchmod')",
                 "move(bus, store, 'irn_ingot')",
+                // A block tag (as F3 shows) matches no item: the error says so.
+                "exec(\"try: bus.count('#minecraft:mineable/pickaxe')\\nexcept Exception as e: print('hint', 'is a block tag' in str(e), 'Probe' in str(e))\")",
+                "exec(\"try: bus.count('#nosuchmod:things')\\nexcept Exception as e: print('hint2', 'carries the tag' in str(e))\")",
                 "print('left', bus.count('@Minecraft'), bus.count('$minecraft:planks'))",
                 // A source with its own lists: only logs, but not birch. Then all-or-nothing amounts.
                 "print(move(store.source(only=['#minecraft:logs'], without='birch_*'), bus), bus.count('oak_log'))",
@@ -898,7 +901,7 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "['#minecraft:logs', '#logs', '*_ore', 'coal | charcoal']\n", "12 12 26 8 13\n", "12 12 9 21\n",
                     "NetworkError: No item passes the filter '@nosuchmod'.", // (The whole message is longer than the terminal is wide, so it wraps; the start is enough here.)
-                    "NetworkError: There is no item called 'irn_ingot'. Did you mean", "left 5 5\n", "8 8\n",
+                    "NetworkError: There is no item called 'irn_ingot'. Did you mean", "left 5 5\n", "hint True True\n", "hint2 True\n", "8 8\n",
                     "NetworkError: Only 6 of the 50 needed can be moved right now. Nothing was moved.", "6 3 4\n", "0 4 4\n");
             var items = net.minecraft.core.registries.BuiltInRegistries.ITEM;
             helper.assertTrue(qbotics.network.NameMatch.closest(items, "iron_ore_raw").contains("minecraft:raw_iron")

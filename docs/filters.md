@@ -213,8 +213,11 @@ chest usually wants `["#c:cobblestones", "#c:stones", "#minecraft:dirt", "#c:gra
 
 ## 5. Things to watch for
 
-- **Tags hold items, not blocks.** The block tags a pickaxe uses (`#minecraft:mineable/pickaxe`)
-  aren't item tags and won't match anything in a chest.
+- **Block tags aren't item tags.** Minecraft keeps the two apart, even when they share a name.
+  The F3 screen lists the tags of the *block you're looking at*. Those are block tags, such as
+  `#minecraft:mineable/pickaxe` or a mod's `#c:sand_growables` on bamboo, and they match
+  nothing in a chest. A filter made only of them is an error, and the error says it's a block
+  tag. For an item's own tags, use the probe with Shift (§1).
 - **Ore blocks and ore drops are different.** `#c:ores` is the ore block itself, which you only
   get with Silk Touch. A normal pickaxe drops raw iron, diamond and so on, which are
   `#c:raw_materials` and `#c:gems`.
