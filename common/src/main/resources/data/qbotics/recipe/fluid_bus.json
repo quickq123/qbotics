@@ -7,9 +7,9 @@
     "R": "minecraft:bucket"
   },
   "pattern": [
-    "C C",
+    "CCC",
     "HCR",
-    "C C"
+    "CCC"
   ],
   "result": {
     "id": "qbotics:fluid_bus"

@@ -192,9 +192,10 @@ QBOTS (from the creative tab)
  76. Break it: its items fall out; place it again and its files, energy and fluid are kept.
 
 SERIAL BUSES (Input and Output are gone)
- 77. Craft an Item Serial Bus: cables in an H (C.C / HCD / C.C), hopper left, dropper right.
+ 77. Craft an Item Serial Bus: cables CCC / HCD / CCC, hopper left, dropper right.
      Swap the dropper for a bucket (Fluid) or a block of redstone (Energy). JEI shows all three.
- 78. Craft a Universal Serial Bus (USB) from one of each; it is gold on the cable.
+ 78. Craft a Universal Serial Bus (USB) from one of each; it is royal purple on the cable.
+     Two USBs:  move(net.usb("a"), net.usb("b"), "lava", 1000)  moves fluid between them.
  79. A USB on a machine from another mod that takes items, fluid and energy (for example a
      Mekanism or Thermal machine):  python ,  from logistics import network, move ,
      net = network() ,  m = net.usb() ,  m.count() ,  m.fluid.amount() ,  m.energy.stored() .

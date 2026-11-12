@@ -775,12 +775,12 @@ public final class QboticsGameTests {
                 helper.absolutePos(fluidCable), level.getBlockEntity(helper.absolutePos(fluidCable)));
         helper.assertTrue(drops.stream().anyMatch(stack -> stack.is(QboticsContent.plateItem(Kind.BUS, fluid))), "the drops should hold a fluid bus: " + drops);
 
-        // Recipes: cables in an H with a hopper on the left of the bar and, on the right, a dropper (items),
+        // Recipes: seven cables with a hopper on the left of the middle row and, on the right, a dropper (items),
         // a bucket (fluid) or a block of redstone (energy). The three together make a USB.
         ItemStack none = ItemStack.EMPTY;
         java.util.function.Function<ItemStack, ItemStack> h = right -> {
             ItemStack c = new ItemStack(QboticsContent.CABLE_BLOCK.get());
-            return craft(helper, c, none, c, new ItemStack(Blocks.HOPPER), c, right, c, none, c);
+            return craft(helper, c, c, c, new ItemStack(Blocks.HOPPER), c, right, c, c, c);
         };
         ItemStack bus = h.apply(new ItemStack(Blocks.DROPPER));
         ItemStack fluidBusItem = h.apply(new ItemStack(Items.BUCKET));
@@ -849,12 +849,14 @@ public final class QboticsGameTests {
                 "print('fluid', t.fluid.amount('water'), move(t, tanks, 'water', 1000), tanks.amount('water'))",
                 "print('energy', p.energy.stored(), move(p, cell, count=1000), cell.stored)",
                 "print('back', move(store, c, 'coal', 2), c.count('coal'), net.fluid_bus('u_tank').refresh().kind)",
-                "print('listed', len(net.usbs()), len(net.buses()), sorted(d.kind for d in net.devices())[-1])")) {
+                "print('listed', len(net.usbs()), len(net.buses()), sorted(d.kind for d in net.devices())[-1])",
+                // USB to USB: a fluid's name makes it a fluid move (the chest holds no fluid, so it is refused as one).
+                "exec(\"try: move(t, c, 'water', 100)\\nexcept Exception as e: print('usb2usb', 'holds no fluid' in str(e))\")")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "kinds usb fluid_bus energy_bus bus fluid_bus\n", "items 12 5 5\n", "fluid 3000 1000 1000\n",
-                    "energy 500000 1000 1000\n", "back 2 9 fluid_bus\n", "listed 3 0 usb\n");
+                    "energy 500000 1000 1000\n", "back 2 9 fluid_bus\n", "listed 3 0 usb\n", "usb2usb True\n");
             // Taken off, it is a USB again.
             ItemStack taken = CableBlock.detach(level, at, Direction.DOWN);
             helper.assertTrue(taken.is(QboticsContent.plateItem(Kind.BUS, universal)), "the plate should come off as a USB, not " + taken);

@@ -844,6 +844,15 @@ public final class NetworkCalls {
         return new CallError(end.label() + " is " + article(end.device()) + ", which can't be a destination.");
     }
 
+    /** True if something in this registry passes the name or filter (and it can be read at all). */
+    private static <T> boolean namesOnly(net.minecraft.core.Registry<T> registry, String text) {
+        try {
+            return NameMatch.parse(registry, text).first() != null;
+        } catch (NameMatch.BadFilter e) {
+            return false;
+        }
+    }
+
     private static List<End> concat(List<End> a, List<End> b) {
         List<End> all = new ArrayList<>(a);
         all.addAll(b);
@@ -884,13 +893,18 @@ public final class NetworkCalls {
         String wanted = string(args, 3);
         Integer count = wholeNumber(args, 4, "count");
         Integer need = wholeNumber(args, 5, "amount needed");
-        // A USB carries whatever the other ends do; with nothing else to go by, items.
-        Medium medium = Medium.ITEM;
+        // A USB carries whatever the other ends do. Between USBs only, the thing named decides
+        // (a fluid's name moves fluid); with nothing named, items.
+        Medium medium = null;
         for (End end : concat(givenSources, givenDestinations)) {
             if (end.device().medium() != Medium.UNIVERSAL) {
                 medium = end.device().medium();
                 break;
             }
+        }
+        if (medium == null) {
+            medium = wanted != null && namesOnly(BuiltInRegistries.FLUID, wanted) && !namesOnly(BuiltInRegistries.ITEM, wanted)
+                    ? Medium.FLUID : Medium.ITEM;
         }
         List<End> sources = asMedium(givenSources, medium);
         List<End> destinations = asMedium(givenDestinations, medium);

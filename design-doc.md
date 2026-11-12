@@ -700,12 +700,12 @@ Blocks joined by the mod's own **cables** form a **network**. A computer on the 
 > **Changed 2026-11-12, decided by the project owner after playing:** Input and Output are gone. A
 > Serial Bus does both of their jobs and more, and three look-alike plates confused new players.
 > - There is one plate per medium: the **Item Serial Bus** (`bus`), **Fluid Serial Bus** (`fluid_bus`)
->   and **Energy Serial Bus** (`energy_bus`), each crafted from cables in an H with a hopper on the
->   left of the crossbar and, on the right, a dropper, a bucket or a block of redstone.
-> - The **Universal Serial Bus (USB)** (`usb`, gold) is the three combined, shapeless. It carries items,
+>   and **Energy Serial Bus** (`energy_bus`), each crafted from seven cables (`CCC` / `HCX` / `CCC`) with
+>   a hopper on the left of the middle row and, on the right, a dropper, a bucket or a block of redstone.
+> - The **Universal Serial Bus (USB)** (`usb`, royal purple) is the three combined, shapeless. It carries items,
 >   fluid and energy: on its own it acts as the item bus; `usb.fluid` and `usb.energy` are views
 >   of the same plate (addresses `mac@fluid`, `mac@energy`); in `move` it takes the medium of the
->   other ends. `net.bus()` and its fluid and energy versions find a USB by name; with no key they
+>   other ends; between USBs only, the name moved decides (a fluid name moves fluid), else items. `net.bus()` and its fluid and energy versions find a USB by name; with no key they
 >   prefer a plain bus.
 > - No direction setting: every bus works both ways.
 > - Breaking change, accepted by the project owner: Input and Output items are gone. Plates placed
@@ -1559,7 +1559,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | Logic Pin, Placer and Breaker built (§11.0.1), with the defaults listed there: strong power from an output pin, `wait_for` on counted events, netherite-tool speed for the Breaker, and placeholder recipes. Cables are now solid to fluids | Built 2026-11-11 |
 | 2026-11-11 | The cable's model is built in code: the block state keeps only the arms, and every cable has a block entity that keeps its plates (kind, medium, identity), which the model reads when drawing. Clears the way for the Logic Pin, Placer and Breaker (§11.0.1). Plates from worlds saved before this are dropped | Built 2026-11-11 |
 | 2026-11-11 | Much later: a recipe viewer (JEI) hands the player ready-made `Recipe` code for a recipe | Idea; not designed |
-| 2026-11-12 | Input and Output plates removed; the bus is the one plate per medium, renamed Item, Fluid and Energy Serial Bus (H-shaped recipes), plus the Universal Serial Bus (USB) carrying all three. No direction setting. Saved Inputs and Outputs load as buses (§11.0) | Built 2026-11-12 |
+| 2026-11-12 | Input and Output plates removed; the bus is the one plate per medium, renamed Item, Fluid and Energy Serial Bus (`CCC`/`HCX`/`CCC` recipes), plus the Universal Serial Bus (USB) carrying all three. No direction setting. Saved Inputs and Outputs load as buses (§11.0) | Built 2026-11-12 |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |

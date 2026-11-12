@@ -527,8 +527,8 @@ def port_front():
 
 # What a plate or store carries, and the colour that says so. (PlateTints.java holds the same colours.)
 MEDIA = {"": (246, 246, 246), "fluid_": (96, 128, 168), "energy_": (200, 36, 28)}
-# A Universal Serial Bus carries all three, and is gold.
-USB_GOLD = (224, 168, 44)
+# A Universal Serial Bus carries all three, and is royal purple.
+USB_PURPLE = (120, 48, 168)
 XP_GREEN = (128, 224, 64)
 
 
@@ -924,7 +924,7 @@ write_json("assets/qbotics/items/interface.json", {
 # Each plate is three stacked boxes between the cable (at z = 6) and the block it points at
 # (at z = 0), drawn pointing north. A Serial Bus is a flat panel, as buses are in other
 # logistics mods. The middle box is a collar in the colour of what the plate carries (white
-# items, blue-grey fluid, red energy, gold for a USB), and the face has a ring in the same colour.
+# items, blue-grey fluid, red energy, royal purple for a USB), and the face has a ring in the same colour.
 PLATE_BOXES = {
     "bus": [(2, 2, 0, 14, 14, 2), (4, 4, 2, 12, 12, 4), (6, 6, 4, 10, 10, 6)],
     # The world plates (design doc §11.0.1): a slim pin, a deep placer, a heavy breaker.
@@ -986,7 +986,7 @@ for plate, boxes in PLATE_BOXES.items():
         # model built in code (CableModels.java) adds each one, turned by PLATE_TURNS[side].
     # In the hand and inventory the plate is shown on its own, in its medium's colour. It uses
     # the "down" model, whose colour is number 0: the first (and only) tint an item lists.
-    versions = {"": MEDIA[""]} if plate in WORLD_PLATES else dict(MEDIA, usb=USB_GOLD)
+    versions = {"": MEDIA[""]} if plate in WORLD_PLATES else dict(MEDIA, usb=USB_PURPLE)
     for prefix, colour in versions.items():
         write_json("assets/qbotics/items/%s.json" % ("usb" if prefix == "usb" else prefix + plate), {
             "model": {"type": "minecraft:model", "model": "qbotics:block/plate_%s_down" % plate,
@@ -1021,12 +1021,12 @@ def shapeless(ingredients, result):
 # Recipes (design doc §20). The interface: four cables around a chest.
 write_json("data/qbotics/recipe/interface.json", shaped(
     [" C ", "CHC", " C "], {"C": "qbotics:cable", "H": "minecraft:chest"}, "qbotics:interface"))
-# The Serial Buses: cables in an H, a hopper (takes out) on the left of the bar and, on the
-# right, a dropper (puts in) for items, a bucket for fluid, a block of redstone for energy.
+# The Serial Buses: a frame of cables with a hopper (takes out) on the left of the middle row and,
+# on the right, a dropper (puts in) for items, a bucket for fluid, a block of redstone for energy.
 # The Universal Serial Bus is the three together.
 for prefix, right in (("", "minecraft:dropper"), ("fluid_", "minecraft:bucket"), ("energy_", "minecraft:redstone_block")):
     write_json("data/qbotics/recipe/%sbus.json" % prefix, shaped(
-        ["C C", "HCR", "C C"], {"C": "qbotics:cable", "H": "minecraft:hopper", "R": right}, "qbotics:%sbus" % prefix))
+        ["CCC", "HCR", "CCC"], {"C": "qbotics:cable", "H": "minecraft:hopper", "R": right}, "qbotics:%sbus" % prefix))
 write_json("data/qbotics/recipe/usb.json", shapeless(["qbotics:bus", "qbotics:fluid_bus", "qbotics:energy_bus"], "qbotics:usb"))
 # The world plates, the same way: an observer for the pin that watches, a dispenser for the
 # placer, and for the breaker a diamond pickaxe, to match what it can break.

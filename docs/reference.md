@@ -184,8 +184,8 @@ With an antenna on the network, each device can also be reached from other netwo
 | `monitor`, `panel` | A Text Monitor or a Control Panel: a screen, of one block or several (section 7c) |
 
 Plates share a cable's block, one per side, and point at the block next to that side. Their
-colour says what they carry: white for items, blue-grey for fluid, red for energy, gold for
-a USB.
+colour says what they carry: white for items, blue-grey for fluid, red for energy, royal
+purple for a USB.
 
 ---
 
@@ -316,14 +316,14 @@ for each medium, and one for all three:
 | Item Serial Bus | `bus` | Items. It can also work a block's screen (section 6.8) | White |
 | Fluid Serial Bus | `fluid_bus` | Fluid | Blue-grey |
 | Energy Serial Bus | `energy_bus` | Energy | Red |
-| Universal Serial Bus (USB) | `usb` | Items, fluid and energy | Gold |
+| Universal Serial Bus (USB) | `usb` | Items, fluid and energy | Royal purple |
 
-**Crafting.** Cables in an H, with a hopper on the left of the crossbar and, on the right:
+**Crafting.** Seven cables, with a hopper on the left of the middle row and, on the right:
 
 ```
-C . C        C = cable, H = hopper
+C C C        C = cable, H = hopper
 H C X        X = dropper (Item Serial Bus), bucket (Fluid), block of redstone (Energy)
-C . C
+C C C
 ```
 
 A USB is the three together, in any order: an Item, a Fluid and an Energy Serial Bus.
@@ -341,7 +341,9 @@ right-click it with an empty hand to take it off.
 **A USB in programs.** On its own a USB works as an Item Serial Bus (`usb.count("coal")`,
 `usb.open_screen()`). `usb.fluid` and `usb.energy` are the same plate as a fluid bus and an
 energy bus, and `usb.items` as an item bus. In `move`, a USB carries whatever the other ends
-do, so with a fluid interface at the other end it moves fluid:
+do, so with a fluid interface at the other end it moves fluid. When every end is a USB, the
+thing named decides (`"lava"` is fluid); with nothing named, it moves items. Use a view to say
+so: `move(m.energy, n, count=1000)` moves energy between two USBs.
 
 ```python
 machine = net.usb("machine")
