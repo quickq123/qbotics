@@ -150,6 +150,15 @@ public final class ComputerManager {
                         });
                         return answer;
                     }
+                    if (call.startsWith(GIT_PREFIX)) {
+                        outbox.add(server -> {
+                            Viewing place = places.get(computerId);
+                            ServerComputer self = computers.get(computerId);
+                            qbotics.uplink.GitService.fromComputer(server, place == null ? dimension : place.dimension(),
+                                    place == null ? pos : place.pos(), self == null ? qbotics.engine.HostFileSystem.NONE : self.drive(), call, answer);
+                        });
+                        return answer;
+                    }
                     outbox.add(server -> {
                         Viewing place = places.get(computerId);
                         answer.complete(NetworkCalls.handle(server, place == null ? dimension : place.dimension(),
@@ -188,6 +197,8 @@ public final class ComputerManager {
 
     /** Calls that go to the real internet (the uplink), not the world. Must match requests.py in the ROM. */
     private static final String HTTP_PREFIX = "[\"http\",";
+    /** Calls to git (through the uplink). Must match git.py in the ROM. */
+    private static final String GIT_PREFIX = "[\"git\",";
 
     // ---- laptops (design doc §5.6) ---------------------------------------------------------
 
@@ -212,6 +223,13 @@ public final class ComputerManager {
             CompletableFuture<String> answer = new CompletableFuture<>();
             if (call.startsWith(HTTP_PREFIX)) {
                 qbotics.uplink.Uplink.fromLaptop(owner, call, answer); // its built-in antenna is its uplink
+                return answer;
+            }
+            if (call.startsWith(GIT_PREFIX)) {
+                outbox.add(server -> {
+                    ServerComputer self = computers.get(id);
+                    qbotics.uplink.GitService.run(server, owner, "laptop", self == null ? qbotics.engine.HostFileSystem.NONE : self.drive(), call, answer);
+                });
                 return answer;
             }
             outbox.add(server -> answer.complete(NetworkCalls.handleLaptop(server, owner, call)));

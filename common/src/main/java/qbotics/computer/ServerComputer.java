@@ -920,13 +920,14 @@ public final class ServerComputer {
             "         pip install -r requirements.txt   install libraries from a hard drive (pip help)",
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
             "         ssh <address>      use another computer's terminal from here; exit returns",
+            "         git clone <url>    copy a GitHub repository here (git help: pull, status, push)",
             "Other:   clear   help       Ctrl+C stops a running program",
             "         shutdown           switch this computer off; it stays off until opened again",
             "");
 
     /** The shell's commands, longest first, for spotting one typed without its space. */
     private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "pip", "ifconfig", "python", "mkdir", "clear", "help",
-            "edit", "pwd", "cat", "run", "ssh", "ls", "cd", "rm", "mv", "cp", "py");
+            "edit", "pwd", "cat", "run", "ssh", "git", "ls", "cd", "rm", "mv", "cp", "py");
 
     /**
      * A hint for a line that isn't a command: the space a command lost ("run9_world.py" is
@@ -999,6 +1000,14 @@ public final class ServerComputer {
                         list.append(pyString(arg)).append(',');
                     }
                     runPython(computer, "import pip\npip.main(" + list.append(']') + ")");
+                }
+                case "git" -> {
+                    // Clone, pull, status, push (git.py in the ROM; the game does the work).
+                    StringBuilder list = new StringBuilder("[");
+                    for (String arg : args) {
+                        list.append(pyString(arg)).append(',');
+                    }
+                    runPython(computer, "import os, git\nos.chdir(" + pyString(cwd) + ")\ngit._main(" + list.append(']') + ")");
                 }
                 case "devices", "ifconfig" -> runPython(computer,
                         "import logistics\nlogistics._print_devices(" + (args.isEmpty() ? "" : pyString(args.getFirst())) + ")");

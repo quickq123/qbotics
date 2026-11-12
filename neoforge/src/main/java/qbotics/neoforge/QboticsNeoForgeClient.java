@@ -71,6 +71,7 @@ public final class QboticsNeoForgeClient {
             event.register(qbotics.net.DisplayPayloads.OpenCloseUp.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onOpenCloseUp(payload));
             event.register(qbotics.net.ProbePayloads.Info.TYPE, (payload, context) -> qbotics.client.ProbeScreen.show(payload));
             event.register(qbotics.net.XpPayloads.Info.TYPE, (payload, context) -> qbotics.client.XpScreen.show(payload));
+            event.register(qbotics.net.GitPayloads.OpenToken.TYPE, (payload, context) -> qbotics.client.GitTokenScreen.show(payload));
         });
     }
 }

@@ -55,6 +55,12 @@ public final class QboticsConfig {
     public static volatile int uplinkMaxResponseKb = 24;
     public static volatile int uplinkTimeoutSeconds = 10;
     public static volatile int uplinkRequestsPerMinute = 30;
+
+    /** git through the uplink (design doc §17.5): clone, pull, status; push only if allowed. */
+    public static volatile boolean gitEnabled = true;
+    public static volatile boolean gitAllowPush = false;
+    /** The largest repository (its archive) a computer may clone. */
+    public static volatile int gitMaxRepoKb = 512;
     /** Antennas with a working Chunk Loader Upgrade a player may have; -1 for no limit. */
     public static volatile int chunkLoadersPerPlayer = 4;
     /** The most chunks one antenna keeps loaded (its network's, nearest first). */

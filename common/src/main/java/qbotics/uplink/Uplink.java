@@ -82,13 +82,23 @@ public final class Uplink {
         }
     }
 
-    private static String error(String message) {
+    static String error(String message) {
         JsonObject reply = new JsonObject();
         reply.addProperty("e", message);
         return reply.toString();
     }
 
     // ---- who may ask (on the server thread) --------------------------------------------------
+
+    /** True if this computer's cable network has an Uplink. On the server thread. */
+    static boolean hasUplink(ServerLevel level, BlockPos computerPos) {
+        for (NetworkDevice device : CableNetwork.at(level, computerPos).devices()) {
+            if (device.kind() == NetworkDevice.Kind.UPLINK) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
      * A request from a computer: checked here, on the server thread (an uplink on its network,
@@ -102,14 +112,7 @@ public final class Uplink {
             answer.complete(error("This computer's block isn't loaded."));
             return;
         }
-        boolean uplink = false;
-        for (NetworkDevice device : CableNetwork.at(level, computerPos).devices()) {
-            if (device.kind() == NetworkDevice.Kind.UPLINK) {
-                uplink = true;
-                break;
-            }
-        }
-        if (!uplink) {
+        if (!hasUplink(level, computerPos)) {
             answer.complete(error("Reaching the internet needs an Uplink on this computer's cable network."));
             return;
         }
@@ -123,6 +126,11 @@ public final class Uplink {
     }
 
     private static void go(@Nullable UUID owner, String from, String call, CompletableFuture<String> answer) {
+        go(owner, from, answer, () -> handle(owner, from, call));
+    }
+
+    /** Checks the uplink may be used now (on, owned, within the rate), then runs the work on its own threads. */
+    static void go(@Nullable UUID owner, String from, CompletableFuture<String> answer, java.util.function.Supplier<String> work) {
         if (!QboticsConfig.uplinkEnabled) {
             answer.complete(error("The uplink is switched off on this server."));
             return;
@@ -137,7 +145,7 @@ public final class Uplink {
         }
         POOL.execute(() -> {
             try {
-                answer.complete(handle(owner, from, call));
+                answer.complete(work.get());
             } catch (RuntimeException e) {
                 Qbotics.LOGGER.warn("Uplink request failed", e);
                 answer.complete(error("The request failed: " + e.getClass().getSimpleName() + "."));
@@ -192,9 +200,37 @@ public final class Uplink {
     /** Makes the request, following redirects, and returns the reply as the program gets it. */
     static String fetch(UUID owner, String from, String method, String url, Map<String, String> headers, byte @Nullable [] body)
             throws UplinkError, IOException {
+        Reply answer = download(owner, from, method, url, headers, body, QboticsConfig.uplinkMaxResponseKb * 1024);
+        URI uri = URI.create(answer.url());
+        {
+            JsonObject reply = new JsonObject();
+            reply.addProperty("status", answer.status());
+            reply.addProperty("reason", answer.reason());
+            reply.addProperty("url", uri.toString());
+            JsonObject heads = new JsonObject();
+            answer.headers().forEach(heads::addProperty);
+            reply.add("headers", heads);
+            reply.addProperty("text", new String(answer.body(), StandardCharsets.UTF_8));
+            JsonObject result = new JsonObject();
+            result.add("r", reply);
+            return result.toString();
+        }
+    }
+
+    /** An answer, after redirects: its status, headers (names in lower case), body, and final address. */
+    public record Reply(int status, String reason, Map<String, String> headers, byte[] body, String url) {
+    }
+
+    /**
+     * Makes a request with all the uplink's checks, following redirects, and returns the answer
+     * with its body (at most {@code limit} bytes). For the uplink's own services (git), which
+     * handle more than a program may take at once. Not on the server thread.
+     */
+    static Reply download(UUID owner, String from, String method, String url, Map<String, String> headers, byte @Nullable [] body, int limit)
+            throws UplinkError, IOException {
         URI uri = parse(url);
         for (int hop = 0; ; hop++) {
-            Answer answer = once(owner, from, method, uri, headers, body);
+            Answer answer = once(owner, from, method, uri, headers, body, limit);
             if (answer.status / 100 == 3 && answer.headers.containsKey("location") && hop < MAX_REDIRECTS) {
                 uri = parse(uri.resolve(answer.headers.get("location")).toString());
                 if (answer.status == 303 || ((answer.status == 301 || answer.status == 302) && method.equals("POST"))) {
@@ -203,17 +239,7 @@ public final class Uplink {
                 }
                 continue;
             }
-            JsonObject reply = new JsonObject();
-            reply.addProperty("status", answer.status);
-            reply.addProperty("reason", answer.reason);
-            reply.addProperty("url", uri.toString());
-            JsonObject heads = new JsonObject();
-            answer.headers.forEach(heads::addProperty);
-            reply.add("headers", heads);
-            reply.addProperty("text", new String(answer.body, StandardCharsets.UTF_8));
-            JsonObject result = new JsonObject();
-            result.add("r", reply);
-            return result.toString();
+            return new Reply(answer.status, answer.reason, answer.headers, answer.body, uri.toString());
         }
     }
 
@@ -299,7 +325,7 @@ public final class Uplink {
     private record Answer(int status, String reason, Map<String, String> headers, byte[] body) {
     }
 
-    private static Answer once(UUID owner, String from, String method, URI uri, Map<String, String> headers, byte @Nullable [] body)
+    private static Answer once(UUID owner, String from, String method, URI uri, Map<String, String> headers, byte @Nullable [] body, int limit)
             throws UplinkError, IOException {
         String host = uri.getHost();
         int port = uri.getPort() > 0 ? uri.getPort() : 443;
@@ -364,7 +390,7 @@ public final class Uplink {
                 out.write(body);
             }
             out.flush();
-            return read(socket.getInputStream(), method.equals("HEAD"), deadline);
+            return read(socket.getInputStream(), method.equals("HEAD"), deadline, limit);
         } catch (java.net.SocketTimeoutException e) {
             throw new UplinkError(host + " didn't answer in " + QboticsConfig.uplinkTimeoutSeconds + " seconds.");
         } catch (javax.net.ssl.SSLException e) {
@@ -379,7 +405,7 @@ public final class Uplink {
     }
 
     /** Reads a reply: the status line, the headers, then the body (whole, chunked, or to the end). */
-    private static Answer read(InputStream in, boolean head, long deadline) throws IOException, UplinkError {
+    private static Answer read(InputStream in, boolean head, long deadline, int limit) throws IOException, UplinkError {
         String status = line(in);
         String[] parts = status.split(" ", 3);
         if (parts.length < 2 || !parts[0].startsWith("HTTP/")) {
@@ -404,7 +430,6 @@ public final class Uplink {
         if (head || code == 204 || code == 304 || code / 100 == 1) {
             return new Answer(code, reason, headers, new byte[0]);
         }
-        int limit = QboticsConfig.uplinkMaxResponseKb * 1024;
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         if ("chunked".equalsIgnoreCase(headers.getOrDefault("transfer-encoding", ""))) {
             while (true) {

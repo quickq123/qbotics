@@ -149,5 +149,19 @@
   "message.qbotics.antenna": "%s  |  external %s  |  frequency %s  |  reach %s  |  %s",
   "container.qbotics.interface": "Filters / Items   %s",
   "message.qbotics.port": "%s, pointing at %s",
-  "screen.qbotics.terminal": "Computer Terminal"
+  "screen.qbotics.terminal": "Computer Terminal",
+  "screen.qbotics.git_token": "GitHub Token",
+  "screen.qbotics.git_token.title": "Your GitHub token, for git push",
+  "screen.qbotics.git_token.warning1": "It is kept in this world's files on the server, unencrypted.",
+  "screen.qbotics.git_token.warning2": "Anyone who can read the server's files can read it. Programs can't.",
+  "screen.qbotics.git_token.warning3": "Use a fine-grained token for only the repositories you push to,",
+  "screen.qbotics.git_token.warning4": "with Contents: read and write. github.com > Settings > Developer settings.",
+  "screen.qbotics.git_token.has": "You have a token set. Saving replaces it.",
+  "screen.qbotics.git_token.none": "You have no token set.",
+  "screen.qbotics.git_token.no_push": "This server doesn't allow pushing yet (git.allow_push).",
+  "screen.qbotics.git_token.box": "github_pat_...",
+  "screen.qbotics.git_token.save": "Save",
+  "screen.qbotics.git_token.forget": "Forget mine",
+  "message.qbotics.git_token.saved": "Your GitHub token is saved. git push will use it.",
+  "message.qbotics.git_token.removed": "Your GitHub token is removed."
 }

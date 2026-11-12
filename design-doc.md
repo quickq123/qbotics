@@ -1506,6 +1506,15 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 
 ### 17.5 Git import and export
 
+> **Status (2026-11-12): built** (`docs/reference.md` §7h), for GitHub: `git clone/pull/status/push` at the shell and
+> `import git`. The game does the work through the uplink (all its checks) and writes the drive directly, so a repo may
+> exceed the heap (cap `git.max_repo_kb`, 512 KB, 500 files). Clone/pull take the archive at the branch head; a
+> `.gitqbot` file keeps the source, commit and file fingerprints for status. Pull refuses over local changes unless
+> `--force`. Push builds blobs, a tree on the base commit's tree, a commit, and moves the ref without force; it refuses
+> if the branch moved. Token GUI (`/qbotics git token`) with the warning; stored in `data/qbotics/git_tokens.json`,
+> never given to Python. **Departure:** `git.enabled` defaults to true (it is only reads through the uplink, which is
+> already on); `git.allow_push` stays off by default. Not yet: other hosts, `pcproject.toml`, merging.
+
 Moves code between worlds and teaches real Git and GitHub habits.
 
 - **Admin-controlled:** off by default; host allowlist; import-only unless `git.allow_push`; size caps (§15). Counts as external communication, like the uplink.

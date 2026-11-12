@@ -31,6 +31,9 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue UPLINK_MAX_KB;
     private static final ModConfigSpec.IntValue UPLINK_TIMEOUT;
     private static final ModConfigSpec.IntValue UPLINK_PER_MINUTE;
+    private static final ModConfigSpec.BooleanValue GIT;
+    private static final ModConfigSpec.BooleanValue GIT_PUSH;
+    private static final ModConfigSpec.IntValue GIT_MAX_KB;
     private static final ModConfigSpec.IntValue CHUNK_LOADERS;
     private static final ModConfigSpec.IntValue CHUNKS_PER_LOADER;
     private static final ModConfigSpec.BooleanValue CHUNK_LOADING_OFFLINE;
@@ -105,6 +108,16 @@ final class QboticsServerConfig {
         UPLINK_PER_MINUTE = BUILDER.comment("Requests one player's computers may make a minute, between them.").defineInRange("requests_per_minute", 30, 1, 10_000);
         BUILDER.pop();
 
+        BUILDER.push("git");
+        BUILDER.comment("git clone, pull, status and push for computers, through the uplink (GitHub; with allow_domains set,",
+                "allow github.com and codeload.github.com).");
+        GIT = BUILDER.comment("false: no git.").define("enabled", true);
+        GIT_PUSH = BUILDER.comment("true: players may push to GitHub with their own token (/qbotics git token), kept in the world's files.")
+                .define("allow_push", false);
+        GIT_MAX_KB = BUILDER.comment("The largest repository a computer may clone, in KB (the drive's own size limit applies too).")
+                .defineInRange("max_repo_kb", 512, 16, 65_536);
+        BUILDER.pop();
+
         BUILDER.push("transport");
         BUILDER.comment("How much one antenna with a Transport Upgrade carries to and from other networks each second.");
         TRANSPORT_ITEMS = BUILDER.defineInRange("items_per_second", 1024, 0, 1_000_000);
@@ -142,6 +155,9 @@ final class QboticsServerConfig {
         QboticsConfig.uplinkMaxResponseKb = UPLINK_MAX_KB.get();
         QboticsConfig.uplinkTimeoutSeconds = UPLINK_TIMEOUT.get();
         QboticsConfig.uplinkRequestsPerMinute = UPLINK_PER_MINUTE.get();
+        QboticsConfig.gitEnabled = GIT.get();
+        QboticsConfig.gitAllowPush = GIT_PUSH.get();
+        QboticsConfig.gitMaxRepoKb = GIT_MAX_KB.get();
         QboticsConfig.chunkLoadersPerPlayer = CHUNK_LOADERS.get();
         QboticsConfig.chunksPerLoader = CHUNKS_PER_LOADER.get();
         QboticsConfig.chunkLoadingWhileOffline = CHUNK_LOADING_OFFLINE.get();

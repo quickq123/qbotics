@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -64,6 +64,7 @@ public final class QboticsGameTests {
             Map.entry("step_through", QboticsGameTests::stepThrough),
             Map.entry("ssh_gateway", QboticsGameTests::sshGateway),
             Map.entry("uplink", QboticsGameTests::uplink),
+            Map.entry("git_offline", QboticsGameTests::gitOffline),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -2715,6 +2716,33 @@ public final class QboticsGameTests {
                     "www.blocked.example is blocked");
             qbotics.QboticsConfig.uplinkDenyDomains = denied;
         });
+    }
+
+    /** git without reaching GitHub: status finds the changes, pull won't overwrite them, push is off, only GitHub clones. */
+    private static void gitOffline(GameTestHelper helper) {
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.UPLINK_BLOCK.get());
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.getBlockEntity(new BlockPos(0, 1, 0), ComputerBlockEntity.class).claim(UUID.randomUUID());
+        qbotics.engine.HostFileSystem drive = computer.drive();
+        try {
+            drive.call(qbotics.engine.HostFileSystem.MKDIR, "/proj", new byte[0]);
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/proj/a.py", "print('a')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            java.security.MessageDigest sha = java.security.MessageDigest.getInstance("SHA-1");
+            String a = java.util.HexFormat.of().formatHex(sha.digest("print('old a')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            String b = java.util.HexFormat.of().formatHex(sha.digest("b\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/proj/c.py", "c = 1\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String meta = "{\"owner\":\"me\",\"repo\":\"proj\",\"branch\":\"main\",\"commit\":\"abc1234def\","
+                    + "\"files\":{\"a.py\":\"" + a + "\",\"b.py\":\"" + b + "\"}}";
+            drive.call(qbotics.engine.HostFileSystem.WRITE, "/proj/.gitqbot", meta.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        for (String line : List.of("cd /proj", "git status", "git pull", "git push -m test", "git clone https://gitlab.com/x/y", "git status /nothing")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer, "On me/proj, branch main, at abc1234", "M a.py", "A c.py", "D b.py",
+                "changes that pulling would overwrite", "Pushing is switched off", "git clones GitHub repositories",
+                "/nothing isn't a cloned repository"));
     }
 
     private static void ironQbot(GameTestHelper helper) {

@@ -1569,6 +1569,50 @@ A request that can't be made raises `requests.RequestException`, saying why.
 **Crafting (placeholder):** `DED` / `GAG` / `DMD`: diamonds, ender eyes and gold around a
 Long-range Antenna, over a motherboard.
 
+## 7h. git: GitHub repositories on a computer
+
+With an **Uplink** on its network (or on a laptop), a computer can copy a GitHub repository onto
+its drive, keep it up to date, and push changes back. Type these at the computer's prompt:
+
+| Command | Does |
+|---|---|
+| `git clone <url> [folder]` | Copies a repository into a folder (by default one named after it). `https://github.com/me/factory`, or `.../tree/dev` for a branch |
+| `git pull [folder]` | Brings the folder up to the repository's newest commit. Refuses if you changed files there; `--force` drops your changes |
+| `git status [folder]` | What you changed since the last clone, pull or push: `M` changed, `A` new, `D` deleted |
+| `git push -m "message" [folder]` | Makes a commit of your changes and pushes it to the branch |
+| `git help` | These commands |
+
+The folder is the one you're in unless you give one. In a program, `import git`:
+
+```python
+import git
+git.clone("https://github.com/me/factory", "/factory")
+s = git.status("/factory")        # {"modified": [...], "added": [...], "deleted": [...], ...}
+git.pull("/factory")              # force=True drops your changes
+git.push("/factory", "Faster smelting")
+```
+
+A call that can't be done raises `git.GitError`, saying why.
+
+- **The game does the work**, not the computer's Python, so a repository can be bigger than a
+  program's memory: up to 512 KB and 500 files (the admin sets the size). The drive's own space
+  still applies.
+- **Clone and pull** take the repository's files at one commit (no history). A public repository
+  needs nothing else; a private one needs your token.
+- A cloned folder keeps a file `.gitqbot`: where it came from, and what each file was, for
+  `status`. Leave it there.
+- **Push** needs the server to allow it (`git.allow_push`, off unless the admin turns it on) and
+  your **GitHub token**. If someone else pushed since your last pull, it refuses: copy your
+  changes aside, pull, put them back, push.
+- **Your token:** `/qbotics git token` opens a screen to enter it. It is kept in the world's files
+  on the server (anyone who can read those can read it). No program can read it, and it is never
+  sent to other players. Use a **fine-grained token** for only the repositories you push to, with
+  *Contents: read and write* and an expiry date (github.com > Settings > Developer settings).
+  The same screen forgets it.
+- **Or push from your PC instead:** copy the files out over the SSH gateway (section 7f) and use
+  real git there. Your token never leaves your PC.
+- Each git command counts as one request against the uplink's limit (30 a minute).
+
 ## 8. The Network Probe
 
 A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows the mode.
@@ -1653,6 +1697,9 @@ even across restarts, until someone opens it again.
 | `uplink.max_response_kb` | 24 | The largest answer a computer is given (1 to 40) |
 | `uplink.timeout_seconds` | 10 | How long a request may take |
 | `uplink.requests_per_minute` | 30 | Requests one player's computers make a minute, between them |
+| `git.enabled` | true | `false`: no git commands (section 7h) |
+| `git.allow_push` | false | `true`: players may push to GitHub with their own token |
+| `git.max_repo_kb` | 512 | The largest repository a computer may clone |
 | `chunk_loading.loaders_per_player` | 4 | Working chunk loaders per player; -1 for no limit (operators exempt as above) |
 | `chunk_loading.chunks_per_loader` | 25 | The most chunks one antenna holds |
 | `chunk_loading.while_owner_offline` | true | Whether loaders keep working while their owner is offline |

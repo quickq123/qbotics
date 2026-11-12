@@ -402,6 +402,16 @@ public final class QboticsNeoForge {
                                             }
                                             return 1;
                                         })))
+                        // /qbotics git token: the screen where a player gives their GitHub token, for git push.
+                        .then(net.minecraft.commands.Commands.literal("git")
+                                .then(net.minecraft.commands.Commands.literal("token")
+                                        .executes(context -> {
+                                            ServerPlayer player = context.getSource().getPlayerOrException();
+                                            Qbotics.platform().sendToPlayer(player, new qbotics.net.GitPayloads.OpenToken(
+                                                    qbotics.uplink.GitTokens.has(context.getSource().getServer(), player.getUUID()),
+                                                    qbotics.QboticsConfig.gitAllowPush));
+                                            return 1;
+                                        })))
                         // /qbotics ssh: the keys a player logs in to the SSH gateway with, and whether it is on.
                         .then(net.minecraft.commands.Commands.literal("ssh")
                                 .executes(context -> {
@@ -657,6 +667,14 @@ public final class QboticsNeoForge {
                 .playToServer(IdePayloads.ScratchRun.TYPE, IdePayloads.ScratchRun.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         ComputerManager.get(player.level().getServer()).onScratchRun(player, payload);
+                    }
+                })
+                .playToClient(qbotics.net.GitPayloads.OpenToken.TYPE, qbotics.net.GitPayloads.OpenToken.STREAM_CODEC)
+                .playToServer(qbotics.net.GitPayloads.SetToken.TYPE, qbotics.net.GitPayloads.SetToken.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.uplink.GitTokens.set(player.level().getServer(), player.getUUID(), payload.token());
+                        player.sendSystemMessage(Component.translatable(payload.token().isBlank()
+                                ? "message.qbotics.git_token.removed" : "message.qbotics.git_token.saved"));
                     }
                 })
                 .playToServer(TerminalInputPayload.TYPE, TerminalInputPayload.STREAM_CODEC, (payload, context) -> {

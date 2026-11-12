@@ -263,3 +263,10 @@ UPLINK (the internet)
  99. Craft an Uplink, put it on a computer's cable network. python ,  import requests ,
      r = requests.get('https://api.github.com/zen') ,  print(r.text) .
 100. Without the Uplink: refused, saying it needs one. requests.get('https://localhost') is refused.
+
+GIT
+101. On a computer with an Uplink: git clone https://github.com/octocat/Hello-World ,  ls Hello-World ,
+     cd Hello-World ,  git status  (nothing changed). Edit README, git status shows M README.
+102. git pull refuses (your change); git pull --force puts it back.
+103. Push (set git.allow_push = true first): /qbotics git token, read the warning, paste a fine-grained token.
+     Clone your own repository, change a file, git push -m "from Minecraft", see the commit on GitHub.
