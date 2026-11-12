@@ -1769,6 +1769,25 @@ Long-range Antenna, over an integrated circuit.
 
 ## 7h. git: GitHub repositories on a computer
 
+**Examples that come with the mod.** `git clone helpme` copies a set of examples onto the
+computer's drive, in `/helpme`: no Uplink or internet needed. They are sorted by topic, each
+folder with a README saying what its examples do and which blocks they need:
+
+| Folder | Examples |
+|---|---|
+| `basics` | Python, files, the network (start here) |
+| `storage` | Counting, moving and sorting items |
+| `redstone` | Logic Pins and events |
+| `displays` | A Text Monitor, a Control Panel, a Web Panel storage browser (item pictures, search) and a Web Panel dashboard (JavaScript, canvas) |
+| `qbots` | A tunnel digger and the camera |
+| `network` | Two computers talking |
+| `internet` | `requests` and git |
+| `server` | A background service |
+
+They work like a cloned repository: `git status` shows what you changed, and `git pull` in the
+folder fetches newer examples when the mod updates (refusing to overwrite your changes unless
+`--force`). They can't be pushed. A computer says so when it starts, until `/helpme` exists.
+
 With an **Uplink** on its network (or on a laptop), a computer can copy a GitHub repository onto
 its drive, keep it up to date, and push changes back. Type these at the computer's prompt:
 

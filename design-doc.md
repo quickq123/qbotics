@@ -1556,6 +1556,13 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 
 ### 17.5 Git import and export
 
+> **helpme (built 2026-11-12, asked for by the project owner, for new players):** examples ship in the mod
+> (`qbotics/helpme`, listed in `files.txt` by make_assets.py) and `git clone helpme` copies them to `/helpme` without the
+> Uplink, as a repository whose commit is a fingerprint of the files: `git pull` updates them when the mod does, with the
+> usual refusal over local changes; no push. Sorted by topic folders with a README each (decided: easier than one
+> numbered list): basics, storage, redstone, displays (monitor, panel, web storage, web dashboard), qbots, network,
+> internet, server. `git status` never needs the Uplink. Game tests run the storage examples against real blocks.
+
 > **Status (2026-11-12): built** (`docs/reference.md` §7h), for GitHub: `git clone/pull/status/push` at the shell and
 > `import git`. The game does the work through the uplink (all its checks) and writes the drive directly, so a repo may
 > exceed the heap (cap `git.max_repo_kb`, 512 KB, 500 files). Clone/pull take the archive at the branch head; a

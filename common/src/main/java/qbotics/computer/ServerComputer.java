@@ -634,7 +634,8 @@ public final class ServerComputer {
                     if (first) {
                         terminal.clear();
                         if (!qbot) {
-                            terminal.write("Qbotics computer. Type help for a list of commands.\n");
+                            terminal.write("Qbotics computer. Type help for a list of commands.\n"
+                                    + (exists("/helpme") ? "" : "New here? Type  git clone helpme  for examples to learn from.\n"));
                         }
                         if (qbot) {
                             // A Qbot runs its program when told to (Run, a Programmer), or again after a reload.
@@ -1043,6 +1044,7 @@ public final class ServerComputer {
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
             "         ssh <address>      use another computer's terminal from here; exit returns",
             "         git clone <url>    copy a GitHub repository here (git help: pull, status, push)",
+            "Learn:   git clone helpme   examples of everything, by topic, to read and run (no internet needed)",
             "Server:  service start <file.py> [name]   run a program in the background (service help)",
             "Other:   clear   help       Ctrl+C stops a running program",
             "         shutdown           switch this computer off; it stays off until opened again",

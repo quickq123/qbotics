@@ -89,7 +89,8 @@ def _print_status(s):
         print("Nothing changed.")
 
 
-_USAGE = """git clone <url> [folder]     copy a GitHub repository here
+_USAGE = """git clone helpme             examples of everything, by topic (no internet needed)
+git clone <url> [folder]     copy a GitHub repository here
 git pull [folder] [--force]   get its newest commit (--force drops your changes)
 git status [folder]           what you changed
 git push -m "message" [folder]   send your changes (needs /qbotics git token)"""

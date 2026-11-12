@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -74,6 +74,8 @@ public final class QboticsGameTests {
             Map.entry("qbot_camera", QboticsGameTests::qbotCamera),
             Map.entry("js_engine", QboticsGameTests::jsEngine),
             Map.entry("web_script", QboticsGameTests::webScript),
+            Map.entry("helpme", QboticsGameTests::helpme),
+            Map.entry("helpme_storage", QboticsGameTests::helpmeStorage),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -3355,6 +3357,98 @@ public final class QboticsGameTests {
         script.load("<script>while (true) {}</script>", 100, 100, "{}");
         helper.assertTrue(errors.stream().anyMatch(e -> e.contains("ran too long")), "a runaway script is stopped: " + errors);
         helper.succeed();
+    }
+
+    /**
+     * The examples that come with the mod: git clone helpme without an Uplink, a README, status
+     * after an edit, pull refusing and then putting the originals back, no push; an example runs;
+     * the dashboard page's script runs without errors.
+     */
+    private static void helpme(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        computer.submitLine("git clone helpme");
+        computer.submitLine("cat /helpme/displays/README.md");
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            switch (step[0]) {
+                case 0 -> {
+                    assertScreen(helper, computer, "files from qbotics/helpme, branch bundled", "web_storage");
+                    try {
+                        computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/helpme/basics/hello.py",
+                                "print('changed')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    } catch (qbotics.engine.HostFileSystem.FsException e) {
+                        throw new IllegalStateException(e);
+                    }
+                    for (String line : List.of("cd /helpme", "git status", "git pull", "git push -m mine", "git pull --force", "git pull")) {
+                        computer.submitLine(line);
+                    }
+                    step[0] = 1;
+                    helper.fail("next");
+                }
+                case 1 -> {
+                    assertScreen(helper, computer, "M basics/hello.py", "changes that pulling would overwrite", "can't be pushed",
+                            "files.", "Already up to date");
+                    computer.submitLine("run /helpme/basics/hello.py");
+                    computer.submitLine("Builder");
+                    step[0] = 2;
+                    helper.fail("next");
+                }
+                default -> {
+                    assertScreen(helper, computer, "Nice to meet you, Builder", "Lift off!", "4096 blocks");
+                    // The dashboard's page and script, as show() would put them together, run in a page's script runtime.
+                    try {
+                        String page = new String(QboticsGameTests.class.getResourceAsStream("/qbotics/helpme/displays/web_dashboard/index.html")
+                                .readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        String js = new String(QboticsGameTests.class.getResourceAsStream("/qbotics/helpme/displays/web_dashboard/dashboard.js")
+                                .readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                        page = page.replace("<script src=\"dashboard.js\"></script>", "<script>\n" + js + "\n</script>");
+                        java.util.List<String> errors = new java.util.ArrayList<>();
+                        qbotics.web.WebScript script = new qbotics.web.WebScript(new qbotics.web.WebScript.Hooks() {
+                            public void send(String n, String d) { }
+                            public void log(String l) { }
+                            public void error(String m) { errors.add(m); }
+                            public String value(String f) { return null; }
+                            public void setValue(String f, String v) { }
+                        });
+                        script.load(page, 384, 256, "{}");
+                        script.setState("{\"heat\": 120, \"note\": \"Too hot!\"}");
+                        helper.assertTrue(errors.isEmpty(), "the dashboard's script runs: " + errors);
+                        helper.assertTrue(script.html().contains("120") && script.html().contains("hot") && script.html().contains("Too hot!"),
+                                "the dashboard shows the state");
+                    } catch (java.io.IOException e) {
+                        throw new IllegalStateException(e);
+                    }
+                }
+            }
+        });
+    }
+
+    /** The helpme storage examples, run as a player would, against a real bus, chest and Web Panel. */
+    private static void helpmeStorage(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        setPort(helper, new BlockPos(1, 1, 0), Kind.BUS, Direction.EAST);
+        helper.setBlock(new BlockPos(2, 1, 0), Blocks.CHEST);
+        var chest = helper.getBlockEntity(new BlockPos(2, 1, 0), net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        chest.setItem(0, new ItemStack(Items.IRON_INGOT, 40));
+        chest.setItem(1, new ItemStack(Items.COAL, 12));
+        chest.setItem(2, new ItemStack(Items.IRON_INGOT, 5));
+        helper.setBlock(new BlockPos(0, 2, 0), QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH));
+        for (String line : List.of("git clone helpme", "cd /helpme/storage", "run count.py", "cd /helpme/displays/web_storage", "run storage.py")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "The bus points at minecraft:chest", "45  minecraft:iron_ingot", "In all: 57 items",
+                    "No bus called out", "The storage page is up.");
+            qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(0, 2, 0), qbotics.block.DisplayBlockEntity.class);
+            qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();
+            String state = web.stateJson();
+            helper.assertTrue(state.contains("\"name\":\"Iron Ingot\"") && state.contains("\"count\":45") && state.contains("\"total\":57")
+                    && state.contains("\"can_take\":false"), "the storage page's state: " + state);
+            String page = qbotics.web.WebTemplate.fill(web.html(), state);
+            helper.assertTrue(page.contains("item:minecraft:coal") && page.contains("overflow: auto") && !page.contains("Take 16"),
+                    "the page shows the items, with its stylesheet");
+        });
     }
 
     private static void ironQbot(GameTestHelper helper) {

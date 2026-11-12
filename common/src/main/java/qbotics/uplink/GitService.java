@@ -62,6 +62,9 @@ public final class GitService {
             answer.complete(Uplink.error("This computer's block isn't loaded."));
             return;
         }
+        if (local(drive, call, answer)) {
+            return; // the examples that come with the mod, and status: no Uplink needed
+        }
         if (!Uplink.hasUplink(level, computerPos)) {
             answer.complete(Uplink.error("git needs an Uplink on this computer's cable network."));
             return;
@@ -76,6 +79,9 @@ public final class GitService {
      */
     public static void run(MinecraftServer server, @Nullable UUID owner, String from, HostFileSystem drive, String call,
             CompletableFuture<String> answer) {
+        if (local(drive, call, answer)) {
+            return;
+        }
         if (!QboticsConfig.gitEnabled) {
             answer.complete(Uplink.error("git is switched off on this server."));
             return;
@@ -149,6 +155,152 @@ public final class GitService {
             });
         }
         return text.isEmpty() ? JsonNull.INSTANCE : JsonParser.parseString(text);
+    }
+
+    // ---- helpme: the examples that come with the mod ------------------------------------------------
+
+    /** What {@code git clone helpme} copies: the examples in the mod (qbotics/helpme, listed in files.txt). */
+    static final String HELPME = "helpme";
+    private static @Nullable Map<String, byte[]> helpme;
+    private static @Nullable String helpmeCommit;
+
+    private static synchronized Map<String, byte[]> helpmeFiles() throws IOException {
+        if (helpme == null) {
+            Map<String, byte[]> files = new TreeMap<>();
+            try (java.io.InputStream list = GitService.class.getResourceAsStream("/qbotics/helpme/files.txt")) {
+                if (list == null) {
+                    throw new IOException("the examples are missing from the mod");
+                }
+                for (String path : new String(list.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+                    path = path.strip();
+                    if (path.isEmpty()) {
+                        continue;
+                    }
+                    try (java.io.InputStream in = GitService.class.getResourceAsStream("/qbotics/helpme/" + path)) {
+                        if (in != null) {
+                            files.put(path, in.readAllBytes());
+                        }
+                    }
+                }
+            }
+            // Its "commit": a fingerprint of every file, so a pull knows when the mod brought new ones.
+            StringBuilder all = new StringBuilder();
+            files.forEach((path, content) -> all.append(path).append('\0').append(fingerprint(content)).append('\n'));
+            helpmeCommit = fingerprint(all.toString().getBytes(StandardCharsets.UTF_8));
+            helpme = files;
+        }
+        return helpme;
+    }
+
+    private static boolean isHelpme(@Nullable String url) {
+        if (url == null) {
+            return false;
+        }
+        String name = url.strip().toLowerCase(java.util.Locale.ROOT);
+        return name.equals(HELPME) || name.equals("qbotics/" + HELPME);
+    }
+
+    private static boolean isHelpme(JsonObject meta) {
+        return meta.has("owner") && meta.get("owner").getAsString().equals("qbotics") && meta.get("repo").getAsString().equals(HELPME);
+    }
+
+    /**
+     * The calls done here without the Uplink: cloning and pulling helpme, and status (which only
+     * reads the drive). Returns true if this one was. On the server thread; the files are small.
+     */
+    private static boolean local(HostFileSystem drive, String call, CompletableFuture<String> answer) {
+        try {
+            JsonArray args = JsonParser.parseString(call).getAsJsonArray();
+            String op = args.get(1).getAsString();
+            String dir = args.get(2).getAsString();
+            String extra = args.size() > 3 && !args.get(3).isJsonNull() ? args.get(3).getAsString() : null;
+            boolean force = args.size() > 4 && args.get(4).getAsBoolean();
+            JsonElement result;
+            switch (op) {
+                case "status" -> result = status(drive, dir);
+                case "clone" -> {
+                    if (!isHelpme(extra)) {
+                        return false;
+                    }
+                    result = cloneHelpme(drive, dir);
+                }
+                case "pull", "push" -> {
+                    JsonObject meta;
+                    try {
+                        meta = readMeta(drive, dir);
+                    } catch (GitError e) {
+                        return false; // not cloned: the usual call says so
+                    }
+                    if (!isHelpme(meta)) {
+                        return false;
+                    }
+                    if (op.equals("push")) {
+                        throw new GitError("The helpme examples come with the mod and can't be pushed. Copy what you made into a "
+                                + "repository of your own (git clone https://github.com/...) and push that.");
+                    }
+                    result = pullHelpme(drive, dir, meta, force);
+                }
+                default -> {
+                    return false;
+                }
+            }
+            JsonObject reply = new JsonObject();
+            reply.add("r", result);
+            answer.complete(reply.toString());
+        } catch (GitError e) {
+            answer.complete(Uplink.error(e.getMessage()));
+        } catch (IOException e) {
+            answer.complete(Uplink.error("git failed: " + e.getMessage()));
+        } catch (HostFileSystem.FsException e) {
+            answer.complete(Uplink.error(e.errno == HostFileSystem.ENOSPC || e.errno == HostFileSystem.EFBIG
+                    ? "The computer's drive is full." : "The computer's drive couldn't be written (error " + e.errno + ")."));
+        } catch (RuntimeException e) {
+            return false;
+        }
+        return true;
+    }
+
+    private static JsonElement cloneHelpme(HostFileSystem drive, String dir) throws GitError, IOException, HostFileSystem.FsException {
+        if (exists(drive, dir) && !new String(drive.call(HostFileSystem.LIST, dir, new byte[0]), StandardCharsets.UTF_8).isBlank()) {
+            throw new GitError(dir + " is already there and not empty. To get the newest examples: cd " + dir + " and git pull");
+        }
+        Map<String, byte[]> files = helpmeFiles();
+        mkdirs(drive, dir);
+        writeAll(drive, dir, files);
+        writeMeta(drive, dir, new Repo("qbotics", HELPME, null), "bundled", helpmeCommit, files);
+        JsonObject out = new JsonObject();
+        out.addProperty("files", files.size());
+        out.addProperty("branch", "bundled");
+        out.addProperty("commit", helpmeCommit.substring(0, 7));
+        out.addProperty("repo", "qbotics/" + HELPME);
+        return out;
+    }
+
+    private static JsonElement pullHelpme(HostFileSystem drive, String dir, JsonObject meta, boolean force)
+            throws GitError, IOException, HostFileSystem.FsException {
+        Map<String, byte[]> files = helpmeFiles();
+        JsonObject changed = changes(drive, dir, meta);
+        if (any(changed) && !force) {
+            throw new GitError("You have changes that pulling would overwrite (git status shows them). Copy them elsewhere, "
+                    + "or pull with --force to put the originals back.");
+        }
+        JsonObject out = new JsonObject();
+        out.addProperty("commit", helpmeCommit.substring(0, 7));
+        if (helpmeCommit.equals(meta.get("commit").getAsString()) && !any(changed)) {
+            out.addProperty("files", 0);
+            out.addProperty("already", true);
+            return out;
+        }
+        for (String path : meta.getAsJsonObject("files").keySet()) {
+            if (!files.containsKey(path) && exists(drive, join(dir, path))) {
+                drive.call(HostFileSystem.REMOVE, join(dir, path), new byte[0]);
+            }
+        }
+        writeAll(drive, dir, files);
+        writeMeta(drive, dir, new Repo("qbotics", HELPME, null), "bundled", helpmeCommit, files);
+        out.addProperty("files", files.size());
+        out.addProperty("already", false);
+        return out;
     }
 
     private record Repo(String owner, String name, @Nullable String branch) {

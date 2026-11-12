@@ -746,6 +746,19 @@ write_json("data/qbotics/tags/block/cable_connectable.json", {
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
                "qbotics:text_monitor", "qbotics:control_panel", "qbotics:web_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
+# ---- helpme: the examples that come with the mod (git clone helpme) ---------------------------
+# The game copies the files listed here; written fresh each time, so new examples are included.
+HELPME = os.path.join(RES, "qbotics", "helpme")
+if os.path.isdir(HELPME):
+    listed = []
+    for folder, _, names in os.walk(HELPME):
+        for name in names:
+            path = os.path.relpath(os.path.join(folder, name), HELPME).replace(os.sep, "/")
+            if path != "files.txt":
+                listed.append(path)
+    with open(os.path.join(HELPME, "files.txt"), "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(sorted(listed)) + "\n")
+
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 
 

@@ -1,0 +1,25 @@
+<!-- the page storage.py shows. {{name}} is filled from the program's web.state;
+     {{#items}} ... {{/items}} repeats for every item in the list. -->
+<html>
+<head>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="top">
+    <h1>Storage</h1>
+    <input name="search" placeholder="Search..." value="{{search}}">
+  </div>
+  <div class="summary">{{total}} items, {{kinds}} kinds</div>
+  <div class="list">
+    {{#items}}
+    <div class="row">
+      <img src="item:{{id}}">
+      <span class="name">{{name}}</span>
+      <span class="count">{{count}}</span>
+      {{#can_take}}<button name="{{id}}" data-event="take">Take 16</button>{{/can_take}}
+    </div>
+    {{/items}}
+    {{^items}}<p class="empty">Nothing matches.</p>{{/items}}
+  </div>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!-- a page with JavaScript. The script runs in each player's game: it draws a chart on a
+     <canvas> whenever the program sends new numbers (panel.onState), and a button sends a
+     message back to the program (panel.send). -->
+<html>
+<head>
+<style>
+  body { margin: 8px; }
+  h1 { font-size: 18px; margin: 0 0 6px 0; color: #9cf; }
+  .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .big { font-size: 22px; font-weight: bold; }
+  .hot { color: #ff6b5a; }
+  .ok { color: #7fdc7f; }
+  button { background: #2f5d8a; border: none; padding: 4px 10px; }
+</style>
+</head>
+<body>
+  <h1>Reactor</h1>
+  <div class="row">
+    <span>Heat <span id="heat" class="big">-</span></span>
+    <button id="cool">Cool down</button>
+  </div>
+  <canvas id="chart" width="360" height="150"></canvas>
+  <div id="note"></div>
+  <script src="dashboard.js"></script>
+</body>
+</html>

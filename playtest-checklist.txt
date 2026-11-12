@@ -298,6 +298,11 @@ WEB PANEL SCRIPTS
      click listener calls panel.send('hit', {n: 1}). The panel animates; @web.on('hit') prints e.data. A script
      error shows in red at the top of the close-up.
 
+HELPME EXAMPLES
+115. A new computer says "New here? Type git clone helpme". Do it (no Uplink needed): /helpme has a folder per topic.
+     cd /helpme/displays and cat README.md. Run a few examples: basics/hello.py, storage/count.py, displays/web_storage.
+116. Edit an example, git status shows it, git pull refuses, git pull --force puts the original back.
+
 QBOT CAMERA
 113. A Qbot facing something interesting, a Web Panel on its network (or a computer's: pictures are kept by
      number). pic = qbot.snapshot() ; print(pic.counts()) ; web.html('<img src="image:cam" style="width:256px">') ;
