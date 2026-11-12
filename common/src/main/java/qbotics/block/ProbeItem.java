@@ -38,7 +38,9 @@ public class ProbeItem extends Item {
     /** The probe's modes, changed by sneaking and scrolling. The number is kept on the item. */
     public static final int LABELS = 0;
     public static final int SLOTS = 1;
-    public static final int MODES = 2;
+    /** Right-click a bus, then another, to open a tunnel between them (design doc §11.0.6). */
+    public static final int TUNNELS = 2;
+    public static final int MODES = 3;
 
     public static int mode(ItemStack stack) {
         Integer mode = stack.get(QboticsContent.PROBE_MODE.get());
@@ -140,6 +142,66 @@ public class ProbeItem extends Item {
         }
     }
 
+    /** The bus each player chose first, in Tunnels mode, and when. */
+    private record Chosen(net.minecraft.resources.ResourceKey<Level> dimension, BlockPos pos, Direction side, java.util.UUID id, long at) {
+    }
+
+    private static final java.util.Map<java.util.UUID, Chosen> CHOSEN = new java.util.HashMap<>();
+    /** A choice older than this (in ticks) is forgotten. */
+    private static final long CHOICE_TICKS = 2 * 60 * 20;
+
+    /** The bus a player chose earlier, if it is still there. */
+    private static @Nullable CablePort chosen(ServerPlayer player, Chosen choice) {
+        ServerLevel there = player.level().getServer().getLevel(choice.dimension());
+        if (there == null || !there.isLoaded(choice.pos()) || player.level().getGameTime() - choice.at() > CHOICE_TICKS) {
+            return null;
+        }
+        CablePort port = there.getBlockEntity(choice.pos()) instanceof PortBlockEntity host ? host.port(choice.side()) : null;
+        return port != null && choice.id().equals(port.deviceId()) ? port : null;
+    }
+
+    /**
+     * Tunnels mode: the first bus clicked is chosen; the next one is linked to it. Clicking
+     * the chosen bus again closes its tunnel if it has one, or forgets the choice.
+     */
+    private static InteractionResult tunnelClick(ServerLevel level, ServerPlayer player, BlockPos pos, Vec3 clicked) {
+        Direction side = level.getBlockState(pos).getBlock() instanceof CableBlock ? CableBlock.plateAt(level, pos, clicked) : null;
+        CablePort port = side == null || !(level.getBlockEntity(pos) instanceof PortBlockEntity host) ? null : host.port(side);
+        if (port == null || port.kind() != NetworkDevice.Kind.BUS) {
+            player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.not_bus"));
+            return InteractionResult.PASS;
+        }
+        Chosen choice = CHOSEN.remove(player.getUUID());
+        CablePort first = choice == null ? null : chosen(player, choice);
+        String here = qbotics.network.Tunnels.label(level, port);
+        if (first == port) {
+            if (port.tunnel() != null) {
+                qbotics.network.Tunnels.unlink(level, port);
+                player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.closed", here));
+            } else {
+                player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.cancelled"));
+            }
+            return InteractionResult.SUCCESS;
+        }
+        if (first != null && first.level() instanceof ServerLevel firstLevel) {
+            String problem = qbotics.network.Tunnels.link(firstLevel, first, level, port);
+            player.sendOverlayMessage(problem == null
+                    ? Component.translatable("message.qbotics.tunnel.opened", qbotics.network.Tunnels.label(firstLevel, first), here)
+                    : Component.translatable("message.qbotics.tunnel.refused", problem));
+            return InteractionResult.SUCCESS;
+        }
+        CHOSEN.put(player.getUUID(), new Chosen(level.dimension(), pos.immutable(), side, port.deviceId(), level.getGameTime()));
+        qbotics.network.Tunnels.Far far = port.tunnel() == null ? null : qbotics.network.Tunnels.far(level, port);
+        if (port.tunnel() == null) {
+            player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.chosen", here));
+        } else {
+            String there = far == null ? Component.translatable("message.qbotics.tunnel.out_of_reach").getString()
+                    : qbotics.network.Tunnels.label(far.level(), far.port());
+            player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.linked", here, there));
+        }
+        return InteractionResult.SUCCESS;
+    }
+
     @Override
     public InteractionResult useOn(UseOnContext context) {
         Level level = context.getLevel();
@@ -158,6 +220,9 @@ public class ProbeItem extends Item {
             // A block with slots has already opened its screen by now; this one has none to show.
             player.sendOverlayMessage(Component.translatable("message.qbotics.probe_no_slots"));
             return InteractionResult.PASS;
+        }
+        if (mode(context.getItemInHand()) == TUNNELS) {
+            return tunnelClick(serverLevel, player, pos, context.getClickLocation());
         }
         ProbePayloads.Info info = inspect(serverLevel, pos, context.getClickLocation());
         if (info == null) {

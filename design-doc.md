@@ -1066,6 +1066,17 @@ if blocks.can_craft(4):                            # are there ingredients for f
 
 Open points: whether `can_craft` should also try the recipe in the machine (slower, but would catch a wrong recipe); and how filters that overlap between slots are counted (an oak plank can't be used for two slots at once).
 
+### 11.0.6 Tunnels between buses (built 2026-11-12)
+
+Decided by the project owner: two buses can be linked so that each end's face offers other mods' blocks the container behind the other end. It lets hoppers, pipes and generators feed through the network with no program, and is the way to bring power into a machine without `move` calls.
+
+- **Linking:** with the Network Probe's Tunnels mode (click one bus, then the other; click a linked bus to see its end, again to close) or from programs: `bus.tunnel(other)`, `bus.untunnel()`, `bus.tunneled`, `bus.tunnel_end`.
+- **Reach:** the same cable network, or two networks whose antennas both hold a Transport Upgrade and can reach each other by radio. Between networks the Transport per-second rate caps apply, counted only for transfers that are committed (a pipe's simulated transfer is free).
+- **Media:** what both ends carry (a USB pairs with any bus; two USBs carry all three).
+- **A tunnelled bus is still usable** by programs on its own target.
+- **How:** each end keeps a link (the other end's identity and place), saved with the plate. The cable's block entity offers NeoForge item, fluid and energy capabilities on a tunnel end's side; each handler looks the other end up on every call (so pipes caching it never hold a stale container), routes are re-checked once a second, and a depth limit stops tunnels that lead into themselves. An end whose partner is missing or relinked forgets its link.
+- Not yet: a look for a tunnelled plate (it looks like any bus; the probe tells), tunnels between Qbots and buses.
+
 ### 11.1 Public peripheral API (separate small jar)
 
 ```java
@@ -1559,6 +1570,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | Logic Pin, Placer and Breaker built (§11.0.1), with the defaults listed there: strong power from an output pin, `wait_for` on counted events, netherite-tool speed for the Breaker, and placeholder recipes. Cables are now solid to fluids | Built 2026-11-11 |
 | 2026-11-11 | The cable's model is built in code: the block state keeps only the arms, and every cable has a block entity that keeps its plates (kind, medium, identity), which the model reads when drawing. Clears the way for the Logic Pin, Placer and Breaker (§11.0.1). Plates from worlds saved before this are dropped | Built 2026-11-11 |
 | 2026-11-11 | Much later: a recipe viewer (JEI) hands the player ready-made `Recipe` code for a recipe | Idea; not designed |
+| 2026-11-12 | Tunnels between buses: each end offers other mods the container behind the other end; linked with the probe or `bus.tunnel()`; same network or across Transport antennas with rate caps; tunnelled buses stay usable by programs (§11.0.6) | Built 2026-11-12 |
 | 2026-11-12 | Input and Output plates removed; the bus is the one plate per medium, renamed Item, Fluid and Energy Serial Bus (`CCC`/`HCX`/`CCC` recipes), plus the Universal Serial Bus (USB) carrying all three. No direction setting. Saved Inputs and Outputs load as buses (§11.0) | Built 2026-11-12 |
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |

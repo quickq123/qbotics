@@ -310,6 +310,10 @@ public class CableBlock extends Block implements EntityBlock {
         // Forget the plate before the arms are worked out again, so it isn't mistaken for one that is still there.
         // The holder stays, empty if this was the last plate: players' games are told about it as it changes.
         boolean pin = host.kindAt(direction) == NetworkDevice.Kind.PIN;
+        CablePort leaving = host.port(direction);
+        if (leaving != null && leaving.tunnel() != null && level instanceof ServerLevel server) {
+            qbotics.network.Tunnels.unlink(server, leaving); // its tunnel closes at both ends
+        }
         host.forget(direction);
         BlockState changed = withConnections(level, pos, state);
         level.setBlock(pos, changed, Block.UPDATE_ALL);

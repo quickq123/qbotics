@@ -238,6 +238,26 @@ public final class NetworkCalls {
                 antenna.setChunkLoading(args.get(1).getAsBoolean());
                 return describe(level, network, antenna);
             }
+            case "tunnel": {
+                // ["tunnel", mac, other mac or null]: opens a tunnel between two buses, or closes this one's.
+                CablePort end = port(byMac(network, args, 1)).base();
+                ServerLevel endLevel = levelOf(end, level);
+                String other = string(args, 2);
+                if (other == null) {
+                    Tunnels.unlink(endLevel, end);
+                    return describe(endLevel, network, end);
+                }
+                NetworkDevice found = resolve(network, other);
+                if (found == null) {
+                    throw new CallError("The device " + other + " is no longer on its network.");
+                }
+                CablePort farEnd = port(found).base();
+                String problem = Tunnels.link(endLevel, end, levelOf(farEnd, level), farEnd);
+                if (problem != null) {
+                    throw new CallError("Can't open a tunnel: " + problem);
+                }
+                return describe(endLevel, network, end);
+            }
             case "rename": {
                 NetworkDevice device = byMac(network, args, 1);
                 String wanted = args.get(2).getAsString();
@@ -1564,6 +1584,11 @@ public final class NetworkCalls {
             info.addProperty("chunks", antenna.loadedChunks());
             info.addProperty("chunks_wanted", antenna.wantedChunks());
         } else if (device instanceof CablePort port) {
+            if (port.tunnel() != null) {
+                // The other end of its tunnel, by the address a program here uses; "" if it can't be reached now.
+                String to = Tunnels.addressFrom(levelOf(port, level), network, port);
+                info.addProperty("tunnel", to == null ? "" : to);
+            }
             info.addProperty("face", port.accessFace().word());
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
         } else if (device instanceof qbotics.block.DisplayBlockEntity display) {

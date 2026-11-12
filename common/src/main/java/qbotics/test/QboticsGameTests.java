@@ -58,6 +58,7 @@ public final class QboticsGameTests {
             Map.entry("computer_repl", QboticsGameTests::computerRepl),
             Map.entry("computer_interrupt", QboticsGameTests::computerInterrupt),
             Map.entry("universal_serial_bus", QboticsGameTests::universalSerialBus),
+            Map.entry("bus_tunnels", QboticsGameTests::busTunnels),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
             Map.entry("computer_interrupt_ignored", QboticsGameTests::computerInterruptIgnored),
             Map.entry("computer_forgets_calls", QboticsGameTests::computerForgetsCalls),
@@ -73,6 +74,7 @@ public final class QboticsGameTests {
             Map.entry("logistics_transfer", QboticsGameTests::logisticsTransfer),
             Map.entry("cable_plates", QboticsGameTests::cablePlates),
             Map.entry("network_probe", QboticsGameTests::networkProbe),
+            Map.entry("fluid_and_energy", QboticsGameTests::fluidAndEnergy),
             Map.entry("fluid_and_energy", QboticsGameTests::fluidAndEnergy),
             Map.entry("slots_and_faces", QboticsGameTests::slotsAndFaces),
             Map.entry("name_filters", QboticsGameTests::nameFilters),
@@ -809,6 +811,73 @@ public final class QboticsGameTests {
         }
         helper.succeedWhen(() -> assertScreen(helper, computer, "1000 2000 minecraft:water\n", "150000 350000 1000\n", "250 fluid_bus\n", "500 500 500\n",
                 "NetworkError: The count must be 1 or more, not 0."));
+    }
+
+    /**
+     * A tunnel between two buses: a hopper pushing into one end fills the chest behind the
+     * other, with no program moving anything; energy offered at a USB's face reaches the
+     * energy store behind its partner; and closing the tunnel takes the faces away again.
+     */
+    private static void busTunnels(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        BlockPos cableA = new BlockPos(1, 1, 0);
+        BlockPos cableB = new BlockPos(2, 1, 0);
+        helper.setBlock(cableA, QboticsContent.CABLE_BLOCK.get());
+        helper.setBlock(cableB, QboticsContent.CABLE_BLOCK.get());
+        BlockPos at = helper.absolutePos(cableA);
+        BlockPos bt = helper.absolutePos(cableB);
+        // End a: under a hopper full of cobblestone. End b: at a chest.
+        helper.setBlock(new BlockPos(1, 2, 0), Blocks.HOPPER);
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.CHEST);
+        CableBlock.attach(level, at, Kind.BUS, qbotics.network.Medium.ITEM, Direction.UP).setDeviceName("a");
+        CableBlock.attach(level, bt, Kind.BUS, qbotics.network.Medium.ITEM, Direction.SOUTH).setDeviceName("b");
+        // A USB at an energy store, and an Energy Serial Bus at another.
+        helper.setBlock(new BlockPos(1, 1, 1), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 2, 0), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        CableBlock.attach(level, at, Kind.BUS, qbotics.network.Medium.UNIVERSAL, Direction.SOUTH).setDeviceName("u");
+        CableBlock.attach(level, bt, Kind.BUS, qbotics.network.Medium.ENERGY, Direction.UP).setDeviceName("e");
+        net.minecraft.world.Container hopper = helper.getBlockEntity(new BlockPos(1, 2, 0), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        net.minecraft.world.Container chest = helper.getBlockEntity(new BlockPos(2, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        qbotics.block.EnergyInterfaceBlockEntity far = helper.getBlockEntity(new BlockPos(2, 2, 0), qbotics.block.EnergyInterfaceBlockEntity.class);
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "import time",
+                "net = network()",
+                "a, b = net.bus('a'), net.bus('b')",
+                "print('before', a.tunneled, a.tunnel_end)",
+                "a.tunnel(b)",
+                "print('tunnel', a.tunneled, a.tunnel_end.name, b.tunnel_end.name)",
+                "net.usb('u').tunnel('e')",
+                "print('energy', net.usb('u').tunnel_end.kind)",
+                // An item bus and an energy bus carry nothing in common.
+                "exec(\"try: a.tunnel('e')\\nexcept Exception as e: print('refused', 'nothing in common' in str(e))\")")) {
+            computer.submitLine(line);
+        }
+        helper.runAfterDelay(20, () -> hopper.setItem(0, new ItemStack(Items.COBBLESTONE, 5)));
+        boolean[] closed = {false};
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "before False None\n", "tunnel True b a\n", "energy energy_bus\n", "refused True\n");
+            helper.assertTrue(chest.countItem(Items.COBBLESTONE) == 5 && hopper.isEmpty(),
+                    "the hopper should have pushed all 5 through the tunnel into the chest; the chest has " + chest.countItem(Items.COBBLESTONE));
+            // Energy offered at the USB's face goes into the store behind the energy bus; fluid isn't carried.
+            qbotics.network.EnergyPort energyFace = qbotics.Qbotics.platform().energyPort(level, at, Direction.SOUTH);
+            helper.assertTrue(energyFace != null && energyFace.insert(1000, false) == 1000 && far.stored() >= 1000,
+                    "energy should cross the tunnel: " + far.stored());
+            qbotics.network.FluidPort fluidFace = qbotics.Qbotics.platform().fluidPort(level, at, Direction.SOUTH);
+            helper.assertTrue(fluidFace == null || fluidFace.insert(net.minecraft.world.level.material.Fluids.WATER, 1000, true) == 0,
+                    "a USB tunnelled to an energy bus carries no fluid");
+            // Closing it, at both ends.
+            if (!closed[0]) {
+                closed[0] = true;
+                CablePort a = helper.getBlockEntity(cableA, PortBlockEntity.class).port(Direction.UP);
+                qbotics.network.Tunnels.unlink(level, a);
+            }
+            CablePort b = helper.getBlockEntity(cableB, PortBlockEntity.class).port(Direction.SOUTH);
+            helper.assertTrue(b.tunnel() == null && qbotics.Qbotics.platform().itemPort(level, at, Direction.UP) == null,
+                    "after closing, neither end should be in a tunnel, and the face should offer nothing");
+        });
     }
 
     /**

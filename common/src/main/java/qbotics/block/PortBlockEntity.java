@@ -131,6 +131,12 @@ public class PortBlockEntity extends BlockEntity {
             child.putString("face", port.accessFace.word());
             child.putString("medium", port.medium.word);
             child.putString("kind", port.kind.word);
+            if (port.tunnel != null) {
+                child.store("tunnel_id", UUIDUtil.CODEC, port.tunnel.id());
+                child.putString("tunnel_dimension", port.tunnel.dimension().identifier().toString());
+                child.putLong("tunnel_pos", port.tunnel.pos().asLong());
+                child.putInt("tunnel_side", port.tunnel.side().get3DDataValue());
+            }
             if (port.kind == NetworkDevice.Kind.PIN) {
                 child.putBoolean("pin_output", port.pinOutput);
                 child.putInt("pin_level", port.pinLevel);
@@ -164,6 +170,13 @@ public class PortBlockEntity extends BlockEntity {
             port.pinOutput = child.getBooleanOr("pin_output", false);
             port.pinLevel = Math.clamp(child.getIntOr("pin_level", 0), 0, 15);
             port.pulseUntil = child.getLongOr("pulse_until", 0L);
+            UUID tunnelId = child.read("tunnel_id", UUIDUtil.CODEC).orElse(null);
+            net.minecraft.resources.Identifier dimension = net.minecraft.resources.Identifier.tryParse(child.getStringOr("tunnel_dimension", ""));
+            if (tunnelId != null && dimension != null) {
+                port.tunnel = new qbotics.network.Tunnels.Link(tunnelId,
+                        net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, dimension),
+                        BlockPos.of(child.getLongOr("tunnel_pos", 0L)), Direction.from3DDataValue(child.getIntOr("tunnel_side", 0)));
+            }
             ports.put(side, port);
         }
         lookChanged();

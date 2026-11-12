@@ -42,6 +42,8 @@ public final class CablePort implements NetworkDevice {
     private java.util.@Nullable EnumMap<Medium, CablePort> views;
     /** True once the plate has been taken off its cable. */
     boolean detached;
+    /** The other end of this bus's tunnel, or null if it is in none (see Tunnels). */
+    qbotics.network.Tunnels.@Nullable Link tunnel;
 
     // ---- a Logic Pin (see WorldPlates). Saved: the mode, the level it drives and when a pulse ends. ----
     /** True if it drives a signal; false if it reads one. */
@@ -80,6 +82,21 @@ public final class CablePort implements NetworkDevice {
     /** Called when a player puts the plate on. */
     public void onPlaced(@Nullable UUID placedBy) {
         PortBlockEntity.placed(this, placedBy);
+    }
+
+    /** The other end of this bus's tunnel, or null if it is in none. */
+    public qbotics.network.Tunnels.@Nullable Link tunnel() {
+        return viewOf != null ? viewOf.tunnel : tunnel;
+    }
+
+    /** Opens or closes this end of a tunnel; see Tunnels.link and unlink. */
+    public void setTunnel(qbotics.network.Tunnels.@Nullable Link link) {
+        if (viewOf != null) {
+            viewOf.setTunnel(link);
+            return;
+        }
+        tunnel = link;
+        host.setChanged();
     }
 
     /** True for a Universal Serial Bus itself (not one of its views). */

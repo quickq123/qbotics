@@ -304,6 +304,30 @@ class Port(Device):
         """The block it points at, e.g. "minecraft:furnace"."""
         return self.refresh()._info["target"]
 
+    def tunnel(self, other):
+        """Opens a tunnel between this bus and another (a device, or its name or address).
+        Each end then offers, to hoppers, pipes and cables touching its face, the container
+        the other end points at: what goes in at one end comes out at the other, with no
+        program running. A tunnel either bus was in is closed first. Both must be on this
+        network, or behind antennas that both hold a Transport Upgrade."""
+        self._update(_call("tunnel", self.mac, _mac(other)))
+
+    def untunnel(self):
+        """Closes this bus's tunnel, at both ends."""
+        self._update(_call("tunnel", self.mac, None))
+
+    @property
+    def tunneled(self):
+        """True if this bus is one end of a tunnel."""
+        return "tunnel" in self.refresh()._info
+
+    @property
+    def tunnel_end(self):
+        """The bus at the other end of its tunnel, or None if it has none or the other end
+        can't be reached now (its area unloaded, or an antenna out of range)."""
+        address = self.refresh()._info.get("tunnel")
+        return _wrap(_call("find", address, None)) if address else None
+
 
 class _Reads(_Watches):
     # For plates that can see what their target holds.

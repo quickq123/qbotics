@@ -342,6 +342,10 @@ public final class QboticsNeoForge {
             // The fluid and energy stores are ordinary tanks and batteries to other mods' pipes and cables.
             event.registerBlockEntity(Capabilities.Fluid.BLOCK, FLUID_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
             event.registerBlockEntity(Capabilities.Energy.BLOCK, ENERGY_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
+            // A bus that is one end of a tunnel offers, on its face, the container behind the other end.
+            event.registerBlockEntity(Capabilities.Item.BLOCK, PORT_BLOCK_ENTITY.get(), TunnelHandlers::items);
+            event.registerBlockEntity(Capabilities.Fluid.BLOCK, PORT_BLOCK_ENTITY.get(), TunnelHandlers::fluid);
+            event.registerBlockEntity(Capabilities.Energy.BLOCK, PORT_BLOCK_ENTITY.get(), TunnelHandlers::energy);
         });
         if (Boolean.getBoolean("qbotics.gameTests")) {
             registerGameTests(modBus);
@@ -390,6 +394,7 @@ public final class QboticsNeoForge {
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> {
             ComputerManager.shutDown(event.getServer());
             qbotics.upgrade.ChunkLoaders.clear();
+            qbotics.network.Tunnels.clear();
         });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
@@ -398,6 +403,11 @@ public final class QboticsNeoForge {
         });
 
         Qbotics.init(new QboticsPlatform() {
+            @Override
+            public void capabilitiesChanged(net.minecraft.world.level.Level level, BlockPos pos) {
+                level.invalidateCapabilities(pos);
+            }
+
             @Override
             public void sendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
                 PacketDistributor.sendToPlayer(player, payload);

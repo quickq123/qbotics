@@ -353,6 +353,48 @@ move(net.energy_interface(), machine, count=50000)  # energy in
 print(machine.fluid.amount(), machine.energy.stored())
 ```
 
+### 6.3b Tunnels between buses
+
+Two buses can be joined by a **tunnel**. Each end then offers, to whatever touches its face
+(hoppers, pipes and cables from other mods, generators), the container the **other** end
+points at. A hopper pushing into one end fills the chest behind the other; a generator
+feeding one end powers the machine behind the other; a pipe pulling from one end empties
+what is behind the other. No program runs and nothing has to be moved by `move`.
+
+```
+[hopper] -> [bus a]===cables===[bus b] -> [chest]       items pushed into a land in the chest
+[generator] -> [energy bus]=====[USB] -> [machine]       power fed in at one end runs the machine
+```
+
+- **What it carries:** what both ends carry. Two Item Serial Buses carry items; a USB and a
+  Fluid Serial Bus carry fluid; two USBs carry items, fluid and energy.
+- **Both ways:** either end can be pushed into or pulled from.
+- **Reach:** both ends on one cable network; or on two networks whose antennas both hold a
+  Transport Upgrade and can reach each other by radio (frequency, range and access, as for
+  remote moves). Between networks the Transport rate caps apply (section 7.3b).
+- **When the other end can't be reached** (its area unloaded, an antenna out of range), the
+  end is empty and takes nothing until it can.
+- **Still a bus:** programs use a tunnelled bus as before, on its own target.
+- Taking either plate off closes the tunnel.
+
+**With the Network Probe**, in its Tunnels mode (sneak and scroll): right-click one bus,
+then the other. Right-clicking a bus that is already in a tunnel says where it leads; then
+right-click another bus to re-route it, or the same one again to close it.
+
+**From a program:**
+
+| Call | Does |
+|---|---|
+| `bus.tunnel(other)` | Opens a tunnel to another bus (a device, or its name or address; `"100.64.0.2/02:..."` for one behind another antenna). A tunnel either was in is closed first |
+| `bus.untunnel()` | Closes its tunnel, at both ends |
+| `bus.tunneled` | True if it is one end of a tunnel |
+| `bus.tunnel_end` | The bus at the other end, or `None` (also when it can't be reached now) |
+
+```python
+net.bus("hopper_in").tunnel(net.bus("storage"))
+net.energy_bus("generator").tunnel(net.usb("machine"))
+```
+
 ### 6.4 Moving things: sources, destinations and `move`
 
 Things are moved **from sources to destinations**. A source or destination is only a
@@ -1323,6 +1365,7 @@ A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows
 |---|---|
 | Labels | On a device: opens a pop-up with its name, a ready line of Python, its internal IP, hardware address and external address. Click a line to copy it. A box at the top names the device |
 | Slots | Blocks open as usual, and every container screen shows each slot's number. A screen with one inventory (a chest, a furnace) shows that inventory's own numbers, which plates use. A screen with several (a crafting table's grid and product) shows the screen's numbers, which a Bus working the screen uses (section 6.8). Clicking a button on a screen shows the button's number above the screen and writes it to your chat (section 6.8) |
+| Tunnels | Right-click a bus, then another, to open a tunnel between them (section 6.3b). Right-click a bus in a tunnel to see where it leads; again to close it |
 
 In either mode, hovering an item in any inventory shows the name programs use for it. For a
 bucket it also shows the fluid's name. Ctrl+C copies the name. Holding Shift lists the item's
