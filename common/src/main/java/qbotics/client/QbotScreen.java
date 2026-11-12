@@ -26,6 +26,13 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
     private net.minecraft.client.gui.components.Button stop;
     /** How many of the program's last lines show under its state. */
     private static final int OUTPUT_LINES = 2;
+    private net.minecraft.client.gui.components.Button log;
+    /** True while the log is shown over the screen: everything the program printed, read-only. */
+    private boolean logOpen;
+    /** How many lines the log is scrolled up from its end; 0 follows new output. */
+    private int logScroll;
+    private static final int LOG_LINE = 10;
+    private static final int LOG_PADDING = 6;
 
     public QbotScreen(QbotMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title, Panels.WIDTH, QbotMenu.TOP_HEIGHT + 96);
@@ -38,6 +45,11 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
         run = addRenderableWidget(button("screen.qbotics.qbot.run", QbotMenu.RUN_BUTTON, 0));
         pause = addRenderableWidget(button("screen.qbotics.qbot.pause", QbotMenu.PAUSE_BUTTON, 1));
         stop = addRenderableWidget(button("screen.qbotics.qbot.stop", QbotMenu.STOP_BUTTON, 2));
+        // In the corner of the program's strip: open its whole output, read-only.
+        log = addRenderableWidget(net.minecraft.client.gui.components.Button.builder(Component.translatable("screen.qbotics.qbot.log"), button -> {
+            logOpen = true;
+            logScroll = 0;
+        }).bounds(leftPos + Panels.WIDTH - 40, topPos + QbotMenu.OUTPUT_Y + 2, 32, 12).build());
         update();
     }
 
@@ -64,6 +76,95 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
     public void containerTick() {
         super.containerTick();
         update();
+        for (var button : java.util.List.of(run, pause, stop, log)) {
+            button.visible = !logOpen;
+        }
+    }
+
+    // ---- the log: the program's whole output, read-only, over the screen ----
+
+    /** Shows the log, as its button does. */
+    public void openLog() {
+        logOpen = true;
+        logScroll = 0;
+    }
+
+    /** Where the log is drawn: most of the window, as wide as a terminal line needs. */
+    private int[] logArea() {
+        int w = Math.min(width - 20, qbotics.computer.Terminal.COLS * 6 + 2 * LOG_PADDING);
+        int h = height - 30;
+        return new int[] {(width - w) / 2, 15, w, h};
+    }
+
+    private int logRows() {
+        return (logArea()[3] - 2 * LOG_PADDING - 14) / LOG_LINE;
+    }
+
+    private void drawLog(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        int[] a = logArea();
+        graphics.fill(0, 0, width, height, 0x90000000);
+        graphics.fill(a[0] - 1, a[1] - 1, a[0] + a[2] + 1, a[1] + a[3] + 1, 0xFF808080);
+        graphics.fill(a[0], a[1], a[0] + a[2], a[1] + a[3], 0xFF101010);
+        graphics.text(font, Component.translatable("screen.qbotics.qbot.log_title", title), a[0] + LOG_PADDING, a[1] + LOG_PADDING, 0xFFFFFFFF, false);
+        Component back = Component.translatable("screen.qbotics.qbot.log_back");
+        int backX = a[0] + a[2] - LOG_PADDING - font.width(back);
+        boolean overBack = mouseX >= backX && mouseX < a[0] + a[2] - LOG_PADDING && mouseY >= a[1] + LOG_PADDING - 1 && mouseY < a[1] + LOG_PADDING + 9;
+        graphics.text(font, back, backX, a[1] + LOG_PADDING, overBack ? 0xFFFFFF60 : 0xFFB0B0B0, false);
+        List<String> lines = qbotics.client.ide.ClientIde.terminalHistory(menu.qbotId());
+        int rows = logRows();
+        logScroll = Math.clamp(logScroll, 0, Math.max(0, lines.size() - rows));
+        int end = lines.size() - logScroll;
+        int start = Math.max(0, end - rows);
+        int top = a[1] + LOG_PADDING + 14;
+        for (int i = start; i < end; i++) {
+            graphics.text(font, font.plainSubstrByWidth(lines.get(i), a[2] - 2 * LOG_PADDING), a[0] + LOG_PADDING, top + (i - start) * LOG_LINE,
+                    0xFFD8D8D8, false);
+        }
+        if (logScroll > 0) {
+            Component more = Component.translatable("screen.qbotics.qbot.log_more", logScroll);
+            graphics.text(font, more, a[0] + a[2] - LOG_PADDING - font.width(more), a[1] + a[3] - LOG_PADDING - 8, 0xFFF0B030, false);
+        }
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        if (logOpen) {
+            graphics.nextStratum(); // over the slots and their items
+            drawLog(graphics, mouseX, mouseY);
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+        if (!logOpen) {
+            return super.mouseClicked(event, doubleClick);
+        }
+        // Only "Back" works while the log is open; the slots under it don't.
+        int[] a = logArea();
+        int backX = a[0] + a[2] - LOG_PADDING - font.width(Component.translatable("screen.qbotics.qbot.log_back"));
+        if (event.x() >= backX && event.x() < a[0] + a[2] - LOG_PADDING && event.y() >= a[1] + LOG_PADDING - 1 && event.y() < a[1] + LOG_PADDING + 9) {
+            logOpen = false;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+        if (!logOpen) {
+            return super.mouseScrolled(x, y, scrollX, scrollY);
+        }
+        logScroll += (int) Math.signum(scrollY) * 3;
+        return true;
+    }
+
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        if (logOpen && event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) {
+            logOpen = false; // Escape closes the log, not the screen
+            return true;
+        }
+        return super.keyPressed(event);
     }
 
     private int gaugeX(int gauge) {
@@ -143,6 +244,9 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
 
     @Override
     protected void extractTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        if (logOpen) {
+            return;
+        }
         super.extractTooltip(graphics, mouseX, mouseY);
         int mx = mouseX - leftPos;
         int my = mouseY - topPos;

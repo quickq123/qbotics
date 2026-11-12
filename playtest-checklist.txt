@@ -185,6 +185,8 @@ QBOTS (from the creative tab)
      glide and turn; its screen shows what it printed. Steps 71-75 are programs the same way.
  70b. A long program (a loop with time.sleep): Pause holds it, Run says Resume and carries on;
      Stop ends it. Break a line in the program (a typo): the screen says it stopped with an error.
+ 70c. Log (corner of the program strip): everything it printed, read-only. Scroll back; Escape
+     or Back returns. The error's whole traceback is there.
  71. Put stone in front:  qbot.dig()  (its arms swing; cobblestone goes into its slots).
      Obsidian in front:  qbot.dig()  says it needs a better tool. Put a diamond pickaxe in its
      hand (screen or  from qbot import tools ,  tools.equip("diamond_pickaxe") ) and dig again.

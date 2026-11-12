@@ -32,6 +32,20 @@ public final class ClientIde {
         return IdeSession.of(deviceId).terminalLines;
     }
 
+    /**
+     * Everything a computer's terminal has shown, as last sent: the lines scrolled off the top
+     * (as many as are kept), then the screen, without the empty rows at its bottom.
+     */
+    public static java.util.List<String> terminalHistory(UUID deviceId) {
+        IdeSession session = IdeSession.of(deviceId);
+        java.util.List<String> all = new java.util.ArrayList<>(session.terminalScrollback);
+        all.addAll(session.terminalLines);
+        while (!all.isEmpty() && all.getLast().isBlank()) {
+            all.removeLast();
+        }
+        return all;
+    }
+
     /** The server opened a drive (a Programmer's) in the editor: files only, no terminal. */
     public static void onOpenEditor(IdePayloads.OpenEditor open) {
         IdeSession session = IdeSession.of(open.deviceId());

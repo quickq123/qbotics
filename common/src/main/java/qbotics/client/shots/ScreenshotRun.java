@@ -437,11 +437,28 @@ public final class ScreenshotRun {
                     qbot.setEnergy(640_000);
                     qbot.fluidPort().insert(net.minecraft.world.level.material.Fluids.WATER, 3000, false);
                     qbot.fluidPort().insert(net.minecraft.world.level.material.Fluids.LAVA, 1500, false);
+                    // A program that reports as it goes, for the strip and the log.
+                    qbotics.computer.ServerComputer computer = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStart(qbot);
+                    try {
+                        computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/startup.py", String.join("\n",
+                                "import time", "print('miner v2: starting')", "for n in range(1, 40):",
+                                "    print('layer', n, '- dug 25, iron 3, coal 7')", "    time.sleep(0.02)",
+                                "print('warning: inventory 80% full')", "time.sleep(60)").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    } catch (qbotics.engine.HostFileSystem.FsException e) {
+                        throw new IllegalStateException(e);
+                    }
+                    computer.runProgram();
                     player.openMenu(qbot);
                 }
             });
         });
-        then(8, minecraft -> shot(minecraft, "18d-qbot-screen"));
+        then(40, minecraft -> shot(minecraft, "18d-qbot-screen"));
+        then(2, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.QbotScreen screen) {
+                screen.openLog();
+            }
+        });
+        then(4, minecraft -> shot(minecraft, "18e-qbot-log"));
         then(5, minecraft -> {
             minecraft.player.closeContainer();
             minecraft.options.hideGui = true;

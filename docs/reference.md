@@ -1290,6 +1290,10 @@ Under the buttons, the screen shows what the program is doing (Running, Paused, 
 Stopped, or Stopped with an error) and the last two lines it printed, so `print` is how a
 program reports, and an error shows there.
 
+**Log** (in the corner of that strip) shows everything the program has printed, read-only,
+over the whole window: up to the last 500 lines, kept while it runs. Scroll to read back; it
+follows new output while scrolled to the end. **Back** or Escape returns to the screen.
+
 - A Programmer that installs a program on a Qbot also starts it.
 - A Qbot whose program was running when its area unloaded (or the world closed) starts it
   again, from the top, when it loads.
