@@ -221,8 +221,10 @@ The `.hint` field always holds a learner-friendly fix, e.g. *"There's a block in
 > (green running, red failed); messages to the Server go to the terminal's program if it listens, else to the first
 > listening service; a service's events and displays are its own. **Chunk loading (decided 2026-11-12):** not built in; a Server takes the antennas' Chunk Loader Upgrade and holds its
 > cable network's chunks the same way, under the same config and per-player loader limit, so chunk loading stays in one
-> place and admins control it as before. **Not yet:** larger `requests` answers by tier (needs the engine's 48 KB
-> call-result buffer raised). With laptops switched off by config, a Server can't be crafted.
+> place and admins control it as before. **Answer size by tier (built 2026-11-12):** `max_response_kb` (24) scales
+> with memory: laptop 96 KB, Server 192 KB; a program is handed at most a quarter of its heap (the engine's guard
+> raised to 1 MB). No web browsing: simple pages and APIs only. Later, maybe: `requests.download(url, path)` writing
+> straight to the drive, as git does. With laptops switched off by config, a Server can't be crafted.
 
 ---
 

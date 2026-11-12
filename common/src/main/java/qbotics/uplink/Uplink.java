@@ -109,7 +109,7 @@ public final class Uplink {
      * with the reply.
      */
     public static void fromComputer(MinecraftServer server, ResourceKey<Level> dimension, BlockPos computerPos, String call,
-            CompletableFuture<String> answer) {
+            int heapBytes, CompletableFuture<String> answer) {
         ServerLevel level = server.getLevel(dimension);
         if (level == null || !level.isLoaded(computerPos)) {
             answer.complete(error("This computer's block isn't loaded."));
@@ -120,16 +120,26 @@ public final class Uplink {
             return;
         }
         UUID owner = level.getBlockEntity(computerPos) instanceof qbotics.block.ComputerBlockEntity computer ? computer.owner() : null;
-        go(owner, "computer at " + computerPos.toShortString(), call, answer);
+        go(owner, "computer at " + computerPos.toShortString(), call, answerLimit(heapBytes), answer);
     }
 
     /** A request from a player's laptop: its built-in Infinite antenna is its uplink. */
-    public static void fromLaptop(UUID player, String call, CompletableFuture<String> answer) {
-        go(player, "laptop", call, answer);
+    public static void fromLaptop(UUID player, String call, int heapBytes, CompletableFuture<String> answer) {
+        go(player, "laptop", call, answerLimit(heapBytes), answer);
     }
 
-    private static void go(@Nullable UUID owner, String from, String call, CompletableFuture<String> answer) {
-        go(owner, from, answer, () -> handle(owner, from, call));
+    /**
+     * The largest answer a computer is given: {@code max_response_kb} for a computer's 256 KB,
+     * more for more memory (a laptop four times, a Server eight). Reading an answer takes room
+     * for two or three copies of it, so it scales with what the program has.
+     */
+    public static int answerLimit(int heapBytes) {
+        long scaled = (long) QboticsConfig.uplinkMaxResponseKb * 1024 * heapBytes / qbotics.computer.ServerComputer.BASIC_HEAP_BYTES;
+        return (int) Math.max(1024, Math.min(scaled, 4L * 1024 * 1024));
+    }
+
+    private static void go(@Nullable UUID owner, String from, String call, int limit, CompletableFuture<String> answer) {
+        go(owner, from, answer, () -> handle(owner, from, call, limit));
     }
 
     /** Checks the uplink may be used now (on, owned, within the rate), then runs the work on its own threads. */
@@ -172,7 +182,7 @@ public final class Uplink {
     // ---- the request itself (on the uplink's threads) ------------------------------------------
 
     /** ["http", method, url, headers {name: value} or null, body or null]. */
-    static String handle(UUID owner, String from, String call) {
+    static String handle(UUID owner, String from, String call, int limit) {
         try {
             JsonArray args = JsonParser.parseString(call).getAsJsonArray();
             String method = args.get(1).getAsString().toUpperCase(Locale.ROOT);
@@ -190,7 +200,7 @@ public final class Uplink {
             if (body != null && body.length > MAX_BODY_SENT) {
                 throw new UplinkError("That's too much to send: the most is " + MAX_BODY_SENT / 1024 + " KB.");
             }
-            return fetch(owner, from, method, url, headers, body);
+            return fetch(owner, from, method, url, headers, body, limit);
         } catch (UplinkError e) {
             return error(e.getMessage());
         } catch (IOException e) {
@@ -201,9 +211,9 @@ public final class Uplink {
     }
 
     /** Makes the request, following redirects, and returns the reply as the program gets it. */
-    static String fetch(UUID owner, String from, String method, String url, Map<String, String> headers, byte @Nullable [] body)
+    static String fetch(UUID owner, String from, String method, String url, Map<String, String> headers, byte @Nullable [] body, int limit)
             throws UplinkError, IOException {
-        Reply answer = download(owner, from, method, url, headers, body, QboticsConfig.uplinkMaxResponseKb * 1024);
+        Reply answer = download(owner, from, method, url, headers, body, limit);
         URI uri = URI.create(answer.url());
         {
             JsonObject reply = new JsonObject();
@@ -458,7 +468,7 @@ public final class Uplink {
     }
 
     private static UplinkError tooLarge(int limit) {
-        return new UplinkError("The site's answer is larger than a computer may take (" + limit / 1024 + " KB).");
+        return new UplinkError("The site's answer is larger than this computer may take (" + limit / 1024 + " KB; a laptop takes 4 times a computer's, a Server 8).");
     }
 
     private static void copy(InputStream in, ByteArrayOutputStream body, int length, int limit, long deadline)

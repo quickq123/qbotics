@@ -2770,6 +2770,10 @@ public final class QboticsGameTests {
         block.drives().setItem(0, item.apply("hard_drive"));
         ServerComputer computer = ComputerManager.get(helper.getLevel().getServer()).getOrStart(block);
         helper.assertTrue(computer.heapBytes() == qbotics.block.ServerBlockEntity.HEAP_BYTES, "a server's memory");
+        // The largest web answer scales with memory: 24 KB for a computer, 96 KB for a laptop, 192 KB for a Server.
+        helper.assertTrue(qbotics.uplink.Uplink.answerLimit(ServerComputer.BASIC_HEAP_BYTES) == 24 * 1024
+                && qbotics.uplink.Uplink.answerLimit(qbotics.laptop.Laptops.HEAP_BYTES) == 96 * 1024
+                && qbotics.uplink.Uplink.answerLimit(qbotics.block.ServerBlockEntity.HEAP_BYTES) == 192 * 1024, "answer sizes by tier");
         for (String line : List.of("python", "b = bytearray(1500000)", "print('big', len(b))", "del b", "import requests",
                 "try:\n    requests.get('https://127.0.0.1/')\nexcept requests.RequestException as e:\n    print('refused', e)\n")) {
             computer.submitLine(line);

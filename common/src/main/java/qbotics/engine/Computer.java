@@ -68,8 +68,12 @@ public final class Computer {
     private byte[] fsResult = new byte[0];
     private int nextTicket = 1;
     private static final int MAX_WAITING_CALLS = 32;
-    /** Must not exceed RESULT_MAX_SIZE in the engine's modhost.c. */
-    private static final int MAX_RESULT_BYTES = 48 * 1024;
+    /**
+     * The largest answer handed to a program: a quarter of its memory, at least 48 KB (an
+     * uplink answer is wrapped in JSON, which can make it up to twice as long). Must not exceed
+     * RESULT_MAX_SIZE in the engine's modhost.c.
+     */
+    private final int maxResultBytes;
 
     private final StringBuilder output = new StringBuilder();
     /** If set, printed text goes here as it is produced instead of being buffered for takeOutput(). */
@@ -233,6 +237,7 @@ public final class Computer {
             HostFileSystem fileSystem) {
         this.worldCalls = worldCalls;
         this.fileSystem = fileSystem;
+        this.maxResultBytes = Math.min(1024 * 1024, Math.max(48 * 1024, heapBytes / 4));
         var builder = Instance.builder(engine.module)
                 .withImportValues(ImportValues.builder().addFunction(hostFunctions()).build())
                 .withStart(false);
@@ -538,7 +543,7 @@ public final class Computer {
         holdWhilePaused(true); // paused while the world answered: hold here, with the answer kept
         stepSoon();
         byte[] bytes = result.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length > MAX_RESULT_BYTES) {
+        if (bytes.length > maxResultBytes) {
             bytes = "error:the answer is too large for this computer".getBytes(StandardCharsets.UTF_8);
             result = "error:the answer is too large for this computer";
         }

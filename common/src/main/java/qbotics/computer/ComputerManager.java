@@ -175,7 +175,9 @@ public final class ComputerManager {
                 // The internet: checked on the server thread, fetched on the uplink's own threads.
                 outbox.add(server -> {
                     Viewing place = places.get(placeId);
-                    qbotics.uplink.Uplink.fromComputer(server, place == null ? dimension : place.dimension(), place == null ? pos : place.pos(), call, answer);
+                    ServerComputer self = computers.get(callerId);
+                    qbotics.uplink.Uplink.fromComputer(server, place == null ? dimension : place.dimension(), place == null ? pos : place.pos(), call,
+                            self == null ? ServerComputer.BASIC_HEAP_BYTES : self.heapBytes(), answer);
                 });
                 return answer;
             }
@@ -278,7 +280,7 @@ public final class ComputerManager {
         ServerComputer computer = new ServerComputer(id, driveId, driveFolder(driveId), cpu, listener, call -> {
             CompletableFuture<String> answer = new CompletableFuture<>();
             if (call.startsWith(HTTP_PREFIX)) {
-                qbotics.uplink.Uplink.fromLaptop(owner, call, answer); // its built-in antenna is its uplink
+                qbotics.uplink.Uplink.fromLaptop(owner, call, qbotics.laptop.Laptops.HEAP_BYTES, answer); // its built-in antenna is its uplink
                 return answer;
             }
             if (call.startsWith(GIT_PREFIX)) {

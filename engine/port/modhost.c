@@ -4,7 +4,7 @@
 #include "py/mphal.h"
 
 #define RESULT_BUF_SIZE (4096)
-#define RESULT_MAX_SIZE (48 * 1024)
+#define RESULT_MAX_SIZE (1024 * 1024) // a guard: the game sends at most a quarter of the heap
 static char result_buf[RESULT_BUF_SIZE];
 
 // _host.submit(call: str) -> ticket: int

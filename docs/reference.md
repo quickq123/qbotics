@@ -1565,7 +1565,8 @@ A request that can't be made raises `requests.RequestException`, saying why.
 - **HTTPS only.** The site's certificate is checked against its name.
 - **Never private or local addresses** (this server, its network, cloud metadata), whatever a
   name resolves to, including after redirects (up to 5).
-- **Limits:** an answer is at most 24 KB (a computer's memory is small), a request takes at most
+- **Limits:** an answer is at most 24 KB on a computer or Qbot, 96 KB on a laptop and 192 KB on
+  a Server (reading one takes room for two or three copies of it), a request takes at most
   10 seconds, and one player's computers make at most 30 a minute between them (the server's
   admin sets these). Each request is logged with its owner (site and path, not the query).
 - Nothing about you or the server is sent: the request says only that it is from Qbotics.
@@ -1628,6 +1629,7 @@ editor, network, `ssh`, the Programmer), and more:
 | Its own drive | 1 MB | 1 MB | **8 MB** |
 | Hard drives it holds | none (use a Drive Bay) | 2, at `/net/disks` | **4, at `/net/disks`** |
 | Programs in the background | none | none | **4 services** (section 7i.1) |
+| Largest `requests` answer | 24 KB | 96 KB | **192 KB** |
 | The internet (`requests`, `git`) | needs an Uplink on its network | built in | **built in** |
 
 - **Right-click** opens its screen, as a computer's does. **Sneak + right-click** opens its
@@ -1652,7 +1654,8 @@ editor, network, `ssh`, the Programmer), and more:
 the top, **RAM** on either side of a **Laptop**, a **Drive Bay** at the bottom. **RAM** is an
 Integrated Circuit surrounded by eight gold ingots (`GGG` / `GIG` / `GGG`).
 
-**Not yet:** answers from `requests` are still at most 24 KB on every computer.
+**Web answers:** a Server takes `requests` answers up to 192 KB (a computer 24 KB, a laptop
+96 KB): enough for APIs, plain files and simple pages, not for rendering whole websites.
 
 ### 7i.1 Services: programs in the background
 
@@ -1762,7 +1765,7 @@ even across restarts, until someone opens it again.
 | `uplink.enabled` | true | `false`: no computer reaches the internet (section 7g) |
 | `uplink.allow_domains` | [] | Sites it may reach (a domain covers names under it); empty: any public site |
 | `uplink.deny_domains` | [] | Sites it never reaches |
-| `uplink.max_response_kb` | 24 | The largest answer a computer is given (1 to 40) |
+| `uplink.max_response_kb` | 24 | The largest answer a computer is given (1 to 40); a laptop gets 4 times this, a Server 8 |
 | `uplink.timeout_seconds` | 10 | How long a request may take |
 | `uplink.requests_per_minute` | 30 | Requests one player's computers make a minute, between them |
 | `git.enabled` | true | `false`: no git commands (section 7h) |
