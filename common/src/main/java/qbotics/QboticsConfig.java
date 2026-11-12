@@ -17,6 +17,8 @@ public final class QboticsConfig {
     public static volatile int antennasPerPlayer = 10;
     /** Active Qbots a player may own; -1 for no limit. */
     public static volatile int qbotsPerPlayer = 5;
+    /** Servers (2 MB each) a player may have active. */
+    public static volatile int serversPerPlayer = 2;
     /** Server operators may have any number of active devices. */
     public static volatile boolean operatorsExempt = true;
 

@@ -25,8 +25,10 @@ public class DriveBayScreen extends AbstractContainerScreen<DriveBayMenu> {
     @Override
     protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         super.extractLabels(graphics, mouseX, mouseY);
-        Component hint = Component.translatable("screen.qbotics.drive_bay_hint");
-        Component hint2 = Component.translatable("screen.qbotics.drive_bay_hint2");
+        boolean server = title.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents key
+                && key.getKey().equals("screen.qbotics.server.disks");
+        Component hint = Component.translatable(server ? "screen.qbotics.server.disks_hint" : "screen.qbotics.drive_bay_hint");
+        Component hint2 = Component.translatable(server ? "screen.qbotics.server.disks_hint2" : "screen.qbotics.drive_bay_hint2");
         graphics.text(font, hint, (imageWidth - font.width(hint)) / 2, DriveBayMenu.SLOT_Y + 22, Panels.LABEL, false);
         graphics.text(font, hint2, (imageWidth - font.width(hint2)) / 2, DriveBayMenu.SLOT_Y + 31, Panels.LABEL, false);
     }

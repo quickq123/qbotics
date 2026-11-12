@@ -111,6 +111,14 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<qbotics.qbot.QbotBlock> IRON_QBOT = BLOCKS.registerBlock("iron_qbot", qbotics.qbot.QbotBlock::iron,
             properties -> properties.mapColor(MapColor.METAL).strength(2.5f).sound(SoundType.METAL).noOcclusion());
     private static final DeferredItem<BlockItem> IRON_QBOT_ITEM = ITEMS.registerSimpleBlockItem(IRON_QBOT);
+    /** The Server (design doc §3.4): the late-game computer, 2 MB, with its own drives and uplink. */
+    private static final DeferredBlock<qbotics.block.ServerBlock> SERVER = BLOCKS.registerBlock("server", qbotics.block.ServerBlock::new,
+            properties -> properties.mapColor(MapColor.COLOR_BLACK).strength(3.0f).sound(SoundType.NETHERITE_BLOCK));
+    private static final DeferredItem<BlockItem> SERVER_ITEM = ITEMS.registerSimpleBlockItem(SERVER);
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.ServerBlockEntity>> SERVER_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("server", () -> new BlockEntityType<>(qbotics.block.ServerBlockEntity::new, SERVER.get()));
+    /** RAM: the part that gives a Server its memory. */
+    private static final DeferredItem<net.minecraft.world.item.Item> RAM_ITEM = ITEMS.registerSimpleItem("ram");
     /** A laptop (design doc §5.6): a player's own carried computer. */
     private static final DeferredItem<qbotics.laptop.LaptopItem> LAPTOP_ITEM = ITEMS.registerItem("laptop", qbotics.laptop.LaptopItem::new);
     private static final DeferredBlock<qbotics.qbot.QbotPartBlock> QBOT_PART = BLOCKS.registerBlock("qbot_part", qbotics.qbot.QbotPartBlock::new,
@@ -267,6 +275,7 @@ public final class QboticsNeoForge {
                         output.accept(TEXT_MONITOR_ITEM.get());
                         output.accept(CONTROL_PANEL_ITEM.get());
                         output.accept(IRON_QBOT_ITEM.get());
+                        output.accept(SERVER_ITEM.get());
                         output.accept(LAPTOP_ITEM.get());
                         output.accept(TRANSPORT_UPGRADE.get());
                         output.accept(CHUNK_LOADER_UPGRADE.get());
@@ -275,6 +284,7 @@ public final class QboticsNeoForge {
                         output.accept(LIGHT_EMITTING_DIODE.get());
                         output.accept(LED_SCREEN.get());
                         output.accept(INTEGRATED_CIRCUIT_ITEM.get());
+                        output.accept(RAM_ITEM.get());
                     })
                     .build());
 
@@ -319,6 +329,8 @@ public final class QboticsNeoForge {
         QboticsContent.PROGRAMMER_MENU = PROGRAMMER_MENU;
         QboticsContent.ANTENNA_MENU = ANTENNA_MENU;
         QboticsContent.IRON_QBOT_BLOCK = IRON_QBOT;
+        QboticsContent.SERVER_BLOCK = SERVER;
+        QboticsContent.SERVER_BLOCK_ENTITY = SERVER_BLOCK_ENTITY;
         QboticsContent.QBOT_BLOCK_ENTITY = QBOT_BLOCK_ENTITY;
         QboticsContent.QBOT_MENU = QBOT_MENU;
         QboticsContent.LAPTOP_MENU = LAPTOP_MENU;

@@ -209,6 +209,16 @@ The `.hint` field always holds a learner-friendly fix, e.g. *"There's a block in
 | Advanced | 1 MB | Networking, larger programs |
 | Server | 2 MB | Dashboards, in-game web servers |
 
+> **Status (2026-11-12): decided and partly built** (`docs/reference.md` §7i). There is **no Advanced computer**: the
+> Laptop is the mid tier, with 1 MB (one per player, so its memory costs little). The **Server** is built: a computer
+> block with 2 MB, an 8 MB drive, a built-in uplink, and four hard-drive sockets of its own (mounted at `/net/disks`),
+> limited by `limits.servers_per_player` (2). Recipe `ASA/RLR/ADA` (ancient debris, LED Screen, RAM, Laptop, Drive Bay);
+> **RAM** is an integrated circuit in eight gold ingots. Raw ancient debris rather than netherite ingots, because getting
+> the raw material is the hard part. Memory belongs to the machine that runs the program: a laptop or ssh session on a
+> Server gets 2 MB, a laptop on a Qbot gets 256 KB. **Not yet:** services (several background programs, each with a
+> light on the rack and a Log), its own chunk loading, and larger `requests` answers by tier (needs the engine's 48 KB
+> call-result buffer raised). With laptops switched off by config, a Server can't be crafted.
+
 ---
 
 ## 4. Concurrency and scheduling
@@ -1635,6 +1645,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-10 | Recipes: Bus = Input + Output; fluid version = item version + bucket; energy version = item version + block of redstone (all shapeless) | Decided |
 | 2026-11-10 | Breaking a cable while aiming at a plate takes off only that plate; aiming at the cable breaks everything | Decided |
 | 2026-11-10 | Parts: Screen (glowstone dust, RGB dye, glass panes; makes 4) and Motherboard (copper, glass, green dye); the computer is 7 cables, a motherboard and a screen. Cable recipes stay | Decided |
+| 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
 | 2026-11-10 | Look: whitish iron with redstone red; the plates carry no arrows because their shapes show direction | Decided |
 | 2026-11-10 | Network Probe: a hand tool that reads a device's name and addresses with one-click copy, and names the device. Names are the recommended way to address many devices in code | Built; to confirm |

@@ -15,6 +15,7 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue COMPUTERS;
     private static final ModConfigSpec.IntValue ANTENNAS;
     private static final ModConfigSpec.IntValue QBOTS;
+    private static final ModConfigSpec.IntValue SERVERS;
     private static final ModConfigSpec.BooleanValue OPERATORS_EXEMPT;
     private static final ModConfigSpec.IntValue BOOT_PER_TICK;
     private static final ModConfigSpec.IntValue WORKER_CORES;
@@ -52,6 +53,8 @@ final class QboticsServerConfig {
         COMPUTERS = BUILDER.defineInRange("computers_per_player", 10, -1, 100_000);
         ANTENNAS = BUILDER.defineInRange("antennas_per_player", 10, -1, 100_000);
         QBOTS = BUILDER.defineInRange("qbots_per_player", 5, -1, 100_000);
+        SERVERS = BUILDER.comment("Servers each hold 2 MB of memory while running, eight times a computer.")
+                .defineInRange("servers_per_player", 2, -1, 100_000);
         OPERATORS_EXEMPT = BUILDER.comment("Server operators may have any number of active devices.")
                 .define("operators_exempt", true);
         BUILDER.pop();
@@ -139,6 +142,7 @@ final class QboticsServerConfig {
         QboticsConfig.computersPerPlayer = COMPUTERS.get();
         QboticsConfig.antennasPerPlayer = ANTENNAS.get();
         QboticsConfig.qbotsPerPlayer = QBOTS.get();
+        QboticsConfig.serversPerPlayer = SERVERS.get();
         QboticsConfig.operatorsExempt = OPERATORS_EXEMPT.get();
         QboticsConfig.bootPerTick = BOOT_PER_TICK.get();
         QboticsConfig.workerCores = WORKER_CORES.get();

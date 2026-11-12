@@ -161,6 +161,11 @@ write_json("assets/qbotics/items/computer.json", {
 })
 write_json("assets/qbotics/lang/en_us.json", {
     "block.qbotics.computer": "Computer",
+    "block.qbotics.server": "Server",
+    "item.qbotics.ram": "RAM",
+    "screen.qbotics.server.disks": "Server drives",
+    "screen.qbotics.server.disks_hint": "This server sees these drives",
+    "screen.qbotics.server.disks_hint2": "in /net/disks",
     "block.qbotics.cable": "Cable",
     "itemGroup.qbotics": "Qbotics",
     "block.qbotics.interface": "Interface",
@@ -604,6 +609,101 @@ write_json("data/qbotics/recipe/integrated_circuit.json", shaped(
     {"C": "minecraft:copper_ingot", "L": "minecraft:glass", "G": "minecraft:green_dye"},
     "qbotics:integrated_circuit"))
 
+# ---- the Server (design doc §3.4): the late-game computer --------------------------------
+# A dark rack: four drive trays across its front, each with a light, and vents on its sides.
+RACK = (46, 46, 52)
+RACK_LIGHT = (70, 70, 78)
+RACK_DARK = (28, 28, 32)
+TRAY = (88, 88, 96)
+
+
+def rack_base():
+    px = [[RACK for _ in range(16)] for _ in range(16)]
+    for i in range(16):
+        px[0][i] = RACK_LIGHT
+        px[i][0] = RACK_LIGHT
+        px[15][i] = RACK_DARK
+        px[i][15] = RACK_DARK
+    return px
+
+
+def server_front(on=True):
+    px = rack_base()
+    for row, y in enumerate((2, 5, 8, 11)):   # four drive trays
+        for x in range(2, 12):
+            px[y][x] = TRAY
+            px[y + 1][x] = RACK_DARK
+        px[y][13] = (RED_BRIGHT if row % 2 == 0 else (80, 220, 90)) if on else RACK_DARK
+    px[14][2] = RED_BRIGHT if on else RED      # power
+    return px
+
+
+def server_side():
+    px = rack_base()
+    for y in range(2, 14, 2):
+        for x in range(3, 13):
+            px[y][x] = RACK_DARK
+    return px
+
+
+def server_top():
+    px = rack_base()
+    for y in range(3, 13):
+        for x in range(3, 13):
+            if (x + y) % 2 == 0:
+                px[y][x] = RACK_DARK
+    return px
+
+
+write_png("assets/qbotics/textures/block/server_front.png", server_front(True))
+write_png("assets/qbotics/textures/block/server_front_off.png", server_front(False))
+write_png("assets/qbotics/textures/block/server_side.png", server_side())
+write_png("assets/qbotics/textures/block/server_top.png", server_top())
+for name, front_texture in (("server", "server_front"), ("server_off", "server_front_off")):
+    write_json("assets/qbotics/models/block/%s.json" % name, {
+        "parent": "minecraft:block/orientable",
+        "textures": {"front": "qbotics:block/" + front_texture, "side": "qbotics:block/server_side", "top": "qbotics:block/server_top"},
+    })
+server_variants = {}
+for facing, turn in COMPUTER_TURNS.items():
+    for active, model in (("true", "qbotics:block/server"), ("false", "qbotics:block/server_off")):
+        variant = {"model": model}
+        if turn:
+            variant["y"] = turn
+        server_variants["active=%s,facing=%s" % (active, facing)] = variant
+write_json("assets/qbotics/blockstates/server.json", {"variants": server_variants})
+write_json("assets/qbotics/items/server.json", {"model": {"type": "minecraft:model", "model": "qbotics:block/server"}})
+write_json("data/qbotics/loot_table/blocks/server.json",
+           drops_itself("qbotics:server", copy_components=["qbotics:drive_id", "minecraft:custom_name"]))
+
+
+def ram_item():
+    """A memory stick: a green board with a row of black chips and gold contacts along its edge."""
+    board, chip, gold = (38, 120, 62), (26, 26, 30), (236, 196, 64)
+    px = [[None] * 16 for _ in range(16)]
+    for y in range(5, 11):
+        for x in range(1, 15):
+            px[y][x] = (26, 88, 46) if y in (5, 10) or x in (1, 14) else board
+    for x in (2, 3, 5, 6, 9, 10, 12, 13):
+        px[6][x] = chip
+        px[7][x] = chip
+    for x in range(2, 14, 2):
+        px[10][x] = gold
+    return px
+
+
+write_png("assets/qbotics/textures/item/ram.png", ram_item())
+write_json("assets/qbotics/models/item/ram.json", {"parent": "minecraft:item/generated", "textures": {"layer0": "qbotics:item/ram"}})
+write_json("assets/qbotics/items/ram.json", {"model": {"type": "minecraft:model", "model": "qbotics:item/ram"}})
+# RAM: an integrated circuit in eight gold ingots. Server (decided 2026-11-12): ancient debris
+# at the corners, an LED Screen on top, RAM either side of a Laptop, a Drive Bay at the bottom.
+write_json("data/qbotics/recipe/ram.json", shaped(
+    ["GGG", "GIG", "GGG"], {"G": "minecraft:gold_ingot", "I": "qbotics:integrated_circuit"}, "qbotics:ram"))
+write_json("data/qbotics/recipe/server.json", shaped(
+    ["ASA", "RLR", "ADA"],
+    {"A": "minecraft:ancient_debris", "S": "qbotics:led_screen", "R": "qbotics:ram", "L": "qbotics:laptop", "D": "qbotics:drive_bay"},
+    "qbotics:server"))
+
 # A broken computer keeps its drive (its files).
 write_json("data/qbotics/loot_table/blocks/computer.json",
            drops_itself("qbotics:computer", copy_components=["qbotics:drive_id", "minecraft:custom_name"]))
@@ -613,14 +713,14 @@ write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
     "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
-               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot", "qbotics:uplink"],
+               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
     "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
-               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot", "qbotics:uplink"],
+               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 

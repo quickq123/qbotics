@@ -34,6 +34,8 @@ public final class Laptops {
     public static final int DISK_SLOTS = 2;
     /** Where those drives appear: /net/disks/disk1 and /net/disks/disk2. */
     public static final String DISKS_FOLDER = "disks";
+    /** A laptop's memory: the mid tier, four times a computer's (design doc §3.4). */
+    public static final int HEAP_BYTES = 1024 * 1024;
 
     /** The device identity of a player's laptop computer: the same every time. */
     public static UUID deviceId(UUID player) {

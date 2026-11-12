@@ -92,6 +92,9 @@ public final class Uplink {
 
     /** True if this computer's cable network has an Uplink. On the server thread. */
     static boolean hasUplink(ServerLevel level, BlockPos computerPos) {
+        if (level.getBlockEntity(computerPos) instanceof qbotics.block.ServerBlockEntity) {
+            return true; // a Server has its own
+        }
         for (NetworkDevice device : CableNetwork.at(level, computerPos).devices()) {
             if (device.kind() == NetworkDevice.Kind.UPLINK) {
                 return true;

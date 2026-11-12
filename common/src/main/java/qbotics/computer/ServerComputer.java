@@ -28,8 +28,8 @@ import qbotics.ide.Paths;
  * and is done by the computer's own thread, one at a time.
  */
 public final class ServerComputer {
-    /** Basic tier heap (design doc §3.4). */
-    private static final int HEAP_BYTES = 256 * 1024;
+    /** A Computer's (and Qbot's) memory, the basic tier (design doc §3.4). Laptops and Servers have more. */
+    public static final int BASIC_HEAP_BYTES = 256 * 1024;
     /** Design doc §15: files.drive_quota_kb. Will come from config. */
     /** How much a computer's own drive holds. */
     public static final long DRIVE_QUOTA_BYTES = 1024 * 1024;
@@ -265,6 +265,11 @@ public final class ServerComputer {
         this(deviceId, driveId, driveFolder, cpu, listener, worldCalls, false, false);
     }
 
+    ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu, Listener listener,
+            Function<String, CompletableFuture<String>> worldCalls, boolean qbot, boolean runOnBoot) {
+        this(deviceId, driveId, driveFolder, cpu, listener, worldCalls, qbot, runOnBoot, BASIC_HEAP_BYTES, DRIVE_QUOTA_BYTES);
+    }
+
     /**
      * @param qbot a Qbot: its program is started by its Run button (or a Programmer), not on
      *             its own when it boots, unless {@code runOnBoot}
@@ -272,18 +277,33 @@ public final class ServerComputer {
      *             was saved, or a Programmer has just installed one
      */
     ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu, Listener listener,
-            Function<String, CompletableFuture<String>> worldCalls, boolean qbot, boolean runOnBoot) {
+            Function<String, CompletableFuture<String>> worldCalls, boolean qbot, boolean runOnBoot, int heapBytes, long quotaBytes) {
+        this.heapBytes = heapBytes;
+        this.quotaBytes = quotaBytes;
         this.qbot = qbot;
         this.runOnBoot = runOnBoot;
         this.worldCalls = worldCalls;
         this.deviceId = deviceId;
         this.driveId = driveId;
-        this.drive = new qbotics.engine.MountedFileSystem(new DriveFileSystem(driveFolder, DRIVE_QUOTA_BYTES));
+        this.drive = new qbotics.engine.MountedFileSystem(new DriveFileSystem(driveFolder, quotaBytes));
         this.cpu = cpu;
         this.listener = listener;
         this.thread = Computer.newThread(this::run, "qbotics-computer-" + deviceId.toString().substring(0, 8));
         this.thread.setDaemon(true);
         this.thread.start();
+    }
+
+    /** How much memory its programs have. */
+    private final int heapBytes;
+    /** How much its own drive holds. */
+    private final long quotaBytes;
+
+    public int heapBytes() {
+        return heapBytes;
+    }
+
+    public long quotaBytes() {
+        return quotaBytes;
     }
 
     public UUID deviceId() {
@@ -820,7 +840,7 @@ public final class ServerComputer {
     }
 
     private Computer newVm() {
-        Computer computer = new Computer(ComputerManager.engine(), HEAP_BYTES,
+        Computer computer = new Computer(ComputerManager.engine(), heapBytes,
                 call -> call.equals(RECEIVE_CALL) ? receive() : call.equals(EVENT_CALL) ? nextEvent() : worldCalls.apply(call), drive);
         computer.cpu = cpu;
         computer.outputSink = terminal::write;

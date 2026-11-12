@@ -92,6 +92,14 @@ public final class ComputerManager {
                 continue;
             }
             Map<String, Map<String, qbotics.engine.HostFileSystem>> mounts = new java.util.TreeMap<>();
+            if (level.getBlockEntity(entry.getValue().pos()) instanceof qbotics.block.ServerBlockEntity rack) {
+                // A Server's own hard drives, at /net/disks.
+                Map<String, qbotics.engine.HostFileSystem> own = new java.util.LinkedHashMap<>();
+                rack.mounted().forEach((name, id) -> own.put(name, mediaFiles(id)));
+                if (!own.isEmpty()) {
+                    mounts.put(qbotics.laptop.Laptops.DISKS_FOLDER, own);
+                }
+            }
             for (qbotics.network.NetworkDevice device : qbotics.network.CableNetwork.at(level, entry.getValue().pos()).devices()) {
                 if (device instanceof qbotics.block.DriveBayBlockEntity bay) {
                     Map<String, qbotics.engine.HostFileSystem> drives = new java.util.LinkedHashMap<>();
@@ -166,7 +174,9 @@ public final class ComputerManager {
                     });
                     return answer;
                 }, block instanceof qbotics.qbot.QbotBlockEntity,
-                block instanceof qbotics.qbot.QbotBlockEntity qbot && qbot.programRunning());
+                block instanceof qbotics.qbot.QbotBlockEntity qbot && qbot.programRunning(),
+                block instanceof qbotics.block.ServerBlockEntity ? qbotics.block.ServerBlockEntity.HEAP_BYTES : ServerComputer.BASIC_HEAP_BYTES,
+                block instanceof qbotics.block.ServerBlockEntity ? qbotics.block.ServerBlockEntity.DRIVE_BYTES : ServerComputer.DRIVE_QUOTA_BYTES);
         computers.put(block.deviceId(), computer);
         places.put(block.deviceId(), new Viewing(block.deviceId(), dimension, pos));
         booting.remove(block.deviceId());
@@ -234,7 +244,7 @@ public final class ComputerManager {
             }
             outbox.add(server -> answer.complete(NetworkCalls.handleLaptop(server, owner, call)));
             return answer;
-        });
+        }, false, false, qbotics.laptop.Laptops.HEAP_BYTES, ServerComputer.DRIVE_QUOTA_BYTES);
         computers.put(id, computer);
         laptops.put(owner, computer);
         return computer;

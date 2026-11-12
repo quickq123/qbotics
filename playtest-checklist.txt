@@ -270,3 +270,9 @@ GIT
 102. git pull refuses (your change); git pull --force puts it back.
 103. Push (set git.allow_push = true first): /qbotics git token, read the warning, paste a fine-grained token.
      Clone your own repository, change a file, git push -m "from Minecraft", see the commit on GitHub.
+
+SERVER
+104. Craft RAM (integrated circuit in 8 gold), then a Server (ancient debris corners, LED Screen, RAM, Laptop,
+     Drive Bay). Place it: a dark rack. python ,  b = bytearray(1500000)  works (a computer runs out).
+105. Sneak + right-click: four drive sockets. Put a hard drive in; ls /net/disks shows disk1.
+106. No Uplink nearby: import requests ,  requests.get('https://api.github.com/zen')  works.

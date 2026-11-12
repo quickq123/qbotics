@@ -44,6 +44,7 @@ glowstone and gold.
 | 4 LED Screen | `ODL` / `ODL` / `ODL` | A column each of gold ingots, Light Emitting Diodes and glass blocks |
 | Integrated Circuit | `CCC` / `LGL` / `CCC` | Copper ingots above and below; glass, green dye, glass between |
 | Computer | `CCC` / `CMC` / `CSC` | Seven cables, an integrated circuit in the middle, an **LCD Screen** at the bottom middle |
+| RAM | `GGG` / `GIG` / `GGG` | An Integrated Circuit in eight gold ingots. For the Server (section 7i) |
 
 The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (section 7c).
 
@@ -1441,6 +1442,9 @@ A **Laptop** is a computer you carry, for working on computers and Qbots whereve
 computer's files come with it: the first time the laptop is opened they are copied into your
 laptop files, under `/imported/computer-<id>/`, so nothing already there is overwritten.
 
+**Memory:** a laptop's programs have 1 MB, four times a computer's. Connected to a computer
+or Qbot, though, you work on *that* machine, with its memory.
+
 **One laptop computer per player.** Every laptop you open is the same computer: one shell, one
 set of files, kept for you. Craft a new laptop and your files are there. Someone else opening
 your laptop gets *their* laptop computer, not yours.
@@ -1613,6 +1617,37 @@ A call that can't be done raises `git.GitError`, saying why.
   real git there. Your token never leaves your PC.
 - Each git command counts as one request against the uplink's limit (30 a minute).
 
+## 7i. The Server: the late-game computer
+
+A **Server** is a computer with room to spare. It does everything a Computer does (terminal,
+editor, network, `ssh`, the Programmer), and more:
+
+| | Computer | Laptop | Server |
+|---|---|---|---|
+| Memory for programs | 256 KB | 1 MB | **2 MB** |
+| Its own drive | 1 MB | 1 MB | **8 MB** |
+| Hard drives it holds | none (use a Drive Bay) | 2, at `/net/disks` | **4, at `/net/disks`** |
+| The internet (`requests`, `git`) | needs an Uplink on its network | built in | **built in** |
+
+- **Right-click** opens its screen, as a computer's does. **Sneak + right-click** opens its
+  four hard-drive sockets. Its drives appear only to the Server itself, at `/net/disks/disk1`
+  and on (or the name the drive was given in an anvil). A Drive Bay's drives, on the same
+  cables, appear beside them in `/net` as usual.
+- **Memory is the computer's own, not the screen's.** When you connect to a Server, from a
+  laptop or with `ssh` from a basic computer, the programs run on the Server with its 2 MB.
+  The same goes the other way: a laptop connected to a Qbot works with the Qbot's 256 KB.
+- **Limit:** `limits.servers_per_player` (2), counted apart from computers. Each running
+  Server holds 2 MB of the game server's memory, eight times a computer.
+- Broken, it keeps its files (they travel with the item, as a computer's do) and drops its
+  hard drives.
+
+**Crafting:** `ASA` / `RLR` / `ADA`: ancient debris at the four corners, an **LED Screen** at
+the top, **RAM** on either side of a **Laptop**, a **Drive Bay** at the bottom. **RAM** is an
+Integrated Circuit surrounded by eight gold ingots (`GGG` / `GIG` / `GGG`).
+
+**Not yet:** several programs at once in the background (services), and keeping its own chunk
+loaded. Answers from `requests` are still at most 24 KB on every computer.
+
 ## 8. The Network Probe
 
 A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows the mode.
@@ -1642,7 +1677,8 @@ tags.
 | Calls waiting for the game at once | 32 per computer. Calls a program never waited for, or that Ctrl+C cut short, are forgotten when it ends |
 | A network | 4,096 cables and blocks; 253 devices |
 | A device name | 24 characters |
-| A computer's drive | 1 MB |
+| A computer's drive | 1 MB (a Server's, 8 MB) |
+| Memory for programs | 256 KB on a computer or Qbot, 1 MB on a laptop, 2 MB on a Server |
 | A file opened in the editor | 30 KB |
 
 ---
@@ -1681,6 +1717,7 @@ even across restarts, until someone opens it again.
 | `limits.computers_per_player` | 10 | Active computers per player; -1 for no limit |
 | `limits.antennas_per_player` | 10 | Active antennas per player; -1 for no limit |
 | `limits.qbots_per_player` | 5 | Active Qbots per player; -1 for no limit |
+| `limits.servers_per_player` | 2 | Active Servers per player; -1 for no limit |
 | `limits.operators_exempt` | true | Operators have no limit |
 | `boot.per_tick` | 4 | Computers started per tick as they come back on |
 | `scheduler.worker_cores` | 2 | How many computers run Python at the same moment (read at server start) |

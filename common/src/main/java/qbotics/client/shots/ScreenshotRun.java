@@ -173,6 +173,7 @@ public final class ScreenshotRun {
         view("07-working-setup", new Vec3(9.0, 3.6, 0.2), new Vec3(9.0, 0.7, -3.5));
         view("08-antennas", new Vec3(12.5, 2.8, -0.6), new Vec3(12.5, 1.2, -3.5));
         view("08b-cable-shapes", new Vec3(3.5, 3.4, -4.6), new Vec3(3.5, 0.5, -7.0));
+        view("08c-server", new Vec3(18.5, 1.7, -2.0), new Vec3(18.5, 0.5, -5.0));
 
         // The screens.
         then(15, minecraft -> onServer(minecraft, player -> {
@@ -531,6 +532,8 @@ public final class ScreenshotRun {
                     new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.UNIVERSAL)),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("lcd_screen"))),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("integrated_circuit"))),
+                    new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("ram"))),
+                    new ItemStack(QboticsContent.SERVER_BLOCK.get()),
                 };
                 for (int slot = 0; slot < items.length; slot++) {
                     player.getInventory().setItem(slot, items[slot]);
@@ -735,6 +738,13 @@ public final class ScreenshotRun {
         if (level.getBlockEntity(base.offset(7, 0, -5)) instanceof ComputerBlockEntity workshop) {
             workshop.setDeviceName("workshop");
         }
+        // The Server beside a Computer, and a bricked Server, all facing the camera.
+        level.setBlock(base.offset(17, 0, -5), QboticsContent.COMPUTER_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+        level.setBlock(base.offset(18, 0, -5), QboticsContent.SERVER_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+        level.setBlock(base.offset(19, 0, -5), QboticsContent.SERVER_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH).setValue(qbotics.block.ComputerBlock.ACTIVE, false), Block.UPDATE_ALL);
         // Blocks set like this skip the placement logic, so give every cable its arms now.
         for (int x = -2; x <= 16; x++) {
             for (int z = -8; z <= 4; z++) {

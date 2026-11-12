@@ -15,6 +15,7 @@
     "qbotics:text_monitor",
     "qbotics:control_panel",
     "qbotics:iron_qbot",
-    "qbotics:uplink"
+    "qbotics:uplink",
+    "qbotics:server"
   ]
 }

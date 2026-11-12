@@ -30,6 +30,7 @@ public final class Limits {
     public static final String COMPUTER = "computer";
     public static final String ANTENNA = "antenna";
     public static final String QBOT = "qbot";
+    public static final String SERVER = "server";
 
     /** When each player last asked a bricked device to come on, in game ticks. */
     private static final Map<UUID, Long> LAST_CHECK = new HashMap<>();
@@ -39,11 +40,12 @@ public final class Limits {
 
     /** A type's limit from the config; -1 means none. */
     public static int limit(String type) {
-        return type.equals(COMPUTER) ? QboticsConfig.computersPerPlayer : type.equals(QBOT) ? QboticsConfig.qbotsPerPlayer : QboticsConfig.antennasPerPlayer;
+        return type.equals(COMPUTER) ? QboticsConfig.computersPerPlayer : type.equals(QBOT) ? QboticsConfig.qbotsPerPlayer
+                : type.equals(SERVER) ? QboticsConfig.serversPerPlayer : QboticsConfig.antennasPerPlayer;
     }
 
     private static String plural(String type) {
-        return type.equals(COMPUTER) ? "computers" : type.equals(QBOT) ? "Qbots" : "antennas";
+        return type.equals(COMPUTER) ? "computers" : type.equals(QBOT) ? "Qbots" : type.equals(SERVER) ? "Servers" : "antennas";
     }
 
     /** True if a player may have any number of devices: an operator, when the config says so. */
@@ -191,7 +193,7 @@ public final class Limits {
         for (java.util.Map.Entry<UUID, java.util.List<DeviceRegistry.Entry>> owner : byOwner.entrySet()) {
             String name = qbotics.network.RadioNetwork.playerName(server, owner.getKey());
             String who = player != null ? "You have" : (name == null ? owner.getKey().toString() : name) + " has";
-            for (String type : new String[] {COMPUTER, ANTENNA, QBOT}) {
+            for (String type : new String[] {COMPUTER, ANTENNA, QBOT, SERVER}) {
                 int limit = limit(type);
                 String of = limit < 0 || exempt(server, owner.getKey()) ? " (no limit)" : " of " + limit;
                 lines.add(who + " " + registry.count(owner.getKey(), type) + of + " active " + plural(type) + ".");

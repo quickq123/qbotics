@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -65,6 +65,7 @@ public final class QboticsGameTests {
             Map.entry("ssh_gateway", QboticsGameTests::sshGateway),
             Map.entry("uplink", QboticsGameTests::uplink),
             Map.entry("git_offline", QboticsGameTests::gitOffline),
+            Map.entry("server_block", QboticsGameTests::serverBlock),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -2743,6 +2744,45 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> assertScreen(helper, computer, "On me/proj, branch main, at abc1234", "M a.py", "A c.py", "D b.py",
                 "changes that pulling would overwrite", "Pushing is switched off", "git clones GitHub repositories",
                 "/nothing isn't a cloned repository"));
+    }
+
+    /**
+     * The Server: memory a computer hasn't got, an uplink of its own (no Uplink block on its
+     * network), its own hard drives at /net/disks, and the RAM and Server recipes.
+     */
+    private static void serverBlock(GameTestHelper helper) {
+        java.util.function.Function<String, ItemStack> item = id -> new ItemStack(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id(id)));
+        ItemStack gold = new ItemStack(Items.GOLD_INGOT);
+        ItemStack ram = craft(helper, gold, gold, gold, gold, item.apply("integrated_circuit"), gold, gold, gold, gold);
+        helper.assertTrue(ram.getItem().toString().equals("qbotics:ram"), "the RAM recipe gave " + ram);
+        ItemStack debris = new ItemStack(Items.ANCIENT_DEBRIS);
+        ItemStack made = craft(helper, debris, item.apply("led_screen"), debris, ram, item.apply("laptop"), ram,
+                debris, item.apply("drive_bay"), debris);
+        helper.assertTrue(made.getItem().toString().equals("qbotics:server"), "the Server recipe gave " + made);
+
+        BlockPos at = new BlockPos(0, 1, 0);
+        helper.setBlock(at, QboticsContent.SERVER_BLOCK.get());
+        qbotics.block.ServerBlockEntity block = helper.getBlockEntity(at, qbotics.block.ServerBlockEntity.class);
+        block.claim(UUID.randomUUID());
+        block.drives().setItem(0, item.apply("hard_drive"));
+        ServerComputer computer = ComputerManager.get(helper.getLevel().getServer()).getOrStart(block);
+        helper.assertTrue(computer.heapBytes() == qbotics.block.ServerBlockEntity.HEAP_BYTES, "a server's memory");
+        for (String line : List.of("python", "b = bytearray(1500000)", "print('big', len(b))", "del b", "import requests",
+                "try:\n    requests.get('https://127.0.0.1/')\nexcept requests.RequestException as e:\n    print('refused', e)\n")) {
+            computer.submitLine(line);
+        }
+        int[] ticks = {0};
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "big 1500000", "127.0.0.1 leads to a private");
+            // The drives are mounted at the next refresh, a few ticks on: look until they are there.
+            if (ticks[0]++ % 20 == 0 && !screen(computer).contains("disks ['disk1']")) {
+                computer.submitLine("import os");
+                computer.submitLine("print('disks', os.listdir('/net/disks') if 'disks' in os.listdir('/net') else [])");
+            }
+            assertScreen(helper, computer, "disks ['disk1']");
+            helper.assertTrue(!screen(computer).contains("needs an Uplink"), "a server has its own uplink");
+        });
     }
 
     private static void ironQbot(GameTestHelper helper) {

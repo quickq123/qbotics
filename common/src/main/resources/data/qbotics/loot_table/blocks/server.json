@@ -1,0 +1,31 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "qbotics:server",
+          "functions": [
+            {
+              "function": "minecraft:copy_components",
+              "include": [
+                "qbotics:drive_id",
+                "minecraft:custom_name"
+              ],
+              "source": "block_entity"
+            }
+          ]
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "qbotics:blocks/server"
+}

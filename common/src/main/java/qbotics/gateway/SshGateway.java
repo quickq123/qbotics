@@ -123,7 +123,9 @@ public final class SshGateway {
                 if (known != null) {
                     return known;
                 }
-                Path root = target(mc, (ServerSession) session).drive().toAbsolutePath().normalize();
+                Target target = target(mc, (ServerSession) session);
+                Path root = target.drive().toAbsolutePath().normalize();
+                session.setAttribute(QUOTA_BYTES, target.computer() == null ? ServerComputer.DRIVE_QUOTA_BYTES : target.computer().quotaBytes());
                 Files.createDirectories(root);
                 session.setAttribute(ROOT, root);
                 return root;
@@ -170,6 +172,7 @@ public final class SshGateway {
 
     /** The root of a session's SFTP files, for the quota check. */
     static final AttributeRepository.AttributeKey<Path> ROOT = new AttributeRepository.AttributeKey<>();
+    static final AttributeRepository.AttributeKey<Long> QUOTA_BYTES = new AttributeRepository.AttributeKey<>();
 
     /** The computer this session's login name picks, worked out on the server thread. */
     static Target target(MinecraftServer mc, ServerSession session) throws IOException {
@@ -259,8 +262,10 @@ public final class SshGateway {
                     }
                 }).sum();
             }
-            if (used + dataLen > ServerComputer.DRIVE_QUOTA_BYTES) {
-                throw new IOException("The computer's drive is full (" + ServerComputer.DRIVE_QUOTA_BYTES / 1024 + " KB).");
+            Long quota = session.getAttribute(QUOTA_BYTES);
+            long limit = quota == null ? ServerComputer.DRIVE_QUOTA_BYTES : quota;
+            if (used + dataLen > limit) {
+                throw new IOException("The computer's drive is full (" + limit / 1024 + " KB).");
             }
         }
     };

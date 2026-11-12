@@ -55,6 +55,8 @@ public final class QboticsContent {
     /** Qbots (design doc §8): the Iron Qbot, its block entity and screen, and the block holding its part models. */
     public static Supplier<qbotics.qbot.QbotBlock> IRON_QBOT_BLOCK;
     public static Supplier<BlockEntityType<qbotics.qbot.QbotBlockEntity>> QBOT_BLOCK_ENTITY;
+    public static Supplier<qbotics.block.ServerBlock> SERVER_BLOCK;
+    public static Supplier<BlockEntityType<qbotics.block.ServerBlockEntity>> SERVER_BLOCK_ENTITY;
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.qbot.QbotMenu>> QBOT_MENU;
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.laptop.LaptopMenu>> LAPTOP_MENU;
     public static Supplier<? extends net.minecraft.world.item.Item> LAPTOP_ITEM;
