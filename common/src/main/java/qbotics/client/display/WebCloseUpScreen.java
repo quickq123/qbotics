@@ -87,6 +87,12 @@ public class WebCloseUpScreen extends Screen {
         }
         graphics.centeredText(font, Component.translatable(view.focused() != null ? "screen.qbotics.web.typing" : "screen.qbotics.web.hint"),
                 width / 2, height - 14, 0xFFB0B0B0);
+        String error = view.lastError();
+        if (error != null) {
+            // A script's last error, for whoever is writing the page.
+            String line = error.lines().findFirst().orElse("");
+            graphics.centeredText(font, Component.literal(line.length() > 120 ? line.substring(0, 120) + "..." : line), width / 2, 4, 0xFFFF7070);
+        }
     }
 
     /** A mouse point on the panel, in its CSS pixels, or null if off it. */

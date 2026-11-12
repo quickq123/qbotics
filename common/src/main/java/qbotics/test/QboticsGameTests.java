@@ -72,6 +72,8 @@ public final class QboticsGameTests {
             Map.entry("web_panel", QboticsGameTests::webPanel),
             Map.entry("web_storage", QboticsGameTests::webStorage),
             Map.entry("qbot_camera", QboticsGameTests::qbotCamera),
+            Map.entry("js_engine", QboticsGameTests::jsEngine),
+            Map.entry("web_script", QboticsGameTests::webScript),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -2977,7 +2979,7 @@ public final class QboticsGameTests {
                 "<html><head><link rel=\"stylesheet\" href=\"style.css\"></head><body>",
                 "<h2>Smeltery</h2><div class=\"row\"><span>Iron: {{iron}}</span> <span>Gold: {{gold}}</span>",
                 "<button data-event=\"smelt\">Smelt</button></div><p>First: {{items.0}}, then {{items.1}}. {{missing}}</p>",
-                "</body></html>");
+                "<script src=\"app.js\"></script></body></html>");
         String style = ".row { display: flex; gap: 8px; align-items: center; justify-content: space-between; } h2 { color: #ffb347; margin: 0 0 6px 0; }";
         String program = String.join("\n",
                 "import events",
@@ -3001,6 +3003,7 @@ public final class QboticsGameTests {
             computer.drive().call(qbotics.engine.HostFileSystem.MKDIR, "/app", new byte[0]);
             computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/app/index.html", page.getBytes(utf8));
             computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/app/style.css", style.getBytes(utf8));
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/app/app.js", "console.log('app loaded');".getBytes(utf8));
             computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/web.py", program.getBytes(utf8));
         } catch (qbotics.engine.HostFileSystem.FsException e) {
             throw new IllegalStateException(e);
@@ -3017,6 +3020,7 @@ public final class QboticsGameTests {
                 state = screen.stateJson();
             }
             helper.assertTrue(html.contains("<style>") && html.contains("#ffb347") && !html.contains("<link"), "the stylesheet is put in the page");
+            helper.assertTrue(html.contains("console.log('app loaded')") && !html.contains("src=\"app.js\""), "the script is put in the page");
             helper.assertTrue(state.contains("\"iron\":128") && state.contains("copper <b>"), "the state: " + state);
             String filled = qbotics.web.WebTemplate.fill(html, state);
             helper.assertTrue(filled.contains("Iron: 128") && filled.contains("copper &lt;b&gt;") && filled.contains("then copper") && !filled.contains("{{"),
@@ -3104,7 +3108,8 @@ public final class QboticsGameTests {
         helper.setBlock(new BlockPos(0, 1, 2), web);
         qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(0, 1, 2), qbotics.block.DisplayBlockEntity.class);
         for (String line : List.of("python", "import events", "from logistics import network", "web = network().web_panel()",
-                "web.on('search', lambda e: print('search', e.value, e.enter, e.tag))", "events.run()")) {
+                "web.on('search', lambda e: print('search', e.value, e.enter, e.tag))",
+                "web.on('picked', lambda e: print('picked', e.data['item'], e.data['count'], e.tag))", "events.run()")) {
             computer.submitLine(line);
         }
         boolean[] sent = {false};
@@ -3117,9 +3122,12 @@ public final class QboticsGameTests {
                 player.setPos(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
                 qbotics.display.Displays.onWebClick(player, new qbotics.net.DisplayPayloads.WebClick(panel.getBlockPos(),
                         "{\"tag\":\"input\",\"id\":\"\",\"name\":\"search\",\"event\":\"search\",\"value\":\"iron\",\"enter\":true}"));
+                // panel.send('picked', {...}) from a page's script, as the player's game sends it.
+                qbotics.display.Displays.onWebClick(player, new qbotics.net.DisplayPayloads.WebClick(panel.getBlockPos(),
+                        "{\"tag\":\"script\",\"id\":\"\",\"name\":\"\",\"event\":\"picked\",\"value\":\"\",\"data\":\"{\\\"item\\\":\\\"coal\\\",\\\"count\\\":12}\"}"));
                 sent[0] = true;
             }
-            assertScreen(helper, computer, "search iron True input");
+            assertScreen(helper, computer, "search iron True input", "picked coal 12 script");
         });
     }
 
@@ -3173,6 +3181,180 @@ public final class QboticsGameTests {
             helper.assertTrue(picture != null && picture.width() == 32 && picture.data().length == 32 * 24 * qbotics.camera.Picture.BYTES_PER_PIXEL,
                     "the picture is on the panel");
         });
+    }
+
+    /** The web panels' JavaScript engine: it runs code, calls the game, keeps to its time budget, and how fast it is. */
+    private static void jsEngine(GameTestHelper helper) {
+        long start = System.nanoTime();
+        java.util.List<String> calls = new java.util.ArrayList<>();
+        qbotics.web.JsRuntime js = new qbotics.web.JsRuntime(16 << 20, (op, arg) -> {
+            calls.add(op + ":" + arg);
+            return op.equals("echo") ? "<" + arg + ">" : null;
+        });
+        long made = System.nanoTime();
+        qbotics.web.JsRuntime.Result sum = js.eval("let s = 0; for (let i = 0; i < 10; i++) s += i; s", "sum.js", 1000);
+        helper.assertTrue(sum.ok() && sum.text().equals("45"), "a sum: " + sum);
+        qbotics.web.JsRuntime.Result echo = js.eval("__host('echo', 'hi') + [1,2,3].map(x => x * 2).join(',')", "echo.js", 1000);
+        helper.assertTrue(echo.ok() && echo.text().equals("<hi>2,4,6"), "the game answers: " + echo);
+        qbotics.web.JsRuntime.Result error = js.eval("function f() { null.x; }\nf();", "error.js", 1000);
+        helper.assertTrue(!error.ok() && error.text().contains("TypeError") && error.text().contains("error.js"), "an error and where: " + error);
+        long loop = System.nanoTime();
+        qbotics.web.JsRuntime.Result forever = js.eval("while (true) {}", "loop.js", 50);
+        long stopped = (System.nanoTime() - loop) / 1_000_000;
+        helper.assertTrue(!forever.ok() && forever.text().contains("interrupted") && stopped < 1000, "a loop forever is stopped: " + forever + " in " + stopped);
+        long bench = System.nanoTime();
+        qbotics.web.JsRuntime.Result fib = js.eval("function fib(n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); } fib(24)", "fib.js", 0);
+        long fibMs = (System.nanoTime() - bench) / 1_000_000;
+        long bench2 = System.nanoTime();
+        js.eval("let a = []; for (let i = 0; i < 20000; i++) a.push({x: i, s: 'item' + i}); a.filter(o => o.x % 3 == 0).map(o => o.s).join('').length",
+                "objects.js", 0);
+        long objectsMs = (System.nanoTime() - bench2) / 1_000_000;
+        for (int round = 0; round < 4; round++) {
+            long warm = System.nanoTime();
+            js.eval("fib(24)", "fib.js", 0);
+            qbotics.Qbotics.LOGGER.info("JS engine: fib(24) again in {} ms", (System.nanoTime() - warm) / 1_000_000);
+        }
+        qbotics.Qbotics.LOGGER.info("JS engine: made in {} ms, fib(24) = {} in {} ms, 20000 objects in {} ms, memory {} KB",
+                (made - start) / 1_000_000, fib.text(), fibMs, objectsMs, js.memoryUsed() / 1024);
+        helper.succeed();
+    }
+
+    /**
+     * A page with scripts: they build part of the page, draw on a canvas, answer clicks (and
+     * can stop a button's default), hear the program's state, and send to it.
+     */
+    private static void webScript(GameTestHelper helper) {
+        java.util.List<String> sent = new java.util.ArrayList<>();
+        java.util.List<String> errors = new java.util.ArrayList<>();
+        java.util.List<String> logs = new java.util.ArrayList<>();
+        qbotics.web.WebScript script = new qbotics.web.WebScript(new qbotics.web.WebScript.Hooks() {
+            @Override
+            public void send(String name, String dataJson) {
+                sent.add(name + " " + dataJson);
+            }
+
+            @Override
+            public void log(String line) {
+                logs.add(line);
+            }
+
+            @Override
+            public void error(String message) {
+                errors.add(message);
+            }
+
+            @Override
+            public String value(String field) {
+                return field.equals("q") ? "iron" : null;
+            }
+
+            @Override
+            public void setValue(String field, String value) {
+            }
+        });
+        String page = String.join("\n",
+                "<html><head><style>body { margin: 6px; font-family: sans-serif; background: #0e1216; color: #e6e8ea; }",
+                ".on { color: #7f7; } li { margin: 2px 0; }</style></head><body>",
+                "<h3 id='title'>Loading</h3><ul id='list'></ul>",
+                "<canvas id='chart' width='200' height='60'></canvas>",
+                "<button id='go' data-event='go'>Go</button> <button id='quiet' data-event='quiet'>Quiet</button>",
+                "<input name='q'>",
+                "<script>",
+                "const list = document.getElementById('list');",
+                "for (const ore of ['Iron', 'Gold', 'Coal']) { const li = document.createElement('li'); li.textContent = ore; list.appendChild(li); }",
+                "document.querySelector('#title').textContent = 'Ores: ' + document.querySelectorAll('#list > li').length;",
+                "const ctx = document.getElementById('chart').getContext('2d');",
+                "ctx.fillStyle = '#123'; ctx.fillRect(0, 0, 200, 60);",
+                "ctx.fillStyle = 'orange'; [10, 30, 22, 50, 40].forEach((v, i) => ctx.fillRect(10 + i * 38, 60 - v, 28, v));",
+                "ctx.strokeStyle = '#7cf'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(180, 15, 10, 0, Math.PI * 2); ctx.stroke();",
+                "ctx.font = 'bold 12px sans-serif'; ctx.fillStyle = 'white'; ctx.fillText('Output', 6, 14);",
+                "let clicks = 0;",
+                "document.getElementById('go').addEventListener('click', e => { clicks++; document.getElementById('title').classList.add('on'); panel.send('clicked', {clicks, q: document.querySelector('input').value}); });",
+                "document.getElementById('quiet').onclick = null; document.getElementById('quiet').addEventListener('click', e => e.preventDefault());",
+                "panel.onState(s => { document.getElementById('title').textContent = 'Iron: ' + s.iron; });",
+                "setTimeout(() => console.log('timer ran'), 0);",
+                "</script></body></html>");
+        script.load(page, 256, 192, "{\"iron\": 5}");
+        helper.assertTrue(errors.isEmpty(), "no errors: " + errors);
+        String html = script.html();
+        helper.assertTrue(html.contains("Ores: 3") && html.contains(">Gold</li>") && !html.contains("<script") && html.contains("src=\"canvas:"),
+                "the scripts built the page: " + html);
+        helper.assertTrue(logs.contains("timer ran"), "a timer ran: " + logs);
+        // Lay the page out and paint it, with the canvas.
+        qbotics.web.WebPage laid = new qbotics.web.WebPage(url -> url.startsWith("canvas:") ? new float[] {200, 60} : null);
+        laid.load(html, "");
+        laid.layout(256, 192);
+        java.awt.image.BufferedImage picture = qbotics.web.WebPainter.paint(laid, 0, 2,
+                url -> url.startsWith("canvas:") ? script.canvas(Integer.parseInt(url.substring(7))) : null);
+        try {
+            javax.imageio.ImageIO.write(picture, "png", java.nio.file.Path.of("web-script-test.png").toFile());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        java.awt.image.BufferedImage chart = script.canvas(Integer.parseInt(html.replaceAll("(?s).*src=\"canvas:(\\d+)\".*", "$1")));
+        helper.assertTrue(chart != null && (chart.getRGB(10 + 3 * 38 + 5, 55) & 0xFFFFFF) == 0xFFA500, "the canvas has its bars");
+        // Click the Go button: the script hears it, and its default (data-event) goes on.
+        String hit = null;
+        for (int x = 4; x < 252 && hit == null; x += 3) {
+            for (int y = 60; y < 190 && hit == null; y += 3) {
+                String h = laid.hit(x, y);
+                hit = h != null && h.contains("\"id\":\"go\"") ? h : null;
+            }
+        }
+        helper.assertTrue(hit != null, "the Go button is on the page");
+        int number = com.google.gson.JsonParser.parseString(hit).getAsJsonObject().get("qbn").getAsInt();
+        helper.assertTrue(script.click(number, 10, 10), "the button's default goes on");
+        helper.assertTrue(sent.size() == 1 && sent.get(0).contains("\"clicks\":1") && sent.get(0).contains("\"q\":\"iron\""), "panel.send: " + sent);
+        helper.assertTrue(script.takeHtmlChanged() && script.html().contains("class=\"on\""), "the click changed the page");
+        // A button whose script calls preventDefault: its default doesn't go on.
+        int quiet = Integer.parseInt(script.html().replaceAll("(?s).*id=\"quiet\"[^>]*data-qbn=\"(\\d+)\".*", "$1"));
+        helper.assertTrue(!script.click(quiet, 1, 1), "preventDefault stops the default");
+        script.setState("{\"iron\": 42}");
+        helper.assertTrue(script.html().contains("Iron: 42"), "panel.onState updated the page");
+        // How long an animation frame takes, part by part (the reactor page of the screenshots).
+        qbotics.web.WebScript anim = new qbotics.web.WebScript(new qbotics.web.WebScript.Hooks() {
+            public void send(String n, String d) { }
+            public void log(String l) { }
+            public void error(String m) { errors.add(m); }
+            public String value(String f) { return null; }
+            public void setValue(String f, String v) { }
+        });
+        anim.load(String.join("\n",
+                "<html><body><h2>Reactor</h2><div><span>Ticks</span><span id='count'>0</span></div><canvas id='c' width='240' height='150'></canvas><script>",
+                "let n = 0; const c = document.getElementById('c'); const g = c.getContext('2d'); const history = [];",
+                "function frame(t) { n++; document.getElementById('count').textContent = n;",
+                "  history.push(60 + 40 * Math.sin(t / 300)); if (history.length > 60) history.shift();",
+                "  g.fillStyle = '#0b1a26'; g.fillRect(0, 0, 240, 150);",
+                "  g.strokeStyle = '#ffb347'; g.lineWidth = 2; g.beginPath(); history.forEach((v, i) => i ? g.lineTo(i * 4, 150 - v) : g.moveTo(0, 150 - v)); g.stroke();",
+                "  requestAnimationFrame(frame); }",
+                "requestAnimationFrame(frame);</script></body></html>"), 256, 256, "{}");
+        qbotics.web.WebPage animPage = new qbotics.web.WebPage(url -> url.startsWith("canvas:") ? new float[] {240, 150} : null);
+        long jsMs = 0;
+        long layoutMs = 0;
+        long paintMs = 0;
+        for (int i = 0; i < 20; i++) {
+            long t0 = System.nanoTime();
+            anim.tick();
+            long t1 = System.nanoTime();
+            if (anim.takeHtmlChanged()) {
+                animPage.load(anim.html(), "");
+                animPage.layout(256, 256);
+            }
+            long t2 = System.nanoTime();
+            qbotics.web.WebPainter.paint(animPage, 0, 2, url -> url.startsWith("canvas:") ? anim.canvas(Integer.parseInt(url.substring(7))) : null);
+            long t3 = System.nanoTime();
+            if (i >= 10) {
+                jsMs += t1 - t0;
+                layoutMs += t2 - t1;
+                paintMs += t3 - t2;
+            }
+        }
+        qbotics.Qbotics.LOGGER.info("Web frame (average of 10): scripts {} ms, layout {} ms, paint {} ms",
+                jsMs / 10_000_000.0, layoutMs / 10_000_000.0, paintMs / 10_000_000.0);
+        // A script that never ends is stopped.
+        script.load("<script>while (true) {}</script>", 100, 100, "{}");
+        helper.assertTrue(errors.stream().anyMatch(e -> e.contains("ran too long")), "a runaway script is stopped: " + errors);
+        helper.succeed();
     }
 
     private static void ironQbot(GameTestHelper helper) {

@@ -307,6 +307,38 @@ def _inline_css(html, folder):
             out.append("<style>\n" + f.read() + "\n</style>")
 
 
+def _inline_scripts(html, folder):
+    # <script src="app.js"></script> becomes the script itself, read from beside the page.
+    out = []
+    at = 0
+    while True:
+        start = html.find("<script", at)
+        if start < 0:
+            out.append(html[at:])
+            return "".join(out)
+        end = html.find(">", start)
+        close = html.find("</script>", end)
+        if end < 0 or close < 0:
+            out.append(html[at:])
+            return "".join(out)
+        tag = html[start:end + 1]
+        src = None
+        for quote in ('"', "'"):
+            i = tag.find("src=" + quote)
+            if i >= 0:
+                j = tag.find(quote, i + 5)
+                src = tag[i + 5:j] if j > i else None
+                break
+        out.append(html[at:start])
+        if src:
+            path = src if src.startswith("/") else folder + "/" + src
+            with open(path) as f:
+                out.append("<script>\n" + f.read() + "\n</script>")
+        else:
+            out.append(html[start:close + 9])
+        at = close + 9
+
+
 class _State:
     """A web panel's state: values the page shows where it says {{name}}. Setting one sends
     it to the panel (players see it at once); reading gives what was last set."""
@@ -376,7 +408,7 @@ class WebPanel(_Display):
         folder = path[:path.rfind("/")] if "/" in path else "."
         with open(path) as f:
             page = f.read()
-        _draw(self, "page", _inline_css(page, folder or "/"))
+        _draw(self, "page", _inline_scripts(_inline_css(page, folder or "/"), folder or "/"))
 
     def html(self, text):
         """Shows HTML given as text."""
@@ -394,7 +426,9 @@ class WebPanel(_Display):
 
     def on(self, name, function=None):
         """Runs a function when a player clicks an element with data-event="name" (or
-        id="name"). It gets an Event with .event, .id, .tag, .name, .value and .player.
+        id="name"), types in a field named name, or the page's script calls
+        panel.send("name", data). It gets an Event with .event, .id, .tag, .name, .value,
+        .player, and .data (what the script sent). "error" hears the script's errors.
         Needs events.run(). As a decorator: @panel.on("smelt")"""
         import events
         if function is None:

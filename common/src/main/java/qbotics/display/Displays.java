@@ -313,6 +313,14 @@ public final class Displays {
         String name = element.has("event") ? element.get("event").getAsString() : "";
         event.addProperty("event", name.isEmpty() ? event.get("id").getAsString() : name);
         event.addProperty("enter", element.has("enter") && element.get("enter").getAsBoolean()); // Enter pressed in a text field
+        if (element.has("data") && element.get("data").isJsonPrimitive()) {
+            // panel.send(name, data) from the page's script: the data, as JSON.
+            try {
+                event.add("data", JsonParser.parseString(element.get("data").getAsString()));
+            } catch (RuntimeException e) {
+                event.add("data", com.google.gson.JsonNull.INSTANCE);
+            }
+        }
         event.addProperty("mac", display.mac());
         event.addProperty("panel", display.deviceName());
         event.addProperty("player", player.getName().getString());

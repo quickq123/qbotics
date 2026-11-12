@@ -293,6 +293,11 @@ WEB PANEL
      overflow: auto, and <input name="search">. Set web.state['items'] from a bus's contents: icons show (3D for
      blocks). In the close-up the wheel scrolls the list; type in the field and @web.on('search') filters the list.
 
+WEB PANEL SCRIPTS
+114. A page with <script>: a counter in setInterval, a <canvas> drawn each requestAnimationFrame, a button whose
+     click listener calls panel.send('hit', {n: 1}). The panel animates; @web.on('hit') prints e.data. A script
+     error shows in red at the top of the close-up.
+
 QBOT CAMERA
 113. A Qbot facing something interesting, a Web Panel on its network (or a computer's: pictures are kept by
      number). pic = qbot.snapshot() ; print(pic.counts()) ; web.html('<img src="image:cam" style="width:256px">') ;

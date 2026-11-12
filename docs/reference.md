@@ -1384,8 +1384,62 @@ is at most 128 KB, its state 32 KB.
 | Flexbox, floats, `position` (relative, absolute) | Transforms, transitions, animations, shadows |
 | Fonts: sans-serif, serif, monospace; bold, italic; underline, line-through | `select`, `textarea`, checkboxes |
 | Linear and radial gradients; item icons (`item:`) | Typing on a panel in the world (use the close-up) |
-| Text fields, scrolling (page and `overflow: auto` boxes) | JavaScript and `<canvas>` |
+| Text fields, scrolling (page and `overflow: auto` boxes) | `<canvas>` `drawImage` of pictures, `getImageData` |
+| JavaScript: the DOM, events, timers, `<canvas>` (below) | `fetch`, modules (`import`), web fonts |
 | `@media` by the panel's size, CSS variables, `:hover`, `:active`, `:nth-child` | |
+
+**JavaScript.** A page can have scripts: `<script>` in the page, or `<script src="app.js">`
+beside it (`show()` puts the file in, as it does stylesheets). They run in each player's game,
+in a small browser of their own: the page's elements, events, timers and `<canvas>`. What one
+player's script does to the page (a tab opened, a list sorted) is theirs; what everyone should
+see goes through the program's `state`.
+
+```html
+<h2 id="title">Reactor</h2>
+<span id="power"></span>
+<canvas id="chart" width="240" height="100"></canvas>
+<button id="scram">SCRAM</button>
+<script>
+  const chart = document.getElementById("chart").getContext("2d");
+  const history = [];
+  panel.onState(state => {                       // the program set web.state
+    document.getElementById("power").textContent = state.power + " FE/t";
+    history.push(state.power);
+    if (history.length > 48) history.shift();
+    chart.fillStyle = "#0b1a26"; chart.fillRect(0, 0, 240, 100);
+    chart.strokeStyle = "orange"; chart.beginPath();
+    history.forEach((p, i) => chart.lineTo(i * 5, 100 - p / 100));
+    chart.stroke();
+  });
+  document.getElementById("scram").addEventListener("click", () => {
+    panel.send("scram", {reason: "button"});     // the program's @web.on("scram") hears it
+  });
+</script>
+```
+```python
+@web.on("scram")
+def scram(e):
+    print(e.player, "pressed SCRAM:", e.data["reason"])
+```
+
+| In scripts | |
+|---|---|
+| `panel.state`, `panel.onState(fn)` | The program's state, and a function run whenever it changes (with the new state) |
+| `panel.send(name, data)` | Sends to the program: `@web.on(name)` gets it, with `.data` |
+| `panel.width`, `panel.height` | The panel's size in CSS pixels |
+| `document.getElementById`, `querySelector`, `querySelectorAll`, `createElement`, `createTextNode` | Finding and making elements (selectors: tag, `#id`, `.class`, `[attr=value]`, descendant and `>`) |
+| `el.textContent`, `innerHTML`, `appendChild`, `remove`, `setAttribute`, `classList`, `style`, `dataset`, `value` | Changing them |
+| `addEventListener("click", fn)`, `onclick="..."`, `event.preventDefault()` | Clicks (and `input`, `change` on fields). `preventDefault()` keeps a click from the program |
+| `setTimeout`, `setInterval`, `requestAnimationFrame` | Timers and animation (up to about 10 frames a second, only while someone is looking) |
+| `console.log` | To the game's log |
+| `<canvas>`, `getContext("2d")` | Rectangles, paths, arcs, curves, text, gradients, transforms, `save`/`restore`, `clip`, line dashes |
+
+A script that throws shows its error at the top of the close-up, and the program hears it as an
+`"error"` event. A script gets 16 MB, and a run is stopped after 0.4 s (loading) or 60 ms (an event
+or frame). There is no `fetch`: pages can't reach anything; data comes from the program. Scripts
+run much slower than in a browser (a few million steps a second): plenty for pages and animated
+gauges, not for heavy number crunching. When a page has scripts, `{{name}}` is filled in once,
+when it loads; after that, `panel.onState` is how a script hears changes.
 
 **Crafting (placeholder):** makes 2: `IRI` / `ISI` / `ICI`: iron around RAM, an LED Screen and a
 cable.

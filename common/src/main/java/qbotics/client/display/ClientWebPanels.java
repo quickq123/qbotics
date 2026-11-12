@@ -24,6 +24,7 @@ import qbotics.net.DisplayPayloads;
 import qbotics.web.WebInputs;
 import qbotics.web.WebPage;
 import qbotics.web.WebPainter;
+import qbotics.web.WebScript;
 import qbotics.web.WebTemplate;
 
 /**
@@ -64,9 +65,25 @@ public final class ClientWebPanels {
         float scrollY;
         /** How tall the page is (from the worker's last layout). */
         volatile float contentHeight;
-        /** What this player has typed, by field name, and the field with the keyboard. */
-        final Map<String, String> typed = new HashMap<>();
+        /** What this player has typed, by field name, and the field with the keyboard (and its script node). */
+        final Map<String, String> typed = new java.util.concurrent.ConcurrentHashMap<>();
         @Nullable String focused;
+        @Nullable Integer focusedNode;
+        /** Goes up each time the program gives a new page (its scripts start again). */
+        int generation;
+        /** The page's scripts, if it has any. Worker only. */
+        @Nullable WebScript script;
+        int scriptGeneration = -1;
+        @Nullable String scriptState;
+        /** Things for the scripts to do on the worker before the next picture (clicks, typing, timers). */
+        final java.util.concurrent.ConcurrentLinkedQueue<java.util.function.Consumer<WebScript>> scriptActions =
+                new java.util.concurrent.ConcurrentLinkedQueue<>();
+        /** A timer is set to wake the scripts; or one came due while nobody was looking. */
+        boolean tickQueued;
+        boolean tickWaiting;
+        /** The scripts' last error, shown in the close-up. */
+        volatile @Nullable String lastError;
+        long lastErrorSent;
         /** Typing not yet sent to the program, and when the last key was. */
         boolean typingPending;
         long lastKey;
@@ -102,9 +119,15 @@ public final class ClientWebPanels {
         public @Nullable String focused() {
             return focused;
         }
+
+        public @Nullable String lastError() {
+            return lastError;
+        }
     }
 
     private static final Map<BlockPos, WebView> VIEWS = new HashMap<>();
+    private static final Map<BlockPos, Integer> DEBUG_FRAMES = new java.util.concurrent.ConcurrentHashMap<>();
+    private static long debugLast;
     private static @Nullable Level viewsLevel;
     private static long lastSweep;
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(runnable -> {
@@ -140,6 +163,8 @@ public final class ClientWebPanels {
             pending.close();
         }
         view.page = null;
+        view.script = null;
+        view.scriptGeneration = -1;
     }
 
     public static @Nullable WebView view(BlockPos origin) {
@@ -155,6 +180,7 @@ public final class ClientWebPanels {
         view.height = payload.height();
         if (payload.hasPage()) {
             view.html = payload.html();
+            view.generation++;
         }
         view.state = payload.state();
         if (payload.images() != null) {
@@ -168,12 +194,79 @@ public final class ClientWebPanels {
 
     /** A picture's natural size on the page: two CSS pixels to each of its pixels. */
     private static float @Nullable [] imageSize(WebView view, String url) {
+        if (url.startsWith("canvas:")) {
+            BufferedImage canvas = image(view, url);
+            return canvas == null ? null : new float[] {canvas.getWidth(), canvas.getHeight()};
+        }
         BufferedImage picture = url.startsWith("image:") ? view.pictures.get(url.substring(6)) : null;
         return picture == null ? null : new float[] {picture.getWidth() * 2, picture.getHeight() * 2};
     }
 
+    /** A picture the page shows: a Qbot's (image:name) or a canvas its scripts draw on (canvas:N). Worker. */
     private static @Nullable BufferedImage image(WebView view, String url) {
+        if (url.startsWith("canvas:")) {
+            WebScript script = view.script;
+            try {
+                return script == null ? null : script.canvas(Integer.parseInt(url.substring(7)));
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
         return url.startsWith("image:") ? view.pictures.get(url.substring(6)) : null;
+    }
+
+    /** What a page's scripts ask of the game. Called on the worker. */
+    private static WebScript.Hooks hooks(WebView view) {
+        return new WebScript.Hooks() {
+            @Override
+            public void send(String name, String dataJson) {
+                JsonObject element = new JsonObject();
+                element.addProperty("tag", "script");
+                element.addProperty("id", "");
+                element.addProperty("name", "");
+                element.addProperty("event", name);
+                element.addProperty("value", "");
+                element.addProperty("data", dataJson.length() > 3000 ? "null" : dataJson);
+                Minecraft.getInstance().execute(() -> Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, element.toString())));
+            }
+
+            @Override
+            public void log(String line) {
+                Qbotics.LOGGER.info("Web panel at {}: {}", view.origin.toShortString(), line.length() > 500 ? line.substring(0, 500) : line);
+            }
+
+            @Override
+            public void error(String message) {
+                view.lastError = message.length() > 300 ? message.substring(0, 300) : message;
+                Qbotics.LOGGER.warn("Web panel at {}: {}", view.origin.toShortString(), view.lastError);
+                long now = System.currentTimeMillis();
+                if (now - view.lastErrorSent > 2000) {
+                    // The program hears it as an "error" event, so its author sees what went wrong.
+                    view.lastErrorSent = now;
+                    JsonObject element = new JsonObject();
+                    element.addProperty("tag", "script");
+                    element.addProperty("id", "");
+                    element.addProperty("name", "");
+                    element.addProperty("event", "error");
+                    element.addProperty("value", view.lastError.length() > 200 ? view.lastError.substring(0, 200) : view.lastError);
+                    Minecraft.getInstance().execute(() -> Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, element.toString())));
+                }
+            }
+
+            @Override
+            public @Nullable String value(String field) {
+                return view.typed.get(field);
+            }
+
+            @Override
+            public void setValue(String field, String value) {
+                view.typed.put(field, value.length() > WebInputs.MAX_LENGTH ? value.substring(0, WebInputs.MAX_LENGTH) : value);
+                Minecraft.getInstance().execute(() -> {
+                    view.dirty = true;
+                    schedule(view);
+                });
+            }
+        };
     }
 
     /** Texture pixels per CSS pixel: twice for small panels, so their text is sharp. */
@@ -183,14 +276,18 @@ public final class ClientWebPanels {
 
     /** Asks the worker for a new picture if one is wanted and none is being made. Render thread. */
     private static void schedule(WebView view) {
-        if (view.busy || !(view.dirty || view.repaint)) {
+        if (view.busy || !(view.dirty || view.repaint || !view.scriptActions.isEmpty())) {
             return;
         }
         boolean relayout = view.dirty || view.page == null;
         view.busy = true;
         view.dirty = false;
         view.repaint = false;
-        String page = relayout ? WebInputs.rewrite(WebTemplate.fill(view.html, view.state), Map.copyOf(view.typed), view.focused) : null;
+        String html = view.html;
+        String state = view.state;
+        int generation = view.generation;
+        Map<String, String> typed = Map.copyOf(view.typed);
+        String focused = view.focused;
         int width = view.width;
         int height = view.height;
         int scale = scale(view);
@@ -199,12 +296,46 @@ public final class ClientWebPanels {
             NativeImage image = null;
             List<WebPainter.Overlay> overlays = new ArrayList<>();
             float shownScroll = scroll;
+            long next = -1;
             try {
                 if (view.page == null) {
                     view.page = new WebPage(url -> imageSize(view, url));
                 }
-                if (page != null) {
-                    view.page.load(page, PANEL_CSS);
+                boolean layout = relayout;
+                String source;
+                if (WebScript.hasScripts(html)) {
+                    // The page's scripts own the page: they start with it, hear the state and the player, and change it.
+                    if (view.script == null || view.scriptGeneration != generation) {
+                        view.script = new WebScript(hooks(view));
+                        view.scriptGeneration = generation;
+                        view.scriptState = state;
+                        view.script.load(WebTemplate.fill(html, state), width, height, state);
+                    } else if (!state.equals(view.scriptState)) {
+                        view.scriptState = state;
+                        view.script.setState(state);
+                    }
+                    for (java.util.function.Consumer<WebScript> action; (action = view.scriptActions.poll()) != null; ) {
+                        action.accept(view.script);
+                    }
+                    layout |= view.script.takeHtmlChanged();
+                    view.script.takeCanvasesChanged();
+                    source = view.script.html();
+                    next = view.script.next();
+                } else {
+                    view.script = null;
+                    view.scriptActions.clear();
+                    source = WebTemplate.fill(html, state);
+                }
+                if (Boolean.getBoolean("qbotics.webDebug")) {
+                    DEBUG_FRAMES.merge(view.origin, 1, Integer::sum);
+                    if (System.currentTimeMillis() - debugLast > 2000) {
+                        debugLast = System.currentTimeMillis();
+                        Qbotics.LOGGER.info("Web panel frames in 2 s: {}", DEBUG_FRAMES);
+                        DEBUG_FRAMES.clear();
+                    }
+                }
+                if (layout) {
+                    view.page.load(WebInputs.rewrite(source, typed, focused), PANEL_CSS);
                     view.contentHeight = view.page.layout(width, height);
                 }
                 shownScroll = Math.clamp(scroll, 0, Math.max(0, view.contentHeight - height));
@@ -214,8 +345,12 @@ public final class ClientWebPanels {
             }
             NativeImage made = image;
             float clamped = shownScroll;
+            long wake = next;
             Minecraft.getInstance().execute(() -> {
                 view.busy = false;
+                if (wake >= 0) {
+                    wakeLater(view, wake);
+                }
                 if (view.scrollY == scroll) {
                     view.scrollY = clamped; // a page that got shorter scrolls back
                 }
@@ -228,6 +363,29 @@ public final class ClientWebPanels {
                 schedule(view); // anything that changed meanwhile
             });
         });
+    }
+
+    /** Animation and timers: the scripts are woken again, at most 20 times a second, while someone is looking. */
+    private static final java.util.concurrent.ScheduledExecutorService TICKER = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "qbotics-web-timers");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    private static void wakeLater(WebView view, long ms) {
+        if (view.tickQueued) {
+            return;
+        }
+        view.tickQueued = true;
+        TICKER.schedule(() -> Minecraft.getInstance().execute(() -> {
+            view.tickQueued = false;
+            if (System.currentTimeMillis() - view.lastSeen > 3000) {
+                view.tickWaiting = true; // nobody is looking: wait until someone does
+                return;
+            }
+            view.scriptActions.add(WebScript::tick);
+            schedule(view);
+        }), Math.max(50, ms), java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     private static NativeImage toNative(BufferedImage image) {
@@ -265,6 +423,10 @@ public final class ClientWebPanels {
         }
         sweep();
         sendTyping(view, false);
+        if (view.tickWaiting) {
+            view.tickWaiting = false;
+            view.scriptActions.add(WebScript::tick);
+        }
         schedule(view);
         return view.textureId;
     }
@@ -314,24 +476,42 @@ public final class ClientWebPanels {
                 return;
             }
             String hit = view.page.hit(x, pageY);
+            JsonObject parsed;
+            try {
+                parsed = hit == null ? null : JsonParser.parseString(hit).getAsJsonObject();
+            } catch (RuntimeException e) {
+                return;
+            }
+            // The page's scripts hear the click first; preventDefault() keeps it from the program.
+            boolean goesOn = true;
+            Integer node = null;
+            if (parsed != null && view.script != null && !parsed.get("qbn").getAsString().isEmpty()) {
+                node = Integer.parseInt(parsed.get("qbn").getAsString());
+                goesOn = view.script.click(node, x, pageY);
+            }
+            JsonObject element = parsed;
+            boolean toProgram = goesOn;
+            Integer clickedNode = node;
             Minecraft.getInstance().execute(() -> {
-                JsonObject element = null;
-                try {
-                    element = hit == null ? null : JsonParser.parseString(hit).getAsJsonObject();
-                } catch (RuntimeException e) {
-                    return;
+                if (view.script != null) {
+                    view.repaint = true; // the scripts may have changed the page
                 }
                 String input = element == null ? "" : element.get("input").getAsString();
                 if (!input.isEmpty()) {
                     if (canType) {
                         focus(view, input);
+                        view.focusedNode = clickedNode;
                     }
+                    schedule(view);
                     return;
                 }
                 focus(view, null);
-                if (element != null) {
+                if (element != null && toProgram && !(element.get("event").getAsString().isEmpty() && element.get("id").getAsString().isEmpty()
+                        && !element.get("tag").getAsString().equals("button") && !element.get("tag").getAsString().equals("a"))) {
+                    element.remove("qbn");
                     Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(origin, element.toString()));
                 }
+                schedule(view);
             });
         });
     }
@@ -343,6 +523,9 @@ public final class ClientWebPanels {
         }
         sendTyping(view, true);
         view.focused = field;
+        if (field == null) {
+            view.focusedNode = null;
+        }
         view.dirty = true;
         schedule(view);
     }
@@ -365,6 +548,10 @@ public final class ClientWebPanels {
             return;
         }
         view.typed.put(field, now);
+        Integer node = view.focusedNode;
+        if (node != null) {
+            view.scriptActions.add(script -> script.input(node, "input"));
+        }
         view.typingPending = true;
         view.lastKey = System.currentTimeMillis();
         view.dirty = true;
@@ -373,6 +560,11 @@ public final class ClientWebPanels {
 
     /** Enter in a field: what it holds goes to the program now, marked as entered. */
     static void enter(WebView view) {
+        Integer node = view.focusedNode;
+        if (node != null) {
+            view.scriptActions.add(script -> script.input(node, "change"));
+            schedule(view);
+        }
         if (view.focused != null) {
             send(view, view.focused, true);
         }

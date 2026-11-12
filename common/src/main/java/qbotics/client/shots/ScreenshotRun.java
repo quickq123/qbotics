@@ -180,6 +180,8 @@ public final class ScreenshotRun {
         then(40, minecraft -> shot(minecraft, "08e-web-close-up"));
         then(5, minecraft -> minecraft.setScreen(null));
         view("08f-qbot-camera", new Vec3(26.0, 1.0, -2.4), new Vec3(26.0, 1.0, -5.0));
+        view("08g-script-a", new Vec3(29.5, 1.0, -2.6), new Vec3(29.5, 1.0, -5.0));
+        then(25, minecraft -> shot(minecraft, "08g-script-b"));
 
         // The screens.
         then(15, minecraft -> onServer(minecraft, player -> {
@@ -835,6 +837,42 @@ public final class ScreenshotRun {
                     qbotics.display.Displays.reform(serverLevel, at);
                 }
             }
+        }
+        // A 2x2 Web Panel whose page has a script: a clock, a counter and an animated canvas.
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; j++) {
+                BlockPos at = base.offset(28 + i, j, -5);
+                level.setBlock(at, QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
+                        .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+                if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    qbotics.display.Displays.reform(serverLevel, at);
+                }
+            }
+        }
+        if (level.getBlockEntity(base.offset(28, 1, -5)) instanceof qbotics.block.DisplayBlockEntity scripted
+                && scripted.content() instanceof qbotics.display.WebScreen web) {
+            com.google.gson.JsonArray page = new com.google.gson.JsonArray();
+            page.add(String.join("\n",
+                    "<html><head><style>body { margin: 8px; } h2 { margin: 0 0 6px 0; color: #9cf; font-size: 16px; }",
+                    "#count { font-size: 22px; font-weight: bold; color: #ffd27a; } .row { display: flex; justify-content: space-between; }</style></head>",
+                    "<body><h2>Reactor</h2><div class='row'><span>Ticks</span><span id='count'>0</span></div>",
+                    "<canvas id='c' width='240' height='150'></canvas>",
+                    "<script>",
+                    "let n = 0; const c = document.getElementById('c'); const g = c.getContext('2d');",
+                    "setInterval(() => { n++; document.getElementById('count').textContent = n; }, 250);",
+                    "const history = [];",
+                    "function frame(t) {",
+                    "  history.push(60 + 40 * Math.sin(t / 300) + 10 * Math.sin(t / 77)); if (history.length > 60) history.shift();",
+                    "  g.fillStyle = '#0b1a26'; g.fillRect(0, 0, 240, 150);",
+                    "  g.strokeStyle = '#1f3a50'; g.lineWidth = 1; for (let y = 0; y < 150; y += 25) { g.beginPath(); g.moveTo(0, y); g.lineTo(240, y); g.stroke(); }",
+                    "  g.strokeStyle = '#ffb347'; g.lineWidth = 2; g.beginPath(); history.forEach((v, i) => i ? g.lineTo(i * 4, 150 - v) : g.moveTo(0, 150 - v)); g.stroke();",
+                    "  g.save(); g.translate(205, 35); g.rotate(t / 400); g.fillStyle = '#7cf'; g.fillRect(-12, -3, 24, 6); g.restore();",
+                    "  g.fillStyle = '#e6e8ea'; g.font = '11px sans-serif'; g.fillText('Output', 6, 14);",
+                    "  requestAnimationFrame(frame);",
+                    "}",
+                    "requestAnimationFrame(frame);",
+                    "</script></body></html>"));
+            web.op("page", page);
         }
         // Blocks set like this skip the placement logic, so give every cable its arms now.
         for (int x = -2; x <= 16; x++) {

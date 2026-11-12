@@ -681,7 +681,18 @@ asyncio.run(main())
 > close-up), text fields (`<input>` rewritten before layout as a box the game edits, per player; typed text reaches
 > the program after a pause and on Enter), scrolling (per player: `overflow: auto` boxes through litehtml, else the
 > page), and Mustache-style sections in the state template (`{{#list}}`, `{{^list}}`, `{{.}}`). Not yet: flex `gap`,
-> select/textarea/checkbox, typing in the world. Next: the Qbot camera (§8), then JavaScript and `<canvas>`.
+> select/textarea/checkbox, typing in the world.
+>
+> **JavaScript and canvas (built 2026-11-12):** quickjs-ng (pinned v0.10.1) compiled to Wasm (`engine/js`), one runtime
+> per scripted page in each player's game, on the web worker thread: 16 MB, 0.4 s to load, 60 ms per event or frame
+> (interrupt handler), no network. `prelude.js` is the browser it sees: a small DOM (parse, serialize, selectors,
+> style/classList/dataset, events with bubbling and preventDefault), timers and requestAnimationFrame (woken about 10
+> times a second, only while someone is looking), console, and `panel` (state, onState, send). When a script changes the
+> DOM the page is serialized (elements numbered for clicks; canvases as `canvas:N` images) and laid out again; canvas
+> calls are batched and painted with Java 2D. Clicks go to scripts first; `panel.send` reaches `@web.on` with `.data`;
+> script errors reach the close-up and an `error` event. Measured: QuickJS on Chicory runs all compiled, a few million
+> steps a second (fib(24) 340 ms); a frame of the test animation ~17 ms (scripts 5, layout 11). A later speed-up: split
+> QuickJS's interpreter loop as the Python engine's was. Not yet: fetch (by design), modules, drawImage of pictures.
 
 **Principle:** Python owns the data and the actions. The panel only displays and handles interaction on screen.
 

@@ -322,13 +322,18 @@ static void json_str(std::string& out, const char* s) {
 }
 
 // What a click at a point is on: the nearest element (from the one under the point outwards)
-// that a program can tell apart, as JSON {"input", "tag", "id", "name", "event", "value"}; "" if none.
+// that a program can tell apart, as JSON {"qbn", "input", "tag", "id", "name", "event", "value"}; "" if none.
 EXPORT("web_hit") int32_t web_hit(float x, float y) {
     scratch.clear();
     if (!doc || !doc->root()) {
         return 0;
     }
     litehtml::element::ptr el = doc->root_render() ? doc->root_render()->get_element_by_point(x, y, x, y, nullptr) : nullptr;
+    // The innermost element a page's script knows (data-qbn, given by the script runtime).
+    const char* qbn = nullptr;
+    for (litehtml::element::ptr at = el; at && !qbn; at = at->parent()) {
+        qbn = at->get_attr("data-qbn");
+    }
     for (; el; el = el->parent()) {
         const char* tag = el->get_tagName();
         const char* id = el->get_attr("id");
@@ -338,7 +343,9 @@ EXPORT("web_hit") int32_t web_hit(float x, float y) {
         if (!clickable) {
             continue;
         }
-        scratch = "{\"input\":";
+        scratch = "{\"qbn\":";
+        json_str(scratch, qbn ? qbn : "");
+        scratch += ",\"input\":";
         json_str(scratch, input ? input : "");
         scratch += ",\"tag\":";
         json_str(scratch, tag);
@@ -352,6 +359,12 @@ EXPORT("web_hit") int32_t web_hit(float x, float y) {
         json_str(scratch, el->get_attr("value", ""));
         scratch += "}";
         break;
+    }
+    if (scratch.empty() && qbn) {
+        // Nothing a program tells apart, but something a script may listen on.
+        scratch = "{\"qbn\":";
+        json_str(scratch, qbn);
+        scratch += ",\"input\":\"\",\"tag\":\"\",\"id\":\"\",\"name\":\"\",\"event\":\"\",\"value\":\"\"}";
     }
     return (int32_t)scratch.size();
 }
