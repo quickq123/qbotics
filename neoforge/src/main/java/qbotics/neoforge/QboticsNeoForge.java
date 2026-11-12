@@ -107,6 +107,8 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<qbotics.qbot.QbotBlock> IRON_QBOT = BLOCKS.registerBlock("iron_qbot", qbotics.qbot.QbotBlock::iron,
             properties -> properties.mapColor(MapColor.METAL).strength(2.5f).sound(SoundType.METAL).noOcclusion());
     private static final DeferredItem<BlockItem> IRON_QBOT_ITEM = ITEMS.registerSimpleBlockItem(IRON_QBOT);
+    /** A laptop (design doc §5.6): a player's own carried computer. */
+    private static final DeferredItem<qbotics.laptop.LaptopItem> LAPTOP_ITEM = ITEMS.registerItem("laptop", qbotics.laptop.LaptopItem::new);
     private static final DeferredBlock<qbotics.qbot.QbotPartBlock> QBOT_PART = BLOCKS.registerBlock("qbot_part", qbotics.qbot.QbotPartBlock::new,
             properties -> properties.noOcclusion().noLootTable());
     static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.qbot.QbotBlockEntity>> QBOT_BLOCK_ENTITY =
@@ -190,6 +192,9 @@ public final class QboticsNeoForge {
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.InterfaceMenu>> INTERFACE_MENU =
             MENUS.register("interface", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.InterfaceMenu(containerId, inventory)));
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.laptop.LaptopMenu>> LAPTOP_MENU =
+            MENUS.register("laptop", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.laptop.LaptopMenu(containerId, inventory)));
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.qbot.QbotMenu>> QBOT_MENU =
             MENUS.register("qbot", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.qbot.QbotMenu(containerId, inventory)));
@@ -255,6 +260,7 @@ public final class QboticsNeoForge {
                         output.accept(TEXT_MONITOR_ITEM.get());
                         output.accept(CONTROL_PANEL_ITEM.get());
                         output.accept(IRON_QBOT_ITEM.get());
+                        output.accept(LAPTOP_ITEM.get());
                         output.accept(TRANSPORT_UPGRADE.get());
                         output.accept(CHUNK_LOADER_UPGRADE.get());
                         output.accept(LIQUID_CRYSTAL_PANEL.get());
@@ -306,6 +312,8 @@ public final class QboticsNeoForge {
         QboticsContent.IRON_QBOT_BLOCK = IRON_QBOT;
         QboticsContent.QBOT_BLOCK_ENTITY = QBOT_BLOCK_ENTITY;
         QboticsContent.QBOT_MENU = QBOT_MENU;
+        QboticsContent.LAPTOP_MENU = LAPTOP_MENU;
+        QboticsContent.LAPTOP_ITEM = LAPTOP_ITEM;
         QboticsContent.QBOT_PART_BLOCK = QBOT_PART;
         QboticsContent.DRIVE_BAY_MENU = DRIVE_BAY_MENU;
         QboticsContent.PROBE_MODE = PROBE_MODE;
@@ -403,6 +411,18 @@ public final class QboticsNeoForge {
             ComputerManager.shutDown(event.getServer());
             qbotics.upgrade.ChunkLoaders.clear();
             qbotics.network.Tunnels.clear();
+        });
+        // A laptop crafted from a computer carries that computer's drive, to copy its files in when first opened.
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.ItemCraftedEvent event) -> {
+            if (!(event.getCrafting().getItem() instanceof qbotics.laptop.LaptopItem)) {
+                return;
+            }
+            for (int slot = 0; slot < event.getInventory().getContainerSize(); slot++) {
+                java.util.UUID drive = event.getInventory().getItem(slot).get(QboticsContent.DRIVE_ID.get());
+                if (drive != null) {
+                    event.getCrafting().set(QboticsContent.DRIVE_ID.get(), drive);
+                }
+            }
         });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {

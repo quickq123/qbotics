@@ -460,8 +460,29 @@ public final class ScreenshotRun {
             }
         });
         then(4, minecraft -> shot(minecraft, "18e-qbot-log"));
+        // The laptop: in the hand, its two drive slots, and the laptop itself.
         then(5, minecraft -> {
             minecraft.player.closeContainer();
+            onServer(minecraft, player -> {
+                ItemStack laptop = new ItemStack(QboticsContent.LAPTOP_ITEM.get());
+                ItemStack drive = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("hard_drive")));
+                drive.set(QboticsContent.MEDIA_ID.get(), java.util.UUID.randomUUID());
+                laptop.set(net.minecraft.core.component.DataComponents.CONTAINER,
+                        net.minecraft.world.item.component.ItemContainerContents.fromItems(java.util.List.of(drive, ItemStack.EMPTY)));
+                player.getInventory().setItem(player.getInventory().getSelectedSlot(), laptop);
+                player.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                        (id, inventory, who) -> new qbotics.laptop.LaptopMenu(id, inventory, net.minecraft.world.InteractionHand.MAIN_HAND),
+                        net.minecraft.network.chat.Component.translatable("screen.qbotics.laptop.disks")));
+            });
+        });
+        then(8, minecraft -> shot(minecraft, "19-laptop-drives"));
+        then(5, minecraft -> {
+            minecraft.player.closeContainer();
+            onServer(minecraft, player -> qbotics.laptop.Laptops.open(player, player.getMainHandItem()));
+        });
+        then(30, minecraft -> shot(minecraft, "19b-laptop"));
+        then(5, minecraft -> {
+            minecraft.setScreen(null);
             minecraft.options.hideGui = true;
         });
         then(10, minecraft -> onServer(minecraft, player -> command(player, "time set midnight")));

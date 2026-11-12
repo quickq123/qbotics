@@ -250,7 +250,9 @@ final class IdeView {
         ui.text("QBOTICS", 6, 4, Ui.TEXT_BRIGHT);
         int computerX = 6 + ui.textWidth("QBOTICS") + 6;
         ui.text(session.title, computerX, 4, Ui.TEXT_DIM);
-        if (!session.editOnly) {
+        if (session.laptop) {
+            ui.text("Your laptop: ssh 100.64.0.12:1005 reaches a computer or Qbot", computerX + ui.textWidth(session.title) + 12, 4, Ui.TEXT_DIM);
+        } else if (!session.editOnly) {
             // This computer's settings page opens in the editor, like any other file.
             button(ui, computerX + ui.textWidth(session.title) + 8, 1, TITLE_H - 2, "Settings", false, true, Ui.BAR_BG,
                     () -> openFile(ComputerSettings.PATH));

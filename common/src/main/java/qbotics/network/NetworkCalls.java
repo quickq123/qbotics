@@ -407,42 +407,10 @@ public final class NetworkCalls {
                     from = CableNetwork.at(level, computerPos).devices().stream()
                             .filter(device -> device.getBlockPos().equals(computerPos)).map(NetworkDevice::ip).findFirst().orElse("this network");
                 }
-                if (!(found instanceof qbotics.block.ComputerBlockEntity remote)) {
-                    throw new CallError("ssh connects to computers; " + address + " is " + article(found) + ".");
-                }
-                if (remote.getLevel() == level && remote.getBlockPos().equals(computerPos)) {
+                if (found instanceof qbotics.block.ComputerBlockEntity remote && remote.getLevel() == level && remote.getBlockPos().equals(computerPos)) {
                     throw new CallError("That is this computer.");
                 }
-                JsonObject session = new JsonObject();
-                if (method.equals("ssh_open")) {
-                    // Gate two, the computer: does its own setting let this computer's owner in?
-                    boolean owner = java.util.Objects.equals(ownerAt(level, computerPos), remote.owner());
-                    switch (remote.remoteLogin()) {
-                        case OFF -> throw new CallError("That computer doesn't allow remote login. Its Settings page can change that.");
-                        case OWNER -> {
-                            if (!owner) {
-                                throw new CallError("That computer only lets its owner's computers log in. Its Settings page can allow a password instead.");
-                            }
-                        }
-                        case PASSWORD -> {
-                            if (!owner) {
-                                String password = string(args, 2);
-                                if (password == null) {
-                                    session.addProperty("need_password", true);
-                                    return session;
-                                }
-                                if (!remote.checkPassword(password)) {
-                                    throw new CallError("Wrong password.");
-                                }
-                            }
-                        }
-                    }
-                    ComputerManager.get(level.getServer()).getOrStart(remote); // switch it on if nobody has yet
-                }
-                session.addProperty("id", remote.deviceId().toString());
-                session.addProperty("label", remote.deviceName().isEmpty() ? address : remote.deviceName());
-                session.addProperty("from", from);
-                return session;
+                return sshSession(level.getServer(), method, found, address, from, ownerAt(level, computerPos), string(args, 2));
             }
             case "access": {
                 // Who may reach this network from outside: private, team or public.
@@ -1362,6 +1330,155 @@ public final class NetworkCalls {
         }
         CableNetwork farNetwork = CableNetwork.at(farLevel, far.getBlockPos());
         return new Far(far, farLevel, farNetwork.gateway() == far && !farNetwork.tooLarge() ? farNetwork : null);
+    }
+
+    /**
+     * The second half of an ssh login, once the computer it reaches has been found: that
+     * computer's own setting decides who gets in. Used from computers and from laptops.
+     *
+     * @param caller who is logging in: the calling computer's owner, or the laptop's player
+     */
+    private static JsonObject sshSession(net.minecraft.server.MinecraftServer server, String method, NetworkDevice found, String address,
+            String from, java.util.@org.jspecify.annotations.Nullable UUID caller, @org.jspecify.annotations.Nullable String password) {
+        if (!(found instanceof qbotics.block.ComputerBlockEntity remote)) {
+            throw new CallError("ssh connects to computers; " + address + " is " + article(found) + ".");
+        }
+        JsonObject session = new JsonObject();
+        if (method.equals("ssh_open")) {
+            // Gate two, the computer: does its own setting let the caller in?
+            boolean owner = java.util.Objects.equals(caller, remote.owner());
+            switch (remote.remoteLogin()) {
+                case OFF -> throw new CallError("That computer doesn't allow remote login. Its Settings page can change that.");
+                case OWNER -> {
+                    if (!owner) {
+                        throw new CallError("That computer only lets its owner's computers log in. Its Settings page can allow a password instead.");
+                    }
+                }
+                case PASSWORD -> {
+                    if (!owner) {
+                        if (password == null) {
+                            session.addProperty("need_password", true);
+                            return session;
+                        }
+                        if (!remote.checkPassword(password)) {
+                            throw new CallError("Wrong password.");
+                        }
+                    }
+                }
+            }
+            ComputerManager.get(server).getOrStart(remote); // switch it on if nobody has yet
+        }
+        session.addProperty("id", remote.deviceId().toString());
+        session.addProperty("label", remote.deviceName().isEmpty() ? address : remote.deviceName());
+        session.addProperty("from", from);
+        return session;
+    }
+
+    // ---- laptops (design doc §5.6): a computer that is a player's, with a built-in Infinite antenna ----
+
+    /**
+     * The antenna at an external address, as a player's laptop reaches it: the laptop is an
+     * Infinite antenna where the player stands, that hears every frequency. The far antenna's
+     * range rules and access (who it lets in) still apply.
+     */
+    private static Far laptopFar(net.minecraft.server.level.ServerPlayer player, String ip) {
+        net.minecraft.server.MinecraftServer server = player.level().getServer();
+        AntennaBlockEntity far = RadioNetwork.get(server).byExternalIp(ip);
+        if (far == null || !(far.getLevel() instanceof ServerLevel farLevel)) {
+            throw new CallError("No antenna with the address " + ip + " can be reached. It may not exist, or its area isn't loaded.");
+        }
+        String problem = far.bricked() ? "that antenna is inactive: its owner has more antennas than they may have"
+                : RadioNetwork.rangeProblem(RadioNetwork.Tier.INFINITE, player.level().dimension(), player.blockPosition(),
+                        far.tier(), farLevel.dimension(), far.getBlockPos());
+        if (problem == null) {
+            problem = RadioNetwork.accessProblem(server, far, player.getUUID());
+        }
+        if (problem != null) {
+            throw new CallError("Can't reach " + ip + ": " + problem + ".");
+        }
+        CableNetwork farNetwork = CableNetwork.at(farLevel, far.getBlockPos());
+        return new Far(far, farLevel, farNetwork.gateway() == far && !farNetwork.tooLarge() ? farNetwork : null);
+    }
+
+    /**
+     * A call from a player's laptop. A laptop isn't on a cable network: it reaches computers
+     * and Qbots behind antennas, by ssh, and lists what is behind them.
+     */
+    public static String handleLaptop(net.minecraft.server.MinecraftServer server, java.util.UUID playerId, String request) {
+        net.minecraft.server.level.ServerPlayer player = server.getPlayerList().getPlayer(playerId);
+        if (player == null) {
+            JsonObject offline = new JsonObject();
+            offline.addProperty("e", "This laptop's owner is offline.");
+            return offline.toString();
+        }
+        return handleLaptop(player, request);
+    }
+
+    /** A call from this player's laptop. */
+    public static String handleLaptop(net.minecraft.server.level.ServerPlayer player, String request) {
+        JsonObject reply = new JsonObject();
+        try {
+            JsonArray args = JsonParser.parseString(request).getAsJsonArray();
+            callLevel = player.level();
+            callPos = player.blockPosition();
+            LINKS.clear();
+            REMOTE.clear();
+            reply.add("r", runLaptop(player, args));
+        } catch (CallError e) {
+            reply.addProperty("e", e.getMessage());
+        } catch (RuntimeException e) {
+            Qbotics.LOGGER.warn("Laptop call failed: {}", request, e);
+            reply = new JsonObject();
+            reply.addProperty("e", "The call failed: its arguments are wrong, or something went wrong in the game ("
+                    + e.getClass().getSimpleName() + ").");
+        } finally {
+            callLevel = null;
+            callPos = null;
+            LINKS.clear();
+            REMOTE.clear();
+        }
+        return reply.toString();
+    }
+
+    private static JsonElement runLaptop(net.minecraft.server.level.ServerPlayer player, JsonArray args) {
+        String method = args.get(0).getAsString();
+        switch (method) {
+            case "ssh_open":
+            case "ssh_reach": {
+                String address = args.get(1).getAsString();
+                Matcher external = EXTERNAL.matcher(address);
+                if (!external.matches()) {
+                    throw new CallError("A laptop reaches computers through their antennas: give an external address and port, like 100.64.0.12:1005.");
+                }
+                Far far = laptopFar(player, external.group(1));
+                int port = Integer.parseInt(external.group(2));
+                NetworkDevice found = far.network() != null ? far.network().byHost(port - RadioNetwork.PORT_BASE) : null;
+                if (found == null) {
+                    throw new CallError("Nothing is on port " + port + " of " + external.group(1) + ".");
+                }
+                return sshSession(player.level().getServer(), method, found, address, "the laptop of " + player.getName().getString(),
+                        player.getUUID(), string(args, 2));
+            }
+            case "devices": {
+                String address = string(args, 1);
+                Matcher external = address == null ? null : EXTERNAL_OR_IP.matcher(address.strip());
+                if (external == null || !external.matches()) {
+                    throw new CallError("A laptop has no cable network of its own. Give an antenna's external address: devices 100.64.0.12");
+                }
+                Far far = laptopFar(player, external.group(1));
+                if (far.network() == null) {
+                    throw new CallError("The antenna at " + external.group(1) + " isn't its network's router, so nothing behind it can be reached.");
+                }
+                JsonArray list = new JsonArray();
+                for (NetworkDevice device : far.network().devices()) {
+                    REMOTE.put(device, external.group(1));
+                    list.add(describe(far.level(), far.network(), device));
+                }
+                return list;
+            }
+            default:
+                throw new CallError("A laptop isn't on a cable network: it reaches computers and Qbots with ssh (ssh 100.64.0.12:1005).");
+        }
     }
 
     private static AntennaBlockEntity router(CableNetwork network) {

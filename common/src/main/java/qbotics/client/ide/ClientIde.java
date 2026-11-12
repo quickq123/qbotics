@@ -19,6 +19,11 @@ public final class ClientIde {
     /** The server sent a computer's terminal screen; with open set, show the editor. */
     public static void onTerminalState(TerminalStatePayload state) {
         IdeSession session = IdeSession.of(state.deviceId());
+        net.minecraft.client.player.LocalPlayer me = Minecraft.getInstance().player;
+        if (me != null && qbotics.laptop.Laptops.isLaptopOf(state.deviceId(), me.getUUID())) {
+            session.laptop = true;
+            session.title = "Laptop";
+        }
         session.applyTerminal(state.state());
         Minecraft minecraft = Minecraft.getInstance();
         boolean showing = minecraft.screen instanceof IdeScreen screen && screen.session() == session;

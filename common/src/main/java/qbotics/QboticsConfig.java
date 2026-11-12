@@ -36,6 +36,8 @@ public final class QboticsConfig {
 
     /** Whether Chunk Loader Upgrades work at all. */
     public static volatile boolean chunkLoadingEnabled = true;
+    /** Whether laptops can be opened at all. */
+    public static volatile boolean laptopsEnabled = true;
     /** Antennas with a working Chunk Loader Upgrade a player may have; -1 for no limit. */
     public static volatile int chunkLoadersPerPlayer = 4;
     /** The most chunks one antenna keeps loaded (its network's, nearest first). */

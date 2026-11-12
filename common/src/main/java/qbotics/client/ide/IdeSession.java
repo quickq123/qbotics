@@ -80,6 +80,8 @@ final class IdeSession {
     boolean editOnly;
     /** What the title bar calls it: "Computer", or "Programmer". */
     String title = "Computer";
+    /** A laptop: it has no settings page (it isn't a block with a name or a login rule). */
+    boolean laptop;
 
     // Explorer
     final Node root = new Node("/", "", true, 0);

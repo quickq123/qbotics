@@ -20,6 +20,7 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue WORKER_CORES;
     private static final ModConfigSpec.IntValue REACTIVATION_CHECKS;
     private static final ModConfigSpec.BooleanValue CHUNK_LOADING;
+    private static final ModConfigSpec.BooleanValue LAPTOPS;
     private static final ModConfigSpec.IntValue CHUNK_LOADERS;
     private static final ModConfigSpec.IntValue CHUNKS_PER_LOADER;
     private static final ModConfigSpec.BooleanValue CHUNK_LOADING_OFFLINE;
@@ -66,6 +67,11 @@ final class QboticsServerConfig {
         CHUNK_LOADING_OFFLINE = BUILDER.comment("Whether loaders keep working while their owner is offline.").define("while_owner_offline", true);
         BUILDER.pop();
 
+        BUILDER.push("laptops");
+        LAPTOPS = BUILDER.comment("false: laptops can't be opened (each player has one laptop computer and shell, shared by all their laptops).")
+                .define("enabled", true);
+        BUILDER.pop();
+
         BUILDER.push("transport");
         BUILDER.comment("How much one antenna with a Transport Upgrade carries to and from other networks each second.");
         TRANSPORT_ITEMS = BUILDER.defineInRange("items_per_second", 1024, 0, 1_000_000);
@@ -92,6 +98,7 @@ final class QboticsServerConfig {
         QboticsConfig.workerCores = WORKER_CORES.get();
         QboticsConfig.reactivationChecksPerSecond = REACTIVATION_CHECKS.get();
         QboticsConfig.chunkLoadingEnabled = CHUNK_LOADING.get();
+        QboticsConfig.laptopsEnabled = LAPTOPS.get();
         QboticsConfig.chunkLoadersPerPlayer = CHUNK_LOADERS.get();
         QboticsConfig.chunksPerLoader = CHUNKS_PER_LOADER.get();
         QboticsConfig.chunkLoadingWhileOffline = CHUNK_LOADING_OFFLINE.get();

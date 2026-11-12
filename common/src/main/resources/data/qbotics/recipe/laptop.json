@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    "qbotics:usb",
+    "qbotics:computer",
+    "qbotics:antenna_infinite"
+  ],
+  "result": {
+    "id": "qbotics:laptop"
+  }
+}

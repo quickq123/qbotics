@@ -84,17 +84,22 @@ public final class Computer {
      * still ends it.
      */
     public volatile boolean paused;
+    /**
+     * Held by the server rather than the player: a laptop whose owner is offline or carries no
+     * laptop. It waits exactly as when paused, and carries on when let go.
+     */
+    public volatile boolean held;
 
     /** Waits while paused (or until stopped). With the CPU held, it is given up while waiting. */
     private void holdWhilePaused(boolean holdingCpu) {
-        if (!paused) {
+        if (!paused && !held) {
             return;
         }
         if (holdingCpu) {
             releaseCpu();
         }
         try {
-            while (paused && stop == StopMode.NONE) {
+            while ((paused || held) && stop == StopMode.NONE) {
                 Thread.sleep(50);
             }
         } catch (InterruptedException e) {
@@ -285,7 +290,7 @@ public final class Computer {
                             // Sleep in short steps so a stop request doesn't wait out a long sleep.
                             long end = System.nanoTime() + args[0] * 1_000_000L;
                             for (long left; stop == StopMode.NONE && (left = end - System.nanoTime()) > 0; ) {
-                                if (paused) {
+                                if (paused || held) {
                                     // Paused: the sleep stops counting down until it resumes.
                                     long since = System.nanoTime();
                                     holdWhilePaused(false);

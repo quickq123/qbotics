@@ -56,6 +56,8 @@ public final class QboticsContent {
     public static Supplier<qbotics.qbot.QbotBlock> IRON_QBOT_BLOCK;
     public static Supplier<BlockEntityType<qbotics.qbot.QbotBlockEntity>> QBOT_BLOCK_ENTITY;
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.qbot.QbotMenu>> QBOT_MENU;
+    public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.laptop.LaptopMenu>> LAPTOP_MENU;
+    public static Supplier<? extends net.minecraft.world.item.Item> LAPTOP_ITEM;
     public static Supplier<qbotics.qbot.QbotPartBlock> QBOT_PART_BLOCK;
     public static Supplier<net.minecraft.world.inventory.MenuType<qbotics.block.ProgrammerMenu>> PROGRAMMER_MENU;
     /** An antenna's screen: its upgrades and chunk loading. */

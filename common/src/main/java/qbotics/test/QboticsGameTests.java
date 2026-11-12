@@ -59,6 +59,7 @@ public final class QboticsGameTests {
             Map.entry("computer_interrupt", QboticsGameTests::computerInterrupt),
             Map.entry("universal_serial_bus", QboticsGameTests::universalSerialBus),
             Map.entry("bus_tunnels", QboticsGameTests::busTunnels),
+            Map.entry("laptop", QboticsGameTests::laptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
             Map.entry("computer_interrupt_ignored", QboticsGameTests::computerInterruptIgnored),
@@ -2332,6 +2333,62 @@ public final class QboticsGameTests {
             }
             helper.assertTrue(step[0] == 7, "waiting at step " + step[0]);
         });
+    }
+
+    /**
+     * A laptop: one computer per player, whatever laptop they open; its drives at
+     * /net/disks; held while its player carries no laptop; and ssh to a computer behind an
+     * antenna, as its player, with no cable or antenna of its own.
+     */
+    private static void laptop(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ComputerManager manager = ComputerManager.get(level.getServer());
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        ItemStack laptop = new ItemStack(QboticsContent.LAPTOP_ITEM.get());
+        ItemStack drive = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("hard_drive")));
+        drive.set(QboticsContent.MEDIA_ID.get(), UUID.randomUUID());
+        laptop.set(net.minecraft.core.component.DataComponents.CONTAINER,
+                net.minecraft.world.item.component.ItemContainerContents.fromItems(List.of(drive, ItemStack.EMPTY)));
+        player.getInventory().setItem(3, laptop);
+        ServerComputer computer = manager.getOrStartLaptop(player);
+        helper.assertTrue(manager.getOrStartLaptop(player) == computer, "a player has one laptop computer");
+        qbotics.laptop.Laptops.refresh(player);
+        helper.assertTrue(!computer.held(), "carrying a laptop, it runs");
+        try {
+            String disks = new String(computer.drive().call(qbotics.engine.HostFileSystem.LIST, "/net/disks", new byte[0]),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            helper.assertTrue(disks.contains("disk1") && !disks.contains("disk2"), "the drive in its first slot is at /net/disks/disk1: " + disks);
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            helper.fail("/net/disks should list the laptop's drive (error " + e.errno + ")");
+        }
+        // Without a laptop on them it is held; with one again it carries on.
+        player.getInventory().setItem(3, ItemStack.EMPTY);
+        qbotics.laptop.Laptops.refresh(player);
+        helper.assertTrue(computer.held(), "with no laptop on its player, it is held");
+        player.getInventory().setItem(5, new ItemStack(QboticsContent.LAPTOP_ITEM.get()));
+        qbotics.laptop.Laptops.refresh(player);
+        helper.assertTrue(!computer.held(), "any laptop of theirs lets it carry on");
+        // A computer behind an Infinite antenna, both the player's.
+        BlockPos farComputer = new BlockPos(2, 1, 1);
+        helper.setBlock(farComputer, QboticsContent.COMPUTER_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 2, 1), QboticsContent.ANTENNA_INFINITE_BLOCK.get());
+        qbotics.block.ComputerBlockEntity remote = helper.getBlockEntity(farComputer, qbotics.block.ComputerBlockEntity.class);
+        AntennaBlockEntity antenna = helper.getBlockEntity(new BlockPos(2, 2, 1), AntennaBlockEntity.class);
+        remote.onPlaced(player.getUUID());
+        antenna.onPlaced(player.getUUID());
+        networkAt(helper, farComputer);
+        String address = antenna.externalIp() + ":" + (qbotics.network.RadioNetwork.PORT_BASE + remote.hostNumber());
+        String opened = qbotics.network.NetworkCalls.handleLaptop(player, "[\"ssh_open\",\"" + address + "\",null]");
+        helper.assertTrue(opened.contains("\"id\":\"" + remote.deviceId()) && opened.contains("the laptop of"),
+                "the laptop should ssh in to its player's computer: " + opened);
+        String cables = qbotics.network.NetworkCalls.handleLaptop(player, "[\"devices\"]");
+        helper.assertTrue(cables.contains("external address"), "a laptop has no cable network of its own: " + cables);
+        String bus = qbotics.network.NetworkCalls.handleLaptop(player, "[\"find\",null,\"bus\"]");
+        helper.assertTrue(bus.contains("ssh"), "cable calls point to ssh: " + bus);
+        // It runs Python like any computer.
+        computer.submitLine("python");
+        computer.submitLine("print('lap', 6 * 7)");
+        helper.succeedWhen(() -> assertScreen(helper, computer, "lap 42\n"));
     }
 
     private static void ironQbot(GameTestHelper helper) {

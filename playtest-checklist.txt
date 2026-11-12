@@ -231,3 +231,14 @@ TUNNELS
  85. Across antennas (Transport Upgrade in both): tunnel a bus here to one there; items still
      cross, at most the transport rate per second. Take an upgrade out: the tunnel stops and
      its lights turn amber within a second; put it back and they turn green.
+
+LAPTOP
+ 89. Craft a Laptop: a USB, a Computer with some files on it, an Infinite Antenna. Right-click
+     in the air: the editor and terminal open (title "Laptop"); the computer's files are under
+     /imported/.
+ 90. Sneak + right-click in the air: two drive slots. Put a hard drive in: it shows at
+     /net/disks/disk1. Copy a file onto it, take it out, put it in a Programmer.
+ 91. Somewhere far away (another dimension, behind an Infinite antenna), a computer of yours:
+     in the laptop terminal  ssh <antenna address>:<port>  logs in.
+ 92. Start a loop printing in the laptop, close it, put the laptop in a chest: its output stops
+     (held). Take it back: it carries on. Craft a second laptop: same files, same shell.

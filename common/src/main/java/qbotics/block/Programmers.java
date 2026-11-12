@@ -213,6 +213,11 @@ public final class Programmers {
     }
 
     /** Copies a folder's files into another, overwriting files of the same name and making folders as needed. */
+    /** Copies a folder and everything in it from one drive to another (files of the same name are replaced). */
+    public static void copyTree(HostFileSystem from, String fromDir, HostFileSystem to, String toDir) throws HostFileSystem.FsException {
+        copy(from, fromDir, to, toDir, false, new int[1]);
+    }
+
     private static void copy(HostFileSystem from, String fromDir, HostFileSystem to, String toDir, boolean skipTable, int[] copied)
             throws HostFileSystem.FsException {
         String listing = new String(from.call(HostFileSystem.LIST, fromDir, new byte[0]), StandardCharsets.UTF_8);

@@ -1412,6 +1412,40 @@ into a Qbot, and the Transport Upgrade in a Qbot are planned but not built.
 
 ---
 
+## 7e. The Laptop: your own computer, carried
+
+A **Laptop** is a computer you carry, for working on computers and Qbots wherever you are.
+
+**Crafting:** shapeless, a Universal Serial Bus, a Computer and an Infinite Antenna. The
+computer's files come with it: the first time the laptop is opened they are copied into your
+laptop files, under `/imported/computer-<id>/`, so nothing already there is overwritten.
+
+**One laptop computer per player.** Every laptop you open is the same computer: one shell, one
+set of files, kept for you. Craft a new laptop and your files are there. Someone else opening
+your laptop gets *their* laptop computer, not yours.
+
+| Do | Get |
+|---|---|
+| Right-click in the air | The laptop: editor, terminal and files, as on a computer (there is no Settings page) |
+| Sneak and right-click in the air | Its two hard-drive slots. The drives appear at `/net/disks/disk1` and `/net/disks/disk2`, for carrying and copying files |
+
+- **It runs while you are online and carry a laptop** (anywhere in your inventory), even with
+  its screen closed. Otherwise what it runs is **held**: paused until you are back with a
+  laptop. Logging off, being banned, dropping or storing it, or burning it all hold it.
+- **Lava** (or anything else) that destroys a laptop destroys it and the hard drives in it, with
+  their files. Your laptop files themselves stay yours.
+- **Reaching other machines:** a laptop has a built-in Infinite antenna. In its terminal,
+  `ssh 100.64.0.12:1005` logs in to a computer or Qbot behind an antenna, and `devices
+  100.64.0.12` lists what is behind one. It reaches any antenna in its own dimension, and
+  Infinite antennas in other dimensions (as two placed antennas do). It hears every frequency;
+  each antenna's access setting, and each computer's remote-login setting, still decide who
+  gets in.
+- A laptop isn't on a cable network, so calls such as `network().bus()` say to use ssh.
+- `laptops.enabled = false` in the server config stops laptops opening.
+
+Not yet: connecting by right-clicking a Qbot or computer with the laptop, Ctrl+Z to pause, and
+showing the line a program is on (with a Step key).
+
 ## 8. The Network Probe
 
 A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows the mode.
@@ -1485,6 +1519,7 @@ even across restarts, until someone opens it again.
 | `scheduler.worker_cores` | 2 | How many computers run Python at the same moment (read at server start) |
 | `scheduler.reactivation_checks_per_s` | 1 | How often one player may try to switch on an inactive device |
 | `chunk_loading.enabled` | true | `false` switches every Chunk Loader Upgrade off (section 7.3b) |
+| `laptops.enabled` | true | `false` stops laptops opening (section 7e) |
 | `chunk_loading.loaders_per_player` | 4 | Working chunk loaders per player; -1 for no limit (operators exempt as above) |
 | `chunk_loading.chunks_per_loader` | 25 | The most chunks one antenna holds |
 | `chunk_loading.while_owner_offline` | true | Whether loaders keep working while their owner is offline |

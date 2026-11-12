@@ -157,6 +157,43 @@ public final class ComputerManager {
         return computer;
     }
 
+    // ---- laptops (design doc §5.6) ---------------------------------------------------------
+
+    /** Each player's laptop computer, by player: one each, whichever laptop item they use. */
+    private final Map<UUID, ServerComputer> laptops = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public Map<UUID, ServerComputer> laptops() {
+        return laptops;
+    }
+
+    /** A player's laptop computer, started if it isn't running. Its calls are a laptop's (ssh, not cables). */
+    public ServerComputer getOrStartLaptop(ServerPlayer player) {
+        UUID owner = player.getUUID();
+        UUID id = qbotics.laptop.Laptops.deviceId(owner);
+        ServerComputer running = computers.get(id);
+        if (running != null) {
+            laptops.put(owner, running);
+            return running;
+        }
+        UUID driveId = qbotics.laptop.Laptops.driveId(owner);
+        ServerComputer computer = new ServerComputer(id, driveId, driveFolder(driveId), cpu, listener, call -> {
+            CompletableFuture<String> answer = new CompletableFuture<>();
+            outbox.add(server -> answer.complete(NetworkCalls.handleLaptop(server, owner, call)));
+            return answer;
+        });
+        computers.put(id, computer);
+        laptops.put(owner, computer);
+        return computer;
+    }
+
+    /** Opens a player's laptop screen: the editor, terminal and files of their laptop computer. */
+    public void openLaptopScreen(ServerPlayer player) {
+        ServerComputer computer = getOrStartLaptop(player);
+        UUID id = computer.deviceId();
+        viewers.put(player.getUUID(), new Viewing(id, player.level().dimension(), player.blockPosition()));
+        Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(id, true, computer.asShown(computer.shownTerminal().full())));
+    }
+
     // ---- the boot queue (design doc §6.3) ------------------------------------------------
 
     /** Where each running computer is, so a program's shutdown can find its block. */
@@ -511,6 +548,9 @@ public final class ComputerManager {
     }
 
     private static boolean inRange(ServerPlayer player, Viewing viewing) {
+        if (qbotics.laptop.Laptops.isLaptopOf(viewing.deviceId(), player.getUUID())) {
+            return true; // a laptop goes where its player goes
+        }
         return player.level().dimension().equals(viewing.dimension())
                 && player.distanceToSqr(viewing.pos().getX() + 0.5, viewing.pos().getY() + 0.5, viewing.pos().getZ() + 0.5)
                         <= MAX_USE_DISTANCE * MAX_USE_DISTANCE;
@@ -522,6 +562,7 @@ public final class ComputerManager {
             message.accept(server);
         }
         bootSome(server);
+        qbotics.laptop.Laptops.tick(server);
         qbotics.display.Displays.tick(server);
         if (server.getTickCount() % 10 == 0) {
             updateMounts(server);
@@ -595,6 +636,7 @@ public final class ComputerManager {
         booting.remove(deviceId);
         ServerComputer computer = computers.remove(deviceId);
         if (computer != null) {
+            laptops.values().removeIf(laptop -> laptop == computer);
             computer.shutDown();
         }
     }

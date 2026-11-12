@@ -737,6 +737,22 @@ public final class ServerComputer {
         }
     }
 
+    /** For a laptop: held while its owner is offline or carries no laptop (see Laptops). */
+    private volatile boolean held;
+
+    /** Holds or lets go of whatever this computer is running; kept for a Python started afresh, too. */
+    public void setHeld(boolean hold) {
+        held = hold;
+        Computer current = vm;
+        if (current != null) {
+            current.held = hold;
+        }
+    }
+
+    public boolean held() {
+        return held;
+    }
+
     private Computer newVm() {
         Computer computer = new Computer(ComputerManager.engine(), HEAP_BYTES,
                 call -> call.equals(RECEIVE_CALL) ? receive() : call.equals(EVENT_CALL) ? nextEvent() : worldCalls.apply(call), drive);
@@ -744,6 +760,7 @@ public final class ServerComputer {
         computer.outputSink = terminal::write;
         computer.lineReader = this::readInputLine;
         computer.lastsAcrossRuns = RECEIVE_CALL::equals;
+        computer.held = held;
         vm = computer;
         return computer;
     }

@@ -281,6 +281,11 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.light_emitting_diode": "Light Emitting Diode",
     "item.qbotics.led_screen": "LED Screen",
     "item.qbotics.motherboard": "Motherboard",
+    "item.qbotics.laptop": "Laptop",
+    "item.qbotics.laptop.tip": "Right-click: your laptop. Sneak + right-click: its drives.",
+    "item.qbotics.laptop.disks": "Hard drives: %s",
+    "screen.qbotics.laptop.disks": "Laptop drives",
+    "message.qbotics.laptop.disabled": "Laptops are switched off on this server.",
     "message.qbotics.probe_nothing": "That isn't a network device. Aim at a computer, an interface, an antenna or a plate.",
     "screen.qbotics.probe": "Network Probe",
     "screen.qbotics.probe.title": "This is: %s",
@@ -512,6 +517,25 @@ def light_emitting_diode_item():
     return px
 
 
+def laptop_item():
+    """A small open laptop: a dark screen with a line of code above an iron keyboard."""
+    px = [[None] * 16 for _ in range(16)]
+    lid, screen, code, keys = CASE_LIGHT, SCREEN, (90, 220, 120), (150, 150, 156)
+    for y in range(2, 10):
+        for x in range(3, 13):
+            px[y][x] = lid if x in (3, 12) or y in (2, 9) else screen
+    for x in range(5, 10):
+        px[4][x] = code
+    for x in range(5, 8):
+        px[6][x] = (230, 200, 90)
+    for y in range(10, 14):
+        for x in range(1 + (13 - y), 15 - (13 - y) + 0):
+            px[y][x] = CASE_DARK if y == 13 else lid
+    for x in range(4, 12, 2):
+        px[11][x] = keys
+    return px
+
+
 def motherboard_item():
     """A green board with copper tracks, a chip in the middle and glass at two corners."""
     board, track, chip, glass = (38, 120, 62), (214, 132, 82), (30, 30, 34), (190, 226, 236)
@@ -537,7 +561,8 @@ def motherboard_item():
 
 for part, picture in (("led_screen", screen_item()), ("lcd_screen", lcd_screen_item()),
                       ("liquid_crystal_panel", liquid_crystal_panel_item()),
-                      ("light_emitting_diode", light_emitting_diode_item()), ("motherboard", motherboard_item())):
+                      ("light_emitting_diode", light_emitting_diode_item()), ("motherboard", motherboard_item()),
+                      ("laptop", laptop_item())):
     write_png("assets/qbotics/textures/item/%s.png" % part, picture)
     write_json("assets/qbotics/models/item/%s.json" % part, {
         "parent": "minecraft:item/generated",
@@ -566,6 +591,9 @@ write_json("data/qbotics/recipe/light_emitting_diode.json", shaped(
 write_json("data/qbotics/recipe/led_screen.json", shaped(
     ["ODL", "ODL", "ODL"], {"O": "minecraft:gold_ingot", "D": "qbotics:light_emitting_diode", "L": "minecraft:glass"},
     "qbotics:led_screen", 4))
+# Laptop (design doc §5.6): a USB, a computer (whose files come along) and an Infinite antenna.
+write_json("data/qbotics/recipe/laptop.json", {"type": "minecraft:crafting_shapeless", "category": "redstone",
+    "ingredients": ["qbotics:usb", "qbotics:computer", "qbotics:antenna_infinite"], "result": {"id": "qbotics:laptop"}})
 # Motherboard: copper above and below glass, green dye, glass.
 write_json("data/qbotics/recipe/motherboard.json", shaped(
     ["CCC", "LGL", "CCC"],
