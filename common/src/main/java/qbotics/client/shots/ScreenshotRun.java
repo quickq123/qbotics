@@ -614,6 +614,17 @@ public final class ScreenshotRun {
             level.setBlock(beside, cable.defaultBlockState(), Block.UPDATE_ALL);
             CableBlock.attach(level, beside, Kind.BUS, buses[i], Direction.EAST);
         }
+        // Tunnel lights: the front row joined by cable, its item bus tunnelled to its USB (both
+        // green), and its energy bus tunnelled to an end far away in an unloaded area (amber).
+        // The buses seen from the side are in no tunnel (off).
+        for (int x = 1; x <= 5; x += 2) {
+            level.setBlock(base.offset(x, 1, 0), cable.defaultBlockState(), Block.UPDATE_ALL);
+        }
+        java.util.function.Function<Integer, qbotics.block.CablePort> frontBus = i ->
+                level.getBlockEntity(base.offset(i * 2, 1, 0)) instanceof qbotics.block.PortBlockEntity host ? host.port(Direction.SOUTH) : null;
+        qbotics.network.Tunnels.link(level, frontBus.apply(0), level, frontBus.apply(3));
+        frontBus.apply(2).setTunnel(new qbotics.network.Tunnels.Link(java.util.UUID.randomUUID(), level.dimension(),
+                base.offset(20_000, 1, 0), Direction.NORTH));
         // The world plates: a Logic Pin with redstone dust joined to it, a Placer and a Breaker.
         plated(level, base.offset(12, 0, 0), Kind.PIN, Direction.SOUTH);
         level.setBlock(base.offset(12, 0, 1), Blocks.REDSTONE_WIRE.defaultBlockState(), Block.UPDATE_ALL);

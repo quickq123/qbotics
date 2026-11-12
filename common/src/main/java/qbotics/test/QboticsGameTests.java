@@ -75,7 +75,6 @@ public final class QboticsGameTests {
             Map.entry("cable_plates", QboticsGameTests::cablePlates),
             Map.entry("network_probe", QboticsGameTests::networkProbe),
             Map.entry("fluid_and_energy", QboticsGameTests::fluidAndEnergy),
-            Map.entry("fluid_and_energy", QboticsGameTests::fluidAndEnergy),
             Map.entry("slots_and_faces", QboticsGameTests::slotsAndFaces),
             Map.entry("name_filters", QboticsGameTests::nameFilters),
             Map.entry("computer_settings", QboticsGameTests::computerSettings),
@@ -868,15 +867,18 @@ public final class QboticsGameTests {
             qbotics.network.FluidPort fluidFace = qbotics.Qbotics.platform().fluidPort(level, at, Direction.SOUTH);
             helper.assertTrue(fluidFace == null || fluidFace.insert(net.minecraft.world.level.material.Fluids.WATER, 1000, true) == 0,
                     "a USB tunnelled to an energy bus carries no fluid");
-            // Closing it, at both ends.
+            // Both ends' lights say connected.
+            CablePort a = helper.getBlockEntity(cableA, PortBlockEntity.class).port(Direction.UP);
+            CablePort b = helper.getBlockEntity(cableB, PortBlockEntity.class).port(Direction.SOUTH);
+            helper.assertTrue(closed[0] || (a.tunnelLive() && b.tunnelLive()), "both ends of a working tunnel should show connected");
+            // Closing it, at both ends: the lights go off.
             if (!closed[0]) {
                 closed[0] = true;
-                CablePort a = helper.getBlockEntity(cableA, PortBlockEntity.class).port(Direction.UP);
                 qbotics.network.Tunnels.unlink(level, a);
             }
-            CablePort b = helper.getBlockEntity(cableB, PortBlockEntity.class).port(Direction.SOUTH);
-            helper.assertTrue(b.tunnel() == null && qbotics.Qbotics.platform().itemPort(level, at, Direction.UP) == null,
-                    "after closing, neither end should be in a tunnel, and the face should offer nothing");
+            helper.assertTrue(b.tunnel() == null && !a.tunnelLive() && !b.tunnelLive()
+                    && qbotics.Qbotics.platform().itemPort(level, at, Direction.UP) == null,
+                    "after closing, neither end should be in a tunnel or lit, and the face should offer nothing");
         });
     }
 

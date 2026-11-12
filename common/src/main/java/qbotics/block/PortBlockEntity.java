@@ -136,6 +136,7 @@ public class PortBlockEntity extends BlockEntity {
                 child.putString("tunnel_dimension", port.tunnel.dimension().identifier().toString());
                 child.putLong("tunnel_pos", port.tunnel.pos().asLong());
                 child.putInt("tunnel_side", port.tunnel.side().get3DDataValue());
+                child.putBoolean("tunnel_live", port.tunnelLive);
             }
             if (port.kind == NetworkDevice.Kind.PIN) {
                 child.putBoolean("pin_output", port.pinOutput);
@@ -176,6 +177,7 @@ public class PortBlockEntity extends BlockEntity {
                 port.tunnel = new qbotics.network.Tunnels.Link(tunnelId,
                         net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, dimension),
                         BlockPos.of(child.getLongOr("tunnel_pos", 0L)), Direction.from3DDataValue(child.getIntOr("tunnel_side", 0)));
+                port.tunnelLive = child.getBooleanOr("tunnel_live", false);
             }
             ports.put(side, port);
         }
@@ -186,6 +188,27 @@ public class PortBlockEntity extends BlockEntity {
         // In a player's game the plates' colours come from this, so the block is drawn again.
         if (level != null && level.isClientSide()) {
             level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), net.minecraft.world.level.block.Block.UPDATE_ALL);
+        }
+    }
+
+    /** A tunnel light (or link) changed: saved, and players' games are told so the plate is drawn again. */
+    void lightChanged() {
+        setChanged();
+        if (level != null && !level.isClientSide()) {
+            level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+        }
+    }
+
+    /** On the server, its tunnel ends are watched so their lights stay right. */
+    @Override
+    public void setLevel(net.minecraft.world.level.Level level) {
+        super.setLevel(level);
+        if (!level.isClientSide()) {
+            for (CablePort port : ports.values()) {
+                if (port.tunnel != null) {
+                    qbotics.network.Tunnels.watch(port);
+                }
+            }
         }
     }
 

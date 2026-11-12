@@ -1,5 +1,6 @@
 package qbotics.network;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -173,6 +174,8 @@ public final class Tunnels {
         b.setTunnel(new Link(a.deviceId(), la.dimension(), a.getBlockPos(), a.pointing()));
         ROUTES.remove(a);
         ROUTES.remove(b);
+        a.setTunnelLive(far(la, a) != null);
+        b.setTunnelLive(far(lb, b) != null);
         Qbotics.platform().capabilitiesChanged(la, a.getBlockPos());
         Qbotics.platform().capabilitiesChanged(lb, b.getBlockPos());
         return null;
@@ -210,9 +213,44 @@ public final class Tunnels {
         return port.deviceName().isEmpty() ? kind + " " + port.ip() : port.deviceName();
     }
 
-    /** Forgets cached routes; the server is stopping. */
+    /** Forgets cached routes and watched ends; the server is stopping. */
     public static void clear() {
         ROUTES.clear();
+        synchronized (WATCHED) {
+            WATCHED.clear();
+        }
+    }
+
+    /** Tunnel ends in loaded areas, whose lights are kept up to date. Forgotten once unloaded or taken off. */
+    private static final Set<CablePort> WATCHED = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+    /** How often lights are checked, in ticks. */
+    private static final int LIGHT_TICKS = 20;
+
+    /** Keeps an eye on a tunnel end, so its light shows whether the other end can be reached. */
+    public static void watch(CablePort end) {
+        synchronized (WATCHED) {
+            WATCHED.add(end.base());
+        }
+    }
+
+    /** Once a second: each watched end's light, green if its other end can be reached now and amber if not. */
+    public static void tick(net.minecraft.server.MinecraftServer server) {
+        if (server.getTickCount() % LIGHT_TICKS != 0) {
+            return;
+        }
+        List<CablePort> ends;
+        synchronized (WATCHED) {
+            ends = new java.util.ArrayList<>(WATCHED);
+        }
+        for (CablePort end : ends) {
+            if (end.isRemoved() || end.tunnel() == null || !(end.level() instanceof ServerLevel level)) {
+                synchronized (WATCHED) {
+                    WATCHED.remove(end);
+                }
+                continue;
+            }
+            end.setTunnelLive(far(level, end) != null);
+        }
     }
 
     /** The address a program on this network uses for the other end, or null if it can't be reached now. */

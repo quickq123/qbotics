@@ -377,6 +377,17 @@ what is behind the other. No program runs and nothing has to be moved by `move`.
 - **Still a bus:** programs use a tunnelled bus as before, on its own target.
 - Taking either plate off closes the tunnel.
 
+**The tunnel light.** Every bus has a light on its edges: two pixels in the middle of each of
+the four edges of its front plate (the face itself is against its target).
+
+| Light | Means |
+|---|---|
+| Off (dark) | Not in a tunnel |
+| Amber | In a tunnel, but the other end can't be reached now: its area isn't loaded, an antenna is out of range or lost its Transport Upgrade |
+| Green | In a tunnel and connected |
+
+It is checked once a second.
+
 **With the Network Probe**, in its Tunnels mode (sneak and scroll): right-click one bus,
 then the other. Right-clicking a bus that is already in a tunnel says where it leads; then
 right-click another bus to re-route it, or the same one again to close it.

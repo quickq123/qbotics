@@ -22,6 +22,10 @@ public final class PlateTints {
     public static final int FLUID = 0xFF6080A8;
     public static final int ENERGY = 0xFFC8241C;
     public static final int UNIVERSAL = 0xFF7830A8;
+    /** A bus's tunnel light: off (as dark as the plate's face), waiting (amber), connected (green). */
+    public static final int LIGHT_OFF = 0xFF100E10;
+    public static final int LIGHT_WAITING = 0xFFF0A020;
+    public static final int LIGHT_CONNECTED = 0xFF40E048;
 
     private PlateTints() {
     }
@@ -36,9 +40,20 @@ public final class PlateTints {
         };
     }
 
-    /** Six sources, in the order of the sides' numbers (down, up, north, south, west, east). */
+    /** The tunnel light for the bus on a side: off with no tunnel, amber while the other end can't be reached, green when connected. */
+    public static int light(qbotics.block.@org.jspecify.annotations.Nullable CablePort port) {
+        if (port == null || port.tunnel() == null) {
+            return LIGHT_OFF;
+        }
+        return port.tunnelLive() ? LIGHT_CONNECTED : LIGHT_WAITING;
+    }
+
+    /**
+     * Twelve sources: six for the rings, in the order of the sides' numbers (down, up, north,
+     * south, west, east), then six for the buses' tunnel lights in the same order.
+     */
     public static List<BlockTintSource> sources() {
-        List<BlockTintSource> sources = new ArrayList<>(6);
+        List<BlockTintSource> sources = new ArrayList<>(12);
         for (int number = 0; number < 6; number++) {
             Direction side = Direction.from3DDataValue(number);
             sources.add(new BlockTintSource() {
@@ -50,6 +65,20 @@ public final class PlateTints {
                 @Override
                 public int colorInWorld(BlockState state, BlockAndTintGetter level, BlockPos pos) {
                     return level.getBlockEntity(pos) instanceof PortBlockEntity host ? colour(host.mediumAt(side)) : ITEM;
+                }
+            });
+        }
+        for (int number = 0; number < 6; number++) {
+            Direction side = Direction.from3DDataValue(number);
+            sources.add(new BlockTintSource() {
+                @Override
+                public int color(BlockState state) {
+                    return LIGHT_OFF;
+                }
+
+                @Override
+                public int colorInWorld(BlockState state, BlockAndTintGetter level, BlockPos pos) {
+                    return level.getBlockEntity(pos) instanceof PortBlockEntity host ? light(host.port(side)) : LIGHT_OFF;
                 }
             });
         }

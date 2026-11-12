@@ -1075,7 +1075,8 @@ Decided by the project owner: two buses can be linked so that each end's face of
 - **Media:** what both ends carry (a USB pairs with any bus; two USBs carry all three).
 - **A tunnelled bus is still usable** by programs on its own target.
 - **How:** each end keeps a link (the other end's identity and place), saved with the plate. The cable's block entity offers NeoForge item, fluid and energy capabilities on a tunnel end's side; each handler looks the other end up on every call (so pipes caching it never hold a stale container), routes are re-checked once a second, and a depth limit stops tunnels that lead into themselves. An end whose partner is missing or relinked forgets its link.
-- Not yet: a look for a tunnelled plate (it looks like any bus; the probe tells), tunnels between Qbots and buses.
+- **Tunnel light** (decided by the project owner): two pixels at the middle of each edge of a bus's front plate, the sides facing out from its axis (the face itself is against the target). Off with no tunnel, amber while the other end can't be reached, green when connected. The server checks loaded tunnel ends once a second and tells players' games when one changes; the colour is a tint (sources 6-11 of the cable's tint list, after the six ring colours).
+- Not yet: tunnels between Qbots and buses.
 
 ### 11.1 Public peripheral API (separate small jar)
 

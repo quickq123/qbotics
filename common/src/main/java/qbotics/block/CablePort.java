@@ -44,6 +44,8 @@ public final class CablePort implements NetworkDevice {
     boolean detached;
     /** The other end of this bus's tunnel, or null if it is in none (see Tunnels). */
     qbotics.network.Tunnels.@Nullable Link tunnel;
+    /** True while its tunnel's other end can be reached: what its light shows (green, not amber). */
+    boolean tunnelLive;
 
     // ---- a Logic Pin (see WorldPlates). Saved: the mode, the level it drives and when a pulse ends. ----
     /** True if it drives a signal; false if it reads one. */
@@ -89,6 +91,20 @@ public final class CablePort implements NetworkDevice {
         return viewOf != null ? viewOf.tunnel : tunnel;
     }
 
+    /** True while its tunnel's other end can be reached (see Tunnels.tick). */
+    public boolean tunnelLive() {
+        return viewOf != null ? viewOf.tunnelLive : tunnelLive;
+    }
+
+    /** Sets what its light shows; players nearby are told when it changes. */
+    public void setTunnelLive(boolean live) {
+        CablePort real = base();
+        if (real.tunnelLive != live) {
+            real.tunnelLive = live;
+            host.lightChanged();
+        }
+    }
+
     /** Opens or closes this end of a tunnel; see Tunnels.link and unlink. */
     public void setTunnel(qbotics.network.Tunnels.@Nullable Link link) {
         if (viewOf != null) {
@@ -96,7 +112,12 @@ public final class CablePort implements NetworkDevice {
             return;
         }
         tunnel = link;
-        host.setChanged();
+        if (link == null) {
+            tunnelLive = false;
+        } else {
+            qbotics.network.Tunnels.watch(this);
+        }
+        host.lightChanged();
     }
 
     /** True for a Universal Serial Bus itself (not one of its views). */

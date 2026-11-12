@@ -952,7 +952,12 @@ SIDE_NUMBERS = {"down": 0, "up": 1, "north": 2, "south": 3, "west": 4, "east": 5
 ALL_FACES = ("north", "south", "east", "west", "up", "down")
 
 
-def plate_elements(boxes, tint):
+# A bus's tunnel light: off (the colour of the plate's dark face), amber while its tunnel's
+# other end can't be reached, green when connected. PlateTints.java holds the same colours.
+LIGHT_OFF = (16, 14, 16)
+
+
+def plate_elements(boxes, tint, light=None):
     front, collar, stem = boxes
     coloured = {"texture": "#ring", "tintindex": tint}
     elements = [
@@ -968,6 +973,18 @@ def plate_elements(boxes, tint):
     bars = [(a, b, c, b + 1), (a, d - 1, c, d), (a, b, a + 1, d), (c - 1, b, c, d)]
     for (bx0, by0, bx1, by1) in bars:
         elements.append({"from": [bx0, by0, -PROUD], "to": [bx1, by1, 0.5], "faces": {"north": dict(coloured)}})
+    if light is not None:
+        # The tunnel light: two pixels at the middle of each edge of the front plate, a hair proud
+        # of it. The face itself is against the target, so the edges are what can be seen.
+        lit = {"texture": "#ring", "tintindex": light}
+        x0, y0, z0, x1, y1, z1 = front
+        mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+        elements += [
+            {"from": [mx - 1, y1, z0], "to": [mx + 1, y1 + PROUD, z1], "faces": {"up": dict(lit)}},
+            {"from": [mx - 1, y0 - PROUD, z0], "to": [mx + 1, y0, z1], "faces": {"down": dict(lit)}},
+            {"from": [x1, my - 1, z0], "to": [x1 + PROUD, my + 1, z1], "faces": {"east": dict(lit)}},
+            {"from": [x0 - PROUD, my - 1, z0], "to": [x0, my + 1, z1], "faces": {"west": dict(lit)}},
+        ]
     return elements
 
 
@@ -990,17 +1007,19 @@ for plate, boxes in PLATE_BOXES.items():
                 "front": "qbotics:block/%s_front" % plate if plate in WORLD_PLATES else "qbotics:block/plate_front",
                 "ring": "qbotics:block/plate_ring",
             },
-            "elements": plate_elements(boxes, number),
+            # Buses have a tunnel light, coloured by the source six on from their ring's.
+            "elements": plate_elements(boxes, number, None if plate in WORLD_PLATES else 6 + number),
         })
         # Not in the cable's block state: plates are kept by the cable's block entity, and the
         # model built in code (CableModels.java) adds each one, turned by PLATE_TURNS[side].
     # In the hand and inventory the plate is shown on its own, in its medium's colour. It uses
-    # the "down" model, whose colour is number 0: the first (and only) tint an item lists.
+    # the "down" model, whose ring colour is number 0 and tunnel light number 6 (off).
     versions = {"": MEDIA[""]} if plate in WORLD_PLATES else dict(MEDIA, usb=USB_PURPLE)
     for prefix, colour in versions.items():
         write_json("assets/qbotics/items/%s.json" % ("usb" if prefix == "usb" else prefix + plate), {
             "model": {"type": "minecraft:model", "model": "qbotics:block/plate_%s_down" % plate,
-                      "tints": [{"type": "minecraft:constant", "value": tint_value(colour)}]},
+                      "tints": [{"type": "minecraft:constant", "value": tint_value(colour)}] * (1 if plate in WORLD_PLATES else 6)
+                      + ([] if plate in WORLD_PLATES else [{"type": "minecraft:constant", "value": tint_value(LIGHT_OFF)}])},
         })
 # The cable's block state: its core and arms only.
 write_json("assets/qbotics/blockstates/cable.json", {"multipart": cable_parts})

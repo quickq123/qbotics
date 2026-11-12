@@ -208,9 +208,11 @@ TUNNELS
  82. Two Item Serial Buses on one network: one under a hopper (pointing up at it), one at a
      chest. Probe in Tunnels mode (sneak + scroll): right-click the first, then the second.
      Drop items in the hopper: they arrive in the chest with no program running.
+     Both buses' edge lights turn green (off before linking).
  83. An Energy Serial Bus at a generator from another mod, a USB at a machine; tunnel them.
      The machine runs on the generator's power. Try an item pipe into a tunnel end, too.
  84. Right-click a tunnelled bus with the probe: it says where it leads. Right-click it again:
      the tunnel closes. In python:  net.bus("a").tunnel("b") ,  net.bus("a").tunnel_end .
  85. Across antennas (Transport Upgrade in both): tunnel a bus here to one there; items still
-     cross, at most the transport rate per second. Take an upgrade out: the tunnel stops.
+     cross, at most the transport rate per second. Take an upgrade out: the tunnel stops and
+     its lights turn amber within a second; put it back and they turn green.

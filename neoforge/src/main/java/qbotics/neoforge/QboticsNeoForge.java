@@ -354,6 +354,7 @@ public final class QboticsNeoForge {
         NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post event) -> {
             ComputerManager.get(event.getServer()).tick(event.getServer());
             qbotics.upgrade.ChunkLoaders.tick(event.getServer());
+            qbotics.network.Tunnels.tick(event.getServer());
         });
         // Chunk Loader Upgrades hold chunks through these tickets, saved with the world.
         modBus.addListener((net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent event) -> event.register(CHUNK_TICKETS));
