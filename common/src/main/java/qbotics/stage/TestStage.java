@@ -47,7 +47,7 @@ import qbotics.network.RadioNetwork;
  *
  * <pre>
  *            chest furnace inbox outbox      tank       machine    crafting table
- *   main  =    bus   bus   input output tanks fbus battery ebus  xp  bus  (z = 2; plates point north)
+ *   main  =    bus   bus   bus   bus    tanks fbus battery ebus  xp  bus  (z = 2; plates point north)
  *                        pin   .  placer  .                                (z = 3: a pin on a lamp south of it,
  *                        lamp    (space) breaker                            z = 4: a placer and a breaker on one space)
  *                                              anvil  enchanting table        (z = 4, each worked by a bus at z = 3)
@@ -198,9 +198,9 @@ public final class TestStage {
         Container inbox = container(6, 1, Blocks.BARREL);
         inbox.setItem(0, new ItemStack(Items.REDSTONE, 20));
         inbox.setItem(1, new ItemStack(Items.GOLD_INGOT, 6));
-        plate(6, 2, Kind.INPUT, Medium.ITEM, "inbox");
+        plate(6, 2, Kind.BUS, Medium.ITEM, "inbox");
         container(7, 1, Blocks.BARREL);
-        plate(7, 2, Kind.OUTPUT, Medium.ITEM, "outbox");
+        plate(7, 2, Kind.BUS, Medium.ITEM, "outbox");
 
         device(8, 0, 2, QboticsContent.FLUID_INTERFACE_BLOCK.get(), "tanks", FluidInterfaceBlockEntity.class);
         FluidInterfaceBlockEntity bigTank = device(9, 0, 1, QboticsContent.FLUID_INTERFACE_BLOCK.get(), "", FluidInterfaceBlockEntity.class);

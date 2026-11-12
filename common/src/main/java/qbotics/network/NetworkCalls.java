@@ -106,6 +106,16 @@ public final class NetworkCalls {
      * range, frequency and access rules to allow it. Returns null if there is no such device.
      */
     static NetworkDevice resolve(CableNetwork network, String mac) {
+        // A Universal Serial Bus's view: its address, then "@" and the medium ("...@fluid").
+        int at = mac.lastIndexOf('@');
+        if (at > 0) {
+            Medium wanted = Medium.carried(mac.substring(at + 1));
+            if (wanted == null) {
+                throw new CallError("'" + mac.substring(at + 1) + "' isn't something a USB carries: it carries item, fluid and energy.");
+            }
+            NetworkDevice device = resolve(network, mac.substring(0, at));
+            return device == null ? null : concrete(device, wanted);
+        }
         int slash = mac.indexOf('/');
         if (slash < 0) {
             return network.byMac(mac);
@@ -250,14 +260,14 @@ public final class NetworkCalls {
                     return contents(input);
                 }
                 if (device instanceof CablePort port && port.gives()) {
-                    // With no face named, an input or bus reads the whole container, not only what one face shows.
+                    // With no face named, a bus reads the whole container, not only what one face shows.
                     String faceWord = string(args, 2);
                     return contents(faceWord == null ? wholeTarget(level, port) : target(level, port, faceWord));
                 }
-                throw new CallError("Only an interface, an input or a bus can list contents; this is " + article(device) + ".");
+                throw new CallError("Only an interface or a bus can list contents; this is " + article(device) + ".");
             }
             case "energy": {
-                // How much energy an energy interface holds, or the machine an energy input or bus points at.
+                // How much energy an energy interface holds, or the machine an energy bus points at.
                 EnergyPort store = energySource(level, byMac(network, args, 1), string(args, 2));
                 JsonObject held = new JsonObject();
                 held.addProperty("stored", store.stored());
@@ -288,7 +298,7 @@ public final class NetworkCalls {
                 } else if (device instanceof CablePort port && port.medium() == Medium.ITEM && port.gives()) {
                     stacks = (string(args, 3) == null ? wholeTarget(level, port) : target(level, port, string(args, 3))).contents();
                 } else {
-                    throw new CallError("Only an interface, an input or a bus can count what is there; this is " + article(device) + ".");
+                    throw new CallError("Only an interface or a bus can count what is there; this is " + article(device) + ".");
                 }
                 for (int i = 0; i < stacks.size(); i++) {
                     ItemStack stack = stacks.get(i);
@@ -682,7 +692,7 @@ public final class NetworkCalls {
             return List.of();
         }
         List<ScreenSessions.Payer> payers = new ArrayList<>();
-        for (End end : ends(network, written, "experience source")) {
+        for (End end : asMedium(ends(network, written, "experience source"), Medium.FLUID)) {
             String label = end.label();
             if (end.device() instanceof qbotics.block.ExperienceInterfaceBlockEntity bank) {
                 payers.add(new ScreenSessions.Payer() {
@@ -742,7 +752,7 @@ public final class NetworkCalls {
                 });
             } else {
                 throw new CallError("Levels are paid from an Experience Interface, or from liquid experience in a fluid interface or behind a"
-                        + " fluid input or bus; " + label + " is " + article(end.device()) + ".");
+                        + " fluid bus; " + label + " is " + article(end.device()) + ".");
             }
         }
         return payers;
@@ -827,15 +837,26 @@ public final class NetworkCalls {
     }
 
     private static CallError notASource(End end) {
-        return new CallError(end.device() instanceof CablePort port && port.kind() == Kind.OUTPUT
-                ? "An output can't be a source: it only puts things in. Use an input or a bus."
-                : end.label() + " is " + article(end.device()) + ", which can't be a source.");
+        return new CallError(end.label() + " is " + article(end.device()) + ", which can't be a source.");
     }
 
     private static CallError notADestination(End end) {
-        return new CallError(end.device() instanceof CablePort port && port.kind() == Kind.INPUT
-                ? "An input can't be a destination: it only takes things out. Use an output or a bus."
-                : end.label() + " is " + article(end.device()) + ", which can't be a destination.");
+        return new CallError(end.label() + " is " + article(end.device()) + ", which can't be a destination.");
+    }
+
+    private static List<End> concat(List<End> a, List<End> b) {
+        List<End> all = new ArrayList<>(a);
+        all.addAll(b);
+        return all;
+    }
+
+    /** The same ends, with any USB among them working as a bus for this medium. */
+    static List<End> asMedium(List<End> ends, Medium medium) {
+        List<End> out = new ArrayList<>(ends.size());
+        for (End end : ends) {
+            out.add(new End(concrete(end.device(), medium), end.face(), end.slot(), end.written()));
+        }
+        return out;
     }
 
     private interface Step {
@@ -846,8 +867,8 @@ public final class NetworkCalls {
     /**
      * Moves things from sources to destinations (design doc §11.0.5). Sources are drawn on in
      * the order given, and each fills the destinations in the order given, until the amount
-     * asked for has moved. Nothing has to pass through an interface: an input's chest can feed
-     * an output's furnace directly.
+     * asked for has moved. Nothing has to pass through an interface: one bus's chest can feed
+     * another bus's furnace directly.
      *
      * <p>Arguments: the sources, the destinations (each a list of {"mac", "face", "slot",
      * "only": [...], "without": [...]}), a name or filter (or null), "count" (move up to this
@@ -858,12 +879,21 @@ public final class NetworkCalls {
      * waits and asks again, or reports it.
      */
     private static JsonObject moveAll(ServerLevel level, CableNetwork network, JsonArray args) {
-        List<End> sources = ends(network, args.get(1), "source");
-        List<End> destinations = ends(network, args.get(2), "destination");
+        List<End> givenSources = ends(network, args.get(1), "source");
+        List<End> givenDestinations = ends(network, args.get(2), "destination");
         String wanted = string(args, 3);
         Integer count = wholeNumber(args, 4, "count");
         Integer need = wholeNumber(args, 5, "amount needed");
-        Medium medium = sources.getFirst().device().medium();
+        // A USB carries whatever the other ends do; with nothing else to go by, items.
+        Medium medium = Medium.ITEM;
+        for (End end : concat(givenSources, givenDestinations)) {
+            if (end.device().medium() != Medium.UNIVERSAL) {
+                medium = end.device().medium();
+                break;
+            }
+        }
+        List<End> sources = asMedium(givenSources, medium);
+        List<End> destinations = asMedium(givenDestinations, medium);
         for (End end : sources) {
             if (end.device().kind() == Kind.COMPUTER || end.device().kind() == Kind.ANTENNA) {
                 throw notASource(end);
@@ -1192,7 +1222,7 @@ public final class NetworkCalls {
         return target;
     }
 
-    /** What a fluid device reads: a fluid interface's own tanks, or the tanks an input or bus points at. */
+    /** What a fluid device reads: a fluid interface's own tanks, or the tanks a fluid bus points at. */
     static FluidPort fluidSource(ServerLevel level, NetworkDevice device, String faceWord) {
         if (device instanceof FluidInterfaceBlockEntity store) {
             return store;
@@ -1200,7 +1230,7 @@ public final class NetworkCalls {
         if (device instanceof CablePort port && port.gives()) {
             return fluidTarget(level, port, faceWord, true);
         }
-        throw new CallError("Only a fluid interface, a fluid input or a fluid bus can list contents; this is " + article(device) + ".");
+        throw new CallError("Only a fluid interface or a fluid bus can list contents; this is " + article(device) + ".");
     }
 
     static EnergyPort energySource(ServerLevel level, NetworkDevice device, String faceWord) {
@@ -1210,7 +1240,7 @@ public final class NetworkCalls {
         if (device instanceof CablePort port && port.medium() == Medium.ENERGY && port.gives()) {
             return energyTarget(level, port, faceWord, true);
         }
-        throw new CallError("Only an energy interface, an energy input or an energy bus can say how much energy there is; this is "
+        throw new CallError("Only an energy interface or an energy bus can say how much energy there is; this is "
                 + article(device) + ".");
     }
 
@@ -1355,16 +1385,49 @@ public final class NetworkCalls {
         if (device == null) {
             throw new CallError("The device " + args.get(index).getAsString() + " is no longer on this network.");
         }
+        return concrete(device, Medium.ITEM);
+    }
+
+    /** A Universal Serial Bus working as a bus for one medium (items, unless a call needs another); anything else as it is. */
+    static NetworkDevice concrete(NetworkDevice device, Medium medium) {
+        if (device instanceof CablePort port && port.universal()) {
+            CablePort view = port.as(medium);
+            String remote = REMOTE.get(port);
+            if (remote != null) {
+                REMOTE.put(view, remote);
+            }
+            return view;
+        }
         return device;
     }
 
     /** A device by IP address, hardware address or name; with no key, the only device of a kind. */
     private static NetworkDevice find(CableNetwork network, String key, String kindWord) {
         List<NetworkDevice> matches = new ArrayList<>();
+        if (key != null && key.lastIndexOf('@') > 0) {
+            NetworkDevice view = resolve(network, key); // a USB's view, by its full address
+            if (view == null) {
+                throw new CallError("The device " + key + " is no longer on this network.");
+            }
+            return view;
+        }
+        List<NetworkDevice> usbs = new ArrayList<>();
         for (NetworkDevice device : key == null ? network.devices() : network.find(key)) {
             if (kindWord == null || device.kindWord().equals(kindWord)) {
                 matches.add(device);
+            } else if (device instanceof CablePort port && port.universal()) {
+                // A USB is also an item, fluid and energy bus: asked for one of those, it answers as that.
+                for (Medium medium : Medium.CARRIED) {
+                    if (kindWord.equals(medium.prefix + Kind.BUS.word)) {
+                        usbs.add(concrete(port, medium));
+                    }
+                }
             }
+        }
+        // By name or address a USB is found as readily as a bus; asked for "the only bus", a USB
+        // counts only when there is no plain one.
+        if (key != null || matches.isEmpty()) {
+            matches.addAll(usbs);
         }
         String what = kindWord == null ? "device" : kindWord.replace('_', ' ');
         if (matches.size() == 1) {
@@ -1389,6 +1452,9 @@ public final class NetworkCalls {
     }
 
     private static String article(String word) {
+        if (word.equals("usb")) {
+            return "a USB";
+        }
         return ("aeiou".indexOf(word.charAt(0)) >= 0 ? "an " : "a ") + word;
     }
 
@@ -1403,7 +1469,7 @@ public final class NetworkCalls {
         if (device instanceof CablePort port) {
             return port;
         }
-        throw new CallError("That needs an input, an output or a bus; this is " + article(device) + ".");
+        throw new CallError("That needs a bus; this is " + article(device) + ".");
     }
 
     private static AccessFace face(String word) {
@@ -1431,7 +1497,7 @@ public final class NetworkCalls {
         return whole != null ? whole : target(level, port, null);
     }
 
-    /** The container a bus or output points at, seen through a face. */
+    /** The container a bus points at, seen through a face. */
     static ItemPort target(ServerLevel level, CablePort port, String faceWord) {
         AccessFace face = faceWord == null ? port.accessFace() : face(faceWord);
         BlockPos pos = port.targetPos();

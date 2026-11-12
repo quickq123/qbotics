@@ -10,9 +10,13 @@ import qbotics.network.Medium;
 import qbotics.network.NetworkDevice;
 
 /**
- * One plate on a cable: an input, an output or a bus (design doc §11.0). It holds nothing
- * itself, and acts on the container it points at. A cable can carry one on each side, so
- * several of these can share one block position.
+ * One plate on a cable: a Serial Bus (item, fluid, energy or universal) or a world plate
+ * (design doc §11.0). It holds nothing itself, and acts on the container it points at. A
+ * cable can carry one on each side, so several of these can share one block position.
+ *
+ * <p>A Universal Serial Bus carries all three media. A call works on one of them through a
+ * <em>view</em> ({@link #as}): a CablePort for that medium that shares the real plate's
+ * identity, name, address and face, so the rest of the network code sees an ordinary bus.
  */
 public final class CablePort implements NetworkDevice {
     final PortBlockEntity host;
@@ -30,8 +34,12 @@ public final class CablePort implements NetworkDevice {
     AccessFace accessFace = AccessFace.NEAR;
     /** What it carries: items, fluid or energy. */
     Medium medium = Medium.ITEM;
-    /** Which kind of plate it is: an input, an output or a bus. */
+    /** Which kind of plate it is: a bus, or a world plate. */
     Kind kind = Kind.BUS;
+    /** For a view of a Universal Serial Bus: the real plate. Null for a real plate. */
+    private @Nullable CablePort viewOf;
+    /** A Universal Serial Bus's views, made once so each stays the same object (screens and watches key on it). */
+    private java.util.@Nullable EnumMap<Medium, CablePort> views;
     /** True once the plate has been taken off its cable. */
     boolean detached;
 
@@ -74,8 +82,52 @@ public final class CablePort implements NetworkDevice {
         PortBlockEntity.placed(this, placedBy);
     }
 
+    /** True for a Universal Serial Bus itself (not one of its views). */
+    public boolean universal() {
+        return medium == Medium.UNIVERSAL;
+    }
+
+    /**
+     * This Universal Serial Bus working as a bus for one medium. Anything else is returned
+     * as it is.
+     */
+    public CablePort as(Medium wanted) {
+        if (!universal() || wanted == Medium.UNIVERSAL) {
+            return this;
+        }
+        if (views == null) {
+            views = new java.util.EnumMap<>(Medium.class);
+        }
+        return views.computeIfAbsent(wanted, m -> {
+            CablePort view = new CablePort(host, side);
+            view.viewOf = this;
+            view.kind = kind;
+            view.medium = m;
+            return view;
+        });
+    }
+
+    /** The real plate: itself, or the Universal Serial Bus this is a view of. */
+    public CablePort base() {
+        return viewOf == null ? this : viewOf;
+    }
+
+    @Override
+    public String kindWord() {
+        return universal() ? "usb" : NetworkDevice.super.kindWord();
+    }
+
+    /** A view's address names its medium after the USB's own: "02:1a:...@fluid". */
+    @Override
+    public String mac() {
+        return viewOf == null ? NetworkDevice.super.mac() : viewOf.mac() + "@" + medium.word;
+    }
+
     @Override
     public UUID deviceId() {
+        if (viewOf != null) {
+            return viewOf.deviceId();
+        }
         if (deviceId == null) {
             deviceId = UUID.randomUUID();
             host.setChanged();
@@ -85,7 +137,7 @@ public final class CablePort implements NetworkDevice {
 
     /** The player who put the plate on, or null if nobody did (a command, a machine). */
     public @Nullable UUID owner() {
-        return owner;
+        return viewOf != null ? viewOf.owner : owner;
     }
 
     @Override
@@ -100,22 +152,30 @@ public final class CablePort implements NetworkDevice {
 
     @Override
     public String deviceName() {
-        return name;
+        return viewOf != null ? viewOf.name : name;
     }
 
     @Override
     public void setDeviceName(String newName) {
+        if (viewOf != null) {
+            viewOf.setDeviceName(newName);
+            return;
+        }
         name = Addresses.cleanName(newName);
         host.setChanged();
     }
 
     @Override
     public int hostNumber() {
-        return hostNumber;
+        return viewOf != null ? viewOf.hostNumber : hostNumber;
     }
 
     @Override
     public void setHostNumber(int number) {
+        if (viewOf != null) {
+            viewOf.setHostNumber(number);
+            return;
+        }
         if (hostNumber != number) {
             hostNumber = number;
             host.setChanged();
@@ -130,6 +190,9 @@ public final class CablePort implements NetworkDevice {
 
     @Override
     public boolean isRemoved() {
+        if (viewOf != null) {
+            return viewOf.isRemoved();
+        }
         return detached || host.isRemoved() || host.port(side) != this;
     }
 
@@ -141,14 +204,14 @@ public final class CablePort implements NetworkDevice {
         return new PinState(pinOutput, pinLevel, inputLevel, rising, falling, signalChanges, blockChanges);
     }
 
-    /** True if things can be taken from what it points at: an input or a bus. */
+    /** True if things can be taken from what it points at: a bus. */
     public boolean gives() {
-        return kind == Kind.INPUT || kind == Kind.BUS;
+        return kind == Kind.BUS;
     }
 
-    /** True if things can be put into what it points at: an output or a bus. */
+    /** True if things can be put into what it points at: a bus. */
     public boolean takes() {
-        return kind == Kind.OUTPUT || kind == Kind.BUS;
+        return kind == Kind.BUS;
     }
 
     /** The direction from the cable to the plate's target. */
@@ -161,10 +224,14 @@ public final class CablePort implements NetworkDevice {
     }
 
     public AccessFace accessFace() {
-        return accessFace;
+        return viewOf != null ? viewOf.accessFace : accessFace;
     }
 
     public void setAccessFace(AccessFace face) {
+        if (viewOf != null) {
+            viewOf.setAccessFace(face);
+            return;
+        }
         accessFace = face;
         host.setChanged();
     }

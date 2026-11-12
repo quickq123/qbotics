@@ -20,7 +20,7 @@ import qbotics.network.Medium;
 import qbotics.network.NetworkDevice;
 
 /**
- * An Input, Output or Bus in the hand: a plate that goes on a cable and points at the
+ * A plate in the hand (a Serial Bus or a world plate): it goes on a cable and points at the
  * block next to it (design doc §11.0).
  *
  * <p>Click the block the plate should work on (a chest, a furnace): the plate goes on the

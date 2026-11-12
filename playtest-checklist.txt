@@ -190,3 +190,15 @@ QBOTS (from the creative tab)
  74. qbot.use() on a lever; with shears in its hand, qbot.use() on a sheep.
  75. A Chunk Loader Upgrade in its upgrade slot: walk far away while it digs a tunnel.
  76. Break it: its items fall out; place it again and its files, energy and fluid are kept.
+
+SERIAL BUSES (Input and Output are gone)
+ 77. Craft an Item Serial Bus: cables in an H (C.C / HCD / C.C), hopper left, dropper right.
+     Swap the dropper for a bucket (Fluid) or a block of redstone (Energy). JEI shows all three.
+ 78. Craft a Universal Serial Bus (USB) from one of each; it is gold on the cable.
+ 79. A USB on a machine from another mod that takes items, fluid and energy (for example a
+     Mekanism or Thermal machine):  python ,  from logistics import network, move ,
+     net = network() ,  m = net.usb() ,  m.count() ,  m.fluid.amount() ,  m.energy.stored() .
+ 80. move(net.interface(), m, "raw_iron", 8)  sends items;  move(net.energy_interface(), m,
+     count=10000)  sends energy, through the same plate.
+ 81. Old worlds: Input and Output plates already on cables are now Serial Buses and keep
+     working; Input and Output items in chests are gone.

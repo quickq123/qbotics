@@ -52,7 +52,7 @@ import qbotics.network.NetworkDevice;
  * ingredient. {@link CableNetwork} walks along cables to find which devices are joined.
  *
  * <p>Each of a cable's six sides is one of: nothing, an arm reaching to a neighbour, or a
- * plate (an Input, an Output or a Bus) that shares the cable's block and points at the
+ * plate (a Serial Bus, or a world plate) that shares the cable's block and points at the
  * neighbour on that side. So one cable in a tight space can serve up to six containers.
  *
  * <p>Only the arms are in the block state (one yes-or-no for each side). The plates are kept

@@ -12,7 +12,7 @@ import qbotics.network.Medium;
 
 /**
  * The colour of the collar and ring on a plate: white for items, blue-grey for fluid, red for
- * energy. Which a plate carries is not in the cable's block state (that would multiply its
+ * energy, gold for a Universal Serial Bus, which carries all three. Which a plate carries is not in the cable's block state (that would multiply its
  * states far beyond what the game can hold), so the ring is drawn white and coloured from
  * what the cable remembers. There is one source per side of the cable; a plate's model on a
  * side uses the source with that side's number.
@@ -21,6 +21,7 @@ public final class PlateTints {
     public static final int ITEM = 0xFFF6F6F6;
     public static final int FLUID = 0xFF6080A8;
     public static final int ENERGY = 0xFFC8241C;
+    public static final int UNIVERSAL = 0xFFE0A82C;
 
     private PlateTints() {
     }
@@ -30,6 +31,7 @@ public final class PlateTints {
             case ITEM -> ITEM;
             case FLUID -> FLUID;
             case ENERGY -> ENERGY;
+            case UNIVERSAL -> UNIVERSAL;
             case EXPERIENCE -> 0xFF80E040; // no plate carries it yet
         };
     }

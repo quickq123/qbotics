@@ -99,6 +99,9 @@ final class Watches {
         }
         watch.lastUsed = level.getGameTime();
         NetworkDevice device = NetworkCalls.resolve(network, watch.mac);
+        if (device != null) {
+            device = NetworkCalls.concrete(device, Medium.ITEM); // a USB with no medium named is watched for items
+        }
         if (device == null) {
             throw new CallError("The device this watch was on is no longer on the network.");
         }
@@ -178,7 +181,7 @@ final class Watches {
         if (device instanceof CablePort port && port.gives()) {
             return (face == null ? NetworkCalls.wholeTarget(level, port) : NetworkCalls.target(level, port, face)).contents();
         }
-        throw new CallError("Only an interface, an input or a bus can be watched for items; this is " + NetworkCalls.article(device) + ".");
+        throw new CallError("Only an interface or a bus can be watched for items; this is " + NetworkCalls.article(device) + ".");
     }
 
     private static List<ItemStack> copies(List<ItemStack> stacks) {

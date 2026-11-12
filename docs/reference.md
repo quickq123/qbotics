@@ -170,11 +170,12 @@ With an antenna on the network, each device can also be reached from other netwo
 | `computer` | A computer |
 | `antenna` | An antenna. The first on a network is its router, at `192.168.1.1` |
 | `interface` | Item storage: nine filtered slots |
-| `input`, `output`, `bus` | Item plates on a cable: take out, put in, or both |
+| `bus` | An Item Serial Bus: a plate on a cable that takes items out of the container it points at and puts them in |
 | `fluid_interface` | Fluid storage: four tanks of 4,000 mB |
-| `fluid_input`, `fluid_output`, `fluid_bus` | Fluid plates |
+| `fluid_bus` | A Fluid Serial Bus: the same for fluid |
 | `energy_interface` | Energy storage: 2,000,000 FE |
-| `energy_input`, `energy_output`, `energy_bus` | Energy plates |
+| `energy_bus` | An Energy Serial Bus: the same for energy |
+| `usb` | A Universal Serial Bus (USB): item, fluid and energy bus in one plate (section 6.3) |
 | `experience_interface` | Experience storage, with no limit |
 | `pin` | A Logic Pin: a redstone line in or out, and an eye on a block |
 | `placer`, `breaker` | Plates that place blocks and fluid, or break them |
@@ -183,7 +184,8 @@ With an antenna on the network, each device can also be reached from other netwo
 | `monitor`, `panel` | A Text Monitor or a Control Panel: a screen, of one block or several (section 7c) |
 
 Plates share a cable's block, one per side, and point at the block next to that side. Their
-colour says what they carry: white for items, blue-grey for fluid, red for energy.
+colour says what they carry: white for items, blue-grey for fluid, red for energy, gold for
+a USB.
 
 ---
 
@@ -288,11 +290,12 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `net.devices()` | Every device, in address order |
 | `net.device(key)` | One device by name, internal IP or hardware address |
 | `net.me` | This computer |
-| `net.interface(key)`, `net.input(key)`, `net.output(key)`, `net.bus(key)` | One item device. With no key: the only one of its kind, or an error saying how many there are |
-| `net.fluid_interface(key)`, `net.fluid_input(key)`, `net.fluid_output(key)`, `net.fluid_bus(key)` | The same for fluid |
-| `net.energy_interface(key)`, `net.energy_input(key)`, `net.energy_output(key)`, `net.energy_bus(key)` | The same for energy |
+| `net.interface(key)`, `net.bus(key)` | One item device. With no key: the only one of its kind, or an error saying how many there are |
+| `net.fluid_interface(key)`, `net.fluid_bus(key)` | The same for fluid |
+| `net.energy_interface(key)`, `net.energy_bus(key)` | The same for energy |
+| `net.usb(key)` | A Universal Serial Bus. `net.bus()`, `net.fluid_bus()` and `net.energy_bus()` find a USB by name too, working as that kind of bus; with no key they pick a USB only when there is no plain bus of that kind |
 | `net.experience_interface(key)` | The experience store |
-| `net.interfaces()`, `net.inputs()`, `net.outputs()`, `net.buses()` | Every item device of a kind |
+| `net.interfaces()`, `net.buses()`, `net.usbs()` | Every interface, Item Serial Bus or USB |
 
 ### 6.2 Every device
 
@@ -302,13 +305,51 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `.rename(name)` | Names the device. `""` removes the name |
 | `.refresh()` | Looks the device up again |
 
-### 6.3 Plates (`input`, `output`, `bus` and their fluid and energy versions)
+### 6.3 Serial Buses
+
+A Serial Bus is a plate on a cable. It works the container it points at: it takes things
+out and puts things in, so it is both a source and a destination for `move`. There is one
+for each medium, and one for all three:
+
+| Plate | Kind | Carries | Colour |
+|---|---|---|---|
+| Item Serial Bus | `bus` | Items. It can also work a block's screen (section 6.8) | White |
+| Fluid Serial Bus | `fluid_bus` | Fluid | Blue-grey |
+| Energy Serial Bus | `energy_bus` | Energy | Red |
+| Universal Serial Bus (USB) | `usb` | Items, fluid and energy | Gold |
+
+**Crafting.** Cables in an H, with a hopper on the left of the crossbar and, on the right:
+
+```
+C . C        C = cable, H = hopper
+H C X        X = dropper (Item Serial Bus), bucket (Fluid), block of redstone (Energy)
+C . C
+```
+
+A USB is the three together, in any order: an Item, a Fluid and an Energy Serial Bus.
+
+**Placing.** Right-click the block it should work on, with the plate in hand: it goes on the
+cable in front of that face (a cable is taken from your inventory if there is none). Sneak and
+right-click it with an empty hand to take it off.
 
 | Attribute or call | Gives |
 |---|---|
 | `.target` | The block it points at, such as `"minecraft:furnace"` |
 | `.face` | The face used when a call names none |
 | `.set_face(face)` | Changes that face |
+
+**A USB in programs.** On its own a USB works as an Item Serial Bus (`usb.count("coal")`,
+`usb.open_screen()`). `usb.fluid` and `usb.energy` are the same plate as a fluid bus and an
+energy bus, and `usb.items` as an item bus. In `move`, a USB carries whatever the other ends
+do, so with a fluid interface at the other end it moves fluid:
+
+```python
+machine = net.usb("machine")
+move(store, machine, "raw_iron", 16)              # items in
+move(machine, net.fluid_interface(), "lava", 1000)  # fluid out
+move(net.energy_interface(), machine, count=50000)  # energy in
+print(machine.fluid.amount(), machine.energy.stored())
+```
 
 ### 6.4 Moving things: sources, destinations and `move`
 
@@ -317,14 +358,12 @@ description of one end: which device, optionally which face or slot, and what it
 take. Nothing happens until `move` is called, so an end can be made once, kept in a variable,
 put in a list, and used again.
 
-Nothing has to pass through an Interface. An Input's chest can feed an Output's furnace directly.
+Nothing has to pass through an Interface. One bus's chest can feed another bus's furnace directly.
 
 | What | Can be a source | Can be a destination |
 |---|---|---|
 | Interface, Fluid Interface, Energy Interface, Experience Interface | yes | yes |
-| Input (and Fluid Input, Energy Input): the container it points at | yes | no |
-| Output (and its fluid and energy versions): the container it points at | no | yes |
-| Bus (and its fluid and energy versions): the container it points at | yes | yes |
+| A Serial Bus or USB: the container it points at | yes | yes |
 
 **Describing an end**
 
@@ -433,14 +472,13 @@ before. A watch nobody looks at for a minute ends; a computer can have 16 at onc
 
 A slot holds one kind of item at a time, up to one stack, even when its filter passes many.
 
-**Input**, **Output** and **Bus**
+**Item Serial Bus** (and a USB)
 
-| Call | On | Does |
-|---|---|---|
-| `plate.contents(face=None)` | Input, Bus | What the target holds |
-| `plate.count(item=None, face=None, slot=None)` | Input, Bus | How many the target holds |
-| `plate.source(...)` | Input, Bus | Section 6.4 |
-| `plate.destination(...)` | Output, Bus | Section 6.4 |
+| Call | Does |
+|---|---|
+| `bus.contents(face=None)` | What the target holds |
+| `bus.count(item=None, face=None, slot=None)` | How many the target holds |
+| `bus.source(...)`, `bus.destination(...)` | Section 6.4 |
 
 ### 6.6 Fluid and energy
 
@@ -468,8 +506,8 @@ Right-click it to open its screen: the four tanks, each with a **filter socket**
 | `tanks.amount(fluid=None, slot=None)` | Fluid Interface | Millibuckets held of a name or filter |
 | `tanks.filters()` | Fluid Interface | The fluid each tank is kept for, e.g. `["minecraft:water", None, None, None]`; `None` where it takes any |
 | `tanks.set_tank_filter(tank, fluid)` | Fluid Interface | Keeps a tank for one fluid (`"water"`); `None` lets it take any again |
-| `plate.contents(face=None)` | Fluid Input, Fluid Bus | The target's tanks |
-| `plate.amount(fluid=None, face=None, slot=None)` | Fluid Input, Fluid Bus | Millibuckets the target holds |
+| `bus.contents(face=None)` | Fluid Serial Bus, `usb.fluid` | The target's tanks |
+| `bus.amount(fluid=None, face=None, slot=None)` | Fluid Serial Bus, `usb.fluid` | Millibuckets the target holds |
 
 **Energy Interface** (`net.energy_interface()`): holds 2,000,000 FE.
 
@@ -481,14 +519,14 @@ battery allows. Take the battery out when it is done.
 | Call | On | Gives |
 |---|---|---|
 | `cell.stored`, `cell.capacity` | Energy Interface | Energy held now; the most it can hold |
-| `plate.stored(face=None)`, `plate.capacity(face=None)` | Energy Input, Energy Bus | The same for the target |
+| `bus.stored(face=None)`, `bus.capacity(face=None)` | Energy Serial Bus, `usb.energy` | The same for the target |
 
 All of them have `source(...)` and `destination(...)` as section 6.4 says. In a fluid end,
 `slot` is a tank number. Energy has no kinds, so `only`, `without` and `what` are not used:
 
 ```python
 move(net.fluid_bus("boiler"), net.fluid_interface("tanks"), "water", 3000)
-move(net.energy_interface("battery"), net.energy_output("machine"), count=50000)
+move(net.energy_interface("battery"), net.energy_bus("machine"), count=50000)
 ```
 
 ### 6.7 Experience
@@ -512,11 +550,11 @@ A program can read it, and `move` between two of them moves points (`move(bank, 
 | `bank.levels` | The level those points would take a player to from nothing |
 | `bank.lock` | `"private"`, `"team"` or `"public"` |
 
-### 6.8 Screens: a Bus working a block's screen
+### 6.8 Screens: an Item Serial Bus working a block's screen
 
 Some blocks keep nothing in the world for a plate to reach. A crafting table's slots exist only
 on the screen of whoever has it open, and many other mods' machines are the same. For these, a
-**Bus** (only a Bus) can open the block's screen and work its slots.
+**Item Serial Bus** (or a USB) can open the block's screen and work its slots.
 
 The Bus opens the screen as its **owner**, the player who put the plate on, the same way that
 player's right-click would. So a block, or a land-claim mod, that wouldn't let the owner in won't
@@ -612,7 +650,7 @@ What can pay:
 | Source | Spends |
 |---|---|
 | An Experience Interface | Its points |
-| A Fluid Interface, Fluid Input or Fluid Bus holding liquid experience | The fluid, at 20 mB a point. Only fluids other mods mark as liquid experience (the `c:experience` tag) count. It is only used up, never turned into levels anyone can take |
+| A Fluid Interface, Fluid Serial Bus or USB holding liquid experience | The fluid, at 20 mB a point. Only fluids other mods mark as liquid experience (the `c:experience` tag) count. It is only used up, never turned into levels anyone can take |
 | A list of these | The first one that holds enough |
 
 The Bus acts as a player who has exactly the levels the screen asks, and only what the block
@@ -1549,13 +1587,13 @@ belongs to you.
 |---|---|
 | A computer with an antenna, and every device beside it | `main` |
 | An Interface: coal, logs, raw iron, ingots, then five open slots | `store` |
-| A Bus on a chest of coal, logs, raw iron, cobblestone and ingots | `chest` |
-| A Bus on a furnace | `furnace` |
-| An Input on a barrel of redstone and gold; an Output on an empty barrel | `inbox`, `outbox` |
-| A Fluid Interface; a Fluid Bus on a tank of water and lava | `tanks`, `big_tank` |
-| An Energy Interface; an Energy Bus on a charged cell | `battery`, `machine` |
+| An Item Serial Bus on a chest of coal, logs, raw iron, cobblestone and ingots | `chest` |
+| An Item Serial Bus on a furnace | `furnace` |
+| Item Serial Buses on a barrel of redstone and gold, and on an empty barrel | `inbox`, `outbox` |
+| A Fluid Interface; a Fluid Serial Bus on a tank of water and lava | `tanks`, `big_tank` |
+| An Energy Interface; an Energy Serial Bus on a charged cell | `battery`, `machine` |
 | An Experience Interface holding 30 levels' worth | `xp` |
-| A Bus on a crafting table | `crafter` |
+| An Item Serial Bus on a crafting table | `crafter` |
 | A Drive Bay with two hard drives (`lib` and `drive2`) | `shared` |
 | On `remote`'s network, a package repository: a Drive Bay with a drive `lib` holding `greetings` and `stock`; `main` has a `requirements.txt` for it | `repo` |
 | A Logic Pin on a redstone lamp | `lamp` |

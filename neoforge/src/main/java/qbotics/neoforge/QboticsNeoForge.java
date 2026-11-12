@@ -129,10 +129,7 @@ public final class QboticsNeoForge {
             });
     private static final DeferredItem<qbotics.block.HardDriveItem> HARD_DRIVE_ITEM = ITEMS.registerItem("hard_drive", qbotics.block.HardDriveItem::new);
     // Plates that go on cables: no blocks of their own.
-    private static final DeferredItem<PlateItem> INPUT_ITEM = ITEMS.registerItem("input",
-            properties -> new PlateItem(NetworkDevice.Kind.INPUT, qbotics.network.Medium.ITEM, properties));
-    private static final DeferredItem<PlateItem> OUTPUT_ITEM = ITEMS.registerItem("output",
-            properties -> new PlateItem(NetworkDevice.Kind.OUTPUT, qbotics.network.Medium.ITEM, properties));
+    // The Serial Buses: one per medium, and the Universal Serial Bus (USB), which carries all three.
     private static final DeferredItem<PlateItem> BUS_ITEM = ITEMS.registerItem("bus",
             properties -> new PlateItem(NetworkDevice.Kind.BUS, qbotics.network.Medium.ITEM, properties));
     // World plates (design doc §11.0.1): each handles what it needs itself, so there are no fluid or energy versions.
@@ -142,18 +139,12 @@ public final class QboticsNeoForge {
             properties -> new PlateItem(NetworkDevice.Kind.PLACER, qbotics.network.Medium.ITEM, properties));
     private static final DeferredItem<PlateItem> BREAKER_ITEM = ITEMS.registerItem("breaker",
             properties -> new PlateItem(NetworkDevice.Kind.BREAKER, qbotics.network.Medium.ITEM, properties));
-    private static final DeferredItem<PlateItem> FLUID_INPUT_ITEM = ITEMS.registerItem("fluid_input",
-            properties -> new PlateItem(NetworkDevice.Kind.INPUT, qbotics.network.Medium.FLUID, properties));
-    private static final DeferredItem<PlateItem> FLUID_OUTPUT_ITEM = ITEMS.registerItem("fluid_output",
-            properties -> new PlateItem(NetworkDevice.Kind.OUTPUT, qbotics.network.Medium.FLUID, properties));
     private static final DeferredItem<PlateItem> FLUID_BUS_ITEM = ITEMS.registerItem("fluid_bus",
             properties -> new PlateItem(NetworkDevice.Kind.BUS, qbotics.network.Medium.FLUID, properties));
-    private static final DeferredItem<PlateItem> ENERGY_INPUT_ITEM = ITEMS.registerItem("energy_input",
-            properties -> new PlateItem(NetworkDevice.Kind.INPUT, qbotics.network.Medium.ENERGY, properties));
-    private static final DeferredItem<PlateItem> ENERGY_OUTPUT_ITEM = ITEMS.registerItem("energy_output",
-            properties -> new PlateItem(NetworkDevice.Kind.OUTPUT, qbotics.network.Medium.ENERGY, properties));
     private static final DeferredItem<PlateItem> ENERGY_BUS_ITEM = ITEMS.registerItem("energy_bus",
             properties -> new PlateItem(NetworkDevice.Kind.BUS, qbotics.network.Medium.ENERGY, properties));
+    private static final DeferredItem<PlateItem> USB_ITEM = ITEMS.registerItem("usb",
+            properties -> new PlateItem(NetworkDevice.Kind.BUS, qbotics.network.Medium.UNIVERSAL, properties));
 
     // The stores for fluid and energy: full blocks, like the Interface.
     private static final DeferredBlock<qbotics.block.StoreBlock> FLUID_INTERFACE = BLOCKS.registerBlock("fluid_interface",
@@ -243,15 +234,10 @@ public final class QboticsNeoForge {
                         output.accept(FLUID_INTERFACE_ITEM.get());
                         output.accept(ENERGY_INTERFACE_ITEM.get());
                         output.accept(EXPERIENCE_INTERFACE_ITEM.get());
-                        output.accept(INPUT_ITEM.get());
-                        output.accept(OUTPUT_ITEM.get());
                         output.accept(BUS_ITEM.get());
-                        output.accept(FLUID_INPUT_ITEM.get());
-                        output.accept(FLUID_OUTPUT_ITEM.get());
                         output.accept(FLUID_BUS_ITEM.get());
-                        output.accept(ENERGY_INPUT_ITEM.get());
-                        output.accept(ENERGY_OUTPUT_ITEM.get());
                         output.accept(ENERGY_BUS_ITEM.get());
+                        output.accept(USB_ITEM.get());
                         output.accept(PIN_ITEM.get());
                         output.accept(PLACER_ITEM.get());
                         output.accept(BREAKER_ITEM.get());
@@ -319,18 +305,13 @@ public final class QboticsNeoForge {
         QboticsContent.INTERFACE_BLOCK = INTERFACE;
         QboticsContent.PROBE_ITEM = PROBE_ITEM;
         QboticsContent.PLATE_ITEMS = java.util.Map.ofEntries(
-                java.util.Map.entry("input", INPUT_ITEM),
                 java.util.Map.entry("pin", PIN_ITEM),
                 java.util.Map.entry("placer", PLACER_ITEM),
                 java.util.Map.entry("breaker", BREAKER_ITEM),
-                java.util.Map.entry("output", OUTPUT_ITEM),
                 java.util.Map.entry("bus", BUS_ITEM),
-                java.util.Map.entry("fluid_input", FLUID_INPUT_ITEM),
-                java.util.Map.entry("fluid_output", FLUID_OUTPUT_ITEM),
                 java.util.Map.entry("fluid_bus", FLUID_BUS_ITEM),
-                java.util.Map.entry("energy_input", ENERGY_INPUT_ITEM),
-                java.util.Map.entry("energy_output", ENERGY_OUTPUT_ITEM),
-                java.util.Map.entry("energy_bus", ENERGY_BUS_ITEM));
+                java.util.Map.entry("energy_bus", ENERGY_BUS_ITEM),
+                java.util.Map.entry("universal_bus", USB_ITEM));
         QboticsContent.FLUID_INTERFACE_BLOCK = FLUID_INTERFACE;
         QboticsContent.ENERGY_INTERFACE_BLOCK = ENERGY_INTERFACE;
         QboticsContent.EXPERIENCE_INTERFACE_BLOCK = EXPERIENCE_INTERFACE;

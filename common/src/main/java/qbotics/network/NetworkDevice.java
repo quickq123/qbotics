@@ -10,7 +10,9 @@ import net.minecraft.core.Direction;
  */
 public interface NetworkDevice {
     enum Kind {
-        COMPUTER("computer"), ANTENNA("antenna"), INTERFACE("interface"), INPUT("input"), OUTPUT("output"), BUS("bus"),
+        COMPUTER("computer"), ANTENNA("antenna"), INTERFACE("interface"),
+        /** A Serial Bus: works the container it points at, taking out and putting in. */
+        BUS("bus"),
         /** World plates (design doc §11.0.1): redstone and watching, placing, breaking. */
         PIN("pin"), PLACER("placer"), BREAKER("breaker"),
         /** Holds hard drives, which every computer on its network sees under /net (design doc §17.6). */
@@ -29,16 +31,19 @@ public interface NetworkDevice {
 
         /** True for the kinds that are plates on a cable. */
         public boolean isPlate() {
-            return this == INPUT || this == OUTPUT || this == BUS || this == PIN || this == PLACER || this == BREAKER;
+            return this == BUS || this == PIN || this == PLACER || this == BREAKER;
         }
 
         /** True for the plates that move things between containers, in each medium. */
         public boolean isLogistics() {
-            return this == INPUT || this == OUTPUT || this == BUS;
+            return this == BUS;
         }
 
         /** The plate kind with this word, or null if there is none. */
         public static @org.jspecify.annotations.Nullable Kind plate(String word) {
+            if (word.equals("input") || word.equals("output")) {
+                return BUS; // saved before Input and Output were folded into the Serial Bus (2026-11-12)
+            }
             for (Kind kind : values()) {
                 if (kind.isPlate() && kind.word.equals(word)) {
                     return kind;
@@ -58,7 +63,7 @@ public interface NetworkDevice {
         return Medium.ITEM;
     }
 
-    /** The word programs and messages use for it: "input", "fluid_input", "energy_bus", "computer". */
+    /** The word programs and messages use for it: "bus", "fluid_bus", "usb", "computer". */
     default String kindWord() {
         return medium().prefix + kind().word;
     }

@@ -26,10 +26,10 @@ public final class QboticsContent {
     public static Supplier<DataComponentType<Integer>> PROBE_MODE;
     /** The Network Probe: reads a device's name and addresses. */
     public static Supplier<? extends net.minecraft.world.item.Item> PROBE_ITEM;
-    /** The Input, Output and Bus plates, as the items a player holds. They go on cables. */
+    /** The plates (Serial Buses and world plates), as the items a player holds. They go on cables. */
     public static java.util.Map<String, Supplier<? extends net.minecraft.world.item.Item>> PLATE_ITEMS;
 
-    /** The item for a plate: plateItem(Kind.INPUT, Medium.FLUID) is the Fluid Input. */
+    /** The item for a plate: plateItem(Kind.BUS, Medium.FLUID) is the Fluid Serial Bus. */
     public static net.minecraft.world.item.Item plateItem(qbotics.network.NetworkDevice.Kind kind, qbotics.network.Medium medium) {
         return PLATE_ITEMS.get(medium.prefix + kind.word).get();
     }

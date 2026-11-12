@@ -472,9 +472,9 @@ public final class ScreenshotRun {
                     new ItemStack(QboticsContent.COMPUTER_BLOCK.get()),
                     new ItemStack(QboticsContent.CABLE_BLOCK.get()),
                     new ItemStack(QboticsContent.INTERFACE_BLOCK.get()),
-                    new ItemStack(QboticsContent.plateItem(Kind.INPUT, qbotics.network.Medium.ITEM)),
-                    new ItemStack(QboticsContent.plateItem(Kind.OUTPUT, qbotics.network.Medium.FLUID)),
-                    new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ENERGY)),
+                    new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM)),
+                    new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.FLUID)),
+                    new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.UNIVERSAL)),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("screen"))),
                     new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("motherboard"))),
                 };
@@ -603,11 +603,16 @@ public final class ScreenshotRun {
             }
         }
         CableBlock cable = QboticsContent.CABLE_BLOCK.get();
-        Kind[] kinds = {Kind.INPUT, Kind.OUTPUT, Kind.BUS};
-        // One of each plate facing the camera, and one of each seen from the side.
-        for (int i = 0; i < kinds.length; i++) {
-            plated(level, base.offset(i * 2, 1, 0), kinds[i], Direction.SOUTH);
-            plated(level, base.offset(6 + i * 2, 1, 0), kinds[i], Direction.EAST);
+        // The four Serial Buses (item, fluid, energy, universal) facing the camera, and seen from the side.
+        qbotics.network.Medium[] buses = {qbotics.network.Medium.ITEM, qbotics.network.Medium.FLUID,
+            qbotics.network.Medium.ENERGY, qbotics.network.Medium.UNIVERSAL};
+        for (int i = 0; i < buses.length; i++) {
+            BlockPos front = base.offset(i * 2, 1, 0);
+            level.setBlock(front, cable.defaultBlockState(), Block.UPDATE_ALL);
+            CableBlock.attach(level, front, Kind.BUS, buses[i], Direction.SOUTH);
+            BlockPos beside = base.offset(i * 2 + 1, 1, -1);
+            level.setBlock(beside, cable.defaultBlockState(), Block.UPDATE_ALL);
+            CableBlock.attach(level, beside, Kind.BUS, buses[i], Direction.EAST);
         }
         // The world plates: a Logic Pin with redstone dust joined to it, a Placer and a Breaker.
         plated(level, base.offset(12, 0, 0), Kind.PIN, Direction.SOUTH);
@@ -616,10 +621,11 @@ public final class ScreenshotRun {
         plated(level, base.offset(14, 1, 0), Kind.PLACER, Direction.SOUTH);
         plated(level, base.offset(16, 1, 0), Kind.BREAKER, Direction.SOUTH);
         // One cable carrying a plate on every side.
-        Kind[] around = {Kind.OUTPUT, Kind.INPUT, Kind.INPUT, Kind.OUTPUT, Kind.BUS, Kind.BUS};
+        qbotics.network.Medium[] around = {qbotics.network.Medium.ITEM, qbotics.network.Medium.FLUID, qbotics.network.Medium.ENERGY,
+            qbotics.network.Medium.UNIVERSAL, qbotics.network.Medium.ITEM, qbotics.network.Medium.UNIVERSAL};
         level.setBlock(base.offset(2, 1, -4), cable.defaultBlockState(), Block.UPDATE_ALL);
         for (Direction side : Direction.values()) {
-            CableBlock.attach(level, base.offset(2, 1, -4), around[side.get3DDataValue()], side);
+            CableBlock.attach(level, base.offset(2, 1, -4), Kind.BUS, around[side.get3DDataValue()], side);
         }
 
         // A small working network: computer and antenna, cables, a bus under a chest, an interface, an input at a barrel.
@@ -637,18 +643,16 @@ public final class ScreenshotRun {
         plated(level, base.offset(8, 0, -4), Kind.BUS, Direction.UP);
         level.setBlock(base.offset(9, 0, -4), QboticsContent.INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(base.offset(11, 0, -4), Blocks.BARREL.defaultBlockState(), Block.UPDATE_ALL);
-        plated(level, base.offset(10, 0, -4), Kind.INPUT, Direction.EAST);
+        plated(level, base.offset(10, 0, -4), Kind.BUS, Direction.EAST);
         level.setBlock(base.offset(13, 0, -4), QboticsContent.ANTENNA_LONG_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(base.offset(14, 0, -4), QboticsContent.ANTENNA_INFINITE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         // The fluid and energy plates (their collars and rings are blue and yellow), and the two stores.
         qbotics.network.Medium[] media = {qbotics.network.Medium.FLUID, qbotics.network.Medium.ENERGY};
         for (int m = 0; m < media.length; m++) {
-            for (int i = 0; i < kinds.length; i++) {
-                BlockPos at = base.offset(m * 6 + i * 2, 1, -2);
-                level.setBlock(at, cable.defaultBlockState(), Block.UPDATE_ALL);
-                CableBlock.attach(level, at, kinds[i], media[m], Direction.SOUTH);
-                CableBlock.attach(level, at, kinds[i], media[m], Direction.UP);
-            }
+            BlockPos at = base.offset(m * 6 + 4, 1, -2);
+            level.setBlock(at, cable.defaultBlockState(), Block.UPDATE_ALL);
+            CableBlock.attach(level, at, Kind.BUS, media[m], Direction.SOUTH);
+            CableBlock.attach(level, at, Kind.BUS, media[m], Direction.UP);
         }
         level.setBlock(base.offset(12, 0, -2), QboticsContent.FLUID_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(base.offset(14, 0, -2), QboticsContent.ENERGY_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);

@@ -168,7 +168,7 @@ final class WorldPlateCalls {
         needsRoom(level, placer, target);
         String wanted = NetworkCalls.string(args, 3);
         NameMatch<Item> match = wanted == null ? null : NetworkCalls.item(wanted);
-        for (End end : NetworkCalls.ends(network, args.get(2), "source")) {
+        for (End end : NetworkCalls.asMedium(NetworkCalls.ends(network, args.get(2), "source"), Medium.ITEM)) {
             if (end.device().medium() != Medium.ITEM) {
                 continue;
             }
@@ -219,7 +219,7 @@ final class WorldPlateCalls {
         String wanted = NetworkCalls.string(args, 3);
         NameMatch<Fluid> match = wanted == null ? null : NetworkCalls.fluid(wanted);
         boolean anyFluidSource = false;
-        for (End end : NetworkCalls.ends(network, args.get(2), "source")) {
+        for (End end : NetworkCalls.asMedium(NetworkCalls.ends(network, args.get(2), "source"), Medium.FLUID)) {
             if (end.device().medium() != Medium.FLUID) {
                 continue;
             }
@@ -251,7 +251,7 @@ final class WorldPlateCalls {
             }
         }
         if (!anyFluidSource) {
-            throw new CallError("Pouring takes fluid: give a fluid interface, or a fluid input or bus, as the source.");
+            throw new CallError("Pouring takes fluid: give a fluid interface or a fluid bus as the source.");
         }
         throw new CallError("None of the sources holds a bucket's worth (1000 mB) of " + (wanted == null ? "fluid" : wanted) + " that can be poured.");
     }
@@ -285,13 +285,13 @@ final class WorldPlateCalls {
         }
         WorldPlates.Drops drops = WorldPlates.dropsOf(level, breaker, state, player, tool);
         List<ItemPort> to = new ArrayList<>();
-        for (End end : destinations) {
+        for (End end : NetworkCalls.asMedium(destinations, Medium.ITEM)) {
             if (end.device().medium() == Medium.ITEM) {
                 to.add(NetworkCalls.itemDestination(level, end));
             }
         }
         if (!drops.stacks().isEmpty() && to.isEmpty()) {
-            throw new CallError("Breaking " + blockId(state) + " gives items: give an interface, or an output or bus, as the destination.");
+            throw new CallError("Breaking " + blockId(state) + " gives items: give an interface or a bus as the destination.");
         }
         // All or nothing: every drop goes in, or what went in is taken back out and the block stays.
         record Put(ItemPort port, ItemStack like, int count) {
@@ -336,7 +336,7 @@ final class WorldPlateCalls {
         Fluid kind = fluid.getType();
         FluidPort room = null;
         boolean anyFluid = false;
-        for (End end : destinations) {
+        for (End end : NetworkCalls.asMedium(destinations, Medium.FLUID)) {
             FluidPort port = null;
             if (end.device() instanceof FluidInterfaceBlockEntity store) {
                 port = store;
@@ -352,7 +352,7 @@ final class WorldPlateCalls {
             }
         }
         if (!anyFluid) {
-            throw new CallError("To take up " + fluidId(kind) + ", give a fluid interface, or a fluid output or bus, as the destination.");
+            throw new CallError("To take up " + fluidId(kind) + ", give a fluid interface or a fluid bus as the destination.");
         }
         if (room == null) {
             throw new CallError("No room for a bucket's worth of " + fluidId(kind) + ", so it was left where it is.");

@@ -2,7 +2,7 @@
 #
 #     from logistics import network, move, Face
 #     net = network()
-#     chest = net.bus("chest")            # a bus plate on a cable, pointing at a chest
+#     chest = net.bus("chest")            # an Item Serial Bus on a cable, pointing at a chest
 #     furnace = net.bus("furnace")
 #     move(chest, furnace.destination(face=Face.TOP), "raw_iron", 16)
 #
@@ -42,7 +42,7 @@ def _call(*args):
 
 
 class Face:
-    """Which face of its target a bus or output reaches through, seen from the bus."""
+    """Which face of its target a bus reaches through, seen from the bus."""
     NEAR = "near"      # the face touching the bus
     FAR = "far"        # the opposite face
     TOP = "top"
@@ -182,8 +182,7 @@ class Device:
         self.ip = info["ip"]        # internal address on this network, e.g. "192.168.1.4"
         self.mac = info["mac"]      # hardware address; never changes while the block stays placed
         self.name = info["name"]    # "" if it has no name
-        self.kind = info["kind"]    # "computer", "antenna", "interface", "input", "output", "bus",
-        #                             or one of the last four after "fluid_" or "energy_"
+        self.kind = info["kind"]    # "computer", "antenna", "interface", "bus", "fluid_bus", "usb", ...
         self._info = info
 
     def rename(self, name):
@@ -289,7 +288,7 @@ class _Watches:
 
 
 class Port(Device):
-    """A plate on a cable that points at a container: an input, an output or a bus."""
+    """A plate on a cable that points at a container: a Serial Bus."""
 
     def set_face(self, face):
         """Sets the face used when nothing names one."""
@@ -348,14 +347,6 @@ class Interface(Device, _Gives, _Takes, _Watches):
     def slots(self):
         """How many slots it has."""
         return self._info["slots"]
-
-
-class Input(Port, _Reads, _Gives):
-    """Takes items out of the container it points at. A source for move()."""
-
-
-class Output(Port, _Takes):
-    """Puts items into the container it points at. A destination for move()."""
 
 
 class _ScreenEnd(Destination):
@@ -473,7 +464,8 @@ class Screen:
 
 
 class Bus(Port, _Reads, _Gives, _Takes):
-    """An input and an output in one: a source and a destination for move()."""
+    """An Item Serial Bus: takes items out of the container it points at and puts them in.
+    A source and a destination for move()."""
 
     def open_screen(self, xp=None):
         """Opens the screen of the block it points at, for blocks whose slots are only on
@@ -665,16 +657,8 @@ class _ReadsFluid(_Watches):
         return _call("count", self.mac, fluid, face, slot)
 
 
-class FluidInput(Port, _ReadsFluid, _Gives):
-    """Takes fluid out of the tank it points at. A source for move()."""
-
-
-class FluidOutput(Port, _Takes):
-    """Puts fluid into the tank it points at. A destination for move()."""
-
-
 class FluidBus(Port, _ReadsFluid, _Gives, _Takes):
-    """A fluid input and a fluid output in one."""
+    """A Fluid Serial Bus: takes fluid out of the tank it points at and puts it in."""
 
 
 # ---- energy: amounts are in FE, the unit mods share (also called RF) ----
@@ -704,16 +688,35 @@ class _ReadsEnergy(_Watches):
         return _call("energy", self.mac, face)["capacity"]
 
 
-class EnergyInput(Port, _ReadsEnergy, _Gives):
-    """Takes energy out of the machine it points at. A source for move()."""
-
-
-class EnergyOutput(Port, _Takes):
-    """Puts energy into the machine it points at. A destination for move()."""
-
-
 class EnergyBus(Port, _ReadsEnergy, _Gives, _Takes):
-    """An energy input and an energy output in one."""
+    """An Energy Serial Bus: takes energy out of the machine it points at and puts it in."""
+
+
+class USB(Bus):
+    """A Universal Serial Bus: an item, a fluid and an energy bus in one plate.
+
+    On its own it works as the item bus: usb.count("coal"), usb.open_screen().
+    usb.fluid and usb.energy are the same plate as a fluid bus and an energy bus:
+    usb.fluid.amount("water"), usb.energy.stored(). In move() it carries whatever the
+    other ends do, so move(usb, tanks) moves fluid when tanks is a fluid interface."""
+
+    def _as(self, medium):
+        return _wrap(_call("find", self.mac + "@" + medium, None))
+
+    @property
+    def items(self):
+        """This plate as an item bus."""
+        return self._as("item")
+
+    @property
+    def fluid(self):
+        """This plate as a fluid bus."""
+        return self._as("fluid")
+
+    @property
+    def energy(self):
+        """This plate as an energy bus."""
+        return self._as("energy")
 
 
 class ExperienceInterface(Device, _Gives, _Takes, _Watches):
@@ -856,8 +859,8 @@ class Breaker(_WorldPlate):
 
     def break_block(self, to):
         """Breaks the block in front, waiting as long as breaking it takes, and returns
-        what it got: {name: count}. to is one destination or a list: interfaces, outputs
-        or buses for items, fluid ones for fluid."""
+        what it got: {name: count}. to is one destination or a list: interfaces
+        or buses for items, fluid ones for fluid (a USB is both)."""
         ends = _ends(to, Destination)
         while True:
             reply = _call("break", self.mac, ends)
@@ -907,11 +910,10 @@ class Programmer(Device):
         return _call("program", self.mac, None if choice is None else str(choice))
 
 
-_KINDS = {"interface": Interface, "input": Input, "output": Output, "bus": Bus, "drive_bay": DriveBay, "programmer": Programmer,
+_KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay, "programmer": Programmer,
           "pin": Pin, "placer": Placer, "breaker": Breaker,
-          "fluid_interface": FluidInterface, "fluid_input": FluidInput, "fluid_output": FluidOutput, "fluid_bus": FluidBus,
-          "energy_interface": EnergyInterface, "energy_input": EnergyInput, "energy_output": EnergyOutput,
-          "energy_bus": EnergyBus, "experience_interface": ExperienceInterface}
+          "fluid_interface": FluidInterface, "fluid_bus": FluidBus,
+          "energy_interface": EnergyInterface, "energy_bus": EnergyBus, "experience_interface": ExperienceInterface}
 
 
 def _wrap(info):
@@ -949,48 +951,31 @@ class Network:
         """An interface by name or address; with no argument, the network's only interface."""
         return self._find(key, "interface")
 
-    def input(self, key=None):
-        """An input by name or address; with no argument, the network's only input."""
-        return self._find(key, "input")
-
-    def output(self, key=None):
-        """An output by name or address; with no argument, the network's only output."""
-        return self._find(key, "output")
-
     def bus(self, key=None):
-        """A bus by name or address; with no argument, the network's only bus."""
+        """An Item Serial Bus by name or address; with no argument, the network's only one.
+        A USB counts too, working on items."""
         return self._find(key, "bus")
+
+    def usb(self, key=None):
+        """A Universal Serial Bus by name or address; with no argument, the network's only one."""
+        return self._find(key, "usb")
 
     def fluid_interface(self, key=None):
         """A fluid interface by name or address; with no argument, the network's only one."""
         return self._find(key, "fluid_interface")
 
-    def fluid_input(self, key=None):
-        """A fluid input by name or address; with no argument, the network's only one."""
-        return self._find(key, "fluid_input")
-
-    def fluid_output(self, key=None):
-        """A fluid output by name or address; with no argument, the network's only one."""
-        return self._find(key, "fluid_output")
-
     def fluid_bus(self, key=None):
-        """A fluid bus by name or address; with no argument, the network's only one."""
+        """A Fluid Serial Bus by name or address; with no argument, the network's only one.
+        A USB counts too, working on fluid."""
         return self._find(key, "fluid_bus")
 
     def energy_interface(self, key=None):
         """An energy interface by name or address; with no argument, the network's only one."""
         return self._find(key, "energy_interface")
 
-    def energy_input(self, key=None):
-        """An energy input by name or address; with no argument, the network's only one."""
-        return self._find(key, "energy_input")
-
-    def energy_output(self, key=None):
-        """An energy output by name or address; with no argument, the network's only one."""
-        return self._find(key, "energy_output")
-
     def energy_bus(self, key=None):
-        """An energy bus by name or address; with no argument, the network's only one."""
+        """An Energy Serial Bus by name or address; with no argument, the network's only one.
+        A USB counts too, working on energy."""
         return self._find(key, "energy_bus")
 
     def experience_interface(self, key=None):
@@ -1043,17 +1028,13 @@ class Network:
         """Every interface on the network."""
         return self.devices("interface")
 
-    def inputs(self):
-        """Every input on the network."""
-        return self.devices("input")
-
-    def outputs(self):
-        """Every output on the network."""
-        return self.devices("output")
-
     def buses(self):
-        """Every bus on the network."""
+        """Every Item Serial Bus on the network (not USBs: see usbs())."""
         return self.devices("bus")
+
+    def usbs(self):
+        """Every Universal Serial Bus on the network."""
+        return self.devices("usb")
 
     @property
     def me(self):
@@ -1089,7 +1070,7 @@ class RemoteNetwork(Network):
 
 def network():
     """The cable network this computer is on. Ask it for its blocks:
-    net.interface(), net.input(), net.output(), net.bus(), net.devices()."""
+    net.interface(), net.bus(), net.fluid_bus(), net.usb(), net.devices()."""
     return Network()
 
 

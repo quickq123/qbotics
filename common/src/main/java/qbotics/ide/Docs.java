@@ -32,7 +32,7 @@ public final class Docs {
      * @param module    the module it is in ("" for the file being edited or a built-in)
      * @param owner     the class a method belongs to, or "" for a function or class
      * @param base      for a class, the class it extends, or ""
-     * @param signature how it is written, e.g. "Input.set_slot_filter(slot, item)"
+     * @param signature how it is written, e.g. "Interface.set_slot_filter(slot, item)"
      * @param doc       what it does; may be empty
      */
     public record Entry(String module, String owner, String name, String base, boolean isClass, String signature, String doc) {
@@ -315,7 +315,7 @@ public final class Docs {
             }
             owner = text.substring(ownerStart, start - 1);
             if (owner.isEmpty()) {
-                owner = "?"; // after a call or an index, such as net.input().count
+                owner = "?"; // after a call or an index, such as net.bus().count
             }
         }
 
@@ -426,7 +426,7 @@ public final class Docs {
 
     /**
      * What class a variable probably holds, from a line that assigns to it: "x = Thing(...)"
-     * for a known class, or a call that is known to give one, such as "x = net.input()".
+     * for a known class, or a call that is known to give one, such as "x = net.bus()".
      */
     private static String guessClass(List<String> lines, String variable, List<Entry> known) {
         Pattern assignment = Pattern.compile("^\\s*" + Pattern.quote(variable) + "\\s*=\\s*(?:[\\w.]*\\.)?(\\w+)\\(.*");
@@ -437,8 +437,7 @@ public final class Docs {
                 String made = switch (called) {
                     case "network" -> "Network";
                     case "interface" -> "Interface";
-                    case "input" -> "Input";
-                    case "output" -> "Output";
+                    case "usb" -> "USB";
                     case "bus" -> "Bus";
                     case "device" -> "Device";
                     case "receive" -> "Message";
@@ -446,7 +445,7 @@ public final class Docs {
                     default -> called;
                 };
                 if (called.startsWith("fluid_") || called.startsWith("energy_") || called.startsWith("experience_")) {
-                    // net.fluid_input() gives a FluidInput, net.energy_bus() an EnergyBus.
+                    // net.fluid_bus() gives a FluidBus, net.energy_bus() an EnergyBus.
                     String[] words = called.split("_");
                     made = Character.toUpperCase(words[0].charAt(0)) + words[0].substring(1)
                             + Character.toUpperCase(words[1].charAt(0)) + words[1].substring(1);

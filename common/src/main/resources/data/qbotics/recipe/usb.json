@@ -2,10 +2,11 @@
   "type": "minecraft:crafting_shapeless",
   "category": "redstone",
   "ingredients": [
-    "qbotics:output",
-    "minecraft:bucket"
+    "qbotics:bus",
+    "qbotics:fluid_bus",
+    "qbotics:energy_bus"
   ],
   "result": {
-    "id": "qbotics:fluid_output"
+    "id": "qbotics:usb"
   }
 }

@@ -57,6 +57,7 @@ public final class QboticsGameTests {
             Map.entry("cable_connects", QboticsGameTests::cableConnects),
             Map.entry("computer_repl", QboticsGameTests::computerRepl),
             Map.entry("computer_interrupt", QboticsGameTests::computerInterrupt),
+            Map.entry("universal_serial_bus", QboticsGameTests::universalSerialBus),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
             Map.entry("computer_interrupt_ignored", QboticsGameTests::computerInterruptIgnored),
             Map.entry("computer_forgets_calls", QboticsGameTests::computerForgetsCalls),
@@ -546,7 +547,8 @@ public final class QboticsGameTests {
         helper.setBlock(furnacePos, Blocks.FURNACE);
         setPort(helper, new BlockPos(2, 1, 0), Kind.BUS, Direction.SOUTH);
         helper.setBlock(barrelPos, Blocks.BARREL);
-        setPort(helper, new BlockPos(1, 1, 1), Kind.OUTPUT, Direction.UP);
+        helper.setBlock(new BlockPos(1, 1, 1), QboticsContent.CABLE_BLOCK.get());
+        CableBlock.attach(helper.getLevel(), helper.absolutePos(new BlockPos(1, 1, 1)), Kind.BUS, qbotics.network.Medium.UNIVERSAL, Direction.UP);
 
         InterfaceBlockEntity input = helper.getBlockEntity(inputPos, InterfaceBlockEntity.class);
         input.setFilter(0, Items.RAW_IRON);
@@ -568,11 +570,11 @@ public final class QboticsGameTests {
                 "a = move(inbox, f.destination(face=Face.TOP), 'minecraft:raw_iron', 5)",
                 "b = move(inbox, f.destination(face=Face.LEFT), 'coal', 2)",
                 "print('moved', a, b, move(f.source(face=Face.BOTTOM), inbox, 'iron_ingot', 64))",
-                "print('out', move(inbox, net.output(), 'raw_iron', 100), inbox.count('raw_iron'), inbox.count('iron_ingot'))",
+                "print('out', move(inbox, net.usb(), 'raw_iron', 100), inbox.count('raw_iron'), inbox.count('iron_ingot'))",
                 "print(len(net.devices()), net.me.kind, f.target, f.ip.startswith('192.168.1.'))",
                 "net.bus('nope')",
                 "move(inbox, f, 'minecraft:not_a_thing')",
-                "move(net.output(), inbox)",
+                "print('plain bus first', net.bus().target, net.usb().kind)",
                 "import network",
                 "print('host', network.hostname('base'), network.ifconfig()['ip'] == net.me.ip)")) {
             computer.submitLine(line);
@@ -580,7 +582,7 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "before 3 None\n", "moved 5 2 3\n", "out 11 0 3\n", "4 computer minecraft:furnace True\n",
                     "NetworkError: No bus on this network has the name or address 'nope'.",
-                    "There is no item called 'minecraft:not_a_thing'", "An output can't be a source", "host base True\n");
+                    "There is no item called 'minecraft:not_a_thing'", "plain bus first minecraft:furnace usb\n", "host base True\n");
             // The furnace is lit, so by now it may have smelted some of the five: count both.
             helper.assertTrue(furnace.getItem(0).getCount() + furnace.getItem(2).getCount() == 5,
                     "the furnace should hold the five raw iron (smelted or not) and none of the old ingots: "
@@ -610,10 +612,10 @@ public final class QboticsGameTests {
         InterfaceBlockEntity store = helper.getBlockEntity(storePos, InterfaceBlockEntity.class);
         store.setFilter(0, Items.COAL);
 
-        // A player holding an Input clicks the chest's north face: the plate goes on the cable in front of it.
+        // A player holding an Item Serial Bus clicks the chest's north face: the plate goes on the cable in front of it.
         net.minecraft.world.entity.player.Player player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         net.minecraft.world.InteractionHand hand = net.minecraft.world.InteractionHand.MAIN_HAND;
-        ItemStack inputs = new ItemStack(QboticsContent.plateItem(Kind.INPUT, qbotics.network.Medium.ITEM), 2);
+        ItemStack inputs = new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM), 2);
         inputs.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("ore in"));
         player.setItemInHand(hand, inputs);
         java.util.function.BiFunction<BlockPos, Direction, net.minecraft.world.InteractionResult> click = (pos, face) -> {
@@ -624,13 +626,13 @@ public final class QboticsGameTests {
         click.apply(chestPos, Direction.NORTH);
         BlockState withPlate = helper.getBlockState(cablePos);
         BlockPos cableAt = helper.absolutePos(cablePos);
-        helper.assertTrue(CableBlock.plateKind(level, cableAt, Direction.SOUTH) == Kind.INPUT && arm(withPlate, Direction.WEST)
+        helper.assertTrue(CableBlock.plateKind(level, cableAt, Direction.SOUTH) == Kind.BUS && arm(withPlate, Direction.WEST)
                 && !arm(withPlate, Direction.SOUTH) && player.getItemInHand(hand).getCount() == 1,
-                "the cable should carry an input pointing south at the chest, and one item be used: " + withPlate);
+                "the cable should carry a bus pointing south at the chest, and one item be used: " + withPlate);
         PortBlockEntity host = helper.getBlockEntity(cablePos, PortBlockEntity.class);
         CablePort plate = host.port(Direction.SOUTH);
-        helper.assertTrue(plate.kind() == Kind.INPUT && plate.targetPos().equals(helper.absolutePos(chestPos)) && plate.deviceName().equals("ore_in"),
-                "the plate should be an input named ore_in pointing at the chest, but is " + plate.kind() + " " + plate.deviceName());
+        helper.assertTrue(plate.kind() == Kind.BUS && plate.targetPos().equals(helper.absolutePos(chestPos)) && plate.deviceName().equals("ore_in"),
+                "the plate should be a bus named ore_in pointing at the chest, but is " + plate.kind() + " " + plate.deviceName());
         click.apply(chestPos, Direction.NORTH);
         helper.assertTrue(player.getItemInHand(hand).getCount() == 1, "a side carries only one plate");
 
@@ -639,10 +641,10 @@ public final class QboticsGameTests {
         click.apply(cablePos.above(), Direction.DOWN);
         BlockState withTwo = helper.getBlockState(cablePos);
         CablePort second = host.port(Direction.UP);
-        helper.assertTrue(CableBlock.plateKind(level, cableAt, Direction.UP) == Kind.INPUT && CableBlock.plateKind(level, cableAt, Direction.SOUTH) == Kind.INPUT
+        helper.assertTrue(CableBlock.plateKind(level, cableAt, Direction.UP) == Kind.BUS && CableBlock.plateKind(level, cableAt, Direction.SOUTH) == Kind.BUS
                 && second != null && host.ports().size() == 2 && !second.mac().equals(plate.mac())
                 && second.targetPos().equals(helper.absolutePos(cablePos.above())) && player.getItemInHand(hand).isEmpty(),
-                "the cable should carry two inputs, each its own device: " + withTwo);
+                "the cable should carry two buses, each its own device: " + withTwo);
 
         // With no cable in front of the clicked face, one is taken from the player's inventory.
         player.setItemInHand(hand, new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM)));
@@ -654,7 +656,7 @@ public final class QboticsGameTests {
                 && player.getInventory().countItem(QboticsContent.CABLE_BLOCK.get().asItem()) == 2,
                 "the bus should have been placed with one of the player's cables");
 
-        // The plates are devices on the network: the computer, the interface and the two inputs.
+        // The plates are devices on the network: the computer, the interface and the two buses.
         BlockPos computerAt = helper.absolutePos(computerPos);
         CableNetwork network = networkAt(helper, computerPos);
         helper.assertTrue(network.devices().size() == 4 && network.devices().contains(plate) && network.devices().contains(second)
@@ -662,15 +664,15 @@ public final class QboticsGameTests {
         java.util.function.Function<String, String> call = request ->
                 qbotics.network.NetworkCalls.handle(level.getServer(), level.dimension(), computerAt, request);
         String mac = plate.mac();
-        helper.assertTrue(call.apply("[\"contents\",\"" + mac + "\",null]").contains("\"count\":12"), "an input reads its target");
+        helper.assertTrue(call.apply("[\"contents\",\"" + mac + "\",null]").contains("\"count\":12"), "a bus reads its target");
         String storeMac = store.mac();
         helper.assertTrue(call.apply("[\"move\",[{\"mac\":\"" + mac + "\"}],[{\"mac\":\"" + storeMac + "\"}],\"minecraft:coal\",5,null]")
                 .equals("{\"r\":{\"moved\":5}}")
-                && store.getItem(0).getCount() == 5 && chest.getItem(5).getCount() == 7, "an input should move 5 coal to the interface");
+                && store.getItem(0).getCount() == 5 && chest.getItem(5).getCount() == 7, "a bus should move 5 coal to the interface");
         helper.assertTrue(call.apply("[\"move\",[{\"mac\":\"" + storeMac + "\"}],[{\"mac\":\"" + mac + "\"}],\"minecraft:coal\",1,null]")
-                .contains("An input can't be a destination"),
-                "an input should refuse to put items in");
-        helper.assertTrue(call.apply("[\"find\",\"" + second.mac() + "\",null]").contains("minecraft:barrel"), "the second input points at the barrel");
+                .equals("{\"r\":{\"moved\":1}}") && chest.countItem(Items.COAL) == 8,
+                "a bus should put items back in too");
+        helper.assertTrue(call.apply("[\"find\",\"" + second.mac() + "\",null]").contains("minecraft:barrel"), "the second bus points at the barrel");
 
         // Breaking the cable drops every plate; taking plates off one at a time ends with a plain cable.
         List<ItemStack> drops = net.minecraft.world.level.block.Block.getDrops(withTwo, level, helper.absolutePos(cablePos), host);
@@ -678,11 +680,11 @@ public final class QboticsGameTests {
                 && stack.getHoverName().getString().equals("ore_in")), "the drops should be the cable and both plates: " + drops);
         ItemStack taken = CableBlock.detach(level, helper.absolutePos(cablePos), Direction.SOUTH);
         helper.assertTrue(taken.getItem() instanceof qbotics.block.PlateItem && plate.isRemoved() && !second.isRemoved()
-                && CableBlock.plateKind(level, cableAt, Direction.UP) == Kind.INPUT
+                && CableBlock.plateKind(level, cableAt, Direction.UP) == Kind.BUS
                 && networkAt(helper, computerPos).devices().size() == 3, "taking one plate off should leave the other working");
         // Breaking while aiming at a plate takes off only that plate. Here a player stands west of a cable and looks east at it.
         BlockPos alonePos = new BlockPos(2, 2, 0); // inside the test's walls, with clear air to its west
-        setPort(helper, alonePos, Kind.OUTPUT, Direction.WEST);
+        setPort(helper, alonePos, Kind.BUS, Direction.WEST);
         BlockPos aloneAt = helper.absolutePos(alonePos);
         player.snapTo(aloneAt.getX() - 1.5, aloneAt.getY() + 0.5 - player.getEyeHeight(), aloneAt.getZ() + 0.5, -90.0f, 0.0f);
         player.setYHeadRot(-90.0f);
@@ -773,18 +775,24 @@ public final class QboticsGameTests {
                 helper.absolutePos(fluidCable), level.getBlockEntity(helper.absolutePos(fluidCable)));
         helper.assertTrue(drops.stream().anyMatch(stack -> stack.is(QboticsContent.plateItem(Kind.BUS, fluid))), "the drops should hold a fluid bus: " + drops);
 
-        // Recipes: a bus is an input and an output; a bucket makes the fluid version, a redstone block the energy version.
+        // Recipes: cables in an H with a hopper on the left of the bar and, on the right, a dropper (items),
+        // a bucket (fluid) or a block of redstone (energy). The three together make a USB.
         ItemStack none = ItemStack.EMPTY;
-        ItemStack input = new ItemStack(QboticsContent.plateItem(Kind.INPUT, qbotics.network.Medium.ITEM));
-        ItemStack output = new ItemStack(QboticsContent.plateItem(Kind.OUTPUT, qbotics.network.Medium.ITEM));
-        ItemStack bus = craft(helper, input, output, none, none, none, none, none, none, none);
-        ItemStack fluidInput = craft(helper, input, new ItemStack(Items.BUCKET), none, none, none, none, none, none, none);
+        java.util.function.Function<ItemStack, ItemStack> h = right -> {
+            ItemStack c = new ItemStack(QboticsContent.CABLE_BLOCK.get());
+            return craft(helper, c, none, c, new ItemStack(Blocks.HOPPER), c, right, c, none, c);
+        };
+        ItemStack bus = h.apply(new ItemStack(Blocks.DROPPER));
+        ItemStack fluidBusItem = h.apply(new ItemStack(Items.BUCKET));
+        ItemStack energyBusItem = h.apply(new ItemStack(Blocks.REDSTONE_BLOCK));
+        ItemStack usb = craft(helper, bus, fluidBusItem, energyBusItem, none, none, none, none, none, none);
         ItemStack energyStore = craft(helper, new ItemStack(QboticsContent.INTERFACE_BLOCK.get()), new ItemStack(Blocks.REDSTONE_BLOCK),
                 none, none, none, none, none, none, none);
-        ItemStack energyBusItem = craft(helper, bus, new ItemStack(Blocks.REDSTONE_BLOCK), none, none, none, none, none, none, none);
-        helper.assertTrue(bus.is(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM)) && fluidInput.is(QboticsContent.plateItem(Kind.INPUT, fluid))
-                && energyStore.is(QboticsContent.ENERGY_INTERFACE_BLOCK.get().asItem()) && energyBusItem.is(QboticsContent.plateItem(Kind.BUS, energy)),
-                "recipes gave " + bus + ", " + fluidInput + ", " + energyStore + ", " + energyBusItem);
+        helper.assertTrue(bus.is(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM)) && fluidBusItem.is(QboticsContent.plateItem(Kind.BUS, fluid))
+                && energyBusItem.is(QboticsContent.plateItem(Kind.BUS, energy)) && usb.is(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.UNIVERSAL))
+                && energyStore.is(QboticsContent.ENERGY_INTERFACE_BLOCK.get().asItem())
+                && usb.getHoverName().getString().equals("Universal Serial Bus (USB)") && bus.getHoverName().getString().equals("Item Serial Bus"),
+                "recipes gave " + bus + ", " + fluidBusItem + ", " + energyBusItem + ", " + usb + ", " + energyStore);
 
         // And from Python.
         for (String line : List.of(
@@ -801,6 +809,56 @@ public final class QboticsGameTests {
         }
         helper.succeedWhen(() -> assertScreen(helper, computer, "1000 2000 minecraft:water\n", "150000 350000 1000\n", "250 fluid_bus\n", "500 500 500\n",
                 "NetworkError: The count must be 1 or more, not 0."));
+    }
+
+    /**
+     * A Universal Serial Bus is an item, a fluid and an energy bus in one plate: found as
+     * any of them, it moves whatever the other end of a move holds, and comes off as itself.
+     */
+    private static void universalSerialBus(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        // On the network: an interface, a fluid interface and an energy interface beside the computer.
+        helper.setBlock(new BlockPos(0, 1, 1), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(0, 1, 2), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(0, 2, 0), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        // One cable carrying three USBs: at a chest, at a tank and at an energy store (none of them on the network).
+        BlockPos cable = new BlockPos(1, 1, 0);
+        helper.setBlock(cable, QboticsContent.CABLE_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.CHEST);
+        helper.setBlock(new BlockPos(2, 1, 0), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 0, 0), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        qbotics.network.Medium universal = qbotics.network.Medium.UNIVERSAL;
+        BlockPos at = helper.absolutePos(cable);
+        CableBlock.attach(level, at, Kind.BUS, universal, Direction.SOUTH).setDeviceName("u_chest");
+        CableBlock.attach(level, at, Kind.BUS, universal, Direction.EAST).setDeviceName("u_tank");
+        CableBlock.attach(level, at, Kind.BUS, universal, Direction.DOWN).setDeviceName("u_power");
+        helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class).setItem(0, new ItemStack(Items.COAL, 12));
+        helper.getBlockEntity(new BlockPos(0, 1, 1), InterfaceBlockEntity.class).setFilter(0, Items.COAL);
+        helper.getBlockEntity(new BlockPos(2, 1, 0), qbotics.block.FluidInterfaceBlockEntity.class)
+                .insert(net.minecraft.world.level.material.Fluids.WATER, 3000, false);
+        helper.getBlockEntity(new BlockPos(1, 0, 0), qbotics.block.EnergyInterfaceBlockEntity.class).insert(500_000, false);
+        for (String line : List.of(
+                "python",
+                "from logistics import network, move",
+                "net = network()",
+                "store, tanks, cell = net.interface(), net.fluid_interface(), net.energy_interface()",
+                "c, t, p = net.usb('u_chest'), net.usb('u_tank'), net.usb('u_power')",
+                "print('kinds', c.kind, t.fluid.kind, p.energy.kind, net.bus('u_chest').kind, net.fluid_bus('u_tank').kind)",
+                "print('items', c.count('coal'), move(c, store, 'coal', 5), store.count('coal'))",
+                "print('fluid', t.fluid.amount('water'), move(t, tanks, 'water', 1000), tanks.amount('water'))",
+                "print('energy', p.energy.stored(), move(p, cell, count=1000), cell.stored)",
+                "print('back', move(store, c, 'coal', 2), c.count('coal'), net.fluid_bus('u_tank').refresh().kind)",
+                "print('listed', len(net.usbs()), len(net.buses()), sorted(d.kind for d in net.devices())[-1])")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "kinds usb fluid_bus energy_bus bus fluid_bus\n", "items 12 5 5\n", "fluid 3000 1000 1000\n",
+                    "energy 500000 1000 1000\n", "back 2 9 fluid_bus\n", "listed 3 0 usb\n");
+            // Taken off, it is a USB again.
+            ItemStack taken = CableBlock.detach(level, at, Direction.DOWN);
+            helper.assertTrue(taken.is(QboticsContent.plateItem(Kind.BUS, universal)), "the plate should come off as a USB, not " + taken);
+        });
     }
 
     /**
