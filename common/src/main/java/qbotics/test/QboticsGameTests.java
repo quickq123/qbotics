@@ -69,6 +69,7 @@ public final class QboticsGameTests {
             Map.entry("server_services", QboticsGameTests::serverServices),
             Map.entry("server_chunk_loading", QboticsGameTests::serverChunkLoading),
             Map.entry("web_page", QboticsGameTests::webPage),
+            Map.entry("web_layout", QboticsGameTests::webLayout),
             Map.entry("web_panel", QboticsGameTests::webPanel),
             Map.entry("web_storage", QboticsGameTests::webStorage),
             Map.entry("qbot_camera", QboticsGameTests::qbotCamera),
@@ -3504,6 +3505,52 @@ public final class QboticsGameTests {
             }
             assertScreen(helper, running[0], "started by startup.sh");
         });
+    }
+
+    /** Layout the engine gained: gap between flex items, and CSS grid (fixed and fr columns, spans, auto-fill). */
+    private static void webLayout(GameTestHelper helper) {
+        String html = String.join("\n",
+                "<html><head><style>",
+                "body { margin: 0; font-family: sans-serif; background: #0e1216; color: #fff; font-size: 12px; }",
+                ".row { display: flex; gap: 20px; height: 30px; } .row div { flex: 1; background: #345; }",
+                ".grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }",
+                ".grid div { background: #563; min-height: 30px; } .wide { grid-column: span 2; } .tall { height: 50px; }",
+                ".fill { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 4px; margin-top: 10px; }",
+                ".fill div { background: #346; height: 20px; }",
+                ".fixed { display: grid; grid-template-columns: 50px 1fr 2fr; column-gap: 6px; margin-top: 10px; }",
+                ".fixed div { background: #644; height: 20px; }",
+                "</style></head><body>",
+                "<div class='row'><div id='a'>a</div><div id='b'>b</div><div id='c'>c</div></div>",
+                "<div class='grid'><div id='g1'>1</div><div id='g2' class='wide'>2 (span 2)</div><div id='g3' class='tall'>3</div><div id='g4'>4</div><div id='g5'>5</div></div>",
+                "<div class='fill'><div id='f1'>1</div><div id='f2'>2</div><div id='f3'>3</div><div id='f4'>4</div><div id='f5'>5</div></div>",
+                "<div class='fixed'><div id='x1'>50px</div><div id='x2'>1fr</div><div id='x3'>2fr</div></div>",
+                "</body></html>");
+        qbotics.web.WebPage page = new qbotics.web.WebPage(url -> null);
+        page.load(html, "");
+        page.layout(320, 256);
+        try {
+            javax.imageio.ImageIO.write(qbotics.web.WebPainter.paint(page, 0, 2, url -> null), "png", java.nio.file.Path.of("web-layout-test.png").toFile());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        java.util.function.BiFunction<Integer, Integer, String> at = (x, y) -> {
+            String hit = page.hit(x, y);
+            return hit == null ? "" : com.google.gson.JsonParser.parseString(hit).getAsJsonObject().get("id").getAsString();
+        };
+        // Flex with gap: three equal items 20 px apart in 320: each (320 - 40) / 3 = 93.3 wide.
+        helper.assertTrue(at.apply(46, 15).equals("a") && at.apply(103, 15).equals("") && at.apply(160, 15).equals("b")
+                && at.apply(300, 15).equals("c"), "flex gap: " + at.apply(46, 15) + at.apply(103, 15) + at.apply(160, 15) + at.apply(300, 15));
+        // Grid: 3 columns of (320 - 20) / 3 = 100; row 1: g1, g2 (span 2); row 2: g3 (50 tall), g4, g5.
+        helper.assertTrue(at.apply(50, 55).equals("g1") && at.apply(160, 55).equals("g2") && at.apply(270, 55).equals("g2"),
+                "grid row 1: " + at.apply(50, 55) + " " + at.apply(160, 55) + " " + at.apply(270, 55));
+        helper.assertTrue(at.apply(50, 100).equals("g3") && at.apply(160, 100).equals("g4") && at.apply(270, 100).equals("g5"),
+                "grid row 2: " + at.apply(50, 100) + " " + at.apply(160, 100) + " " + at.apply(270, 100));
+        helper.assertTrue(at.apply(105, 55).equals(""), "the gap between columns is empty");
+        // Stretched: g4 fills its row's 50 px (as tall as g3), so a point 45 px into the row is still g4.
+        helper.assertTrue(at.apply(160, 125).equals("g4"), "items stretch to their row: " + at.apply(160, 125));
+        // auto-fill minmax(60px, 1fr) in 320 with gap 4: 5 columns (5 x 60 + 16 = 316), all five in one row.
+        helper.assertTrue(at.apply(300, 150).equals("f5"), "auto-fill fits five: " + at.apply(300, 150));
+        helper.succeed();
     }
 
     private static void ironQbot(GameTestHelper helper) {

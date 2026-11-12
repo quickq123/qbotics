@@ -1410,8 +1410,9 @@ is at most 128 KB, its state 32 KB.
 | Works | Not yet |
 |---|---|
 | Text and structure: `div`, `span`, `p`, `h1`-`h6`, lists, `a`, `b`, `i`, `table` | Pictures other than items (camera pictures come next) |
-| The box model, colours, backgrounds, borders, rounded corners | CSS grid, `gap` between flex items |
-| Flexbox, floats, `position` (relative, absolute) | Transforms, transitions, animations, shadows |
+| The box model, colours, backgrounds, borders, rounded corners | Grid rows by template (`grid-template-rows`, areas, `grid-row`) |
+| Flexbox with `gap`, floats, `position` (relative, absolute) | Transforms, transitions, animations, shadows |
+| CSS grid: `grid-template-columns` (px, %, em, `fr`, `auto`, `minmax()`, `repeat()` with a number, `auto-fill` or `auto-fit`), `grid-column` (`span 2`, `1 / 3`, `1 / -1`), `gap`, `row-gap`, `column-gap`; items placed row by row and stretched to their row | |
 | Fonts: sans-serif, serif, monospace; bold, italic; underline, line-through | `select`, `textarea`, checkboxes |
 | Linear and radial gradients; item icons (`item:`) | Typing on a panel in the world (use the close-up) |
 | Text fields, scrolling (page and `overflow: auto` boxes) | `<canvas>` `drawImage` of pictures, `getImageData` |

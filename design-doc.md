@@ -683,6 +683,12 @@ asyncio.run(main())
 > page), and Mustache-style sections in the state template (`{{#list}}`, `{{^list}}`, `{{.}}`). Not yet: flex `gap`,
 > select/textarea/checkbox, typing in the world.
 >
+> **Layout additions (built 2026-11-12):** litehtml is patched at build time (`engine/web/patches.py`, each anchor checked):
+> `gap`/`row-gap`/`column-gap` in flex layout (lines laid out narrower, items shifted), and CSS grid as a flex container
+> laid out by `render_item_grid` (`engine/web/extra`): columns from `grid-template-columns` (fixed, %, em, fr, auto, minmax,
+> repeat incl. auto-fill/fit), row-major placement with `grid-column` spans and starts, gaps, rows sized to their
+> tallest item with stretch. Not: template rows/areas, `grid-row`, dense packing, item alignment.
+>
 > **JavaScript and canvas (built 2026-11-12):** quickjs-ng (pinned v0.10.1) compiled to Wasm (`engine/js`), one runtime
 > per scripted page in each player's game, on the web worker thread: 16 MB, 0.4 s to load, 60 ms per event or frame
 > (interrupt handler), no network. `prelude.js` is the browser it sees: a small DOM (parse, serialize, selectors,
