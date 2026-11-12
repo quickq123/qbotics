@@ -224,7 +224,7 @@ public final class Main {
         c.stop = Computer.StopMode.POLITE;
         ok = c.exec("while True:\n    pass");
         out = c.takeOutput();
-        check("endless loop: polite stop", !ok && out.contains("program stopped by the computer"), out);
+        check("endless loop: polite stop", !ok && out.contains("KeyboardInterrupt"), out);
         expect("computer still works after polite stop", c, "print('alive')", true, "alive\n");
 
         Computer doomed = new Computer(engine, BASIC, INSTANT);

@@ -148,7 +148,10 @@ public final class ServerComputer {
         // starts waiting in input() is neither lost nor counted twice.
         synchronized (inputLock) {
             if (running && current != null && !waitingForInput) {
-                current.stop = Computer.StopMode.POLITE;
+                // The first Ctrl+C raises KeyboardInterrupt. If the program caught that and
+                // carried on, the next one stops it for certain (and restarts its Python).
+                boolean ignored = current.stop == Computer.StopMode.POLITE || current.stopsDelivered > 0;
+                current.stop = ignored ? Computer.StopMode.HARD : Computer.StopMode.POLITE;
             } else {
                 // At a prompt, or a program waiting in input(): the waiting side is told directly.
                 jobs.offer(new Interrupt());
@@ -316,18 +319,26 @@ public final class ServerComputer {
     private void run() {
         try {
             terminal.write("Qbotics computer starting...\n");
-            Computer computer = new Computer(ComputerManager.engine(), HEAP_BYTES,
-                    call -> call.equals(RECEIVE_CALL) ? receive() : call.equals(EVENT_CALL) ? nextEvent() : worldCalls.apply(call), drive);
-            computer.cpu = cpu;
-            computer.outputSink = terminal::write;
-            computer.lineReader = this::readInputLine;
-            vm = computer;
-            terminal.clear();
-            terminal.write("Qbotics computer. Type help for a list of commands.\n");
-            if (exists(STARTUP_FILE)) {
-                runPython(computer, "execfile(" + pyString(STARTUP_FILE) + ")");
+            boolean first = true;
+            while (true) {
+                Computer computer = newVm();
+                try {
+                    if (first) {
+                        terminal.clear();
+                        terminal.write("Qbotics computer. Type help for a list of commands.\n");
+                        if (exists(STARTUP_FILE)) {
+                            runPython(computer, "execfile(" + pyString(STARTUP_FILE) + ")");
+                        }
+                    }
+                    shell(computer);
+                    return;
+                } catch (Restart restart) {
+                    // A program that ignored Ctrl+C was stopped mid-step: its Python can't be
+                    // trusted afterwards, so the computer starts a fresh one. Files are untouched.
+                    terminal.write("\nStopped. Python was restarted, since the program ignored Ctrl+C.\n");
+                    first = false;
+                }
             }
-            shell(computer);
         } catch (InterruptedException e) {
             // Shut down while waiting for input.
         } catch (Throwable e) {
@@ -588,12 +599,46 @@ public final class ServerComputer {
         }
     }
 
+    /** Thrown out of the shell when a program had to be hard-stopped, so run() restarts Python. */
+    private static final class Restart extends RuntimeException {
+        Restart() {
+            super(null, null, false, false);
+        }
+    }
+
+    private Computer newVm() {
+        Computer computer = new Computer(ComputerManager.engine(), HEAP_BYTES,
+                call -> call.equals(RECEIVE_CALL) ? receive() : call.equals(EVENT_CALL) ? nextEvent() : worldCalls.apply(call), drive);
+        computer.cpu = cpu;
+        computer.outputSink = terminal::write;
+        computer.lineReader = this::readInputLine;
+        computer.lastsAcrossRuns = RECEIVE_CALL::equals;
+        vm = computer;
+        return computer;
+    }
+
+    private static boolean hardStopped(Throwable e) {
+        for (Throwable x = e; x != null; x = x.getCause()) {
+            if (x instanceof Computer.HardStop) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void runGuarded(Computer computer, Runnable body) {
         running = true;
+        computer.beginRun();
         try {
             body.run();
+        } catch (RuntimeException e) {
+            if (!shutDown && hardStopped(e)) {
+                throw new Restart();
+            }
+            throw e;
         } finally {
             running = false;
+            computer.forgetCalls();
             computer.stop = shutDown ? Computer.StopMode.HARD : Computer.StopMode.NONE;
             stopEvents(); // a program that has ended listens for nothing
         }
@@ -631,6 +676,9 @@ public final class ServerComputer {
         };
         try {
             runGuarded(computer, () -> ok[0] = computer.exec(scratch.code()));
+        } catch (Restart restart) {
+            listener.scratchResult(deviceId, scratch.player(), scratch.runId(), false, output + "\nStopped: the program ignored Ctrl+C.\n");
+            throw restart;
         } finally {
             computer.outputSink = terminal::write;
             computer.lineReader = this::readInputLine;

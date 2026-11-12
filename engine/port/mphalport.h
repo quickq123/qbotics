@@ -7,14 +7,15 @@
 
 HOST_IMPORT("write") void host_write(const char *ptr, uint32_t len);
 HOST_IMPORT("ticks_us") int64_t host_ticks_us(void);
-HOST_IMPORT("sleep_ms") void host_sleep_ms(int32_t ms);
+// Returns 1 if Ctrl+C cut the sleep short, else 0.
+HOST_IMPORT("sleep_ms") int32_t host_sleep_ms(int32_t ms);
 // Returns a fresh budget (> 0) to continue, or <= 0 to stop the program.
 HOST_IMPORT("slice") int32_t host_slice(void);
 // Queue a call; returns a ticket immediately.
 HOST_IMPORT("submit") int32_t host_submit(const char *ptr, uint32_t len);
 // Block until the ticket completes or timeout_ms passes (-1 = forever).
 // Writes up to cap bytes of result into buf; returns the full result length,
-// or -1 on timeout.
+// -1 on timeout, or -3 if Ctrl+C stopped the wait.
 HOST_IMPORT("wait") int32_t host_wait(int32_t ticket, int32_t timeout_ms, char *buf, uint32_t cap);
 // Block until a line is entered at the terminal; writes it (without the line
 // break) into buf. Returns its length, -1 if interrupted, -2 if there is no terminal.

@@ -45,6 +45,12 @@ public final class Computer {
     /** Where queued world calls go; stands in for the main-thread executor (design doc §2.2). */
     private final Function<String, CompletableFuture<String>> worldCalls;
     private final Map<Integer, CompletableFuture<String>> tickets = new HashMap<>();
+    /** Tickets kept when a program ends, because the next program may still wait on them. */
+    private final java.util.Set<Integer> lasting = new java.util.HashSet<>();
+    /** Which calls those are (a receive() that timed out keeps its place for the next one). */
+    public java.util.function.Predicate<String> lastsAcrossRuns = call -> false;
+    /** How many Ctrl+Cs have reached the running program; see {@link #beginRun()}. */
+    public volatile int stopsDelivered;
     private final HostFileSystem fileSystem;
     /** The result of the last file operation, waiting for the instance to fetch it. */
     private byte[] fsResult = new byte[0];
@@ -72,6 +78,34 @@ public final class Computer {
     /** Hard-stop a run after this many slices (a runaway-program guard for tests). */
     public long maxSlices = Long.MAX_VALUE;
     public volatile StopMode stop = StopMode.NONE;
+
+    /** A program is starting: no Ctrl+C has reached it yet. */
+    public void beginRun() {
+        stopsDelivered = 0;
+    }
+
+    /**
+     * A program has ended: forget the calls it left unanswered (one stopped by Ctrl+C, or
+     * one it never waited for), so they don't pile up across programs.
+     */
+    public void forgetCalls() {
+        tickets.keySet().retainAll(lasting);
+        lasting.retainAll(tickets.keySet());
+    }
+
+    /** At a sleep or a wait: true if a Ctrl+C is waiting to be delivered (and now is). */
+    private boolean takeStop() {
+        switch (stop) {
+            case POLITE:
+                stop = StopMode.NONE;
+                stopsDelivered++;
+                return true;
+            case HARD:
+                throw new HardStop();
+            default:
+                return false;
+        }
+    }
 
     /**
      * Design doc §4: a fair semaphore with one permit per worker core. A computer holds a
@@ -217,7 +251,7 @@ public final class Computer {
                     }),
             new HostFunction("host", "ticks_us", FunctionType.of(List.of(), List.of(ValType.I64)),
                     (inst, args) -> new long[] {System.nanoTime() / 1000}),
-            new HostFunction("host", "sleep_ms", FunctionType.of(List.of(I32), List.of()),
+            new HostFunction("host", "sleep_ms", FunctionType.of(List.of(I32), List.of(I32)),
                     (inst, args) -> {
                         releaseCpu();
                         try {
@@ -231,7 +265,7 @@ public final class Computer {
                         } finally {
                             acquireCpu();
                         }
-                        return null;
+                        return new long[] {takeStop() ? 1 : 0};
                     }),
             new HostFunction("host", "slice", FunctionType.of(List.of(), List.of(I32)),
                     (inst, args) -> {
@@ -241,6 +275,7 @@ public final class Computer {
                         switch (stop) {
                             case POLITE:
                                 stop = StopMode.NONE;
+                                stopsDelivered++;
                                 return new long[] {0};
                             case HARD:
                                 throw new HardStop();
@@ -261,6 +296,9 @@ public final class Computer {
                         tickets.put(ticket, tickets.size() >= MAX_WAITING_CALLS
                                 ? CompletableFuture.completedFuture("error:too many calls are waiting for an answer")
                                 : worldCalls.apply(call));
+                        if (lastsAcrossRuns.test(call)) {
+                            lasting.add(ticket);
+                        }
                         return new long[] {ticket};
                     }),
             new HostFunction("host", "fs_call", FunctionType.of(List.of(I32, I32, I32, I32, I32), List.of(I32)),
@@ -334,7 +372,11 @@ public final class Computer {
                     result = future.get(0, TimeUnit.MILLISECONDS);
                     break;
                 }
-                if (left <= 0 || stop != StopMode.NONE) {
+                if (stop != StopMode.NONE) {
+                    // Ctrl+C: the call is left unanswered (forgetCalls() clears it when the program ends).
+                    return takeStop() ? -3 : -1;
+                }
+                if (left <= 0) {
                     return -1;
                 }
                 try {
@@ -367,6 +409,7 @@ public final class Computer {
             return bytes.length;
         }
         tickets.remove(ticket);
+        lasting.remove(ticket);
         instance.memory().write(bufPtr, bytes);
         return bytes.length;
     }

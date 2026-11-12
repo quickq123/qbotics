@@ -62,6 +62,13 @@ program's name typed on its own suggests `run` in front of it.
 
 Ctrl+C stops a running program. A file named `/startup.py` runs when the computer starts.
 
+Ctrl+C reaches the program as `KeyboardInterrupt`, as in Python, straight away, even in the
+middle of a `time.sleep()` or while a call waits for the game. `except Exception` doesn't catch
+it, so a `while True` loop with `try`/`except Exception` inside still stops. A program can catch
+`KeyboardInterrupt` itself to tidy up. If a program catches it and carries on (a bare `except:`
+does this), a second Ctrl+C stops it for certain. The computer then restarts its Python,
+which loses the variables typed at the `>>>` prompt but not your files.
+
 ### 1.2 Editor keys
 
 | Key | What it does |
@@ -1293,7 +1300,7 @@ tags.
 | Sources or destinations in one `move` | 32 each |
 | A message | 4,096 characters once written as JSON |
 | A computer's inbox | 64 messages |
-| Calls waiting for the game at once | 32 per computer |
+| Calls waiting for the game at once | 32 per computer. Calls a program never waited for, or that Ctrl+C cut short, are forgotten when it ends |
 | A network | 4,096 cables and blocks; 253 devices |
 | A device name | 24 characters |
 | A computer's drive | 1 MB |

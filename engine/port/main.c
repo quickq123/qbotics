@@ -102,7 +102,8 @@ void mpy_budget_expired(void) {
     int32_t next = host_slice();
     if (next <= 0) {
         mpy_budget = 0x7fffffff;
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("program stopped by the computer"));
+        // Ctrl+C. KeyboardInterrupt, as in Python, so "except Exception" doesn't swallow it.
+        mp_raise_type(&mp_type_KeyboardInterrupt);
     }
     mpy_budget = next;
 }

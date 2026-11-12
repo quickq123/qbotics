@@ -15,11 +15,15 @@ static mp_obj_t modhost_submit(mp_obj_t call_in) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(modhost_submit_obj, modhost_submit);
 
-// _host.wait(ticket: int, timeout_ms: int = -1) -> str | None (None = timed out)
+// _host.wait(ticket: int, timeout_ms: int = -1) -> str | None (None = timed out).
+// Ctrl+C while waiting raises KeyboardInterrupt.
 static mp_obj_t modhost_wait(size_t n_args, const mp_obj_t *args) {
     int32_t ticket = mp_obj_get_int(args[0]);
     int32_t timeout_ms = n_args > 1 ? mp_obj_get_int(args[1]) : -1;
     int32_t n = host_wait(ticket, timeout_ms, result_buf, RESULT_BUF_SIZE);
+    if (n == -3) {
+        mp_raise_type(&mp_type_KeyboardInterrupt);
+    }
     if (n < 0) {
         return mp_const_none;
     }

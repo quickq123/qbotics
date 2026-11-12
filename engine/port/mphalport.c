@@ -30,12 +30,15 @@ mp_uint_t mp_hal_ticks_cpu(void) {
     return (mp_uint_t)host_ticks_us();
 }
 
+// Ctrl+C during a sleep stops the program at once, as KeyboardInterrupt.
 void mp_hal_delay_ms(mp_uint_t ms) {
-    host_sleep_ms((int32_t)ms);
+    if (host_sleep_ms((int32_t)ms)) {
+        mp_raise_type(&mp_type_KeyboardInterrupt);
+    }
 }
 
 void mp_hal_delay_us(mp_uint_t us) {
-    host_sleep_ms((int32_t)((us + 999) / 1000));
+    mp_hal_delay_ms((us + 999) / 1000);
 }
 
 // Nothing can be typed at the program yet (input() comes later), so stdin is never ready.

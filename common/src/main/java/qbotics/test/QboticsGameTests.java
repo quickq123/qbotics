@@ -57,6 +57,9 @@ public final class QboticsGameTests {
             Map.entry("cable_connects", QboticsGameTests::cableConnects),
             Map.entry("computer_repl", QboticsGameTests::computerRepl),
             Map.entry("computer_interrupt", QboticsGameTests::computerInterrupt),
+            Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
+            Map.entry("computer_interrupt_ignored", QboticsGameTests::computerInterruptIgnored),
+            Map.entry("computer_forgets_calls", QboticsGameTests::computerForgetsCalls),
             Map.entry("computer_recipe", QboticsGameTests::computerRecipe),
             Map.entry("computer_break", QboticsGameTests::computerBreak),
             Map.entry("computer_files", QboticsGameTests::computerFiles),
@@ -138,7 +141,46 @@ public final class QboticsGameTests {
         // Well after the loop has started, even with other tests competing for the two CPU permits.
         helper.runAfterDelay(60, computer::interrupt);
         helper.runAfterDelay(65, () -> computer.submitLine("print('still', 'alive')"));
-        helper.succeedWhen(() -> assertScreen(helper, computer, "program stopped by the computer", "still alive\n>>>"));
+        helper.succeedWhen(() -> assertScreen(helper, computer, "KeyboardInterrupt", "still alive\n>>>"));
+    }
+
+    /**
+     * Ctrl+C stops a loop that sleeps and catches Exception at once (it arrives as
+     * KeyboardInterrupt, during the sleep), and calls afterwards still work.
+     */
+    private static void computerInterruptSleep(GameTestHelper helper) {
+        ServerComputer computer = placeAndStart(helper);
+        for (String line : List.of("python", "import time", "from logistics import network",
+                "while True:", "    try:", "        network().devices()", "        time.sleep(10)", "    except Exception:", "        pass", "")) {
+            computer.submitLine(line);
+        }
+        helper.runAfterDelay(60, computer::interrupt);
+        helper.runAfterDelay(65, () -> computer.submitLine("print('devices', len(network().devices()) > 0)"));
+        helper.succeedWhen(() -> assertScreen(helper, computer, "KeyboardInterrupt", "devices True\n>>>"));
+    }
+
+    /** A program that swallows even KeyboardInterrupt is stopped by a second Ctrl+C, and Python restarts. */
+    private static void computerInterruptIgnored(GameTestHelper helper) {
+        ServerComputer computer = placeAndStart(helper);
+        for (String line : List.of("python", "import time", "while True:", "    try:", "        time.sleep(10)", "    except:", "        print('ignored')", "")) {
+            computer.submitLine(line);
+        }
+        helper.runAfterDelay(60, computer::interrupt);
+        helper.runAfterDelay(80, computer::interrupt);
+        helper.runAfterDelay(100, () -> computer.submitLine("python"));
+        helper.runAfterDelay(105, () -> computer.submitLine("print('fresh', 'start')"));
+        helper.succeedWhen(() -> assertScreen(helper, computer, "ignored", "Python was restarted", "fresh start\n>>>"));
+    }
+
+    /** Calls a program left unanswered are forgotten when it ends, so the next program isn't refused. */
+    private static void computerForgetsCalls(GameTestHelper helper) {
+        ServerComputer computer = placeAndStart(helper);
+        for (String line : List.of("python", "import _host",
+                "t = [_host.submit('[\"devices\"]') for i in range(40)]; print('full', _host.wait(_host.submit('[\"devices\"]'))[:9])",
+                "print('next', _host.wait(_host.submit('[\"devices\"]'))[:1])")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer, "full error:too", "next {\n>>>"));
     }
 
     /** What the 3x3 crafting grid gives for these nine stacks, row by row. */
