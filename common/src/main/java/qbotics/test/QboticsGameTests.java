@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -67,6 +67,7 @@ public final class QboticsGameTests {
             Map.entry("git_offline", QboticsGameTests::gitOffline),
             Map.entry("server_block", QboticsGameTests::serverBlock),
             Map.entry("server_services", QboticsGameTests::serverServices),
+            Map.entry("server_chunk_loading", QboticsGameTests::serverChunkLoading),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -2858,6 +2859,40 @@ public final class QboticsGameTests {
                     helper.assertTrue(helper.getBlockState(at).getValue(qbotics.block.ServerBlock.LIGHTS[0]) == 0, "tick's light went out");
                 }
             }
+        });
+    }
+
+    /** A Server takes a Chunk Loader Upgrade, as an antenna does: it holds its network's chunks while switched on, under the same settings. */
+    private static void serverChunkLoading(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos at = new BlockPos(0, 1, 0);
+        helper.setBlock(at, QboticsContent.SERVER_BLOCK.get());
+        qbotics.block.ServerBlockEntity rack = helper.getBlockEntity(at, qbotics.block.ServerBlockEntity.class);
+        rack.claim(UUID.randomUUID());
+        ItemStack loader = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("chunk_loader_upgrade")));
+        ItemStack transport = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("transport_upgrade")));
+        helper.assertTrue(!rack.upgrades().canPlaceItem(0, transport), "a Server takes only a Chunk Loader Upgrade");
+        helper.assertTrue(rack.upgrades().canPlaceItem(0, loader), "a Server takes a Chunk Loader Upgrade");
+        BlockPos abs = helper.absolutePos(at);
+        boolean wasOffline = qbotics.QboticsConfig.chunkLoadingWhileOffline;
+        qbotics.QboticsConfig.chunkLoadingWhileOffline = true; // its owner here is no one online
+        helper.assertTrue(qbotics.upgrade.ChunkLoaders.Status.of(rack.loaderStatus()) == qbotics.upgrade.ChunkLoaders.Status.NO_UPGRADE,
+                "no upgrade yet");
+        rack.upgrades().setItem(0, loader);
+        int[] phase = {0};
+        helper.succeedWhen(() -> {
+            if (phase[0] == 0) {
+                helper.assertTrue(qbotics.upgrade.ChunkLoaders.Status.of(rack.loaderStatus()) == qbotics.upgrade.ChunkLoaders.Status.LOADING,
+                        "loading: " + qbotics.upgrade.ChunkLoaders.Status.of(rack.loaderStatus()));
+                helper.assertTrue(qbotics.upgrade.ChunkLoaders.heldBy(level, abs).contains(net.minecraft.world.level.ChunkPos.pack(abs)),
+                        "it holds its own chunk");
+                rack.setChunkLoading(false);
+                phase[0] = 1;
+                helper.fail("next");
+            }
+            helper.assertTrue(qbotics.upgrade.ChunkLoaders.Status.of(rack.loaderStatus()) == qbotics.upgrade.ChunkLoaders.Status.OFF, "switched off");
+            helper.assertTrue(qbotics.upgrade.ChunkLoaders.heldBy(level, abs).isEmpty(), "switched off, it holds nothing");
+            qbotics.QboticsConfig.chunkLoadingWhileOffline = wasOffline;
         });
     }
 

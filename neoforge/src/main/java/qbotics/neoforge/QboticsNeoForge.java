@@ -215,6 +215,9 @@ public final class QboticsNeoForge {
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.AntennaMenu>> ANTENNA_MENU =
             MENUS.register("antenna", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.AntennaMenu(containerId, inventory)));
+    static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.ServerMenu>> SERVER_MENU =
+            MENUS.register("server", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
+                    (containerId, inventory, data) -> new qbotics.block.ServerMenu(containerId, inventory)));
     static final DeferredHolder<net.minecraft.world.inventory.MenuType<?>, net.minecraft.world.inventory.MenuType<qbotics.block.ProgrammerMenu>> PROGRAMMER_MENU =
             MENUS.register("programmer", () -> net.neoforged.neoforge.common.extensions.IMenuTypeExtension.create(
                     (containerId, inventory, data) -> new qbotics.block.ProgrammerMenu(containerId, inventory)));
@@ -328,6 +331,7 @@ public final class QboticsNeoForge {
         QboticsContent.CONTROL_PANEL_BLOCK = CONTROL_PANEL;
         QboticsContent.PROGRAMMER_MENU = PROGRAMMER_MENU;
         QboticsContent.ANTENNA_MENU = ANTENNA_MENU;
+        QboticsContent.SERVER_MENU = SERVER_MENU;
         QboticsContent.IRON_QBOT_BLOCK = IRON_QBOT;
         QboticsContent.SERVER_BLOCK = SERVER;
         QboticsContent.SERVER_BLOCK_ENTITY = SERVER_BLOCK_ENTITY;

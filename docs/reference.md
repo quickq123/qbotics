@@ -995,7 +995,7 @@ drops them. (Qbots will take the same upgrade items.)
 | Upgrade | Does |
 |---|---|
 | **Transport Upgrade** | Lets programs use the devices behind another antenna (that also has one), and `move()` items, fluid and energy between the two networks |
-| **Chunk Loader Upgrade** | Keeps the chunks of the antenna's whole cable network loaded and working while nobody is near |
+| **Chunk Loader Upgrade** | Keeps the chunks of the antenna's whole cable network loaded and working while nobody is near. A Server takes one too (section 7i) |
 
 #### Transport
 
@@ -1631,9 +1631,15 @@ editor, network, `ssh`, the Programmer), and more:
 | The internet (`requests`, `git`) | needs an Uplink on its network | built in | **built in** |
 
 - **Right-click** opens its screen, as a computer's does. **Sneak + right-click** opens its
-  four hard-drive sockets. Its drives appear only to the Server itself, at `/net/disks/disk1`
-  and on (or the name the drive was given in an anvil). A Drive Bay's drives, on the same
-  cables, appear beside them in `/net` as usual.
+  hardware: four hard-drive sockets and an upgrade slot. Its drives appear only to the Server
+  itself, at `/net/disks/disk1` and on (or the name the drive was given in an anvil). A Drive
+  Bay's drives, on the same cables, appear beside them in `/net` as usual.
+- **Chunk loading:** fit a **Chunk Loader Upgrade** and the Server keeps its cable network's
+  chunks loaded, exactly as an antenna does (section 7.3b): nearest the Server first, up to
+  `chunk_loading.chunks_per_loader`, counted in your `chunk_loaders_per_player`, and only if
+  the server allows chunk loading. The same screen has its on/off switch and says what it is
+  doing. Without the upgrade a Server loads nothing, so its services run only while its area
+  is loaded.
 - **Memory is the computer's own, not the screen's.** When you connect to a Server, from a
   laptop or with `ssh` from a basic computer, the programs run on the Server with its 2 MB.
   The same goes the other way: a laptop connected to a Qbot works with the Qbot's 256 KB.
@@ -1646,8 +1652,7 @@ editor, network, `ssh`, the Programmer), and more:
 the top, **RAM** on either side of a **Laptop**, a **Drive Bay** at the bottom. **RAM** is an
 Integrated Circuit surrounded by eight gold ingots (`GGG` / `GIG` / `GGG`).
 
-**Not yet:** keeping its own chunk loaded. Answers from `requests` are still at most 24 KB on
-every computer.
+**Not yet:** answers from `requests` are still at most 24 KB on every computer.
 
 ### 7i.1 Services: programs in the background
 

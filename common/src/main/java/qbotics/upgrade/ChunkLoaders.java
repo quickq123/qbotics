@@ -22,7 +22,7 @@ import qbotics.network.CableNetwork;
 import qbotics.network.RadioNetwork;
 
 /**
- * Chunk Loader Upgrades in antennas: each one that is switched on (and allowed by the server's
+ * Chunk Loader Upgrades in antennas and Servers: each one that is switched on (and allowed by the server's
  * settings) keeps the chunks of its cable network loaded and ticking, nearest the antenna
  * first, up to {@code chunks_per_loader}. Looked at once a second, and soon after any change.
  *
@@ -108,25 +108,24 @@ public final class ChunkLoaders {
             }
             Key key = new Key(level.dimension(), antenna.getBlockPos().immutable());
             seen.add(key);
-            Status status = statusOf(server, antenna, perOwner);
-            Set<Long> want = new HashSet<>();
-            int wanted = 0;
-            if (status == Status.LOADING) {
-                perOwner.merge(antenna.owner(), 1, Integer::sum);
-                List<Long> chunks = new ArrayList<>(CableNetwork.at(level, antenna.getBlockPos()).chunks());
-                long home = ChunkPos.pack(antenna.getBlockPos());
-                if (!chunks.contains(home)) {
-                    chunks.add(home);
-                }
-                int homeX = ChunkPos.getX(home);
-                int homeZ = ChunkPos.getZ(home);
-                chunks.sort(Comparator.<Long>comparingInt(c -> Math.max(Math.abs(ChunkPos.getX(c) - homeX), Math.abs(ChunkPos.getZ(c) - homeZ)))
-                        .thenComparingLong(c -> c));
-                wanted = chunks.size();
-                want.addAll(chunks.subList(0, Math.min(chunks.size(), Math.max(1, QboticsConfig.chunksPerLoader))));
+            Status status = statusOf(server, antenna.hasUpgrade(UpgradeItem.Kind.CHUNK_LOADER), antenna.bricked(), antenna.chunkLoading(),
+                    antenna.owner(), perOwner);
+            int[] counts = loadNetwork(level, key, antenna.getBlockPos(), antenna.owner(), status, perOwner);
+            antenna.setLoaderState(status.ordinal(), counts[0], counts[1]);
+        }
+        // Servers with the upgrade do as an antenna does: they hold their cable network's chunks.
+        List<qbotics.block.ServerBlockEntity> servers = qbotics.block.ServerBlockEntity.loaded();
+        servers.sort(Comparator.<qbotics.block.ServerBlockEntity, String>comparing(s -> s.getLevel().dimension().identifier().toString())
+                .thenComparingLong(s -> s.getBlockPos().asLong()));
+        for (qbotics.block.ServerBlockEntity rack : servers) {
+            if (!(rack.getLevel() instanceof ServerLevel level)) {
+                continue;
             }
-            hold(level, key, want);
-            antenna.setLoaderState(status.ordinal(), want.size(), wanted);
+            Key key = new Key(level.dimension(), rack.getBlockPos().immutable());
+            seen.add(key);
+            Status status = statusOf(server, rack.hasChunkLoader(), rack.bricked(), rack.chunkLoading(), rack.owner(), perOwner);
+            int[] counts = loadNetwork(level, key, rack.getBlockPos(), rack.owner(), status, perOwner);
+            rack.setLoaderState(status.ordinal(), counts[0], counts[1]);
         }
         // Qbots with the upgrade hold the chunk they are in (and the next, near its edge), sharing the owner's loader count.
         for (qbotics.qbot.QbotBlockEntity qbot : qbotics.qbot.QbotBlockEntity.loaded()) {
@@ -162,20 +161,45 @@ public final class ChunkLoaders {
         }
     }
 
-    private static Status statusOf(MinecraftServer server, AntennaBlockEntity antenna, Map<UUID, Integer> perOwner) {
-        if (!antenna.hasUpgrade(UpgradeItem.Kind.CHUNK_LOADER)) {
+    /**
+     * A loader that holds a cable network's chunks (an antenna's or a Server's): nearest its
+     * block first, up to chunks_per_loader. Returns the chunks held and wanted.
+     */
+    private static int[] loadNetwork(ServerLevel level, Key key, BlockPos at, UUID owner, Status status, Map<UUID, Integer> perOwner) {
+        Set<Long> want = new HashSet<>();
+        int wanted = 0;
+        if (status == Status.LOADING) {
+            perOwner.merge(owner, 1, Integer::sum);
+            List<Long> chunks = new ArrayList<>(CableNetwork.at(level, at).chunks());
+            long home = ChunkPos.pack(at);
+            if (!chunks.contains(home)) {
+                chunks.add(home);
+            }
+            int homeX = ChunkPos.getX(home);
+            int homeZ = ChunkPos.getZ(home);
+            chunks.sort(Comparator.<Long>comparingInt(c -> Math.max(Math.abs(ChunkPos.getX(c) - homeX), Math.abs(ChunkPos.getZ(c) - homeZ)))
+                    .thenComparingLong(c -> c));
+            wanted = chunks.size();
+            want.addAll(chunks.subList(0, Math.min(chunks.size(), Math.max(1, QboticsConfig.chunksPerLoader))));
+        }
+        hold(level, key, want);
+        return new int[] {want.size(), wanted};
+    }
+
+    private static Status statusOf(MinecraftServer server, boolean upgrade, boolean bricked, boolean switchedOn, UUID owner,
+            Map<UUID, Integer> perOwner) {
+        if (!upgrade) {
             return Status.NO_UPGRADE;
         }
-        if (antenna.bricked()) {
+        if (bricked) {
             return Status.INACTIVE;
         }
-        if (!antenna.chunkLoading()) {
+        if (!switchedOn) {
             return Status.OFF;
         }
         if (!QboticsConfig.chunkLoadingEnabled) {
             return Status.DISABLED;
         }
-        UUID owner = antenna.owner();
         if (owner == null) {
             return Status.NO_OWNER;
         }

@@ -219,7 +219,9 @@ The `.hint` field always holds a learner-friendly fix, e.g. *"There's a block in
 > its own 256 KB Python on its own thread sharing the Server's drive, network and CPU share; `service
 > start/list/log/restart/stop`; kept in `/.services` and restarted when the Server comes on; a light each on the rack
 > (green running, red failed); messages to the Server go to the terminal's program if it listens, else to the first
-> listening service; a service's events and displays are its own. **Not yet:** its own chunk loading, and larger `requests` answers by tier (needs the engine's 48 KB
+> listening service; a service's events and displays are its own. **Chunk loading (decided 2026-11-12):** not built in; a Server takes the antennas' Chunk Loader Upgrade and holds its
+> cable network's chunks the same way, under the same config and per-player loader limit, so chunk loading stays in one
+> place and admins control it as before. **Not yet:** larger `requests` answers by tier (needs the engine's 48 KB
 > call-result buffer raised). With laptops switched off by config, a Server can't be crafted.
 
 ---

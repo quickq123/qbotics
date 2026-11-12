@@ -24,27 +24,20 @@ public class DriveBayMenu extends AbstractContainerMenu {
         return 43 + slot * 24;
     }
 
-    /** The block holding the drives (a Drive Bay or a Server); null in the player's game. */
-    private final net.minecraft.world.level.block.entity.@Nullable BlockEntity bay;
+    private final @Nullable DriveBayBlockEntity bay;
     private final Container drives;
 
     /** On the server. */
     public DriveBayMenu(int containerId, Inventory inventory, DriveBayBlockEntity bay) {
-        this(containerId, inventory, bay, bay.drives(), bay);
-    }
-
-    /** On the server, for a Server's own drives. */
-    public DriveBayMenu(int containerId, Inventory inventory, net.minecraft.world.level.block.entity.BlockEntity holder, Container drives) {
-        this(containerId, inventory, (DriveBayBlockEntity) null, drives, holder);
+        this(containerId, inventory, bay, bay.drives());
     }
 
     /** In the player's game. */
     public DriveBayMenu(int containerId, Inventory inventory) {
-        this(containerId, inventory, null, new SimpleContainer(SLOTS), null);
+        this(containerId, inventory, null, new SimpleContainer(SLOTS));
     }
 
-    private DriveBayMenu(int containerId, Inventory inventory, @Nullable DriveBayBlockEntity unused, Container drives,
-            net.minecraft.world.level.block.entity.@Nullable BlockEntity bay) {
+    private DriveBayMenu(int containerId, Inventory inventory, @Nullable DriveBayBlockEntity bay, Container drives) {
         super(QboticsContent.DRIVE_BAY_MENU.get(), containerId);
         this.bay = bay;
         this.drives = drives;

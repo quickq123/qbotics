@@ -25,6 +25,9 @@ import qbotics.network.Addresses;
  * editor, network, ssh), with 2 MB of memory, an 8 MB drive, an uplink of its own, and four
  * sockets for hard drives, which it sees at /net/disks. Counted apart from computers
  * ({@code servers_per_player}), since each one holds more of the server's memory.
+ *
+ * <p>Like an antenna it takes a Chunk Loader Upgrade, which keeps its cable network's chunks
+ * loaded under the same settings and limits (see ChunkLoaders).
  */
 public class ServerBlockEntity extends ComputerBlockEntity implements MenuProvider {
     public static final int SLOTS = 4;
@@ -48,6 +51,100 @@ public class ServerBlockEntity extends ComputerBlockEntity implements MenuProvid
             ServerBlockEntity.this.drivesChanged();
         }
     };
+
+    /** Its Chunk Loader Upgrade, if it has one. */
+    private final SimpleContainer upgrades = new SimpleContainer(1) {
+        @Override
+        public int getMaxStackSize() {
+            return 1;
+        }
+
+        @Override
+        public boolean canPlaceItem(int slot, ItemStack stack) {
+            return qbotics.upgrade.UpgradeItem.kindOf(stack) == qbotics.upgrade.UpgradeItem.Kind.CHUNK_LOADER;
+        }
+
+        @Override
+        public void setChanged() {
+            super.setChanged();
+            ServerBlockEntity.this.setChanged();
+            qbotics.upgrade.ChunkLoaders.changed();
+        }
+    };
+    /** Whether its Chunk Loader Upgrade is switched on (it is, until switched off). */
+    private boolean chunkLoading = true;
+    /** What its chunk loading is doing now: worked out by ChunkLoaders, not saved. */
+    private int loaderStatus;
+    private int loadedChunks;
+    private int wantedChunks;
+
+    /** The Servers loaded now, for chunk loading. Server only. */
+    private static final java.util.Set<ServerBlockEntity> LOADED = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+
+    public SimpleContainer upgrades() {
+        return upgrades;
+    }
+
+    public boolean hasChunkLoader() {
+        return qbotics.upgrade.UpgradeItem.kindOf(upgrades.getItem(0)) == qbotics.upgrade.UpgradeItem.Kind.CHUNK_LOADER;
+    }
+
+    public boolean chunkLoading() {
+        return chunkLoading;
+    }
+
+    public void setChunkLoading(boolean on) {
+        if (chunkLoading != on) {
+            chunkLoading = on;
+            setChanged();
+            qbotics.upgrade.ChunkLoaders.changed();
+        }
+    }
+
+    public int loaderStatus() {
+        return loaderStatus;
+    }
+
+    public int loadedChunks() {
+        return loadedChunks;
+    }
+
+    public int wantedChunks() {
+        return wantedChunks;
+    }
+
+    /** Set by ChunkLoaders. */
+    public void setLoaderState(int status, int loaded, int wanted) {
+        loaderStatus = status;
+        loadedChunks = loaded;
+        wantedChunks = wanted;
+    }
+
+    /** The Servers loaded now (server side). */
+    public static java.util.List<ServerBlockEntity> loaded() {
+        java.util.List<ServerBlockEntity> list = new java.util.ArrayList<>();
+        for (ServerBlockEntity server : LOADED) {
+            if (!server.isRemoved()) {
+                list.add(server);
+            }
+        }
+        return list;
+    }
+
+    @Override
+    public void setLevel(net.minecraft.world.level.Level newLevel) {
+        super.setLevel(newLevel);
+        if (!newLevel.isClientSide()) {
+            LOADED.add(this);
+            qbotics.upgrade.ChunkLoaders.changed();
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        LOADED.remove(this);
+    }
 
     public ServerBlockEntity(BlockPos pos, BlockState state) {
         super(QboticsContent.SERVER_BLOCK_ENTITY.get(), pos, state);
@@ -101,23 +198,29 @@ public class ServerBlockEntity extends ComputerBlockEntity implements MenuProvid
         super.preRemoveSideEffects(pos, state);
         if (level != null && !moving) {
             Containers.dropContents(level, pos, drives);
+            Containers.dropContents(level, pos, upgrades);
+            if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                qbotics.upgrade.ChunkLoaders.release(serverLevel, pos);
+            }
         }
     }
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("screen.qbotics.server.disks");
+        return Component.translatable("block.qbotics.server");
     }
 
     @Override
     public AbstractContainerMenu createMenu(int id, Inventory inventory, Player player) {
-        return new DriveBayMenu(id, inventory, this, drives);
+        return new ServerMenu(id, inventory, this);
     }
 
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
         output.store("drives", ItemStack.OPTIONAL_CODEC.listOf(), List.of(drives.getItem(0), drives.getItem(1), drives.getItem(2), drives.getItem(3)));
+        output.store("upgrade", ItemStack.OPTIONAL_CODEC, upgrades.getItem(0));
+        output.putBoolean("chunk_loading", chunkLoading);
     }
 
     @Override
@@ -127,5 +230,7 @@ public class ServerBlockEntity extends ComputerBlockEntity implements MenuProvid
         for (int slot = 0; slot < SLOTS; slot++) {
             drives.setItem(slot, slot < held.size() ? held.get(slot) : ItemStack.EMPTY);
         }
+        upgrades.setItem(0, input.read("upgrade", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY));
+        chunkLoading = input.getBooleanOr("chunk_loading", true);
     }
 }

@@ -339,6 +339,22 @@ public final class ScreenshotRun {
         then(10, minecraft -> shot(minecraft, "09n-antenna-screen"));
         then(5, minecraft -> minecraft.player.closeContainer());
         then(5, minecraft -> minecraft.setScreen(null));
+        // The Server's hardware screen: a drive in, a Chunk Loader Upgrade fitted.
+        then(10, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(base.offset(18, 0, -5)) instanceof qbotics.block.ServerBlockEntity rack) {
+                rack.claim(player.getUUID());
+                rack.drives().setItem(0, new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("hard_drive"))));
+                rack.upgrades().setItem(0, new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(Qbotics.id("chunk_loader_upgrade"))));
+            }
+        }));
+        then(40, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(base.offset(18, 0, -5)) instanceof qbotics.block.ServerBlockEntity rack) {
+                player.openMenu(rack);
+            }
+        }));
+        then(10, minecraft -> shot(minecraft, "09o-server-screen"));
+        then(5, minecraft -> minecraft.player.closeContainer());
+        then(5, minecraft -> minecraft.setScreen(null));
         then(10, minecraft -> {
             minecraft.setScreen(null);
             onServer(minecraft, player -> {

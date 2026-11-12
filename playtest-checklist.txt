@@ -280,3 +280,5 @@ SERVER
      terminal stays free. service log <name> shows its output. A program with an error: its light goes red.
 108. Break nothing, but leave and come back (or /reload the area): the services are running again.
      service stop <name>: its light goes out and it stays stopped.
+109. Sneak + right-click the Server, fit a Chunk Loader Upgrade: "Chunks held: N". Fly far away: its services
+     keep running (service log shows new lines when you come back). Switch it off on the same screen.
