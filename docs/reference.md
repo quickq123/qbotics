@@ -1331,9 +1331,43 @@ HTML). `{{{name}}}` puts the value in as HTML. A name can reach inside a dict or
 `{{ores.iron}}`, `{{items.0}}`. A name with no value shows nothing. It works anywhere in the page,
 in text or attributes: `style="width: {{progress}}%"`.
 
+**Lists.** `{{#items}} ... {{/items}}` repeats what is between for each item of a list; inside,
+an item's fields are names (`{{name}}`, `{{count}}`), and `{{.}}` is the item itself.
+`{{^items}} ... {{/items}}` shows only when the list is empty (or the value is missing, false or
+0). For a value that isn't a list, `{{#name}}` shows its inside when the value is true.
+
+```html
+<div class="list">
+  {{#items}}<div class="row"><img src="item:{{id}}"> {{name}} <b>{{count}}</b></div>{{/items}}
+</div>
+{{^items}}<p>Nothing matches.</p>{{/items}}
+```
+```python
+web.state["items"] = [{"id": "minecraft:iron_ingot", "name": "Iron Ingot", "count": 1284}, ...]
+```
+
+**Item pictures.** `<img src="item:minecraft:iron_ingot">` shows an item's icon, drawn by the game
+as the inventory draws it (block items in 3D, modded items too). It is 16 x 16 unless CSS sizes it.
+
+**Text fields.** `<input name="search" placeholder="Search...">` is a field players type in, in the
+close-up: click it, type, Enter. Each player types into their own copy. The program hears it as an
+event named after the field: `@web.on("search")` gets `.value` (the text), while typing (once the
+player pauses) and again on Enter, when `.enter` is true. `<input type="button" value="Go">` is a
+button.
+
+```python
+@web.on("search")
+def search(e):
+    web.state["items"] = [i for i in everything if e.value.lower() in i["name"].lower()]
+```
+
+**Scrolling.** In the close-up the mouse wheel scrolls: a box with `overflow: auto` (or `scroll`)
+under the pointer scrolls its contents; otherwise the whole page scrolls, if it is taller than the
+panel. Each player scrolls their own view, and the panel in the world shows where you left it.
+
 **Clicks.** Right-click the panel to click what is under your crosshair. **Sneak + right-click
 with an empty hand** opens it close up, where the mouse hovers (`:hover` and `:active` styles
-show) and clicks. The function gets an Event with `.event` (the `data-event`, or else the `id`),
+show), clicks, types and scrolls. The function gets an Event with `.event` (the `data-event`, or else the `id`),
 `.id`, `.tag`, `.name`, `.value` (the element's attributes) and `.player`.
 
 **How it works.** The server keeps the page and its state; each player's game lays the page out
@@ -1345,12 +1379,13 @@ is at most 128 KB, its state 32 KB.
 
 | Works | Not yet |
 |---|---|
-| Text and structure: `div`, `span`, `p`, `h1`-`h6`, lists, `a`, `b`, `i`, `table` | Images (`<img>`, `item:` icons) |
+| Text and structure: `div`, `span`, `p`, `h1`-`h6`, lists, `a`, `b`, `i`, `table` | Pictures other than items (camera pictures come next) |
 | The box model, colours, backgrounds, borders, rounded corners | CSS grid, `gap` between flex items |
 | Flexbox, floats, `position` (relative, absolute) | Transforms, transitions, animations, shadows |
-| Fonts: sans-serif, serif, monospace; bold, italic; underline, line-through | Scrolling a page taller than its panel |
-| Linear and radial gradients | Form fields you can type in (`input`, `select`, `textarea`) |
-| `@media` by the panel's size, CSS variables, `:hover`, `:active`, `:nth-child` | JavaScript and `<canvas>` (the next step) |
+| Fonts: sans-serif, serif, monospace; bold, italic; underline, line-through | `select`, `textarea`, checkboxes |
+| Linear and radial gradients; item icons (`item:`) | Typing on a panel in the world (use the close-up) |
+| Text fields, scrolling (page and `overflow: auto` boxes) | JavaScript and `<canvas>` |
+| `@media` by the panel's size, CSS variables, `:hover`, `:active`, `:nth-child` | |
 
 **Crafting (placeholder):** makes 2: `IRI` / `ISI` / `ICI`: iron around RAM, an LED Screen and a
 cable.

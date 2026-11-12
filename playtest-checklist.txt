@@ -289,3 +289,6 @@ WEB PANEL
      web.state['iron'] = 5 : the panel shows it. Change the state: it updates without flicker.
 111. @web.on('smelt') and events.run(): right-click the button, the program hears it. Sneak + right-click with an
      empty hand: the close-up, where hovering changes :hover styles.
+112. A storage page: {{#items}}<div><img src="item:{{id}}"> {{name}} {{count}}</div>{{/items}} in a box with
+     overflow: auto, and <input name="search">. Set web.state['items'] from a bus's contents: icons show (3D for
+     blocks). In the close-up the wheel scrolls the list; type in the field and @web.on('search') filters the list.

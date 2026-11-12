@@ -322,7 +322,7 @@ static void json_str(std::string& out, const char* s) {
 }
 
 // What a click at a point is on: the nearest element (from the one under the point outwards)
-// that a program can tell apart, as JSON {"tag", "id", "name", "event", "value"}; "" if none.
+// that a program can tell apart, as JSON {"input", "tag", "id", "name", "event", "value"}; "" if none.
 EXPORT("web_hit") int32_t web_hit(float x, float y) {
     scratch.clear();
     if (!doc || !doc->root()) {
@@ -333,11 +333,14 @@ EXPORT("web_hit") int32_t web_hit(float x, float y) {
         const char* tag = el->get_tagName();
         const char* id = el->get_attr("id");
         const char* event = el->get_attr("data-event");
-        bool clickable = event || id || (tag && (!std::strcmp(tag, "button") || !std::strcmp(tag, "a")));
+        const char* input = el->get_attr("data-input"); // a text field (the game rewrites <input> as one)
+        bool clickable = event || id || input || (tag && (!std::strcmp(tag, "button") || !std::strcmp(tag, "a")));
         if (!clickable) {
             continue;
         }
-        scratch = "{\"tag\":";
+        scratch = "{\"input\":";
+        json_str(scratch, input ? input : "");
+        scratch += ",\"tag\":";
         json_str(scratch, tag);
         scratch += ",\"id\":";
         json_str(scratch, id ? id : "");
@@ -354,6 +357,20 @@ EXPORT("web_hit") int32_t web_hit(float x, float y) {
 }
 
 EXPORT("web_hit_text") const char* web_hit_text() { return scratch.c_str(); }
+
+// The wheel turned over a point: a box there that scrolls (overflow: auto or scroll) is
+// scrolled by dy. Returns how far it moved; 0 means nothing there scrolls (the game then
+// scrolls the whole page).
+EXPORT("web_scroll") float web_scroll(float dy, float x, float y) {
+    if (!doc || !doc->root_render()) {
+        return 0;
+    }
+    float moved = 0;
+    for (const auto& sv : doc->on_scroll(0, dy, x, y, x, y)) {
+        moved += (float)sv.dy;
+    }
+    return moved;
+}
 
 #ifndef __wasm__
 // ---- a native test: fake fonts, print the display list ---------------------------------------

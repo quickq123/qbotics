@@ -40,8 +40,22 @@ public final class WebPainter {
     private static final int OP_CLIP = 8;
     private static final int OP_UNCLIP = 9;
 
+    /**
+     * Something the game draws over the page itself, where the page left room for it: an item's
+     * icon ({@code <img src="item:minecraft:iron_ingot">}), drawn by the game's own item renderer.
+     * In CSS pixels of the panel (scrolling already taken off).
+     */
+    public record Overlay(float x, float y, float width, float height, String url) {
+    }
+
     /** Paints a page into a new image, scale pixels per CSS pixel. */
     public static BufferedImage paint(WebPage page, float scrollY, int scale, Function<String, BufferedImage> images) {
+        return paint(page, scrollY, scale, images, null);
+    }
+
+    /** As paint, and adds the item icons to draw over it to {@code overlays}. */
+    public static BufferedImage paint(WebPage page, float scrollY, int scale, Function<String, BufferedImage> images,
+            java.util.@org.jspecify.annotations.Nullable List<Overlay> overlays) {
         int w = Math.max(1, Math.round(page.width() * scale));
         int h = Math.max(1, Math.round(page.height() * scale));
         BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
@@ -52,7 +66,7 @@ public final class WebPainter {
             g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             g.scale(scale, scale);
-            paint(g, page, page.displayList(scrollY), images);
+            paint(g, page, page.displayList(scrollY), images, overlays);
         } finally {
             g.dispose();
         }
@@ -133,7 +147,8 @@ public final class WebPainter {
         return new Object[] {at, colors};
     }
 
-    private static void paint(Graphics2D g, WebPage page, ByteBuffer b, Function<String, BufferedImage> images) {
+    private static void paint(Graphics2D g, WebPage page, ByteBuffer b, Function<String, BufferedImage> images,
+            java.util.@org.jspecify.annotations.Nullable List<Overlay> overlays) {
         Deque<Shape> clips = new ArrayDeque<>();
         while (b.hasRemaining()) {
             int op = b.get();
@@ -193,7 +208,17 @@ public final class WebPainter {
                     Rectangle2D.Float r = box(b);
                     Rectangle2D.Float clip = box(b);
                     radii(b);
-                    BufferedImage image = images.apply(string(b));
+                    String url = string(b);
+                    if (url.startsWith("item:")) {
+                        // Left for the game to draw, if it is mostly in sight (within the clip and the panel).
+                        Rectangle2D shown = g.getClip() == null ? r : g.getClip().getBounds2D().createIntersection(r);
+                        shown = shown.createIntersection(new Rectangle2D.Float(0, 0, page.width(), page.height()));
+                        if (overlays != null && shown.getWidth() * shown.getHeight() >= r.width * r.height * 0.6f && r.width > 0) {
+                            overlays.add(new Overlay(r.x, r.y, r.width, r.height, url.substring(5)));
+                        }
+                        continue;
+                    }
+                    BufferedImage image = images.apply(url);
                     if (image != null) {
                         Shape before = g.getClip();
                         g.clip(clip);

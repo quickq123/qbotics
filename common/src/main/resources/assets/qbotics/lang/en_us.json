@@ -62,6 +62,8 @@
   "screen.qbotics.antenna.status.no_owner": "No owner: placed by a machine",
   "block.qbotics.control_panel": "Control Panel",
   "block.qbotics.web_panel": "Web Panel",
+  "screen.qbotics.web.hint": "Click to use it, scroll the wheel to scroll. Esc closes.",
+  "screen.qbotics.web.typing": "Typing: Enter sends it, Esc leaves the field.",
   "screen.qbotics.close_up": "Close-up",
   "screen.qbotics.close_up_waiting": "Waiting for the screen...",
   "screen.qbotics.close_up_hint": "Click to touch; drag a slider. Esc closes.",

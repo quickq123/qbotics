@@ -29,9 +29,15 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
     /** The frame left around the picture, in blocks. */
     private static final float INSET = 1 / 32f;
     private final Font font;
+    private final net.minecraft.client.renderer.item.ItemModelResolver items;
 
     public DisplayRenderer(BlockEntityRendererProvider.Context context) {
         this.font = context.font();
+        this.items = context.itemModelResolver();
+    }
+
+    /** An item icon over a Web Panel's page: where (CSS pixels) and the item, ready to draw. */
+    record WebItem(float x, float y, float width, float height, net.minecraft.client.renderer.item.ItemStackRenderState item) {
     }
 
     public static final class State extends BlockEntityRenderState {
@@ -40,8 +46,10 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         int width;
         int height;
         @Nullable Object view;
-        /** A Web Panel's picture. */
+        /** A Web Panel's picture, its width in CSS pixels, and the item icons over it. */
         net.minecraft.resources.@Nullable Identifier texture;
+        int pageWidth;
+        List<WebItem> webItems = List.of();
     }
 
     @Override
@@ -59,6 +67,20 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         state.height = display.screenHeight();
         state.view = state.origin ? ClientDisplays.view(display.getBlockPos()) : null;
         state.texture = state.view instanceof ClientWebPanels.WebView web ? ClientWebPanels.texture(web) : null;
+        state.webItems = List.of();
+        if (state.view instanceof ClientWebPanels.WebView web && !web.overlays().isEmpty()) {
+            state.pageWidth = web.width();
+            List<WebItem> found = new ArrayList<>();
+            for (qbotics.web.WebPainter.Overlay overlay : web.overlays()) {
+                net.minecraft.world.item.ItemStack stack = WebItems.stack(overlay.url());
+                if (!stack.isEmpty()) {
+                    var item = new net.minecraft.client.renderer.item.ItemStackRenderState();
+                    items.updateForTopItem(item, stack, net.minecraft.world.item.ItemDisplayContext.GUI, display.getLevel(), null, 0);
+                    found.add(new WebItem(overlay.x(), overlay.y(), overlay.width(), overlay.height(), item));
+                }
+            }
+            state.webItems = found;
+        }
     }
 
     @Override
@@ -138,6 +160,15 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
             buffer.addVertex(pose, w, -h, 0).setColor(-1).setUv(1, 1).setLight(FULL_BRIGHT);
             buffer.addVertex(pose, w, 0, 0).setColor(-1).setUv(1, 0).setLight(FULL_BRIGHT);
         });
+        // Item icons, as the inventory draws them, flattened onto the face.
+        float unit = state.pageWidth > 0 ? w / state.pageWidth : 0;
+        for (WebItem item : state.webItems) {
+            poseStack.pushPose();
+            poseStack.translate((item.x() + item.width() / 2) * unit, -(item.y() + item.height() / 2) * unit, 0.01f);
+            poseStack.scale(item.width() * unit, item.height() * unit, 0.01f);
+            item.item().submit(poseStack, collector, FULL_BRIGHT, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, 0);
+            poseStack.popPose();
+        }
         poseStack.popPose();
     }
 

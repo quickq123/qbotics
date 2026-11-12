@@ -669,8 +669,12 @@ asyncio.run(main())
 > it changes; `{{name}}` / `{{{name}}}` fill the page in the player's game), `on(name)`, `on_click()`. Clicks are
 > hit-tested in the player's game (it has the layout) and sent as the element's tag, id, name, data-event and value;
 > the close-up shows :hover and :active. Measured: engine load ~0.3-0.5 s once, a page update ~40 ms off-thread.
-> Not yet (v1 gaps): images and `item:` icons, flex `gap`, form fields, scrolling. JavaScript (QuickJS, per player)
-> and `<canvas>` are the next step, as decided.
+> **Storage additions (built 2026-11-12, asked for by the project owner for sorting and storage UIs):** item icons
+> (`<img src="item:...">`: the page leaves the box, the game's item renderer draws the icon over the panel and in the
+> close-up), text fields (`<input>` rewritten before layout as a box the game edits, per player; typed text reaches
+> the program after a pause and on Enter), scrolling (per player: `overflow: auto` boxes through litehtml, else the
+> page), and Mustache-style sections in the state template (`{{#list}}`, `{{^list}}`, `{{.}}`). Not yet: flex `gap`,
+> select/textarea/checkbox, typing in the world. Next: the Qbot camera (§8), then JavaScript and `<canvas>`.
 
 **Principle:** Python owns the data and the actions. The panel only displays and handles interaction on screen.
 

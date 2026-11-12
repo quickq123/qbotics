@@ -175,6 +175,9 @@ public final class ScreenshotRun {
         view("08b-cable-shapes", new Vec3(3.5, 3.4, -4.6), new Vec3(3.5, 0.5, -7.0));
         view("08c-server", new Vec3(18.5, 1.7, -2.0), new Vec3(18.5, 0.5, -5.0));
         view("08d-web-panel", new Vec3(22.5, 1.4, -1.6), new Vec3(22.5, 1.0, -5.0));
+        then(10, minecraft -> minecraft.setScreen(new qbotics.client.display.WebCloseUpScreen(base.offset(21, 1, -5))));
+        then(40, minecraft -> shot(minecraft, "08e-web-close-up"));
+        then(5, minecraft -> minecraft.setScreen(null));
 
         // The screens.
         then(15, minecraft -> onServer(minecraft, player -> {
@@ -781,22 +784,27 @@ public final class ScreenshotRun {
             com.google.gson.JsonArray page = new com.google.gson.JsonArray();
             page.add(String.join("\n",
                     "<html><head><style>",
-                    "body { margin: 10px; } h1 { font-size: 24px; margin: 0 0 8px 0; color: #ffb347; }",
-                    ".row { display: flex; justify-content: space-between; margin-bottom: 8px; }",
-                    ".card { flex: 1; margin-right: 6px; padding: 8px; background: #1d2a36; border-radius: 6px; border: 1px solid #3a5068; }",
-                    ".num { font-size: 22px; font-weight: bold; color: #fff; } .bar { height: 10px; background: #233; border-radius: 5px; }",
-                    ".fill { height: 10px; border-radius: 5px; background: linear-gradient(90deg, #e94, #fc6); }",
-                    "button { font-size: 15px; padding: 6px 14px; background: linear-gradient(#4a4, #262); border: none; }",
+                    "body { margin: 8px; } h1 { font-size: 18px; margin: 0 0 6px 0; color: #ffb347; }",
+                    ".top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }",
+                    ".list { height: 150px; overflow: auto; border: 1px solid #2a3a4a; border-radius: 4px; }",
+                    ".row { display: flex; align-items: center; height: 24px; padding: 0 6px; border-bottom: 1px solid #1c2630; }",
+                    ".row img { width: 18px; height: 18px; margin-right: 8px; } .name { flex: 1; } .count { color: #ffd27a; font-weight: bold; }",
                     "</style></head><body>",
-                    "<h1>Smeltery</h1>",
-                    "<div class='row'><div class='card'>Iron<div class='num'>{{iron}}</div></div>",
-                    "<div class='card'>Gold<div class='num'>{{gold}}</div></div><div class='card'>Coal<div class='num'>{{coal}}</div></div></div>",
-                    "<div class='bar'><div class='fill' style='width: {{progress}}%'></div></div>",
-                    "<p>Furnaces running: {{running}} of 8</p><button data-event='smelt'>Smelt all</button>",
+                    "<div class='top'><h1>Storage</h1><input name='search' placeholder='Search items...'></div>",
+                    "<div class='list'>{{#items}}<div class='row'><img src='item:{{id}}'><span class='name'>{{name}}</span>",
+                    "<span class='count'>{{count}}</span></div>{{/items}}</div>",
+                    "{{^items}}<p>Nothing matches.</p>{{/items}}",
                     "</body></html>"));
             web.op("page", page);
             com.google.gson.JsonArray state = new com.google.gson.JsonArray();
-            state.add(com.google.gson.JsonParser.parseString("{\"iron\": 1284, \"gold\": 312, \"coal\": 4096, \"progress\": 62, \"running\": 5}"));
+            state.add(com.google.gson.JsonParser.parseString("{\"items\": ["
+                    + "{\"id\": \"minecraft:iron_ingot\", \"name\": \"Iron Ingot\", \"count\": 1284},"
+                    + "{\"id\": \"minecraft:gold_ingot\", \"name\": \"Gold Ingot\", \"count\": 312},"
+                    + "{\"id\": \"minecraft:coal\", \"name\": \"Coal\", \"count\": 4096},"
+                    + "{\"id\": \"minecraft:diamond\", \"name\": \"Diamond\", \"count\": 27},"
+                    + "{\"id\": \"minecraft:oak_log\", \"name\": \"Oak Log\", \"count\": 640},"
+                    + "{\"id\": \"minecraft:redstone\", \"name\": \"Redstone Dust\", \"count\": 2210},"
+                    + "{\"id\": \"minecraft:cobblestone\", \"name\": \"Cobblestone\", \"count\": 18000}]}"));
             web.op("state", state);
         }
         // Blocks set like this skip the placement logic, so give every cable its arms now.

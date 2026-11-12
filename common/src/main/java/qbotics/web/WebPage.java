@@ -65,6 +65,7 @@ public final class WebPage {
     private final ExportFunction pointer;
     private final ExportFunction hit;
     private final ExportFunction hitText;
+    private final ExportFunction scroll;
     /** The fonts the page has asked for, by number. */
     final List<Font> fonts = new ArrayList<>();
     /** Images by address: their size, for layout. */
@@ -93,6 +94,7 @@ public final class WebPage {
         pointer = instance.export("web_pointer");
         hit = instance.export("web_hit");
         hitText = instance.export("web_hit_text");
+        scroll = instance.export("web_scroll");
     }
 
     /** Shows a page: its HTML, and CSS the game adds (panel defaults). Lay it out again afterwards. */
@@ -141,6 +143,11 @@ public final class WebPage {
         }
         int at = (int) hitText.apply()[0];
         return new String(instance.memory().readBytes(at, length), StandardCharsets.UTF_8);
+    }
+
+    /** The wheel turned over a point of the page: a box there that scrolls moves. Returns how far (0: none). */
+    public float scroll(float dy, float x, float y) {
+        return Float.intBitsToFloat((int) scroll.apply(Float.floatToRawIntBits(dy), Float.floatToRawIntBits(x), Float.floatToRawIntBits(y))[0]);
     }
 
     private int copyIn(byte[] bytes) {
@@ -205,7 +212,9 @@ public final class WebPage {
                 return new long[] {Float.floatToRawIntBits(w)};
             }),
             new HostFunction("web", "image_size", FunctionType.of(List.of(I32, I32, I32), List.of()), (inst, args) -> {
-                float[] size = imageSize.apply(readString((int) args[0], (int) args[1]));
+                String url = readString((int) args[0], (int) args[1]);
+                // An item's icon is 16 x 16 unless the page sizes it.
+                float[] size = url.startsWith("item:") ? new float[] {16, 16} : imageSize.apply(url);
                 writeFloats((int) args[2], size == null ? 0 : size[0], size == null ? 0 : size[1]);
                 return null;
             }),

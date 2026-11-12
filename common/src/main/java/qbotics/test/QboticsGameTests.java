@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -70,6 +70,7 @@ public final class QboticsGameTests {
             Map.entry("server_chunk_loading", QboticsGameTests::serverChunkLoading),
             Map.entry("web_page", QboticsGameTests::webPage),
             Map.entry("web_panel", QboticsGameTests::webPanel),
+            Map.entry("web_storage", QboticsGameTests::webStorage),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -3045,6 +3046,78 @@ public final class QboticsGameTests {
                 clicked[0] = true;
             }
             assertScreen(helper, computer, "smelt by", "button", "done");
+        });
+    }
+
+    /**
+     * What a storage screen needs: a row per item ({{#items}}), item icons, a search field the
+     * player types in, a list that scrolls, and the typed search reaching the program.
+     */
+    private static void webStorage(GameTestHelper helper) {
+        String page = String.join("\n",
+                "<html><head><style>",
+                ".list { height: 60px; overflow: auto; } .row { height: 20px; } img { width: 16px; height: 16px; }",
+                "</style></head><body>",
+                "<input name=\"search\" placeholder=\"Search...\">",
+                "<div class=\"list\">{{#items}}<div class=\"row\"><img src=\"item:{{id}}\"> {{name}} x{{count}}</div>{{/items}}</div>",
+                "{{^items}}<p>Nothing found</p>{{/items}}",
+                "</body></html>");
+        String state = "{\"items\":[{\"id\":\"minecraft:iron_ingot\",\"name\":\"Iron\",\"count\":512},{\"id\":\"minecraft:gold_ingot\",\"name\":\"Gold\",\"count\":64},"
+                + "{\"id\":\"minecraft:coal\",\"name\":\"Coal\",\"count\":900},{\"id\":\"minecraft:diamond\",\"name\":\"Diamond\",\"count\":3},"
+                + "{\"id\":\"minecraft:redstone\",\"name\":\"Redstone\",\"count\":77}]}";
+        String filled = qbotics.web.WebTemplate.fill(page, state);
+        helper.assertTrue(filled.contains("Iron x512") && filled.contains("Redstone x77") && filled.contains("item:minecraft:diamond")
+                && !filled.contains("Nothing found"), "a row per item");
+        helper.assertTrue(qbotics.web.WebTemplate.fill(page, "{\"items\":[]}").contains("Nothing found"), "an empty list says so");
+        String typed = qbotics.web.WebInputs.rewrite(filled, java.util.Map.of("search", "ir"), "search");
+        helper.assertTrue(typed.contains("data-input=\"search\"") && typed.contains(">ir<") && typed.contains("qb-focus") && !typed.contains("<input"),
+                "the field shows what was typed");
+        helper.assertTrue(qbotics.web.WebInputs.rewrite(filled, java.util.Map.of(), null).contains("Search..."), "an empty field shows its placeholder");
+
+        qbotics.web.WebPage laid = new qbotics.web.WebPage(url -> null);
+        laid.load(typed, qbotics.web.WebInputs.CSS + " body { margin: 8px; font-family: sans-serif; font-size: 14px; color: #e6e8ea; background: #0e1216; }");
+        laid.layout(256, 128);
+        java.util.List<qbotics.web.WebPainter.Overlay> overlays = new java.util.ArrayList<>();
+        java.awt.image.BufferedImage picture = qbotics.web.WebPainter.paint(laid, 0, 2, url -> null, overlays);
+        try {
+            javax.imageio.ImageIO.write(picture, "png", java.nio.file.Path.of("web-storage-test.png").toFile());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        // Three 20-pixel rows show in the 60-pixel list; the icons of the rest are hidden by it.
+        helper.assertTrue(overlays.size() == 3 && overlays.get(0).url().equals("minecraft:iron_ingot") && overlays.get(0).width() == 16,
+                "item icons to draw: " + overlays);
+        String field = laid.hit(20, 18);
+        helper.assertTrue(field != null && field.contains("\"input\":\"search\""), "a click on the field finds it: " + field);
+        float moved = laid.scroll(40, 30, 60);
+        helper.assertTrue(moved > 0, "the list scrolls: " + moved);
+        overlays.clear();
+        qbotics.web.WebPainter.paint(laid, 0, 2, url -> null, overlays);
+        helper.assertTrue(!overlays.isEmpty() && !overlays.get(0).url().equals("minecraft:iron_ingot"), "scrolled, other items show: " + overlays);
+
+        // The search, as the player's game sends it, reaches the program.
+        net.minecraft.world.level.block.state.BlockState web = QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH);
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 1));
+        helper.setBlock(new BlockPos(0, 1, 2), web);
+        qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(0, 1, 2), qbotics.block.DisplayBlockEntity.class);
+        for (String line : List.of("python", "import events", "from logistics import network", "web = network().web_panel()",
+                "web.on('search', lambda e: print('search', e.value, e.enter, e.tag))", "events.run()")) {
+            computer.submitLine(line);
+        }
+        boolean[] sent = {false};
+        helper.succeedWhen(() -> {
+            if (!sent[0]) {
+                helper.assertTrue(screen(computer).contains("events.run()") && panel.content() != null
+                        && !panel.content().listeners().isEmpty(), "the program listens");
+                net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+                BlockPos at = helper.absolutePos(new BlockPos(0, 1, 3));
+                player.setPos(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+                qbotics.display.Displays.onWebClick(player, new qbotics.net.DisplayPayloads.WebClick(panel.getBlockPos(),
+                        "{\"tag\":\"input\",\"id\":\"\",\"name\":\"search\",\"event\":\"search\",\"value\":\"iron\",\"enter\":true}"));
+                sent[0] = true;
+            }
+            assertScreen(helper, computer, "search iron True input");
         });
     }
 

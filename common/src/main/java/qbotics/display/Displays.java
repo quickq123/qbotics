@@ -305,10 +305,12 @@ public final class Displays {
         JsonObject event = new JsonObject();
         event.addProperty("type", "web");
         for (String field : new String[] {"tag", "id", "name", "value"}) {
-            event.addProperty(field, element.has(field) ? element.get(field).getAsString() : "");
+            String text = element.has(field) && element.get(field).isJsonPrimitive() ? element.get(field).getAsString() : "";
+            event.addProperty(field, text.length() > qbotics.web.WebInputs.MAX_LENGTH ? text.substring(0, qbotics.web.WebInputs.MAX_LENGTH) : text);
         }
         String name = element.has("event") ? element.get("event").getAsString() : "";
         event.addProperty("event", name.isEmpty() ? event.get("id").getAsString() : name);
+        event.addProperty("enter", element.has("enter") && element.get("enter").getAsBoolean()); // Enter pressed in a text field
         event.addProperty("mac", display.mac());
         event.addProperty("panel", display.deviceName());
         event.addProperty("player", player.getName().getString());
