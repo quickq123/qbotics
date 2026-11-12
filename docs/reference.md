@@ -90,7 +90,7 @@ which loses the variables typed at the `>>>` prompt but not your files.
 | Key | What it does |
 |---|---|
 | F5 | Saves and runs the open Python file |
-| F8 | Steps the running program to the next line of your code and holds it there (section 1.6) |
+| F8 | Steps the running program to the next line of your code and holds it there (section 1.3b) |
 | Ctrl+S | Saves |
 | Ctrl+F, Ctrl+H | Find; find and replace. F3 and Shift+F3 step through matches |
 | Ctrl+Space | Suggests completions |
@@ -111,7 +111,7 @@ Resting the mouse on a function name shows how to call it and what it does.
 | Drag | Selects text. Double-click selects a word |
 | Ctrl+C | Copies the selection; with nothing selected, stops the program |
 | Ctrl+Z | Pauses the running program where it is, and says where: `[paused at line 10 of /patrol.py]`; again, it carries on. In an ssh session it pauses the program on the computer logged in to |
-| F8 | Steps the paused (or running) program to its next line (section 1.6) |
+| F8 | Steps the paused (or running) program to its next line (section 1.3b) |
 | Ctrl+V | Pastes; each pasted line is entered |
 | Right-click | Copy, Copy All, Paste, Select All |
 | Click on the line being typed | Puts the cursor there |
@@ -121,7 +121,7 @@ Resting the mouse on a function name shows how to call it and what it does.
 | Up, Down | Earlier commands |
 | Page Up, Page Down, wheel | Scrolls back through output. End returns |
 
-### 1.6 Watching a program run, and stepping through it
+### 1.3b Watching a program run, and stepping through it
 
 While a computer's editor is open (on the computer, by ssh, or a laptop connected to a Qbot),
 the editor marks the line of **your own code** the program is on: **green** while it runs,
@@ -1465,7 +1465,7 @@ your laptop gets *their* laptop computer, not yours.
 - A laptop isn't on a cable network, so calls such as `network().bus()` say to use ssh.
 - `laptops.enabled = false` in the server config stops laptops opening.
 
-Its editor shows the line a program is on, and F8 steps through it (section 1.6).
+Its editor shows the line a program is on, and F8 steps through it (section 1.3b).
 
 ## 8. The Network Probe
 
