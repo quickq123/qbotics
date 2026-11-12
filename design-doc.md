@@ -683,6 +683,11 @@ asyncio.run(main())
 > page), and Mustache-style sections in the state template (`{{#list}}`, `{{^list}}`, `{{.}}`). Not yet: flex `gap`,
 > select/textarea/checkbox, typing in the world.
 >
+> **Form controls (built 2026-11-12):** `select` (a list in the close-up, a window of buttons from the world), `textarea`
+> (multi-line, Enter adds a line), checkbox and radio (a click flips them, in the world too), all rewritten before
+> layout with `data-input="kind:name"` so a click knows what it hit; values per player, sent as events; scripts read
+> `value` and `checked`. Text fields can be typed from the world: right-click opens a box over the game.
+>
 > **Layout additions (built 2026-11-12):** litehtml is patched at build time (`engine/web/patches.py`, each anchor checked):
 > `gap`/`row-gap`/`column-gap` in flex layout (lines laid out narrower, items shifted), and CSS grid as a flex container
 > laid out by `render_item_grid` (`engine/web/extra`): columns from `grid-template-columns` (fixed, %, em, fr, auto, minmax,

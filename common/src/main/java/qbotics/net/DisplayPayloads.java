@@ -135,7 +135,7 @@ public final class DisplayPayloads {
         public static final Type<WebClick> TYPE = new Type<>(Qbotics.id("display_web_click"));
         public static final StreamCodec<ByteBuf, WebClick> STREAM_CODEC = StreamCodec.composite(
                 BlockPos.STREAM_CODEC, WebClick::origin,
-                ByteBufCodecs.stringUtf8(4096), WebClick::element,
+                ByteBufCodecs.stringUtf8(8192), WebClick::element,
                 WebClick::new);
 
         @Override

@@ -1379,11 +1379,19 @@ web.state["items"] = [{"id": "minecraft:iron_ingot", "name": "Iron Ingot", "coun
 **Item pictures.** `<img src="item:minecraft:iron_ingot">` shows an item's icon, drawn by the game
 as the inventory draws it (block items in 3D, modded items too). It is 16 x 16 unless CSS sizes it.
 
-**Text fields.** `<input name="search" placeholder="Search...">` is a field players type in, in the
-close-up: click it, type, Enter. Each player types into their own copy. The program hears it as an
-event named after the field: `@web.on("search")` gets `.value` (the text), while typing (once the
-player pauses) and again on Enter, when `.enter` is true. `<input type="button" value="Go">` is a
-button.
+**Form controls.** Each player's typing and choices are their own; the program hears them as an
+event named after the control's `name`, with `.value`:
+
+| In the page | Players | `@web.on(name)` gets |
+|---|---|---|
+| `<input name="search" placeholder="Search...">` | Type in it: in the close-up, click and type; on the panel in the world, right-click it and a box opens | `.value`, the text: while typing (once they pause) and on Enter (`.enter` is true) |
+| `<textarea name="notes" rows="4" cols="30">` | The same, over several lines (Enter starts a new line) | `.value`, the text |
+| `<input type="checkbox" name="pump" checked>` | Click it (in the world or close up) to flip it | `.value`: its `value` (`"on"` unless given) when ticked, `""` when not |
+| `<input type="radio" name="speed" value="fast">` | Click one of the group | `.value`: the chosen one's `value` |
+| `<select name="ore"><option value="iron">Iron</option>...</select>` | Click it: its list opens (close up) or a window of choices (in the world) | `.value`: the chosen option's `value` (its text if it has none) |
+| `<input type="button" value="Go">` | A button | a click, as any button |
+
+`checked`, `selected` and `value=` in the page set where each starts.
 
 ```python
 @web.on("search")
@@ -1413,9 +1421,9 @@ is at most 128 KB, its state 32 KB.
 | The box model, colours, backgrounds, borders, rounded corners | Grid rows by template (`grid-template-rows`, areas, `grid-row`) |
 | Flexbox with `gap`, floats, `position` (relative, absolute) | Transforms, transitions, animations, shadows |
 | CSS grid: `grid-template-columns` (px, %, em, `fr`, `auto`, `minmax()`, `repeat()` with a number, `auto-fill` or `auto-fit`), `grid-column` (`span 2`, `1 / 3`, `1 / -1`), `gap`, `row-gap`, `column-gap`; items placed row by row and stretched to their row | |
-| Fonts: sans-serif, serif, monospace; bold, italic; underline, line-through | `select`, `textarea`, checkboxes |
-| Linear and radial gradients; item icons (`item:`) | Typing on a panel in the world (use the close-up) |
-| Text fields, scrolling (page and `overflow: auto` boxes) | `<canvas>` `drawImage` of pictures, `getImageData` |
+| Fonts: sans-serif, serif, monospace; bold, italic; underline, line-through | File inputs, sliders (`type="range"`), colour pickers |
+| Linear and radial gradients; item icons (`item:`) | |
+| Text fields, textareas, checkboxes, radio buttons, selects; scrolling (page and `overflow: auto` boxes) | `<canvas>` `drawImage` of pictures, `getImageData` |
 | JavaScript: the DOM, events, timers, `<canvas>` (below) | `fetch`, modules (`import`), web fonts |
 | `@media` by the panel's size, CSS variables, `:hover`, `:active`, `:nth-child` | |
 

@@ -308,7 +308,7 @@ public final class Displays {
         event.addProperty("type", "web");
         for (String field : new String[] {"tag", "id", "name", "value"}) {
             String text = element.has(field) && element.get(field).isJsonPrimitive() ? element.get(field).getAsString() : "";
-            event.addProperty(field, text.length() > qbotics.web.WebInputs.MAX_LENGTH ? text.substring(0, qbotics.web.WebInputs.MAX_LENGTH) : text);
+            event.addProperty(field, text.length() > qbotics.web.WebInputs.MAX_AREA_LENGTH ? text.substring(0, qbotics.web.WebInputs.MAX_AREA_LENGTH) : text);
         }
         String name = element.has("event") ? element.get("event").getAsString() : "";
         event.addProperty("event", name.isEmpty() ? event.get("id").getAsString() : name);

@@ -69,6 +69,10 @@ public final class ClientWebPanels {
         final Map<String, String> typed = new java.util.concurrent.ConcurrentHashMap<>();
         @Nullable String focused;
         @Nullable Integer focusedNode;
+        /** The field with the keyboard is a textarea: Enter adds a line. */
+        boolean focusedArea;
+        /** The options of each select on the page (from its last layout). */
+        volatile Map<String, List<WebInputs.Option>> selects = Map.of();
         /** Goes up each time the program gives a new page (its scripts start again). */
         int generation;
         /** The page's scripts, if it has any. Worker only. */
@@ -335,7 +339,9 @@ public final class ClientWebPanels {
                     }
                 }
                 if (layout) {
-                    view.page.load(WebInputs.rewrite(source, typed, focused), PANEL_CSS);
+                    WebInputs.Result controls = WebInputs.rewriteAll(source, typed, focused);
+                    view.selects = controls.selects();
+                    view.page.load(controls.html(), PANEL_CSS);
                     view.contentHeight = view.page.layout(width, height);
                 }
                 shownScroll = Math.clamp(scroll, 0, Math.max(0, view.contentHeight - height));
@@ -498,10 +504,7 @@ public final class ClientWebPanels {
                 }
                 String input = element == null ? "" : element.get("input").getAsString();
                 if (!input.isEmpty()) {
-                    if (canType) {
-                        focus(view, input);
-                        view.focusedNode = clickedNode;
-                    }
+                    control(view, input, element, clickedNode, canType, x, y);
                     schedule(view);
                     return;
                 }
@@ -514,6 +517,79 @@ public final class ClientWebPanels {
                 schedule(view);
             });
         });
+    }
+
+    /**
+     * A click on a form control ("kind:name"): a text field takes the keyboard (in the close-up)
+     * or opens a box to type in (in the world); a checkbox or radio button flips; a select opens
+     * its list. Render thread.
+     */
+    private static void control(WebView view, String input, JsonObject element, @Nullable Integer node, boolean canType, float x, float y) {
+        int colon = input.indexOf(':');
+        String kind = colon < 0 ? "text" : input.substring(0, colon);
+        String name = colon < 0 ? input : input.substring(colon + 1);
+        switch (kind) {
+            case "text", "area" -> {
+                if (canType) {
+                    focus(view, name);
+                    view.focusedNode = node;
+                    view.focusedArea = kind.equals("area");
+                } else {
+                    // On a panel in the world: a box to type in, over the game.
+                    focus(view, null);
+                    Minecraft.getInstance().setScreen(WebFieldScreen.text(view, name, node, kind.equals("area")));
+                }
+            }
+            case "check", "check-on" -> choose(view, name, kind.equals("check") ? element.get("value").getAsString() : "", node);
+            case "radio" -> choose(view, name, element.get("value").getAsString(), node);
+            case "select" -> {
+                List<WebInputs.Option> options = view.selects.getOrDefault(name, List.of());
+                if (options.isEmpty()) {
+                    return;
+                }
+                if (canType && Minecraft.getInstance().screen instanceof WebCloseUpScreen closeUp) {
+                    closeUp.dropdown(name, node, options, x, y + view.scrollY);
+                } else {
+                    Minecraft.getInstance().setScreen(WebFieldScreen.choose(view, name, node, options, Minecraft.getInstance().screen));
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
+    /** A checkbox, radio button or select was set: shown at once, and the program (and the page's script) told. */
+    static void choose(WebView view, String name, String value, @Nullable Integer node) {
+        view.typed.put(name, value);
+        view.dirty = true;
+        if (node != null) {
+            view.scriptActions.add(script -> script.input(node, "change"));
+        }
+        JsonObject element = new JsonObject();
+        element.addProperty("tag", "input");
+        element.addProperty("id", "");
+        element.addProperty("name", name);
+        element.addProperty("event", name);
+        element.addProperty("value", value);
+        element.addProperty("enter", true);
+        Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, element.toString()));
+        schedule(view);
+    }
+
+    /** For the screenshot run: the box for typing in a panel's search field from the world. */
+    public static net.minecraft.client.gui.screens.Screen fieldScreenForShots(WebView view) {
+        return WebFieldScreen.text(view, "search", null, false);
+    }
+
+    /** Text typed in the world's box (WebFieldScreen): shown, and sent as if Enter was pressed. */
+    static void entered(WebView view, String name, String text, @Nullable Integer node) {
+        view.typed.put(name, text);
+        view.dirty = true;
+        if (node != null) {
+            view.scriptActions.add(script -> script.input(node, "change"));
+        }
+        send(view, name, true);
+        schedule(view);
     }
 
     /** Gives a field the keyboard (or takes it away, with null). Render thread. */
@@ -542,7 +618,9 @@ public final class ClientWebPanels {
                 return;
             }
             now = now.substring(0, now.offsetByCodePoints(now.length(), -1));
-        } else if (now.length() < WebInputs.MAX_LENGTH && c >= ' ') {
+        } else if (c == '\n' && view.focusedArea && now.length() < WebInputs.MAX_AREA_LENGTH) {
+            now = now + c;
+        } else if (now.length() < (view.focusedArea ? WebInputs.MAX_AREA_LENGTH : WebInputs.MAX_LENGTH) && c >= ' ') {
             now = now + c;
         } else {
             return;
@@ -560,6 +638,10 @@ public final class ClientWebPanels {
 
     /** Enter in a field: what it holds goes to the program now, marked as entered. */
     static void enter(WebView view) {
+        if (view.focusedArea) {
+            type(view, '\n'); // in a textarea, Enter starts a new line
+            return;
+        }
         Integer node = view.focusedNode;
         if (node != null) {
             view.scriptActions.add(script -> script.input(node, "change"));

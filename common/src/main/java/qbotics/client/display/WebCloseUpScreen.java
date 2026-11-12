@@ -27,6 +27,41 @@ public class WebCloseUpScreen extends Screen {
     private float top;
     private float scale = 1;
     private long lastMove;
+    /** An open select's list: its field, options and where (page pixels), or null. */
+    private @org.jspecify.annotations.Nullable String dropdownName;
+    private @org.jspecify.annotations.Nullable Integer dropdownNode;
+    private java.util.List<qbotics.web.WebInputs.Option> dropdownOptions = java.util.List.of();
+    private float dropdownX;
+    private float dropdownY;
+    private static final int OPTION_HEIGHT = 12;
+
+    /** For the screenshot run: a select's list, open. */
+    public void dropdownForShots(String name, java.util.List<qbotics.web.WebInputs.Option> options, float x, float y) {
+        dropdown(name, null, options, x, y);
+    }
+
+    /** Opens a select's list under the point clicked (page pixels). */
+    void dropdown(String name, @org.jspecify.annotations.Nullable Integer node, java.util.List<qbotics.web.WebInputs.Option> options, float x, float y) {
+        dropdownName = name;
+        dropdownNode = node;
+        dropdownOptions = options;
+        dropdownX = x;
+        dropdownY = y;
+    }
+
+    /** Where the open list is on this screen: x0, y0, width (screen pixels). */
+    private int[] dropdownBox() {
+        ClientWebPanels.WebView view = ClientWebPanels.view(origin);
+        float scrollY = view == null ? 0 : view.scrollY;
+        int width = 80;
+        for (qbotics.web.WebInputs.Option option : dropdownOptions) {
+            width = Math.max(width, font.width(option.label()) + 12);
+        }
+        int x0 = Math.min(Math.round(left + dropdownX * scale), this.width - width - 4);
+        int y0 = Math.round(top + (dropdownY - scrollY) * scale) + 6;
+        y0 = Math.min(y0, this.height - 4 - OPTION_HEIGHT * dropdownOptions.size());
+        return new int[] {Math.max(4, x0), Math.max(4, y0), width};
+    }
 
     public WebCloseUpScreen(BlockPos origin) {
         super(Component.translatable("screen.qbotics.close_up"));
@@ -85,6 +120,16 @@ public class WebCloseUpScreen extends Screen {
             graphics.item(stack, 0, 0);
             graphics.pose().popMatrix();
         }
+        if (dropdownName != null) {
+            int[] box = dropdownBox();
+            graphics.fill(box[0] - 1, box[1] - 1, box[0] + box[2] + 1, box[1] + OPTION_HEIGHT * dropdownOptions.size() + 1, 0xFF8CC8FF);
+            for (int i = 0; i < dropdownOptions.size(); i++) {
+                int y = box[1] + i * OPTION_HEIGHT;
+                boolean over = mouseX >= box[0] && mouseX < box[0] + box[2] && mouseY >= y && mouseY < y + OPTION_HEIGHT;
+                graphics.fill(box[0], y, box[0] + box[2], y + OPTION_HEIGHT, over ? 0xFF2F5D8A : 0xFF1A2129);
+                graphics.text(font, dropdownOptions.get(i).label(), box[0] + 5, y + 2, 0xFFE6E8EA, false);
+            }
+        }
         graphics.centeredText(font, Component.translatable(view.focused() != null ? "screen.qbotics.web.typing" : "screen.qbotics.web.hint"),
                 width / 2, height - 14, 0xFFB0B0B0);
         String error = view.lastError();
@@ -120,6 +165,17 @@ public class WebCloseUpScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (dropdownName != null) {
+            // A click picks an option, or anywhere else closes the list.
+            int[] box = dropdownBox();
+            int i = (int) Math.floor((event.y() - box[1]) / OPTION_HEIGHT);
+            ClientWebPanels.WebView view = ClientWebPanels.view(origin);
+            if (view != null && event.x() >= box[0] && event.x() < box[0] + box[2] && i >= 0 && i < dropdownOptions.size()) {
+                ClientWebPanels.choose(view, dropdownName, dropdownOptions.get(i).value(), dropdownNode);
+            }
+            dropdownName = null;
+            return true;
+        }
         if (super.mouseClicked(event, doubleClick)) {
             return true;
         }

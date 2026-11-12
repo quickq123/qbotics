@@ -179,6 +179,23 @@ public final class ScreenshotRun {
         then(10, minecraft -> minecraft.setScreen(new qbotics.client.display.WebCloseUpScreen(base.offset(21, 1, -5))));
         then(40, minecraft -> shot(minecraft, "08e-web-close-up"));
         then(5, minecraft -> minecraft.setScreen(null));
+        // Typing from the world: the box over the game; and a select's list open in the close-up.
+        then(10, minecraft -> {
+            var view = qbotics.client.display.ClientWebPanels.view(base.offset(21, 1, -5));
+            if (view != null) {
+                minecraft.setScreen(qbotics.client.display.ClientWebPanels.fieldScreenForShots(view));
+            }
+        });
+        then(20, minecraft -> shot(minecraft, "08e2-web-type-box"));
+        then(5, minecraft -> minecraft.setScreen(null));
+        then(10, minecraft -> {
+            var screen = new qbotics.client.display.WebCloseUpScreen(base.offset(21, 1, -5));
+            minecraft.setScreen(screen);
+            screen.dropdownForShots("ore", java.util.List.of(new qbotics.web.WebInputs.Option("iron", "Iron Ingot"),
+                    new qbotics.web.WebInputs.Option("gold", "Gold Ingot"), new qbotics.web.WebInputs.Option("coal", "Coal")), 280, 40);
+        });
+        then(30, minecraft -> shot(minecraft, "08e3-web-dropdown"));
+        then(5, minecraft -> minecraft.setScreen(null));
         view("08f-qbot-camera", new Vec3(26.0, 1.0, -2.4), new Vec3(26.0, 1.0, -5.0));
         view("08g-script-a", new Vec3(29.5, 1.0, -2.6), new Vec3(29.5, 1.0, -5.0));
         then(25, minecraft -> shot(minecraft, "08g-script-b"));

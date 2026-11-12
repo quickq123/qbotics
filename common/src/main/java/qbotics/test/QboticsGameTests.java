@@ -70,6 +70,7 @@ public final class QboticsGameTests {
             Map.entry("server_chunk_loading", QboticsGameTests::serverChunkLoading),
             Map.entry("web_page", QboticsGameTests::webPage),
             Map.entry("web_layout", QboticsGameTests::webLayout),
+            Map.entry("web_forms", QboticsGameTests::webForms),
             Map.entry("web_panel", QboticsGameTests::webPanel),
             Map.entry("web_storage", QboticsGameTests::webStorage),
             Map.entry("qbot_camera", QboticsGameTests::qbotCamera),
@@ -3080,7 +3081,7 @@ public final class QboticsGameTests {
                 && !filled.contains("Nothing found"), "a row per item");
         helper.assertTrue(qbotics.web.WebTemplate.fill(page, "{\"items\":[]}").contains("Nothing found"), "an empty list says so");
         String typed = qbotics.web.WebInputs.rewrite(filled, java.util.Map.of("search", "ir"), "search");
-        helper.assertTrue(typed.contains("data-input=\"search\"") && typed.contains(">ir<") && typed.contains("qb-focus") && !typed.contains("<input"),
+        helper.assertTrue(typed.contains("data-input=\"text:search\"") && typed.contains(">ir<") && typed.contains("qb-focus") && !typed.contains("<input"),
                 "the field shows what was typed");
         helper.assertTrue(qbotics.web.WebInputs.rewrite(filled, java.util.Map.of(), null).contains("Search..."), "an empty field shows its placeholder");
 
@@ -3098,7 +3099,7 @@ public final class QboticsGameTests {
         helper.assertTrue(overlays.size() == 3 && overlays.get(0).url().equals("minecraft:iron_ingot") && overlays.get(0).width() == 16,
                 "item icons to draw: " + overlays);
         String field = laid.hit(20, 18);
-        helper.assertTrue(field != null && field.contains("\"input\":\"search\""), "a click on the field finds it: " + field);
+        helper.assertTrue(field != null && field.contains("\"input\":\"text:search\""), "a click on the field finds it: " + field);
         float moved = laid.scroll(40, 30, 60);
         helper.assertTrue(moved > 0, "the list scrolls: " + moved);
         overlays.clear();
@@ -3550,6 +3551,66 @@ public final class QboticsGameTests {
         helper.assertTrue(at.apply(160, 125).equals("g4"), "items stretch to their row: " + at.apply(160, 125));
         // auto-fill minmax(60px, 1fr) in 320 with gap 4: 5 columns (5 x 60 + 16 = 316), all five in one row.
         helper.assertTrue(at.apply(300, 150).equals("f5"), "auto-fill fits five: " + at.apply(300, 150));
+        helper.succeed();
+    }
+
+    /** Form controls: select, textarea, checkbox and radio become things the panel draws and a click can tell apart. */
+    private static void webForms(GameTestHelper helper) {
+        String page = String.join("\n",
+                "<html><body style='margin: 6px; font-family: sans-serif'>",
+                "<select name='ore'><option value='iron'>Iron</option><option value='gold' selected>Gold</option><option>Coal</option></select>",
+                "<p><label><input type='checkbox' name='pump' checked> Pump</label> <label><input type='checkbox' name='fan'> Fan</label></p>",
+                "<p><input type='radio' name='speed' value='slow'> Slow <input type='radio' name='speed' value='fast' checked> Fast</p>",
+                "<textarea name='notes' rows='2' cols='20'>First line</textarea>",
+                "</body></html>");
+        qbotics.web.WebInputs.Result fresh = qbotics.web.WebInputs.rewriteAll(page, java.util.Map.of(), null);
+        String html = fresh.html();
+        helper.assertTrue(fresh.selects().get("ore").size() == 3 && fresh.selects().get("ore").get(2).value().equals("Coal"), "the select's options");
+        helper.assertTrue(html.contains("data-input=\"select:ore\"") && html.contains(">Gold <"), "the select shows its selected option: " + html);
+        helper.assertTrue(html.contains("data-input=\"check-on:pump\"") && html.contains("data-input=\"check:fan\""), "checkboxes and their states");
+        helper.assertTrue(html.contains("qb-radio qb-on\" data-input=\"radio:speed\" data-event=\"speed\" name=\"speed\" value=\"fast\""),
+                "the checked radio button: " + html);
+        helper.assertTrue(html.contains("data-input=\"area:notes\"") && html.contains("First line") && !html.contains("<textarea"), "the textarea");
+        // A player's choices: Coal, fan on, pump off, slow, and new notes.
+        String chosen = qbotics.web.WebInputs.rewriteAll(page, java.util.Map.of("ore", "Coal", "fan", "on", "pump", "", "speed", "slow",
+                "notes", "Line one\nLine two"), null).html();
+        helper.assertTrue(chosen.contains(">Coal <") && chosen.contains("data-input=\"check-on:fan\"") && chosen.contains("data-input=\"check:pump\"")
+                && chosen.contains("qb-radio qb-on\" data-input=\"radio:speed\" data-event=\"speed\" name=\"speed\" value=\"slow\"")
+                && chosen.contains("Line one\nLine two"), "the player's choices show: " + chosen);
+        // Laid out: clicks find each control.
+        qbotics.web.WebPage laid = new qbotics.web.WebPage(url -> null);
+        laid.load(chosen, qbotics.web.WebInputs.CSS);
+        laid.layout(256, 192);
+        try {
+            javax.imageio.ImageIO.write(qbotics.web.WebPainter.paint(laid, 0, 2, url -> null), "png", java.nio.file.Path.of("web-forms-test.png").toFile());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        java.util.Set<String> found = new java.util.TreeSet<>();
+        for (int x = 2; x < 254; x += 3) {
+            for (int y = 2; y < 190; y += 3) {
+                String hit = laid.hit(x, y);
+                if (hit != null) {
+                    found.add(com.google.gson.JsonParser.parseString(hit).getAsJsonObject().get("input").getAsString());
+                }
+            }
+        }
+        helper.assertTrue(found.containsAll(java.util.List.of("select:ore", "check:pump", "check-on:fan", "radio:speed", "area:notes")),
+                "every control can be clicked: " + found);
+        // A page's script sees what the player chose.
+        java.util.Map<String, String> typed = new java.util.HashMap<>(java.util.Map.of("ore", "Coal", "fan", "on", "speed", "slow"));
+        qbotics.web.WebScript script = new qbotics.web.WebScript(new qbotics.web.WebScript.Hooks() {
+            public void send(String n, String d) { }
+            public void log(String l) { }
+            public void error(String m) { throw new IllegalStateException(m); }
+            public String value(String f) { return typed.get(f); }
+            public void setValue(String f, String v) { typed.put(f, v); }
+        });
+        script.load(page.replace("</body>", "<p id='out'></p><script>document.getElementById('out').textContent = "
+                + "document.querySelector('select').value + ' ' + document.querySelector('[name=fan]').checked + ' ' + "
+                + "document.querySelector('[name=pump]').checked + ' ' + document.querySelector('[value=slow]').checked;</script></body>"),
+                256, 192, "{}");
+        helper.assertTrue(script.html().contains(">Coal true true true<"), "scripts read the controls: " + script.html());
         helper.succeed();
     }
 

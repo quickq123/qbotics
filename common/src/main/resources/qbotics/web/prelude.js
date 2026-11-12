@@ -155,11 +155,35 @@
     get disabled() { return this.hasAttribute("disabled"); }
     set disabled(v) { this.toggleAttribute("disabled", !!v); }
     get value() {
+      const field = this.getAttribute("name") || this.id || "input";
+      if (this.localName === "select") {
+        const typed = host("value", field);
+        if (typed !== undefined) return typed;
+        const options = this.getElementsByTagName("option");
+        const chosen = options.find(o => o.hasAttribute("selected")) || options[0];
+        return chosen ? (chosen.getAttribute("value") ?? chosen.textContent.trim()) : "";
+      }
       if (this.localName === "input" || this.localName === "textarea") {
-        const typed = host("value", this.getAttribute("name") || this.id || "input");
-        return typed !== undefined ? typed : (this.getAttribute("value") || "");
+        const type = (this.getAttribute("type") || "text").toLowerCase();
+        if (type === "checkbox" || type === "radio") return this.getAttribute("value") || "on";
+        const typed = host("value", field);
+        if (typed !== undefined) return typed;
+        return this.localName === "textarea" ? this.textContent : (this.getAttribute("value") || "");
       }
       return this.getAttribute("value") || "";
+    }
+    // A checkbox's or radio button's state, as the player left it.
+    get checked() {
+      const field = this.getAttribute("name") || this.id || "input";
+      const typed = host("value", field);
+      if (typed === undefined) return this.hasAttribute("checked");
+      return (this.getAttribute("type") || "").toLowerCase() === "radio" ? typed === (this.getAttribute("value") || "on") : typed !== "";
+    }
+    set checked(v) {
+      const field = this.getAttribute("name") || this.id || "input";
+      const radio = (this.getAttribute("type") || "").toLowerCase() === "radio";
+      host("set_value", JSON.stringify([field, v ? (this.getAttribute("value") || "on") : (radio ? "" : "")]));
+      changed();
     }
     set value(v) {
       this.setAttribute("value", v);
