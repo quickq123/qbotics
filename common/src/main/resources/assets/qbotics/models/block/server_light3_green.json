@@ -1,0 +1,33 @@
+{
+  "textures": {
+    "light": "qbotics:block/server_light_green",
+    "particle": "qbotics:block/server_side"
+  },
+  "elements": [
+    {
+      "from": [
+        2,
+        7,
+        -0.05
+      ],
+      "to": [
+        3,
+        8,
+        0
+      ],
+      "light_emission": 15,
+      "shade": false,
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "texture": "#light"
+        }
+      }
+    }
+  ]
+}

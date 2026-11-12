@@ -142,38 +142,7 @@ public final class ComputerManager {
         BlockPos pos = block.getBlockPos().immutable();
         UUID computerId = block.deviceId();
         ServerComputer computer = new ServerComputer(block.deviceId(), block.driveId(), driveFolder(block.driveId()), cpu, listener,
-                call -> {
-                    // Drawing on a display it holds a handle for is done at once, on the computer's own thread.
-                    if (call.startsWith(qbotics.display.Displays.DRAW_PREFIX)) {
-                        return CompletableFuture.completedFuture(qbotics.display.Displays.drawFast(computerId, call));
-                    }
-                    // Asked on the computer's thread; answered on the server thread at the next tick.
-                    // Where it is when the call is answered: a Qbot moves.
-                    CompletableFuture<String> answer = new CompletableFuture<>();
-                    if (call.startsWith(HTTP_PREFIX)) {
-                        // The internet: checked on the server thread, fetched on the uplink's own threads.
-                        outbox.add(server -> {
-                            Viewing place = places.get(computerId);
-                            qbotics.uplink.Uplink.fromComputer(server, place == null ? dimension : place.dimension(), place == null ? pos : place.pos(), call, answer);
-                        });
-                        return answer;
-                    }
-                    if (call.startsWith(GIT_PREFIX)) {
-                        outbox.add(server -> {
-                            Viewing place = places.get(computerId);
-                            ServerComputer self = computers.get(computerId);
-                            qbotics.uplink.GitService.fromComputer(server, place == null ? dimension : place.dimension(),
-                                    place == null ? pos : place.pos(), self == null ? qbotics.engine.HostFileSystem.NONE : self.drive(), call, answer);
-                        });
-                        return answer;
-                    }
-                    outbox.add(server -> {
-                        Viewing place = places.get(computerId);
-                        answer.complete(NetworkCalls.handle(server, place == null ? dimension : place.dimension(),
-                                place == null ? pos : place.pos(), call));
-                    });
-                    return answer;
-                }, block instanceof qbotics.qbot.QbotBlockEntity,
+                worldCalls(computerId, computerId, dimension, pos), block instanceof qbotics.qbot.QbotBlockEntity,
                 block instanceof qbotics.qbot.QbotBlockEntity qbot && qbot.programRunning(),
                 block instanceof qbotics.block.ServerBlockEntity ? qbotics.block.ServerBlockEntity.HEAP_BYTES : ServerComputer.BASIC_HEAP_BYTES,
                 block instanceof qbotics.block.ServerBlockEntity ? qbotics.block.ServerBlockEntity.DRIVE_BYTES : ServerComputer.DRIVE_QUOTA_BYTES);
@@ -181,7 +150,84 @@ public final class ComputerManager {
         places.put(block.deviceId(), new Viewing(block.deviceId(), dimension, pos));
         booting.remove(block.deviceId());
         block.setOn(true); // it comes back on by itself when its chunk next loads
+        if (block instanceof qbotics.block.ServerBlockEntity) {
+            startServices(computer, computerId, dimension, pos);
+        }
         return computer;
+    }
+
+    /**
+     * How a computer's program reaches the world: asked on the computer's thread, answered on
+     * the server thread at the next tick, from where its block is then (a Qbot moves).
+     *
+     * @param callerId the computer asking: itself, or one of a Server's services
+     * @param placeId  the computer whose block it is (a service's is its Server's)
+     */
+    private java.util.function.Function<String, CompletableFuture<String>> worldCalls(UUID callerId, UUID placeId,
+            ResourceKey<Level> dimension, BlockPos pos) {
+        return call -> {
+            // Drawing on a display it holds a handle for is done at once, on the computer's own thread.
+            if (call.startsWith(qbotics.display.Displays.DRAW_PREFIX)) {
+                return CompletableFuture.completedFuture(qbotics.display.Displays.drawFast(callerId, call));
+            }
+            CompletableFuture<String> answer = new CompletableFuture<>();
+            if (call.startsWith(HTTP_PREFIX)) {
+                // The internet: checked on the server thread, fetched on the uplink's own threads.
+                outbox.add(server -> {
+                    Viewing place = places.get(placeId);
+                    qbotics.uplink.Uplink.fromComputer(server, place == null ? dimension : place.dimension(), place == null ? pos : place.pos(), call, answer);
+                });
+                return answer;
+            }
+            if (call.startsWith(GIT_PREFIX)) {
+                outbox.add(server -> {
+                    Viewing place = places.get(placeId);
+                    ServerComputer self = computers.get(callerId);
+                    qbotics.uplink.GitService.fromComputer(server, place == null ? dimension : place.dimension(),
+                            place == null ? pos : place.pos(), self == null ? qbotics.engine.HostFileSystem.NONE : self.drive(), call, answer);
+                });
+                return answer;
+            }
+            outbox.add(server -> {
+                Viewing place = places.get(placeId);
+                answer.complete(NetworkCalls.handle(server, place == null ? dimension : place.dimension(),
+                        place == null ? pos : place.pos(), call, callerId.equals(placeId) ? null : computers.get(callerId)));
+            });
+            return answer;
+        };
+    }
+
+    /** A Server came on: its services, which start now and whenever it comes back on. */
+    private void startServices(ServerComputer server, UUID serverId, ResourceKey<Level> dimension, BlockPos pos) {
+        Services services = new Services(server.drive(), new Services.Runner() {
+            @Override
+            public ServerComputer start(String name, String file) {
+                UUID id = UUID.randomUUID();
+                ServerComputer service = ServerComputer.service(id, server, cpu, listener, worldCalls(id, serverId, dimension, pos), name, file);
+                computers.put(id, service);
+                return service;
+            }
+
+            @Override
+            public void stop(ServerComputer service) {
+                computers.remove(service.deviceId());
+                service.shutDown();
+            }
+        });
+        server.services = services;
+        services.boot();
+    }
+
+    /** Every few ticks: each Server's rack lights show how its services are doing. */
+    private void updateServiceLights(MinecraftServer server) {
+        for (Map.Entry<UUID, Viewing> entry : places.entrySet()) {
+            ServerComputer computer = computers.get(entry.getKey());
+            net.minecraft.server.level.ServerLevel level = server.getLevel(entry.getValue().dimension());
+            if (computer == null || computer.services() == null || level == null || !level.isLoaded(entry.getValue().pos())) {
+                continue;
+            }
+            qbotics.block.ServerBlock.showLights(level, entry.getValue().pos(), computer.services().lights());
+        }
     }
 
     /** A running computer (or Qbot) in the world, and where its block is: for the SSH gateway to find it. */
@@ -192,7 +238,7 @@ public final class ComputerManager {
     public java.util.List<Running> running() {
         java.util.List<Running> all = new java.util.ArrayList<>();
         places.forEach((id, place) -> {
-            ServerComputer computer = computers.get(id);
+            ServerComputer computer = computers.get(id); // (a Server's services have no place of their own, so aren't listed)
             if (computer != null) {
                 all.add(new Running(id, place.dimension(), place.pos(), computer));
             }
@@ -369,6 +415,7 @@ public final class ComputerManager {
             net.minecraft.server.level.ServerLevel level = server.getLevel(place.dimension());
             if (level != null && level.isLoaded(place.pos()) && level.getBlockEntity(place.pos()) instanceof ComputerBlockEntity block) {
                 block.setOn(false);
+                qbotics.block.ServerBlock.showLights(level, place.pos(), new int[0]); // its services stopped with it
             }
         }
     }
@@ -682,6 +729,7 @@ public final class ComputerManager {
         qbotics.display.Displays.tick(server);
         if (server.getTickCount() % 10 == 0) {
             updateMounts(server);
+            updateServiceLights(server);
         }
         qbotics.network.ScreenSessions.tick(server, session -> NetworkCalls.interfaces(
                 qbotics.network.CableNetwork.at(qbotics.network.ScreenSessions.levelOf(session), qbotics.network.ScreenSessions.busPosOf(session))));
@@ -747,7 +795,18 @@ public final class ComputerManager {
 
     public boolean deliver(UUID deviceId, String sender, String data) {
         ServerComputer computer = computers.get(deviceId);
-        return computer != null && computer.deliver(sender, data);
+        if (computer == null) {
+            return false;
+        }
+        // A Server: if its terminal's program isn't listening for messages but a service is, the service gets them.
+        Services services = computer.services();
+        if (services != null && !computer.listensForMessages()) {
+            ServerComputer listening = services.listening();
+            if (listening != null) {
+                return listening.deliver(sender, data);
+            }
+        }
+        return computer.deliver(sender, data);
     }
 
     /** The computer block was broken. */
@@ -756,6 +815,9 @@ public final class ComputerManager {
         ServerComputer computer = computers.remove(deviceId);
         if (computer != null) {
             laptops.values().removeIf(laptop -> laptop == computer);
+            if (computer.services() != null) {
+                computer.services().shutDownAll();
+            }
             computer.shutDown();
         }
     }

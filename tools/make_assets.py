@@ -633,7 +633,7 @@ def server_front(on=True):
         for x in range(2, 12):
             px[y][x] = TRAY
             px[y + 1][x] = RACK_DARK
-        px[y][13] = (RED_BRIGHT if row % 2 == 0 else (80, 220, 90)) if on else RACK_DARK
+        px[y][13] = RACK_DARK                  # a service's light: lit by an overlay (below)
     px[14][2] = RED_BRIGHT if on else RED      # power
     return px
 
@@ -664,14 +664,35 @@ for name, front_texture in (("server", "server_front"), ("server_off", "server_f
         "parent": "minecraft:block/orientable",
         "textures": {"front": "qbotics:block/" + front_texture, "side": "qbotics:block/server_side", "top": "qbotics:block/server_top"},
     })
-server_variants = {}
+# Each service has a light on the rack's front: a glowing pixel over its tray, green while it
+# runs, red if it failed. The front texture's column 13 is x 2 to 3 on the north face.
+LIGHT_COLOURS = {1: ("green", (80, 230, 96)), 2: ("red", RED_BRIGHT)}
+for state, (word, colour) in LIGHT_COLOURS.items():
+    write_png("assets/qbotics/textures/block/server_light_%s.png" % word, [[colour] * 16 for _ in range(16)])
+for light, row in enumerate((2, 5, 8, 11), start=1):
+    for state, (word, colour) in LIGHT_COLOURS.items():
+        write_json("assets/qbotics/models/block/server_light%d_%s.json" % (light, word), {
+            "textures": {"light": "qbotics:block/server_light_" + word, "particle": "qbotics:block/server_side"},
+            "elements": [{
+                "from": [2, 15 - row, -0.05], "to": [3, 16 - row, 0],
+                "light_emission": 15, "shade": False,
+                "faces": {"north": {"uv": [0, 0, 1, 1], "texture": "#light"}},
+            }],
+        })
+server_parts = []
 for facing, turn in COMPUTER_TURNS.items():
     for active, model in (("true", "qbotics:block/server"), ("false", "qbotics:block/server_off")):
-        variant = {"model": model}
+        apply = {"model": model}
         if turn:
-            variant["y"] = turn
-        server_variants["active=%s,facing=%s" % (active, facing)] = variant
-write_json("assets/qbotics/blockstates/server.json", {"variants": server_variants})
+            apply["y"] = turn
+        server_parts.append({"when": {"facing": facing, "active": active}, "apply": apply})
+    for light in range(1, 5):
+        for state, (word, colour) in LIGHT_COLOURS.items():
+            apply = {"model": "qbotics:block/server_light%d_%s" % (light, word)}
+            if turn:
+                apply["y"] = turn
+            server_parts.append({"when": {"facing": facing, "active": "true", "light%d" % light: str(state)}, "apply": apply})
+write_json("assets/qbotics/blockstates/server.json", {"multipart": server_parts})
 write_json("assets/qbotics/items/server.json", {"model": {"type": "minecraft:model", "model": "qbotics:block/server"}})
 write_json("data/qbotics/loot_table/blocks/server.json",
            drops_itself("qbotics:server", copy_components=["qbotics:drive_id", "minecraft:custom_name"]))

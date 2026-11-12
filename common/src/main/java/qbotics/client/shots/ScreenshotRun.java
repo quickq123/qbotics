@@ -741,8 +741,11 @@ public final class ScreenshotRun {
         // The Server beside a Computer, and a bricked Server, all facing the camera.
         level.setBlock(base.offset(17, 0, -5), QboticsContent.COMPUTER_BLOCK.get().defaultBlockState()
                 .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+        // Its lights: two services running, one failed, one slot free.
         level.setBlock(base.offset(18, 0, -5), QboticsContent.SERVER_BLOCK.get().defaultBlockState()
-                .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH), Block.UPDATE_ALL);
+                .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH)
+                .setValue(qbotics.block.ServerBlock.LIGHTS[0], 1).setValue(qbotics.block.ServerBlock.LIGHTS[1], 2)
+                .setValue(qbotics.block.ServerBlock.LIGHTS[2], 1), Block.UPDATE_ALL);
         level.setBlock(base.offset(19, 0, -5), QboticsContent.SERVER_BLOCK.get().defaultBlockState()
                 .setValue(qbotics.block.ComputerBlock.FACING, Direction.SOUTH).setValue(qbotics.block.ComputerBlock.ACTIVE, false), Block.UPDATE_ALL);
         // Blocks set like this skip the placement logic, so give every cable its arms now.

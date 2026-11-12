@@ -278,6 +278,23 @@ public final class ServerComputer {
      */
     ServerComputer(UUID deviceId, UUID driveId, Path driveFolder, Semaphore cpu, Listener listener,
             Function<String, CompletableFuture<String>> worldCalls, boolean qbot, boolean runOnBoot, int heapBytes, long quotaBytes) {
+        this(deviceId, driveId, new qbotics.engine.MountedFileSystem(new DriveFileSystem(driveFolder, quotaBytes)), cpu, listener, worldCalls,
+                qbot, runOnBoot, heapBytes, quotaBytes, null, null);
+    }
+
+    /**
+     * A Server's service (see {@link Services}): a program of its own, run once in the
+     * background in its own Python, on the Server's drive, with no shell.
+     */
+    static ServerComputer service(UUID id, ServerComputer server, Semaphore cpu, Listener listener,
+            Function<String, CompletableFuture<String>> worldCalls, String name, String file) {
+        return new ServerComputer(id, server.driveId, server.drive, cpu, listener, worldCalls, false, false, Services.HEAP_BYTES,
+                server.quotaBytes, name, file);
+    }
+
+    private ServerComputer(UUID deviceId, UUID driveId, qbotics.engine.MountedFileSystem drive, Semaphore cpu, Listener listener,
+            Function<String, CompletableFuture<String>> worldCalls, boolean qbot, boolean runOnBoot, int heapBytes, long quotaBytes,
+            String serviceName, String serviceFile) {
         this.heapBytes = heapBytes;
         this.quotaBytes = quotaBytes;
         this.qbot = qbot;
@@ -285,13 +302,84 @@ public final class ServerComputer {
         this.worldCalls = worldCalls;
         this.deviceId = deviceId;
         this.driveId = driveId;
-        this.drive = new qbotics.engine.MountedFileSystem(new DriveFileSystem(driveFolder, quotaBytes));
+        this.drive = drive;
+        this.serviceName = serviceName;
+        this.serviceFile = serviceFile;
         this.cpu = cpu;
         this.listener = listener;
         this.thread = Computer.newThread(this::run, "qbotics-computer-" + deviceId.toString().substring(0, 8));
         this.thread.setDaemon(true);
         this.thread.start();
     }
+
+    // ---- services (a Server's background programs) ---------------------------------------
+
+    /** For a service: its name and the program it runs. Null for a computer. */
+    private final String serviceName;
+    private final String serviceFile;
+
+    /** What a service is doing, as service list shows it. */
+    public enum ServiceState {
+        STARTING("starting"), RUNNING("running"), DONE("done"), FAILED("failed"), STOPPED("stopped");
+
+        public final String word;
+
+        ServiceState(String word) {
+            this.word = word;
+        }
+    }
+
+    private volatile ServiceState serviceState = ServiceState.STARTING;
+
+    public ServiceState serviceState() {
+        return serviceState;
+    }
+
+    public boolean isService() {
+        return serviceFile != null;
+    }
+
+    /** A Server's services; null for any other computer. Set as the Server starts. */
+    volatile Services services;
+
+    public Services services() {
+        return services;
+    }
+
+    /** A service's whole life: run its program once, and say how it ended in its log. */
+    private void runService() {
+        String started = java.time.LocalTime.now().withNano(0).toString();
+        terminal.write("[" + started + "] " + serviceName + ": running " + serviceFile + "\n");
+        Computer computer = newVm();
+        computer.lineReader = null; // nobody types to a service: input() gets nothing
+        serviceState = ServiceState.RUNNING;
+        boolean ok;
+        try {
+            String folder = serviceFile.substring(0, Math.max(1, serviceFile.lastIndexOf('/')));
+            ok = runPython(computer, "import os, sys\nos.chdir(" + pyString(folder) + ")\nsys.modules.pop('events', None)\nexecfile("
+                    + pyString(serviceFile) + ")");
+        } catch (Restart restart) {
+            ok = false;
+        }
+        String ended = java.time.LocalTime.now().withNano(0).toString();
+        if (shutDown) {
+            serviceState = ServiceState.STOPPED;
+            terminal.write("[" + ended + "] stopped\n");
+        } else {
+            serviceState = ok ? ServiceState.DONE : ServiceState.FAILED;
+            terminal.write("[" + ended + "] " + (ok ? "finished" : "failed") + "\n");
+        }
+    }
+
+    /** True if its program waits for messages (network.receive, or events.on_message). */
+    public boolean listensForMessages() {
+        synchronized (inbox) {
+            return messagesAsEvents || waitingReceive != null || receivedBefore;
+        }
+    }
+
+    /** True once its program has asked for a message. */
+    private boolean receivedBefore;
 
     /** How much memory its programs have. */
     private final int heapBytes;
@@ -422,6 +510,7 @@ public final class ServerComputer {
     /** Answers with the oldest waiting message, now or when one arrives. */
     private CompletableFuture<String> receive() {
         synchronized (inbox) {
+            receivedBefore = true;
             String ready = inbox.poll();
             if (ready != null) {
                 return CompletableFuture.completedFuture(ready);
@@ -523,6 +612,19 @@ public final class ServerComputer {
     // ---- the computer's thread ----------------------------------------------------
 
     private void run() {
+        if (serviceFile != null) {
+            try {
+                runService();
+            } catch (Throwable e) {
+                if (!shutDown) {
+                    Qbotics.LOGGER.error("Service {} crashed", serviceName, e);
+                    serviceState = ServiceState.FAILED;
+                }
+            } finally {
+                vm = null;
+            }
+            return;
+        }
         try {
             terminal.write("Qbotics computer starting...\n");
             boolean first = true;
@@ -941,13 +1043,14 @@ public final class ServerComputer {
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
             "         ssh <address>      use another computer's terminal from here; exit returns",
             "         git clone <url>    copy a GitHub repository here (git help: pull, status, push)",
+            "Server:  service start <file.py> [name]   run a program in the background (service help)",
             "Other:   clear   help       Ctrl+C stops a running program",
             "         shutdown           switch this computer off; it stays off until opened again",
             "");
 
     /** The shell's commands, longest first, for spotting one typed without its space. */
     private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "pip", "ifconfig", "python", "mkdir", "clear", "help",
-            "edit", "pwd", "cat", "run", "ssh", "git", "ls", "cd", "rm", "mv", "cp", "py");
+            "service", "edit", "pwd", "cat", "run", "ssh", "git", "ls", "cd", "rm", "mv", "cp", "py");
 
     /**
      * A hint for a line that isn't a command: the space a command lost ("run9_world.py" is
@@ -1021,6 +1124,7 @@ public final class ServerComputer {
                     }
                     runPython(computer, "import pip\npip.main(" + list.append(']') + ")");
                 }
+                case "service" -> service(args);
                 case "git" -> {
                     // Clone, pull, status, push (git.py in the ROM; the game does the work).
                     StringBuilder list = new StringBuilder("[");
@@ -1044,6 +1148,46 @@ public final class ServerComputer {
             terminal.write(describe(e, args.isEmpty() ? "" : args.getFirst()) + "\n");
         } catch (UsageException e) {
             terminal.write(e.getMessage() + "\n");
+        }
+    }
+
+    private static final String SERVICE_HELP = String.join("\n",
+            "service start <file.py> [name]   run a program in the background, now and whenever the Server comes on",
+            "service list                     the services, and how each is doing",
+            "service log <name>               what a service has printed",
+            "service restart <name>           run it again",
+            "service stop <name>              stop it, and take it off the list",
+            "");
+
+    /** service start, stop, restart, list, log: a Server's background programs. */
+    private void service(List<String> args) throws FsException {
+        Services own = services;
+        if (own == null) {
+            terminal.write("Only a Server runs services. Here, run a program with: run <file.py>\n");
+            return;
+        }
+        String what = args.isEmpty() ? "help" : args.getFirst();
+        switch (what) {
+            case "list" -> own.list().forEach(line -> terminal.write(line + "\n"));
+            case "start" -> {
+                if (args.size() < 2) {
+                    throw new UsageException("Usage: service start <file.py> [name]");
+                }
+                String file = Paths.resolve(cwd, args.get(1));
+                String kind = new String(drive.call(HostFileSystem.STAT, file, new byte[0]), StandardCharsets.UTF_8);
+                if (kind.startsWith("d")) {
+                    throw new UsageException(file + " is a folder, not a program.");
+                }
+                String name = args.size() > 2 ? args.get(2) : Paths.name(file).replaceFirst("\\.py$", "");
+                terminal.write(own.start(file, name) + "\n");
+            }
+            case "stop", "restart", "log" -> {
+                if (args.size() < 2) {
+                    throw new UsageException("Usage: service " + what + " <name>");
+                }
+                terminal.write(what.equals("log") ? own.log(args.get(1)) : (what.equals("stop") ? own.stop(args.get(1)) : own.restart(args.get(1))) + "\n");
+            }
+            default -> terminal.write(SERVICE_HELP);
         }
     }
 

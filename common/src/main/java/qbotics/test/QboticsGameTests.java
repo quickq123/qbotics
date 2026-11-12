@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -66,6 +66,7 @@ public final class QboticsGameTests {
             Map.entry("uplink", QboticsGameTests::uplink),
             Map.entry("git_offline", QboticsGameTests::gitOffline),
             Map.entry("server_block", QboticsGameTests::serverBlock),
+            Map.entry("server_services", QboticsGameTests::serverServices),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -2782,6 +2783,81 @@ public final class QboticsGameTests {
             }
             assertScreen(helper, computer, "disks ['disk1']");
             helper.assertTrue(!screen(computer).contains("needs an Uplink"), "a server has its own uplink");
+        });
+    }
+
+    /**
+     * A Server's services: one that keeps running, one that fails, one that waits for a
+     * message sent to the Server. Lights show them; they come back when the Server restarts;
+     * service stop ends one for good.
+     */
+    private static void serverServices(GameTestHelper helper) {
+        BlockPos at = new BlockPos(0, 1, 0);
+        helper.setBlock(at, QboticsContent.SERVER_BLOCK.get());
+        qbotics.block.ServerBlockEntity block = helper.getBlockEntity(at, qbotics.block.ServerBlockEntity.class);
+        block.claim(UUID.randomUUID());
+        ComputerManager manager = ComputerManager.get(helper.getLevel().getServer());
+        ServerComputer[] server = {manager.getOrStart(block)};
+        try {
+            java.nio.charset.Charset utf8 = java.nio.charset.StandardCharsets.UTF_8;
+            server[0].drive().call(qbotics.engine.HostFileSystem.WRITE, "/tick.py",
+                    "import time\nn = 0\nwhile True:\n    n += 1\n    print('tick', n)\n    time.sleep(0.2)\n".getBytes(utf8));
+            server[0].drive().call(qbotics.engine.HostFileSystem.WRITE, "/bad.py", "raise ValueError('broken on purpose')\n".getBytes(utf8));
+            server[0].drive().call(qbotics.engine.HostFileSystem.WRITE, "/listen.py",
+                    "import network\nprint('got', network.receive())\n".getBytes(utf8));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        for (String line : List.of("service start /tick.py", "service start /bad.py", "service start /listen.py inbox")) {
+            server[0].submitLine(line);
+        }
+        int[] step = {0};
+        UUID id = block.deviceId();
+        helper.succeedWhen(() -> {
+            qbotics.computer.Services services = server[0].services();
+            helper.assertTrue(services != null, "a server has services");
+            switch (step[0]) {
+                case 0 -> {
+                    ServerComputer tick = services.get("tick");
+                    ServerComputer bad = services.get("bad");
+                    ServerComputer inbox = services.get("inbox");
+                    helper.assertTrue(tick != null && bad != null && inbox != null, "three services started");
+                    helper.assertTrue(screen(tick).contains("tick 2"), "tick is ticking");
+                    helper.assertTrue(bad.serviceState() == ServerComputer.ServiceState.FAILED, "bad failed: " + bad.serviceState());
+                    helper.assertTrue(inbox.listensForMessages(), "inbox waits for a message");
+                    BlockState state = helper.getBlockState(at);
+                    helper.assertTrue(state.getValue(qbotics.block.ServerBlock.LIGHTS[0]) == 1
+                            && state.getValue(qbotics.block.ServerBlock.LIGHTS[1]) == 2
+                            && state.getValue(qbotics.block.ServerBlock.LIGHTS[2]) == 1, "the lights: " + state);
+                    // A message to the Server: its terminal isn't listening, so the waiting service gets it.
+                    helper.assertTrue(manager.deliver(id, "100.64.0.9", "\"hello\""), "the message was taken");
+                    server[0].submitLine("service log bad");
+                    server[0].submitLine("service list");
+                    step[0] = 1;
+                    helper.fail("next");
+                }
+                case 1 -> {
+                    assertScreen(helper, server[0], "broken on purpose", "tick", "running", "failed");
+                    helper.assertTrue(screen(services.get("inbox")).contains("got"), "the service got the message");
+                    // The Server goes off and comes back: its services start again.
+                    manager.remove(id);
+                    server[0] = manager.getOrStart(block);
+                    step[0] = 2;
+                    helper.fail("next");
+                }
+                case 2 -> {
+                    ServerComputer tick = services.get("tick");
+                    helper.assertTrue(tick != null && screen(tick).contains("tick 2"), "tick came back");
+                    server[0].submitLine("service stop tick");
+                    step[0] = 3;
+                    helper.fail("next");
+                }
+                default -> {
+                    helper.assertTrue(services.get("tick") == null, "tick was stopped");
+                    assertScreen(helper, server[0], "Stopped tick");
+                    helper.assertTrue(helper.getBlockState(at).getValue(qbotics.block.ServerBlock.LIGHTS[0]) == 0, "tick's light went out");
+                }
+            }
         });
     }
 

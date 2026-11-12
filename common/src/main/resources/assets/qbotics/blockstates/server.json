@@ -1,34 +1,426 @@
 {
-  "variants": {
-    "active=true,facing=north": {
-      "model": "qbotics:block/server"
+  "multipart": [
+    {
+      "when": {
+        "facing": "north",
+        "active": "true"
+      },
+      "apply": {
+        "model": "qbotics:block/server"
+      }
     },
-    "active=false,facing=north": {
-      "model": "qbotics:block/server_off"
+    {
+      "when": {
+        "facing": "north",
+        "active": "false"
+      },
+      "apply": {
+        "model": "qbotics:block/server_off"
+      }
     },
-    "active=true,facing=east": {
-      "model": "qbotics:block/server",
-      "y": 90
+    {
+      "when": {
+        "facing": "north",
+        "active": "true",
+        "light1": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light1_green"
+      }
     },
-    "active=false,facing=east": {
-      "model": "qbotics:block/server_off",
-      "y": 90
+    {
+      "when": {
+        "facing": "north",
+        "active": "true",
+        "light1": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light1_red"
+      }
     },
-    "active=true,facing=south": {
-      "model": "qbotics:block/server",
-      "y": 180
+    {
+      "when": {
+        "facing": "north",
+        "active": "true",
+        "light2": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light2_green"
+      }
     },
-    "active=false,facing=south": {
-      "model": "qbotics:block/server_off",
-      "y": 180
+    {
+      "when": {
+        "facing": "north",
+        "active": "true",
+        "light2": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light2_red"
+      }
     },
-    "active=true,facing=west": {
-      "model": "qbotics:block/server",
-      "y": 270
+    {
+      "when": {
+        "facing": "north",
+        "active": "true",
+        "light3": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light3_green"
+      }
     },
-    "active=false,facing=west": {
-      "model": "qbotics:block/server_off",
-      "y": 270
+    {
+      "when": {
+        "facing": "north",
+        "active": "true",
+        "light3": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light3_red"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "active": "true",
+        "light4": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light4_green"
+      }
+    },
+    {
+      "when": {
+        "facing": "north",
+        "active": "true",
+        "light4": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light4_red"
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "true"
+      },
+      "apply": {
+        "model": "qbotics:block/server",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "false"
+      },
+      "apply": {
+        "model": "qbotics:block/server_off",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "true",
+        "light1": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light1_green",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "true",
+        "light1": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light1_red",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "true",
+        "light2": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light2_green",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "true",
+        "light2": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light2_red",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "true",
+        "light3": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light3_green",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "true",
+        "light3": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light3_red",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "true",
+        "light4": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light4_green",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "east",
+        "active": "true",
+        "light4": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light4_red",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "true"
+      },
+      "apply": {
+        "model": "qbotics:block/server",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "false"
+      },
+      "apply": {
+        "model": "qbotics:block/server_off",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "true",
+        "light1": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light1_green",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "true",
+        "light1": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light1_red",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "true",
+        "light2": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light2_green",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "true",
+        "light2": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light2_red",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "true",
+        "light3": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light3_green",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "true",
+        "light3": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light3_red",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "true",
+        "light4": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light4_green",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "south",
+        "active": "true",
+        "light4": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light4_red",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "true"
+      },
+      "apply": {
+        "model": "qbotics:block/server",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "false"
+      },
+      "apply": {
+        "model": "qbotics:block/server_off",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "true",
+        "light1": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light1_green",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "true",
+        "light1": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light1_red",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "true",
+        "light2": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light2_green",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "true",
+        "light2": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light2_red",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "true",
+        "light3": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light3_green",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "true",
+        "light3": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light3_red",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "true",
+        "light4": "1"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light4_green",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "facing": "west",
+        "active": "true",
+        "light4": "2"
+      },
+      "apply": {
+        "model": "qbotics:block/server_light4_red",
+        "y": 270
+      }
     }
-  }
+  ]
 }

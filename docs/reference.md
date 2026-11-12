@@ -1627,6 +1627,7 @@ editor, network, `ssh`, the Programmer), and more:
 | Memory for programs | 256 KB | 1 MB | **2 MB** |
 | Its own drive | 1 MB | 1 MB | **8 MB** |
 | Hard drives it holds | none (use a Drive Bay) | 2, at `/net/disks` | **4, at `/net/disks`** |
+| Programs in the background | none | none | **4 services** (section 7i.1) |
 | The internet (`requests`, `git`) | needs an Uplink on its network | built in | **built in** |
 
 - **Right-click** opens its screen, as a computer's does. **Sneak + right-click** opens its
@@ -1645,8 +1646,33 @@ editor, network, `ssh`, the Programmer), and more:
 the top, **RAM** on either side of a **Laptop**, a **Drive Bay** at the bottom. **RAM** is an
 Integrated Circuit surrounded by eight gold ingots (`GGG` / `GIG` / `GGG`).
 
-**Not yet:** several programs at once in the background (services), and keeping its own chunk
-loaded. Answers from `requests` are still at most 24 KB on every computer.
+**Not yet:** keeping its own chunk loaded. Answers from `requests` are still at most 24 KB on
+every computer.
+
+### 7i.1 Services: programs in the background
+
+A Server runs up to **four services**: programs that keep running in the background while
+its terminal is free for other work. Each has its own Python with 256 KB of memory (the
+terminal keeps the Server's 2 MB), and its own light on the rack: **green** while it runs,
+**red** if it failed, dark when it has finished or the slot is free.
+
+| Command | Does |
+|---|---|
+| `service start <file.py> [name]` | Runs a program as a service. Its name is the file's, without `.py`, unless you give one |
+| `service list` | The services: their light number, name, state (running, done, failed) and file |
+| `service log <name>` | The last 40 lines it printed, errors included |
+| `service restart <name>` | Runs it again from the start |
+| `service stop <name>` | Stops it and takes it off the list |
+
+- **They come back.** The list is kept on the Server's drive (`/.services`), so the services
+  start again whenever the Server comes on, after a restart or when its area loads.
+- A service runs in its file's folder, sees the same drive and network as the Server, and
+  can use `events`, displays, `requests` and `git`. It can't use `input()`: nobody types to it.
+- **Messages to the Server** go to its terminal's program if that is waiting for them
+  (`network.receive()` or `events.on_message`); otherwise to the first service that is.
+- Ctrl+C in the terminal doesn't touch the services. `service stop` does.
+- Services share the game's computer time with every other computer: four services are four
+  programs, not a faster one.
 
 ## 8. The Network Probe
 

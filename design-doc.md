@@ -215,8 +215,11 @@ The `.hint` field always holds a learner-friendly fix, e.g. *"There's a block in
 > limited by `limits.servers_per_player` (2). Recipe `ASA/RLR/ADA` (ancient debris, LED Screen, RAM, Laptop, Drive Bay);
 > **RAM** is an integrated circuit in eight gold ingots. Raw ancient debris rather than netherite ingots, because getting
 > the raw material is the hard part. Memory belongs to the machine that runs the program: a laptop or ssh session on a
-> Server gets 2 MB, a laptop on a Qbot gets 256 KB. **Not yet:** services (several background programs, each with a
-> light on the rack and a Log), its own chunk loading, and larger `requests` answers by tier (needs the engine's 48 KB
+> Server gets 2 MB, a laptop on a Qbot gets 256 KB. **Services built** (§7i.1): up to four background programs, each
+> its own 256 KB Python on its own thread sharing the Server's drive, network and CPU share; `service
+> start/list/log/restart/stop`; kept in `/.services` and restarted when the Server comes on; a light each on the rack
+> (green running, red failed); messages to the Server go to the terminal's program if it listens, else to the first
+> listening service; a service's events and displays are its own. **Not yet:** its own chunk loading, and larger `requests` answers by tier (needs the engine's 48 KB
 > call-result buffer raised). With laptops switched off by config, a Server can't be crafted.
 
 ---

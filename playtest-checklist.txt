@@ -276,3 +276,7 @@ SERVER
      Drive Bay). Place it: a dark rack. python ,  b = bytearray(1500000)  works (a computer runs out).
 105. Sneak + right-click: four drive sockets. Put a hard drive in; ls /net/disks shows disk1.
 106. No Uplink nearby: import requests ,  requests.get('https://api.github.com/zen')  works.
+107. Services: write a looping program (print and time.sleep), service start it: light 1 goes green, the
+     terminal stays free. service log <name> shows its output. A program with an error: its light goes red.
+108. Break nothing, but leave and come back (or /reload the area): the services are running again.
+     service stop <name>: its light goes out and it stays stopped.

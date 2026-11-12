@@ -55,6 +55,27 @@ public final class NetworkCalls {
     }
 
     public static String handle(MinecraftServer server, ResourceKey<Level> dimension, BlockPos computerPos, String request) {
+        return handle(server, dimension, computerPos, request, null);
+    }
+
+    /** The program asking, when it isn't the one its block runs: a Server's service. Server thread only. */
+    private static qbotics.computer.@org.jspecify.annotations.Nullable ServerComputer callAs;
+
+    /**
+     * @param as a Server's service making the call (its events and displays are its own), or
+     *           null for the computer at {@code computerPos}
+     */
+    public static String handle(MinecraftServer server, ResourceKey<Level> dimension, BlockPos computerPos, String request,
+            qbotics.computer.@org.jspecify.annotations.Nullable ServerComputer as) {
+        callAs = as;
+        try {
+            return handleAs(server, dimension, computerPos, request);
+        } finally {
+            callAs = null;
+        }
+    }
+
+    private static String handleAs(MinecraftServer server, ResourceKey<Level> dimension, BlockPos computerPos, String request) {
         JsonObject reply = new JsonObject();
         try {
             JsonArray args = JsonParser.parseString(request).getAsJsonArray();
@@ -1299,6 +1320,9 @@ public final class NetworkCalls {
     /** The owner of the computer that made a call, or null if nobody owns it. */
     /** The running computer whose block is at a position: the one making the call. */
     private static qbotics.computer.ServerComputer runningAt(ServerLevel level, BlockPos computerPos) {
+        if (callAs != null) {
+            return callAs;
+        }
         qbotics.computer.ServerComputer computer = level.getBlockEntity(computerPos) instanceof qbotics.block.ComputerBlockEntity block
                 ? qbotics.computer.ComputerManager.get(level.getServer()).computer(block.deviceId()) : null;
         if (computer == null) {
