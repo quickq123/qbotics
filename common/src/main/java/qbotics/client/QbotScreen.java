@@ -97,7 +97,72 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
     }
 
     private int logRows() {
-        return (logArea()[3] - 2 * LOG_PADDING - 14) / LOG_LINE;
+        return (logArea()[3] - 2 * LOG_PADDING - 14 - 12) / LOG_LINE; // the title above, the hint below
+    }
+
+    /** Lines selected in the log by dragging, as indexes into its lines (from, to, either order), or -1. */
+    private int selectFrom = -1;
+    private int selectTo = -1;
+    private boolean selecting;
+    /** When the log was last copied, for the "Copied" note. */
+    private long copiedAt;
+
+    /** Selects lines of the log, as dragging across them does. */
+    public void selectLog(int from, int to) {
+        selectFrom = from;
+        selectTo = to;
+    }
+
+    private List<String> logLines() {
+        return qbotics.client.ide.ClientIde.terminalHistory(menu.qbotId());
+    }
+
+    /** The first and one-past-last line shown, for this many lines in all. */
+    private int[] shown(int count) {
+        int rows = logRows();
+        logScroll = Math.clamp(logScroll, 0, Math.max(0, count - rows));
+        int end = count - logScroll;
+        return new int[] {Math.max(0, end - rows), end};
+    }
+
+    private int logTop() {
+        return logArea()[1] + LOG_PADDING + 14;
+    }
+
+    /** The line under a height on the screen, kept within what is shown. */
+    private int lineAt(double y, int[] shown) {
+        int line = shown[0] + (int) Math.floor((y - logTop()) / LOG_LINE);
+        return Math.clamp(line, shown[0], Math.max(shown[0], shown[1] - 1));
+    }
+
+    /** The header's two words, right-aligned: Copy, then Back. Returns {copyX, backX, right}. */
+    private int[] headerXs() {
+        int[] a = logArea();
+        int right = a[0] + a[2] - LOG_PADDING;
+        int backX = right - font.width(Component.translatable("screen.qbotics.qbot.log_back"));
+        int copyX = backX - 14 - font.width(Component.translatable("screen.qbotics.qbot.log_copy"));
+        return new int[] {copyX, backX, right};
+    }
+
+    private boolean inHeader(double x, double y, int from, int to) {
+        int top = logArea()[1] + LOG_PADDING;
+        return x >= from && x < to && y >= top - 1 && y < top + 9;
+    }
+
+    /** Copies the selected lines, or the whole log if none are selected. */
+    private void copyLog() {
+        List<String> lines = logLines();
+        if (lines.isEmpty()) {
+            return;
+        }
+        int from = 0;
+        int to = lines.size() - 1;
+        if (selectFrom >= 0) {
+            from = Math.clamp(Math.min(selectFrom, selectTo), 0, lines.size() - 1);
+            to = Math.clamp(Math.max(selectFrom, selectTo), 0, lines.size() - 1);
+        }
+        net.minecraft.client.Minecraft.getInstance().keyboardHandler.setClipboard(String.join("\n", lines.subList(from, to + 1)));
+        copiedAt = System.currentTimeMillis();
     }
 
     private void drawLog(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
@@ -106,24 +171,30 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
         graphics.fill(a[0] - 1, a[1] - 1, a[0] + a[2] + 1, a[1] + a[3] + 1, 0xFF808080);
         graphics.fill(a[0], a[1], a[0] + a[2], a[1] + a[3], 0xFF101010);
         graphics.text(font, Component.translatable("screen.qbotics.qbot.log_title", title), a[0] + LOG_PADDING, a[1] + LOG_PADDING, 0xFFFFFFFF, false);
-        Component back = Component.translatable("screen.qbotics.qbot.log_back");
-        int backX = a[0] + a[2] - LOG_PADDING - font.width(back);
-        boolean overBack = mouseX >= backX && mouseX < a[0] + a[2] - LOG_PADDING && mouseY >= a[1] + LOG_PADDING - 1 && mouseY < a[1] + LOG_PADDING + 9;
-        graphics.text(font, back, backX, a[1] + LOG_PADDING, overBack ? 0xFFFFFF60 : 0xFFB0B0B0, false);
-        List<String> lines = qbotics.client.ide.ClientIde.terminalHistory(menu.qbotId());
-        int rows = logRows();
-        logScroll = Math.clamp(logScroll, 0, Math.max(0, lines.size() - rows));
-        int end = lines.size() - logScroll;
-        int start = Math.max(0, end - rows);
-        int top = a[1] + LOG_PADDING + 14;
-        for (int i = start; i < end; i++) {
-            graphics.text(font, font.plainSubstrByWidth(lines.get(i), a[2] - 2 * LOG_PADDING), a[0] + LOG_PADDING, top + (i - start) * LOG_LINE,
-                    0xFFD8D8D8, false);
+        int[] h = headerXs();
+        boolean justCopied = System.currentTimeMillis() - copiedAt < 1500;
+        Component copy = Component.translatable(justCopied ? "screen.qbotics.qbot.log_copied"
+                : selectFrom >= 0 ? "screen.qbotics.qbot.log_copy_selected" : "screen.qbotics.qbot.log_copy");
+        int copyX = h[1] - 14 - font.width(copy);
+        graphics.text(font, copy, copyX, a[1] + LOG_PADDING,
+                justCopied ? 0xFF58E060 : inHeader(mouseX, mouseY, copyX, h[1] - 14) ? 0xFFFFFF60 : 0xFFB0B0B0, false);
+        graphics.text(font, Component.translatable("screen.qbotics.qbot.log_back"), h[1], a[1] + LOG_PADDING,
+                inHeader(mouseX, mouseY, h[1], h[2]) ? 0xFFFFFF60 : 0xFFB0B0B0, false);
+        List<String> lines = logLines();
+        int[] s = shown(lines.size());
+        int top = logTop();
+        int low = selectFrom < 0 ? -1 : Math.min(selectFrom, selectTo);
+        int high = selectFrom < 0 ? -1 : Math.max(selectFrom, selectTo);
+        for (int i = s[0]; i < s[1]; i++) {
+            int y = top + (i - s[0]) * LOG_LINE;
+            if (i >= low && i <= high) {
+                graphics.fill(a[0] + LOG_PADDING - 2, y - 1, a[0] + a[2] - LOG_PADDING + 2, y + LOG_LINE - 1, 0xFF2C4A78);
+            }
+            graphics.text(font, font.plainSubstrByWidth(lines.get(i), a[2] - 2 * LOG_PADDING), a[0] + LOG_PADDING, y, 0xFFD8D8D8, false);
         }
-        if (logScroll > 0) {
-            Component more = Component.translatable("screen.qbotics.qbot.log_more", logScroll);
-            graphics.text(font, more, a[0] + a[2] - LOG_PADDING - font.width(more), a[1] + a[3] - LOG_PADDING - 8, 0xFFF0B030, false);
-        }
+        Component hint = Component.translatable(logScroll > 0 ? "screen.qbotics.qbot.log_more" : "screen.qbotics.qbot.log_hint", logScroll);
+        graphics.text(font, hint, a[0] + a[2] - LOG_PADDING - font.width(hint), a[1] + a[3] - LOG_PADDING - 8,
+                logScroll > 0 ? 0xFFF0B030 : 0xFF707070, false);
     }
 
     @Override
@@ -140,12 +211,55 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
         if (!logOpen) {
             return super.mouseClicked(event, doubleClick);
         }
-        // Only "Back" works while the log is open; the slots under it don't.
-        int[] a = logArea();
-        int backX = a[0] + a[2] - LOG_PADDING - font.width(Component.translatable("screen.qbotics.qbot.log_back"));
-        if (event.x() >= backX && event.x() < a[0] + a[2] - LOG_PADDING && event.y() >= a[1] + LOG_PADDING - 1 && event.y() < a[1] + LOG_PADDING + 9) {
+        // While the log is open only it takes clicks; the slots under it don't.
+        int[] h = headerXs();
+        if (inHeader(event.x(), event.y(), h[1], h[2])) {
             logOpen = false;
+            selectFrom = selectTo = -1;
+        } else if (inHeader(event.x(), event.y(), h[0], h[1] - 14)) {
+            copyLog();
+        } else if (event.button() == 0 && event.y() >= logTop()) {
+            List<String> lines = logLines();
+            if (!lines.isEmpty()) {
+                // Start a selection; shift-click extends the one there is.
+                int line = lineAt(event.y(), shown(lines.size()));
+                if (!(event.hasShiftDown() && selectFrom >= 0)) {
+                    selectFrom = line;
+                }
+                selectTo = line;
+                selecting = true;
+            }
+        } else {
+            selectFrom = selectTo = -1;
         }
+        return true;
+    }
+
+    @Override
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy) {
+        if (!logOpen) {
+            return super.mouseDragged(event, dx, dy);
+        }
+        if (selecting) {
+            int[] a = logArea();
+            // Dragging past the top or bottom scrolls the log.
+            if (event.y() < logTop()) {
+                logScroll++;
+            } else if (event.y() > a[1] + a[3] - LOG_PADDING) {
+                logScroll--;
+            }
+            List<String> lines = logLines();
+            selectTo = lineAt(event.y(), shown(lines.size()));
+        }
+        return true;
+    }
+
+    @Override
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+        if (!logOpen) {
+            return super.mouseReleased(event);
+        }
+        selecting = false;
         return true;
     }
 
@@ -161,7 +275,23 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         if (logOpen && event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) {
-            logOpen = false; // Escape closes the log, not the screen
+            if (selectFrom >= 0) {
+                selectFrom = selectTo = -1; // Escape first clears a selection
+            } else {
+                logOpen = false; // then closes the log, not the screen
+            }
+            return true;
+        }
+        if (logOpen && event.hasControlDown() && event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_C) {
+            copyLog();
+            return true;
+        }
+        if (logOpen && event.hasControlDown() && event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_A) {
+            List<String> lines = logLines();
+            if (!lines.isEmpty()) {
+                selectFrom = 0;
+                selectTo = lines.size() - 1;
+            }
             return true;
         }
         return super.keyPressed(event);

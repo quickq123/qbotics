@@ -456,6 +456,7 @@ public final class ScreenshotRun {
         then(2, minecraft -> {
             if (minecraft.screen instanceof qbotics.client.QbotScreen screen) {
                 screen.openLog();
+                screen.selectLog(30, 33); // a few lines selected, as a drag would
             }
         });
         then(4, minecraft -> shot(minecraft, "18e-qbot-log"));

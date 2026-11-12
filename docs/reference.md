@@ -1294,6 +1294,10 @@ program reports, and an error shows there.
 over the whole window: up to the last 500 lines, kept while it runs. Scroll to read back; it
 follows new output while scrolled to the end. **Back** or Escape returns to the screen.
 
+To copy from it: drag across lines to select them (shift-click extends a selection, Ctrl+A
+selects everything), then **Ctrl+C** or **Copy selected**. With nothing selected, Ctrl+C and
+**Copy all** copy the whole log. Escape clears a selection before it closes the log.
+
 - A Programmer that installs a program on a Qbot also starts it.
 - A Qbot whose program was running when its area unloaded (or the world closed) starts it
   again, from the top, when it loads.
