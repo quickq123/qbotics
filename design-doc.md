@@ -547,6 +547,13 @@ radio.tune("mine-ops")
 
 ### 9.4 Uplink (real internet)
 
+> **Status (2026-11-12): built** (`docs/reference.md` §7g): the Uplink block and the `requests` module (get, post,
+> put, patch, delete, head; Response with status_code, ok, text, json(), headers, url, raise_for_status). Laptops have
+> one built in. Its own small HTTPS client connects to the address it checked (no DNS rebinding), with the §13
+> protections: private, loopback, link-local, shared, multicast and reserved addresses refused (IPv4 inside IPv6 too),
+> each redirect checked, certificates checked, domain allow and deny lists, size cap (24 KB, for the small heap),
+> timeout, per-player rate, logging by owner. Runs on its own threads. Not yet: WebSockets.
+
 - An expensive, craftable block: the only route to the real internet. It can be disabled or restricted by the server.
 - HTTPS and WebSockets only (no raw TCP at first).
 - One `requests` API covers both in-game and real destinations; the router picks the route.

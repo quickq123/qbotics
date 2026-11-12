@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000, "displays", 200_000, "antenna_upgrades", 200_000, "iron_qbot", 200_000, "ssh_gateway", 200_000);
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -63,6 +63,7 @@ public final class QboticsGameTests {
             Map.entry("laptop_connect", QboticsGameTests::laptopConnect),
             Map.entry("step_through", QboticsGameTests::stepThrough),
             Map.entry("ssh_gateway", QboticsGameTests::sshGateway),
+            Map.entry("uplink", QboticsGameTests::uplink),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -2667,6 +2668,52 @@ public final class QboticsGameTests {
                     "the shell should be the computer's terminal: " + results.get("shell"));
             helper.assertTrue("refused".equals(results.get("wrong_name")), "a computer that isn't theirs should be refused: " + results.get("wrong_name"));
             helper.assertTrue("refused".equals(results.get("stranger")), "a key nobody added should be refused: " + results.get("stranger"));
+        });
+    }
+
+    /**
+     * The uplink, without the internet: a computer needs an Uplink on its network; only HTTPS;
+     * private and local addresses, and blocked domains, are refused; and the address checks are
+     * right for the awkward cases (cloud metadata, IPv6 local, IPv4 inside IPv6).
+     */
+    private static void uplink(GameTestHelper helper) {
+        java.util.function.Predicate<String> forbidden = ip -> {
+            try {
+                return qbotics.uplink.UplinkTestAccess.forbidden(java.net.InetAddress.getByName(ip));
+            } catch (java.net.UnknownHostException e) {
+                throw new IllegalStateException(e);
+            }
+        };
+        for (String ip : List.of("127.0.0.1", "10.0.0.5", "192.168.1.1", "172.16.4.4", "169.254.169.254", "100.64.0.12", "0.0.0.0",
+                "::1", "fd00::1", "fe80::1", "::ffff:10.0.0.1", "224.0.0.1", "255.255.255.255")) {
+            helper.assertTrue(forbidden.test(ip), ip + " should be refused");
+        }
+        for (String ip : List.of("8.8.8.8", "93.184.216.34", "2606:4700:4700::1111")) {
+            helper.assertTrue(!forbidden.test(ip), ip + " should be allowed");
+        }
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.getBlockEntity(new BlockPos(0, 1, 0), ComputerBlockEntity.class).claim(UUID.randomUUID());
+        java.util.List<String> denied = qbotics.QboticsConfig.uplinkDenyDomains;
+        qbotics.QboticsConfig.uplinkDenyDomains = List.of("blocked.example");
+        for (String line : List.of("python", "import requests",
+                "def t(url):\n    try:\n        requests.get(url)\n        print('fetched', url)\n    except requests.RequestException as e:\n        print('refused', e)\n",
+                "t('https://example.com/')")) {
+            computer.submitLine(line);
+        }
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            String now = screen(computer);
+            if (step[0] == 0 && now.contains("needs an Uplink")) {
+                helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.UPLINK_BLOCK.get());
+                for (String url : List.of("http://example.com/", "https://127.0.0.1/", "https://localhost/", "https://www.blocked.example/")) {
+                    computer.submitLine("t('" + url + "')");
+                }
+                step[0] = 1;
+            }
+            helper.assertTrue(step[0] == 1, "waiting for the first refusal");
+            assertScreen(helper, computer, "needs an Uplink", "HTTPS only", "127.0.0.1 leads to a private", "localhost leads to a private",
+                    "www.blocked.example is blocked");
+            qbotics.QboticsConfig.uplinkDenyDomains = denied;
         });
     }
 

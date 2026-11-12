@@ -258,3 +258,8 @@ SSH GATEWAY (VS Code)
      Ctrl+C it. ssh laptop@localhost -p 2222 reaches your laptop.
  98. VS Code, SSH FS extension: add the computer as a host (see reference 7f), open its files, edit
      and save one, open its terminal. Then the SFTP extension on a local folder, and git init there.
+
+UPLINK (the internet)
+ 99. Craft an Uplink, put it on a computer's cable network. python ,  import requests ,
+     r = requests.get('https://api.github.com/zen') ,  print(r.text) .
+100. Without the Uplink: refused, saying it needs one. requests.get('https://localhost') is refused.

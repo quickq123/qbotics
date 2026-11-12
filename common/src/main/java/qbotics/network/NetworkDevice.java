@@ -20,7 +20,9 @@ public interface NetworkDevice {
         /** Copies programs from its hard drive onto the computer in front of it (design doc §5.4). */
         PROGRAMMER("programmer"),
         /** Displays (design doc §10): a Text Monitor's character grid, a Control Panel's widgets. */
-        MONITOR("monitor"), PANEL("panel");
+        MONITOR("monitor"), PANEL("panel"),
+        /** Lets its network's computers reach the real internet (design doc §9.4). */
+        UPLINK("uplink");
 
         /** The word Python programs and messages use. */
         public final String word;

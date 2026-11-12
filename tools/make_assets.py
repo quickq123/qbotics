@@ -165,6 +165,9 @@ write_json("assets/qbotics/lang/en_us.json", {
     "itemGroup.qbotics": "Qbotics",
     "block.qbotics.interface": "Interface",
     "block.qbotics.drive_bay": "Drive Bay",
+    "block.qbotics.uplink": "Uplink",
+    "message.qbotics.uplink.on": "Uplink: computers on this cable network can reach the internet (import requests).",
+    "message.qbotics.uplink.off": "Uplink: the internet is switched off on this server.",
     "block.qbotics.programmer": "Programmer",
     "screen.qbotics.edit_files": "Edit files",
     "screen.qbotics.programmer_hint": "Redstone on: installs that",
@@ -610,14 +613,14 @@ write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
     "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
-               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot"],
+               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot", "qbotics:uplink"],
 })
 # What a cable reaches out to.
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
     "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
-               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot"],
+               "qbotics:text_monitor", "qbotics:control_panel", "qbotics:iron_qbot", "qbotics:uplink"],
 })
 # ---- the interface (a full block) and the plates that go on cables (design doc §11.0) ----
 
@@ -798,6 +801,39 @@ def hard_drive():
 
 
 write_png("assets/qbotics/textures/block/drive_bay_front.png", drive_bay_front())
+
+
+def uplink_side():
+    """The Uplink's side: a dark panel with a globe of lines and a blue light."""
+    px = case_base()
+    globe, light = (90, 160, 230), (120, 200, 255)
+    for y in range(3, 13):
+        for x in range(3, 13):
+            px[y][x] = SCREEN
+    for y in range(4, 12):
+        for x in range(4, 12):
+            dx, dy = x - 7.5, y - 7.5
+            r = (dx * dx + dy * dy) ** 0.5
+            if 3.0 <= r <= 3.9 or (r < 3.9 and (x in (7, 8) or y in (7, 8) or abs(dx) == 2.5)):
+                px[y][x] = globe
+    px[12][11] = light
+    return px
+
+
+def uplink_top():
+    """The Uplink's top: a small dish."""
+    px = case_base()
+    for y in range(3, 13):
+        for x in range(3, 13):
+            dx, dy = x - 7.5, y - 7.5
+            r = (dx * dx + dy * dy) ** 0.5
+            if r <= 4.6:
+                px[y][x] = CASE_LIGHT if r > 3.4 else (200, 204, 210) if r > 1.2 else (90, 160, 230)
+    return px
+
+
+write_png("assets/qbotics/textures/block/uplink_side.png", uplink_side())
+write_png("assets/qbotics/textures/block/uplink_top.png", uplink_top())
 
 
 def programmer_front():
@@ -1043,6 +1079,12 @@ write_json("assets/qbotics/models/block/drive_bay.json", {
     "textures": {"end": "qbotics:block/interface_top", "side": "qbotics:block/drive_bay_front"},
 })
 write_json("assets/qbotics/blockstates/drive_bay.json", {"variants": {"": {"model": "qbotics:block/drive_bay"}}})
+write_json("assets/qbotics/models/block/uplink.json", {
+    "parent": "minecraft:block/cube_column",
+    "textures": {"end": "qbotics:block/uplink_top", "side": "qbotics:block/uplink_side"},
+})
+write_json("assets/qbotics/blockstates/uplink.json", {"variants": {"": {"model": "qbotics:block/uplink"}}})
+write_json("assets/qbotics/items/uplink.json", {"model": {"type": "minecraft:model", "model": "qbotics:block/uplink"}})
 write_json("assets/qbotics/items/drive_bay.json", {
     "model": {"type": "minecraft:model", "model": "qbotics:block/drive_bay"},
 })
@@ -1227,6 +1269,12 @@ write_json("data/qbotics/recipe/control_panel.json", shaped(
 for display in ("text_monitor", "control_panel"):
     write_json("data/qbotics/loot_table/blocks/%s.json" % display,
                drops_itself("qbotics:%s" % display, copy_components=["minecraft:custom_name"]))
+# Placeholder: the Uplink is expensive, the late-game way out: diamonds and ender eyes around a
+# Long-range Antenna, over a motherboard.
+write_json("data/qbotics/recipe/uplink.json", shaped(
+    ["DED", "GAG", "DMD"], {"D": "minecraft:diamond", "E": "minecraft:ender_eye", "G": "minecraft:gold_ingot",
+                            "A": "qbotics:antenna_long", "M": "qbotics:motherboard"}, "qbotics:uplink"))
+write_json("data/qbotics/loot_table/blocks/uplink.json", drops_itself("qbotics:uplink", copy_components=["minecraft:custom_name"]))
 write_json("data/qbotics/loot_table/blocks/drive_bay.json",
            drops_itself("qbotics:drive_bay", copy_components=["minecraft:custom_name"]))
 write_json("data/qbotics/loot_table/blocks/interface.json",

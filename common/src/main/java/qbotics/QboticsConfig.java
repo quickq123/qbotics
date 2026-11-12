@@ -45,6 +45,16 @@ public final class QboticsConfig {
     public static volatile String sshBindAddress = "127.0.0.1";
     /** true: a logged-in player reaches every computer, not only their own (single-player, trusted servers). */
     public static volatile boolean sshAllComputers = false;
+    /** The uplink (design doc §9.4): whether computers may reach the real internet at all. */
+    public static volatile boolean uplinkEnabled = true;
+    /** Sites it may reach (a domain covers the names under it); empty: any public site. */
+    public static volatile java.util.List<String> uplinkAllowDomains = java.util.List.of();
+    /** Sites it never reaches. */
+    public static volatile java.util.List<String> uplinkDenyDomains = java.util.List.of();
+    /** The largest answer a computer is given, in KB (a computer's memory is small). */
+    public static volatile int uplinkMaxResponseKb = 24;
+    public static volatile int uplinkTimeoutSeconds = 10;
+    public static volatile int uplinkRequestsPerMinute = 30;
     /** Antennas with a working Chunk Loader Upgrade a player may have; -1 for no limit. */
     public static volatile int chunkLoadersPerPlayer = 4;
     /** The most chunks one antenna keeps loaded (its network's, nearest first). */

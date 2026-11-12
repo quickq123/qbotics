@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "D": "minecraft:diamond",
+    "E": "minecraft:ender_eye",
+    "G": "minecraft:gold_ingot",
+    "A": "qbotics:antenna_long",
+    "M": "qbotics:motherboard"
+  },
+  "pattern": [
+    "DED",
+    "GAG",
+    "DMD"
+  ],
+  "result": {
+    "id": "qbotics:uplink"
+  }
+}

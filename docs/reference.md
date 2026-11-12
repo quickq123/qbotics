@@ -1533,6 +1533,42 @@ other end, which an in-game computer can't run). These do:
 **What it reaches:** only that computer's own drive (not `/net`), within its 1 MB quota. Nothing
 else: no port forwarding, no commands outside the computer's own shell.
 
+## 7g. The Uplink: the real internet (`requests`)
+
+An **Uplink** block on a cable network lets that network's computers make HTTPS requests to the
+real internet. A laptop has one built in (its Infinite antenna).
+
+```python
+import requests
+r = requests.get("https://api.github.com/repos/python/cpython")
+print(r.status_code, r.json()["stargazers_count"])
+requests.post("https://example.com/api", json={"ore": 64})
+```
+
+| Call | Does |
+|---|---|
+| `requests.get(url, params=None, headers=None)` | Asks for a page or an API's data. `params` (a dict) is added to the address |
+| `requests.post(url, data=None, json=None, headers=None)` | Sends data: `json=` as JSON, `data=` a dict as a form, or text |
+| `requests.put`, `patch`, `delete`, `head` | The other methods |
+| `r.status_code`, `r.ok`, `r.reason` | The answer's status; `ok` is true below 400 |
+| `r.text`, `r.json()`, `r.content` | The body: text, read as JSON, or bytes |
+| `r.headers` | Its headers, names in lower case |
+| `r.url` | Where it ended up, after redirects |
+| `r.raise_for_status()` | Raises `requests.HTTPError` for a status of 400 or more |
+
+A request that can't be made raises `requests.RequestException`, saying why.
+
+- **HTTPS only.** The site's certificate is checked against its name.
+- **Never private or local addresses** (this server, its network, cloud metadata), whatever a
+  name resolves to, including after redirects (up to 5).
+- **Limits:** an answer is at most 24 KB (a computer's memory is small), a request takes at most
+  10 seconds, and one player's computers make at most 30 a minute between them (the server's
+  admin sets these). Each request is logged with its owner (site and path, not the query).
+- Nothing about you or the server is sent: the request says only that it is from Qbotics.
+
+**Crafting (placeholder):** `DED` / `GAG` / `DMD`: diamonds, ender eyes and gold around a
+Long-range Antenna, over a motherboard.
+
 ## 8. The Network Probe
 
 A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows the mode.
@@ -1611,6 +1647,12 @@ even across restarts, until someone opens it again.
 | `ssh_gateway.port` | 2222 | Its port |
 | `ssh_gateway.bind_address` | 127.0.0.1 | Where it listens: this PC only; `0.0.0.0` for every network the server is on |
 | `ssh_gateway.all_computers` | false | `true`: a logged-in player reaches every computer, not only their own |
+| `uplink.enabled` | true | `false`: no computer reaches the internet (section 7g) |
+| `uplink.allow_domains` | [] | Sites it may reach (a domain covers names under it); empty: any public site |
+| `uplink.deny_domains` | [] | Sites it never reaches |
+| `uplink.max_response_kb` | 24 | The largest answer a computer is given (1 to 40) |
+| `uplink.timeout_seconds` | 10 | How long a request may take |
+| `uplink.requests_per_minute` | 30 | Requests one player's computers make a minute, between them |
 | `chunk_loading.loaders_per_player` | 4 | Working chunk loaders per player; -1 for no limit (operators exempt as above) |
 | `chunk_loading.chunks_per_loader` | 25 | The most chunks one antenna holds |
 | `chunk_loading.while_owner_offline` | true | Whether loaders keep working while their owner is offline |

@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "qbotics:block/uplink_top",
+    "side": "qbotics:block/uplink_side"
+  }
+}

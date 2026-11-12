@@ -142,6 +142,14 @@ public final class ComputerManager {
                     // Asked on the computer's thread; answered on the server thread at the next tick.
                     // Where it is when the call is answered: a Qbot moves.
                     CompletableFuture<String> answer = new CompletableFuture<>();
+                    if (call.startsWith(HTTP_PREFIX)) {
+                        // The internet: checked on the server thread, fetched on the uplink's own threads.
+                        outbox.add(server -> {
+                            Viewing place = places.get(computerId);
+                            qbotics.uplink.Uplink.fromComputer(server, place == null ? dimension : place.dimension(), place == null ? pos : place.pos(), call, answer);
+                        });
+                        return answer;
+                    }
                     outbox.add(server -> {
                         Viewing place = places.get(computerId);
                         answer.complete(NetworkCalls.handle(server, place == null ? dimension : place.dimension(),
@@ -178,6 +186,9 @@ public final class ComputerManager {
         return drivesFolder;
     }
 
+    /** Calls that go to the real internet (the uplink), not the world. Must match requests.py in the ROM. */
+    private static final String HTTP_PREFIX = "[\"http\",";
+
     // ---- laptops (design doc §5.6) ---------------------------------------------------------
 
     /** Each player's laptop computer, by player: one each, whichever laptop item they use. */
@@ -199,6 +210,10 @@ public final class ComputerManager {
         UUID driveId = qbotics.laptop.Laptops.driveId(owner);
         ServerComputer computer = new ServerComputer(id, driveId, driveFolder(driveId), cpu, listener, call -> {
             CompletableFuture<String> answer = new CompletableFuture<>();
+            if (call.startsWith(HTTP_PREFIX)) {
+                qbotics.uplink.Uplink.fromLaptop(owner, call, answer); // its built-in antenna is its uplink
+                return answer;
+            }
             outbox.add(server -> answer.complete(NetworkCalls.handleLaptop(server, owner, call)));
             return answer;
         });

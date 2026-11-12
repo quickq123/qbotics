@@ -130,7 +130,7 @@ public final class Docs {
 
     // ---- what is known without looking at the file ------------------------------------
 
-    private static final String[] ROM_MODULES = {"logistics", "network", "events", "pip", "display", "qbot"};
+    private static final String[] ROM_MODULES = {"logistics", "network", "events", "pip", "display", "qbot", "requests"};
     private static List<Entry> library;
     private static final Map<String, String> MODULE_NOTES = new HashMap<>();
 

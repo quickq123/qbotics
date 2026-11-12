@@ -25,6 +25,12 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue SSH_PORT;
     private static final ModConfigSpec.ConfigValue<String> SSH_BIND;
     private static final ModConfigSpec.BooleanValue SSH_ALL;
+    private static final ModConfigSpec.BooleanValue UPLINK;
+    private static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> UPLINK_ALLOW;
+    private static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> UPLINK_DENY;
+    private static final ModConfigSpec.IntValue UPLINK_MAX_KB;
+    private static final ModConfigSpec.IntValue UPLINK_TIMEOUT;
+    private static final ModConfigSpec.IntValue UPLINK_PER_MINUTE;
     private static final ModConfigSpec.IntValue CHUNK_LOADERS;
     private static final ModConfigSpec.IntValue CHUNKS_PER_LOADER;
     private static final ModConfigSpec.BooleanValue CHUNK_LOADING_OFFLINE;
@@ -87,6 +93,18 @@ final class QboticsServerConfig {
                 .define("all_computers", false);
         BUILDER.pop();
 
+        BUILDER.push("uplink");
+        BUILDER.comment("The Uplink block: HTTPS requests from computers to the real internet (requests.get). Private and",
+                "local addresses are never reached, whatever these say.");
+        UPLINK = BUILDER.comment("false: no computer reaches the internet.").define("enabled", true);
+        UPLINK_ALLOW = BUILDER.comment("Sites it may reach, e.g. [\"github.com\", \"githubusercontent.com\"] (a domain covers names under it). Empty: any public site.")
+                .defineListAllowEmpty("allow_domains", java.util.List.of(), () -> "", o -> o instanceof String);
+        UPLINK_DENY = BUILDER.comment("Sites it never reaches.").defineListAllowEmpty("deny_domains", java.util.List.of(), () -> "", o -> o instanceof String);
+        UPLINK_MAX_KB = BUILDER.comment("The largest answer a computer is given, in KB.").defineInRange("max_response_kb", 24, 1, 40);
+        UPLINK_TIMEOUT = BUILDER.comment("How long a request may take, in seconds.").defineInRange("timeout_seconds", 10, 1, 60);
+        UPLINK_PER_MINUTE = BUILDER.comment("Requests one player's computers may make a minute, between them.").defineInRange("requests_per_minute", 30, 1, 10_000);
+        BUILDER.pop();
+
         BUILDER.push("transport");
         BUILDER.comment("How much one antenna with a Transport Upgrade carries to and from other networks each second.");
         TRANSPORT_ITEMS = BUILDER.defineInRange("items_per_second", 1024, 0, 1_000_000);
@@ -118,6 +136,12 @@ final class QboticsServerConfig {
         QboticsConfig.sshPort = SSH_PORT.get();
         QboticsConfig.sshBindAddress = SSH_BIND.get();
         QboticsConfig.sshAllComputers = SSH_ALL.get();
+        QboticsConfig.uplinkEnabled = UPLINK.get();
+        QboticsConfig.uplinkAllowDomains = java.util.List.copyOf(UPLINK_ALLOW.get());
+        QboticsConfig.uplinkDenyDomains = java.util.List.copyOf(UPLINK_DENY.get());
+        QboticsConfig.uplinkMaxResponseKb = UPLINK_MAX_KB.get();
+        QboticsConfig.uplinkTimeoutSeconds = UPLINK_TIMEOUT.get();
+        QboticsConfig.uplinkRequestsPerMinute = UPLINK_PER_MINUTE.get();
         QboticsConfig.chunkLoadersPerPlayer = CHUNK_LOADERS.get();
         QboticsConfig.chunksPerLoader = CHUNKS_PER_LOADER.get();
         QboticsConfig.chunkLoadingWhileOffline = CHUNK_LOADING_OFFLINE.get();

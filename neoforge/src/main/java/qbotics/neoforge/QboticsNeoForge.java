@@ -93,6 +93,10 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<qbotics.block.DriveBayBlock> DRIVE_BAY = BLOCKS.registerBlock("drive_bay", qbotics.block.DriveBayBlock::new,
             properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> DRIVE_BAY_ITEM = ITEMS.registerSimpleBlockItem(DRIVE_BAY);
+    // The Uplink (design doc §9.4): its network's computers reach the real internet.
+    private static final DeferredBlock<qbotics.uplink.UplinkBlock> UPLINK = BLOCKS.registerBlock("uplink", qbotics.uplink.UplinkBlock::new,
+            properties -> properties.mapColor(MapColor.METAL).strength(3.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> UPLINK_ITEM = ITEMS.registerSimpleBlockItem(UPLINK);
     private static final DeferredBlock<qbotics.block.ProgrammerBlock> PROGRAMMER = BLOCKS.registerBlock("programmer", qbotics.block.ProgrammerBlock::new,
             properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> PROGRAMMER_ITEM = ITEMS.registerSimpleBlockItem(PROGRAMMER);
@@ -171,6 +175,8 @@ public final class QboticsNeoForge {
             BLOCK_ENTITY_TYPES.register("display", () -> new BlockEntityType<>(qbotics.block.DisplayBlockEntity::new, TEXT_MONITOR.get(), CONTROL_PANEL.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.ProgrammerBlockEntity>> PROGRAMMER_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("programmer", () -> new BlockEntityType<>(qbotics.block.ProgrammerBlockEntity::new, PROGRAMMER.get()));
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.uplink.UplinkBlockEntity>> UPLINK_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("uplink", () -> new BlockEntityType<>(qbotics.uplink.UplinkBlockEntity::new, UPLINK.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.DriveBayBlockEntity>> DRIVE_BAY_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("drive_bay", () -> new BlockEntityType<>(qbotics.block.DriveBayBlockEntity::new, DRIVE_BAY.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY =
@@ -255,6 +261,7 @@ public final class QboticsNeoForge {
                         output.accept(ANTENNA_INFINITE_ITEM.get());
                         output.accept(PROBE_ITEM.get());
                         output.accept(DRIVE_BAY_ITEM.get());
+                        output.accept(UPLINK_ITEM.get());
                         output.accept(HARD_DRIVE_ITEM.get());
                         output.accept(PROGRAMMER_ITEM.get());
                         output.accept(TEXT_MONITOR_ITEM.get());
@@ -303,6 +310,8 @@ public final class QboticsNeoForge {
         QboticsContent.DRIVE_ID = DRIVE_ID;
         QboticsContent.MEDIA_ID = MEDIA_ID;
         QboticsContent.DRIVE_BAY_BLOCK_ENTITY = DRIVE_BAY_BLOCK_ENTITY;
+        QboticsContent.UPLINK_BLOCK_ENTITY = UPLINK_BLOCK_ENTITY;
+        QboticsContent.UPLINK_BLOCK = UPLINK;
         QboticsContent.PROGRAMMER_BLOCK_ENTITY = PROGRAMMER_BLOCK_ENTITY;
         QboticsContent.DISPLAY_BLOCK_ENTITY = DISPLAY_BLOCK_ENTITY;
         QboticsContent.TEXT_MONITOR_BLOCK = TEXT_MONITOR;
