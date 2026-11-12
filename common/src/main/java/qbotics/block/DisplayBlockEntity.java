@@ -107,8 +107,11 @@ public class DisplayBlockEntity extends DeviceBlockEntity {
 
     /** The screen's top-left block, where its identity and content are. */
     public BlockPos originPos() {
-        Direction right = facing().getCounterClockWise();
-        return getBlockPos().relative(right, -col).above(row);
+        BlockState state = getBlockState();
+        if (!(state.getBlock() instanceof DisplayBlock)) {
+            return getBlockPos();
+        }
+        return getBlockPos().relative(DisplayBlock.right(state), -col).relative(DisplayBlock.down(state), -row);
     }
 
     /** Places this block in a screen; the top-left block gets the content. Server only. */
@@ -197,10 +200,9 @@ public class DisplayBlockEntity extends DeviceBlockEntity {
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
         if (content != null && level != null) {
-            Direction right = facing().getCounterClockWise();
-            for (BlockPos next : new BlockPos[] {pos.relative(right), pos.below()}) {
-                if (level.getBlockEntity(next) instanceof DisplayBlockEntity other && other.getBlockState().getBlock() == getBlockState().getBlock()
-                        && other.facing() == facing() && other.originPos().equals(pos)) {
+            for (BlockPos next : new BlockPos[] {pos.relative(DisplayBlock.right(state)), pos.relative(DisplayBlock.down(state))}) {
+                if (level.getBlockEntity(next) instanceof DisplayBlockEntity other && other.getBlockState().getBlock() == state.getBlock()
+                        && DisplayBlock.sameWay(other.getBlockState(), state) && other.originPos().equals(pos)) {
                     handOver(other);
                     break;
                 }

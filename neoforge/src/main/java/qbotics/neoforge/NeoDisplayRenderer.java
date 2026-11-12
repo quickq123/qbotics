@@ -19,8 +19,9 @@ final class NeoDisplayRenderer extends DisplayRenderer {
         if (!display.isOrigin()) {
             return new AABB(pos);
         }
-        Direction right = display.facing().getCounterClockWise();
-        BlockPos far = pos.relative(right, display.screenWidth() - 1).below(display.screenHeight() - 1);
+        Direction right = qbotics.block.DisplayBlock.right(display.getBlockState());
+        Direction down = qbotics.block.DisplayBlock.down(display.getBlockState());
+        BlockPos far = pos.relative(right, display.screenWidth() - 1).relative(down, display.screenHeight() - 1);
         return new AABB(pos).minmax(new AABB(far));
     }
 }

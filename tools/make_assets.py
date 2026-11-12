@@ -1210,8 +1210,14 @@ for display in ("text_monitor", "control_panel", "web_panel"):
             "west": "qbotics:block/display_side", "up": "qbotics:block/display_side", "down": "qbotics:block/display_side",
         },
     })
-    write_json("assets/qbotics/blockstates/%s.json" % display, {"variants": {
-        "facing=%s" % facing: dict({"model": "qbotics:block/%s" % display}, **turn) for facing, turn in DISPLAY_TURNS.items()}})
+    # Six ways: upright (turned about y), or flat on a floor or ceiling (screen up or down, turned by its top).
+    variants = {}
+    for top, top_turn in DISPLAY_TURNS.items():
+        for facing, turn in DISPLAY_TURNS.items():
+            variants["facing=%s,top=%s" % (facing, top)] = dict({"model": "qbotics:block/%s" % display}, **turn)
+        variants["facing=up,top=%s" % top] = dict({"model": "qbotics:block/%s" % display, "x": 270}, **top_turn)
+        variants["facing=down,top=%s" % top] = dict({"model": "qbotics:block/%s" % display, "x": 90}, **top_turn)
+    write_json("assets/qbotics/blockstates/%s.json" % display, {"variants": variants})
     write_json("assets/qbotics/items/%s.json" % display, {
         "model": {"type": "minecraft:model", "model": "qbotics:block/%s" % display},
     })

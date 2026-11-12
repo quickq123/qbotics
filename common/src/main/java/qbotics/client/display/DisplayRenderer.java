@@ -43,6 +43,8 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
     public static final class State extends BlockEntityRenderState {
         boolean origin;
         Direction facing = Direction.NORTH;
+        /** Turns the block's frame so x runs along the screen's rows, y up its columns and z out of its face. */
+        org.joml.Quaternionf turn = new org.joml.Quaternionf();
         int width;
         int height;
         @Nullable Object view;
@@ -63,6 +65,16 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         BlockEntityRenderer.super.extractRenderState(display, state, partialTicks, cameraPosition, breakProgress);
         state.origin = display.isOrigin();
         state.facing = display.facing();
+        if (display.getBlockState().getBlock() instanceof qbotics.block.DisplayBlock) {
+            Direction right = qbotics.block.DisplayBlock.right(display.getBlockState());
+            Direction up = qbotics.block.DisplayBlock.down(display.getBlockState()).getOpposite();
+            Direction out = state.facing;
+            org.joml.Matrix3f basis = new org.joml.Matrix3f(
+                    right.getStepX(), right.getStepY(), right.getStepZ(),
+                    up.getStepX(), up.getStepY(), up.getStepZ(),
+                    out.getStepX(), out.getStepY(), out.getStepZ());
+            state.turn = new org.joml.Quaternionf().setFromNormalized(basis);
+        }
         state.width = display.screenWidth();
         state.height = display.screenHeight();
         state.view = state.origin ? ClientDisplays.view(display.getBlockPos()) : null;
@@ -107,7 +119,7 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         poseStack.pushPose();
         // Turn so that x runs to the screen's right, y up, and z out of its face.
         poseStack.translate(0.5, 0.5, 0.5);
-        poseStack.mulPose(Axis.YP.rotationDegrees(-state.facing.toYRot()));
+        poseStack.mulPose(state.turn);
         poseStack.translate(-0.5 + INSET, 0.5 - INSET, 0.5 + 0.003);
         float sx = (state.width - 2 * INSET) / virtualW;
         float sy = (state.height - 2 * INSET) / virtualH;
@@ -164,7 +176,7 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         }
         poseStack.pushPose();
         poseStack.translate(0.5, 0.5, 0.5);
-        poseStack.mulPose(Axis.YP.rotationDegrees(-state.facing.toYRot()));
+        poseStack.mulPose(state.turn);
         poseStack.translate(-0.5 + INSET, 0.5 - INSET, 0.5 + 0.003);
         float w = state.width - 2 * INSET;
         float h = state.height - 2 * INSET;

@@ -1181,7 +1181,11 @@ panel = net.panel("reactor")
 ### 7c.1 Placing them: screens of several blocks
 
 - A display faces the player who places it. Placed against the face side of another of the same
-  kind, it faces the same way, to grow the screen.
+  kind, it lies the same way, to grow the screen.
+- **On a floor or ceiling:** look steeply down at the top of a block (or steeply up at the
+  underside of one) as you place it, and the screen lies flat there, its **top edge pointing away
+  from you**. A floor screen is a table: stand at its bottom edge to read it the right way up.
+  Flat screens join like upright ones; an upright screen and a flat one never join.
 - **Blocks of one kind, side by side and facing the same way, join into one screen**, up to
   **8 blocks wide and 6 high**. A bigger group, or one that isn't a rectangle, is split into
   rectangles from the top left: each takes as many blocks across as it can, then as many full

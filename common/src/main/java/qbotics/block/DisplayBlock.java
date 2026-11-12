@@ -36,7 +36,30 @@ import qbotics.display.Displays;
  * close-up view.
  */
 public class DisplayBlock extends BaseEntityBlock {
-    public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
+    /** The way the screen faces: any of six, so screens can lie on floors and ceilings too. */
+    public static final EnumProperty<Direction> FACING = net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
+    /** For a screen on a floor or ceiling: the way its top edge points. */
+    public static final EnumProperty<Direction> TOP = EnumProperty.create("top", Direction.class, Direction.Plane.HORIZONTAL);
+
+    /** Along a screen's rows, to the right as you look at it. */
+    public static Direction right(BlockState state) {
+        Direction facing = state.getValue(FACING);
+        return switch (facing) {
+            case UP -> state.getValue(TOP).getClockWise();
+            case DOWN -> state.getValue(TOP).getCounterClockWise();
+            default -> facing.getCounterClockWise();
+        };
+    }
+
+    /** Down a screen's columns, as you look at it. */
+    public static Direction down(BlockState state) {
+        return state.getValue(FACING).getAxis() == Direction.Axis.Y ? state.getValue(TOP).getOpposite() : Direction.DOWN;
+    }
+
+    /** True if two display blocks' screens lie the same way (and so may join). */
+    public static boolean sameWay(BlockState a, BlockState b) {
+        return a.getValue(FACING) == b.getValue(FACING) && (a.getValue(FACING).getAxis() != Direction.Axis.Y || a.getValue(TOP) == b.getValue(TOP));
+    }
     /** The kinds of display: a Text Monitor, a Control Panel, a Web Panel. */
     public enum Type {
         MONITOR, PANEL, WEB
@@ -49,7 +72,7 @@ public class DisplayBlock extends BaseEntityBlock {
         super(properties);
         this.type = type;
         this.codec = simpleCodec(p -> new DisplayBlock(p, type));
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(TOP, Direction.NORTH));
     }
 
     public static DisplayBlock monitor(BlockBehaviour.Properties properties) {
@@ -95,15 +118,27 @@ public class DisplayBlock extends BaseEntityBlock {
         return new DisplayBlockEntity(pos, state);
     }
 
-    /** It faces the player; placed against a display of the same kind, it faces the same way, to grow it. */
+    /**
+     * It faces the player. Looking steeply down at a floor (or up at a ceiling), it lies flat
+     * there, its top pointing away. Placed against a display of the same kind, it lies the same
+     * way, to grow the screen.
+     */
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
         BlockPos against = context.getClickedPos().relative(context.getClickedFace().getOpposite());
         BlockState there = context.getLevel().getBlockState(against);
         if (there.getBlock() == this && context.getClickedFace().getAxis() != there.getValue(FACING).getAxis()) {
-            return defaultBlockState().setValue(FACING, there.getValue(FACING));
+            return defaultBlockState().setValue(FACING, there.getValue(FACING)).setValue(TOP, there.getValue(TOP));
         }
-        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+        float pitch = context.getPlayer() == null ? 0 : context.getPlayer().getXRot();
+        Direction ahead = context.getHorizontalDirection();
+        if (context.getClickedFace() == Direction.UP && pitch > 50) {
+            return defaultBlockState().setValue(FACING, Direction.UP).setValue(TOP, ahead);
+        }
+        if (context.getClickedFace() == Direction.DOWN && pitch < -50) {
+            return defaultBlockState().setValue(FACING, Direction.DOWN).setValue(TOP, ahead);
+        }
+        return defaultBlockState().setValue(FACING, ahead.getOpposite());
     }
 
     @Override
@@ -172,11 +207,13 @@ public class DisplayBlock extends BaseEntityBlock {
     /** Where on its whole screen a point on a block's face is, as fractions of the screen's width and height. */
     public static double[] screenPoint(DisplayBlockEntity display, Vec3 point) {
         BlockPos pos = display.getBlockPos();
-        Direction right = display.facing().getCounterClockWise();
+        Direction right = right(display.getBlockState());
+        Direction downward = down(display.getBlockState());
         double dx = point.x - pos.getX() - 0.5;
+        double dy = point.y - pos.getY() - 0.5;
         double dz = point.z - pos.getZ() - 0.5;
-        double across = dx * right.getStepX() + dz * right.getStepZ() + 0.5;
-        double down = 1 - (point.y - pos.getY());
+        double across = dx * right.getStepX() + dy * right.getStepY() + dz * right.getStepZ() + 0.5;
+        double down = dx * downward.getStepX() + dy * downward.getStepY() + dz * downward.getStepZ() + 0.5;
         double fx = (display.col() + Math.clamp(across, 0, 1)) / display.screenWidth();
         double fy = (display.row() + Math.clamp(down, 0, 1)) / display.screenHeight();
         return new double[] {Math.clamp(fx, 0, 0.9999), Math.clamp(fy, 0, 0.9999)};
@@ -184,7 +221,7 @@ public class DisplayBlock extends BaseEntityBlock {
 
     @Override
     protected BlockState rotate(BlockState state, Rotation rotation) {
-        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING))).setValue(TOP, rotation.rotate(state.getValue(TOP)));
     }
 
     @Override
@@ -194,6 +231,6 @@ public class DisplayBlock extends BaseEntityBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, TOP);
     }
 }

@@ -435,6 +435,8 @@ public final class ScreenshotRun {
         view("17b-control-panel", new Vec3(25.0, 1.4, 2.6), new Vec3(25.0, 1.0, 0.5));
         then(5, minecraft -> onServer(minecraft, ScreenshotRun::buildThemedPanel));
         view("17c-themed-panel", new Vec3(28.0, 1.4, 2.6), new Vec3(28.0, 1.0, 0.5));
+        then(5, minecraft -> onServer(minecraft, ScreenshotRun::buildFlatScreens));
+        view("17d-flat-screens", new Vec3(32.0, 3.2, 5.2), new Vec3(32.0, 0.0, 1.5));
         then(10, minecraft -> {
             minecraft.options.hideGui = false;
             onServer(minecraft, player -> {
@@ -682,6 +684,33 @@ public final class ScreenshotRun {
                 point.addProperty("value", 50 + 30 * Math.sin(i / 6.0) + (i % 7) * 2);
                 draw(c, "set", 8, point);
             }
+        }
+    }
+
+    /** A Control Panel lying flat on the ground (its top to the north), 3 x 2, with widgets. */
+    private static void buildFlatScreens(ServerPlayer player) {
+        var level = player.level();
+        BlockState flat = QboticsContent.CONTROL_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.UP).setValue(qbotics.block.DisplayBlock.TOP, Direction.NORTH);
+        for (int x = 0; x < 3; x++) {
+            for (int z = 0; z < 2; z++) {
+                BlockPos at = base.offset(31 + x, 0, 1 + z);
+                level.setBlock(at, flat, Block.UPDATE_ALL);
+                if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    qbotics.display.Displays.reform(serverLevel, at);
+                }
+            }
+        }
+        // Lying flat with its top to the north, its top-left block is the north-west one.
+        if (level.getBlockEntity(base.offset(31, 0, 1)) instanceof qbotics.block.DisplayBlockEntity table && table.content() != null) {
+            var c = table.content();
+            draw(c, "clear");
+            draw(c, "theme", "blueprint");
+            draw(c, "add", widget("label", "Map table (north is up)", 0, 0, 12, 1));
+            draw(c, "add", widget("dial", "Speed", 0, 1, 3, 3, "min", 0, "max", 10, "value", 7));
+            draw(c, "add", widget("item", "Ore", 3, 1, 2, 2, "item", "minecraft:raw_iron", "value", 12));
+            draw(c, "add", widget("gauge", "Fuel", 5, 1, 7, 1, "min", 0, "max", 100, "value", 80));
+            draw(c, "add", widget("button", "Go", 5, 2, 3, 1, "color", "green"));
         }
     }
 

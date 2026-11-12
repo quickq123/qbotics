@@ -1,18 +1,101 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,top=north": {
       "model": "qbotics:block/web_panel"
     },
-    "facing=east": {
+    "facing=east,top=north": {
       "model": "qbotics:block/web_panel",
       "y": 90
     },
-    "facing=south": {
+    "facing=south,top=north": {
       "model": "qbotics:block/web_panel",
       "y": 180
     },
-    "facing=west": {
+    "facing=west,top=north": {
       "model": "qbotics:block/web_panel",
+      "y": 270
+    },
+    "facing=up,top=north": {
+      "model": "qbotics:block/web_panel",
+      "x": 270
+    },
+    "facing=down,top=north": {
+      "model": "qbotics:block/web_panel",
+      "x": 90
+    },
+    "facing=north,top=east": {
+      "model": "qbotics:block/web_panel"
+    },
+    "facing=east,top=east": {
+      "model": "qbotics:block/web_panel",
+      "y": 90
+    },
+    "facing=south,top=east": {
+      "model": "qbotics:block/web_panel",
+      "y": 180
+    },
+    "facing=west,top=east": {
+      "model": "qbotics:block/web_panel",
+      "y": 270
+    },
+    "facing=up,top=east": {
+      "model": "qbotics:block/web_panel",
+      "x": 270,
+      "y": 90
+    },
+    "facing=down,top=east": {
+      "model": "qbotics:block/web_panel",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north,top=south": {
+      "model": "qbotics:block/web_panel"
+    },
+    "facing=east,top=south": {
+      "model": "qbotics:block/web_panel",
+      "y": 90
+    },
+    "facing=south,top=south": {
+      "model": "qbotics:block/web_panel",
+      "y": 180
+    },
+    "facing=west,top=south": {
+      "model": "qbotics:block/web_panel",
+      "y": 270
+    },
+    "facing=up,top=south": {
+      "model": "qbotics:block/web_panel",
+      "x": 270,
+      "y": 180
+    },
+    "facing=down,top=south": {
+      "model": "qbotics:block/web_panel",
+      "x": 90,
+      "y": 180
+    },
+    "facing=north,top=west": {
+      "model": "qbotics:block/web_panel"
+    },
+    "facing=east,top=west": {
+      "model": "qbotics:block/web_panel",
+      "y": 90
+    },
+    "facing=south,top=west": {
+      "model": "qbotics:block/web_panel",
+      "y": 180
+    },
+    "facing=west,top=west": {
+      "model": "qbotics:block/web_panel",
+      "y": 270
+    },
+    "facing=up,top=west": {
+      "model": "qbotics:block/web_panel",
+      "x": 270,
+      "y": 270
+    },
+    "facing=down,top=west": {
+      "model": "qbotics:block/web_panel",
+      "x": 90,
       "y": 270
     }
   }

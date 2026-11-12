@@ -62,7 +62,7 @@ public final class Displays {
     public static void reform(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (state.getBlock() instanceof DisplayBlock) {
-            reformFrom(level, List.of(pos), state.getBlock(), state.getValue(DisplayBlock.FACING));
+            reformFrom(level, List.of(pos), state);
         }
     }
 
@@ -71,33 +71,34 @@ public final class Displays {
         if (!(was.getBlock() instanceof DisplayBlock)) {
             return;
         }
-        Direction facing = was.getValue(DisplayBlock.FACING);
-        Direction right = facing.getCounterClockWise();
-        reformFrom(level, List.of(pos.relative(right), pos.relative(right.getOpposite()), pos.above(), pos.below()), was.getBlock(), facing);
+        Direction right = DisplayBlock.right(was);
+        Direction down = DisplayBlock.down(was);
+        reformFrom(level, List.of(pos.relative(right), pos.relative(right.getOpposite()), pos.relative(down), pos.relative(down.getOpposite())), was);
     }
 
-    private static boolean sameScreen(Level level, BlockPos pos, Block block, Direction facing) {
+    /** True if the block there is a display of the same kind, lying the same way. */
+    private static boolean sameScreen(Level level, BlockPos pos, BlockState like) {
         BlockState state = level.getBlockState(pos);
-        return state.getBlock() == block && state.getValue(DisplayBlock.FACING) == facing
-                && level.getBlockEntity(pos) instanceof DisplayBlockEntity;
+        return state.getBlock() == like.getBlock() && DisplayBlock.sameWay(state, like) && level.getBlockEntity(pos) instanceof DisplayBlockEntity;
     }
 
-    private static void reformFrom(ServerLevel level, List<BlockPos> seeds, Block block, Direction facing) {
+    private static void reformFrom(ServerLevel level, List<BlockPos> seeds, BlockState like) {
         Set<BlockPos> done = new HashSet<>();
         for (BlockPos seed : seeds) {
-            if (done.contains(seed) || !sameScreen(level, seed, block, facing)) {
+            if (done.contains(seed) || !sameScreen(level, seed, like)) {
                 continue;
             }
-            List<BlockPos> group = flood(level, seed, block, facing);
+            List<BlockPos> group = flood(level, seed, like);
             done.addAll(group);
-            layOut(level, group, facing);
+            layOut(level, group, like);
         }
     }
 
     /** The blocks of one kind and facing joined edge to edge in the screen's plane. */
-    private static List<BlockPos> flood(ServerLevel level, BlockPos start, Block block, Direction facing) {
-        Direction right = facing.getCounterClockWise();
-        Direction[] steps = {right, right.getOpposite(), Direction.UP, Direction.DOWN};
+    private static List<BlockPos> flood(ServerLevel level, BlockPos start, BlockState like) {
+        Direction right = DisplayBlock.right(like);
+        Direction down = DisplayBlock.down(like);
+        Direction[] steps = {right, right.getOpposite(), down, down.getOpposite()};
         List<BlockPos> found = new ArrayList<>();
         Set<BlockPos> seen = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
@@ -108,7 +109,7 @@ public final class Displays {
             found.add(pos);
             for (Direction step : steps) {
                 BlockPos next = pos.relative(step);
-                if (!seen.contains(next) && level.isLoaded(next) && sameScreen(level, next, block, facing)) {
+                if (!seen.contains(next) && level.isLoaded(next) && sameScreen(level, next, like)) {
                     seen.add(next);
                     queue.add(next);
                 }
@@ -122,13 +123,17 @@ public final class Displays {
      * blocks to the right as it can (up to 8), then as many full rows below as it can (up to 6).
      * Each screen keeps the identity and content of the biggest screen that was there before.
      */
-    private static void layOut(ServerLevel level, List<BlockPos> group, Direction facing) {
-        Direction right = facing.getCounterClockWise();
+    private static void layOut(ServerLevel level, List<BlockPos> group, BlockState like) {
+        Direction right = DisplayBlock.right(like);
+        Direction down = DisplayBlock.down(like);
         BlockPos anchor = group.getFirst();
         Map<Long, BlockPos> cells = new HashMap<>();
         for (BlockPos pos : group) {
-            int u = (pos.getX() - anchor.getX()) * right.getStepX() + (pos.getZ() - anchor.getZ()) * right.getStepZ();
-            int v = anchor.getY() - pos.getY();
+            int dx = pos.getX() - anchor.getX();
+            int dy = pos.getY() - anchor.getY();
+            int dz = pos.getZ() - anchor.getZ();
+            int u = dx * right.getStepX() + dy * right.getStepY() + dz * right.getStepZ();
+            int v = dx * down.getStepX() + dy * down.getStepY() + dz * down.getStepZ();
             cells.put(key(u, v), pos);
         }
         List<Long> order = new ArrayList<>(cells.keySet());
@@ -296,10 +301,11 @@ public final class Displays {
         }
         // The panel may be large: measure to its nearest block, not its corner.
         double far = Double.MAX_VALUE;
-        Direction right = display.facing().getCounterClockWise();
+        Direction right = DisplayBlock.right(display.getBlockState());
+        Direction down = DisplayBlock.down(display.getBlockState());
         for (int i = 0; i < display.screenWidth(); i++) {
             for (int j = 0; j < display.screenHeight(); j++) {
-                BlockPos block = click.origin().relative(right, i).below(j);
+                BlockPos block = click.origin().relative(right, i).relative(down, j);
                 far = Math.min(far, player.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(block)));
             }
         }

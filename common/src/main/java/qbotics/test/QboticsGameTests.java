@@ -75,6 +75,7 @@ public final class QboticsGameTests {
             Map.entry("panel_widgets", QboticsGameTests::panelWidgets),
             Map.entry("web_canvas_pictures", QboticsGameTests::webCanvasPictures),
             Map.entry("web_panel", QboticsGameTests::webPanel),
+            Map.entry("flat_screens", QboticsGameTests::flatScreens),
             Map.entry("web_storage", QboticsGameTests::webStorage),
             Map.entry("qbot_camera", QboticsGameTests::qbotCamera),
             Map.entry("js_engine", QboticsGameTests::jsEngine),
@@ -2967,6 +2968,54 @@ public final class QboticsGameTests {
                 "a click on the button finds it: " + found);
         String card = page.hit(30, 60);
         helper.assertTrue(card != null && card.contains("\"id\":\"iron\""), "a click on the iron card: " + card);
+        helper.succeed();
+    }
+
+    /**
+     * Screens on a floor and a ceiling: flat blocks join into one screen whose top-left is the
+     * corner its top points to, clicks land where they should, an upright screen beside it stays
+     * apart, and taking a column away shrinks it.
+     */
+    private static void flatScreens(GameTestHelper helper) {
+        net.minecraft.world.level.block.state.BlockState floor = QboticsContent.CONTROL_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.UP).setValue(qbotics.block.DisplayBlock.TOP, Direction.NORTH);
+        net.minecraft.world.level.block.state.BlockState ceiling = QboticsContent.CONTROL_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.DOWN).setValue(qbotics.block.DisplayBlock.TOP, Direction.NORTH);
+        for (int x = 0; x < 3; x++) {
+            for (int z = 1; z < 3; z++) {
+                helper.setBlock(new BlockPos(x, 1, z), floor);
+            }
+        }
+        qbotics.block.DisplayBlockEntity corner = helper.getBlockEntity(new BlockPos(0, 1, 1), qbotics.block.DisplayBlockEntity.class);
+        helper.assertTrue(corner.isOrigin() && corner.screenWidth() == 3 && corner.screenHeight() == 2,
+                "six floor blocks make one 3x2 screen, its top-left the north-west block: " + corner.screenWidth() + "x" + corner.screenHeight());
+        qbotics.block.DisplayBlockEntity far = helper.getBlockEntity(new BlockPos(2, 1, 2), qbotics.block.DisplayBlockEntity.class);
+        helper.assertTrue(far.col() == 2 && far.row() == 1 && far.originPos().equals(helper.absolutePos(new BlockPos(0, 1, 1))),
+                "the south-east block is the bottom-right of the screen");
+        BlockPos middle = helper.absolutePos(new BlockPos(1, 1, 2));
+        double[] at = qbotics.block.DisplayBlock.screenPoint(helper.getBlockEntity(new BlockPos(1, 1, 2), qbotics.block.DisplayBlockEntity.class),
+                new net.minecraft.world.phys.Vec3(middle.getX() + 0.5, middle.getY() + 1, middle.getZ() + 0.5));
+        helper.assertTrue(Math.abs(at[0] - 0.5) < 1e-6 && Math.abs(at[1] - 0.75) < 1e-6,
+                "a click on the middle of the south-middle block is half across, three-quarters down: " + at[0] + ", " + at[1]);
+
+        helper.setBlock(new BlockPos(0, 2, 1), QboticsContent.CONTROL_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH));
+        qbotics.block.DisplayBlockEntity upright = helper.getBlockEntity(new BlockPos(0, 2, 1), qbotics.block.DisplayBlockEntity.class);
+        helper.assertTrue(upright.isOrigin() && upright.screenWidth() == 1 && corner.screenWidth() == 3,
+                "an upright panel on top of the floor screen doesn't join it");
+
+        // On a ceiling with its top to the north, you look up at it: east is to your left, so its top-left is the north-east block.
+        helper.setBlock(new BlockPos(0, 4, 1), ceiling);
+        helper.setBlock(new BlockPos(1, 4, 1), ceiling);
+        qbotics.block.DisplayBlockEntity overhead = helper.getBlockEntity(new BlockPos(1, 4, 1), qbotics.block.DisplayBlockEntity.class);
+        helper.assertTrue(overhead.isOrigin() && overhead.screenWidth() == 2 && overhead.screenHeight() == 1,
+                "two ceiling blocks make one 2x1 screen, its top-left the north-east block");
+
+        helper.setBlock(new BlockPos(2, 1, 1), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+        helper.setBlock(new BlockPos(2, 1, 2), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+        corner = helper.getBlockEntity(new BlockPos(0, 1, 1), qbotics.block.DisplayBlockEntity.class);
+        helper.assertTrue(corner.isOrigin() && corner.screenWidth() == 2 && corner.screenHeight() == 2,
+                "taking the east column away leaves a 2x2 floor screen: " + corner.screenWidth() + "x" + corner.screenHeight());
         helper.succeed();
     }
 
