@@ -68,6 +68,7 @@ public final class QboticsGameTests {
             Map.entry("server_block", QboticsGameTests::serverBlock),
             Map.entry("server_services", QboticsGameTests::serverServices),
             Map.entry("server_chunk_loading", QboticsGameTests::serverChunkLoading),
+            Map.entry("web_page", QboticsGameTests::webPage),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -2898,6 +2899,62 @@ public final class QboticsGameTests {
             helper.assertTrue(qbotics.upgrade.ChunkLoaders.heldBy(level, abs).isEmpty(), "switched off, it holds nothing");
             qbotics.QboticsConfig.chunkLoadingWhileOffline = wasOffline;
         });
+    }
+
+    /** The web panel engine: litehtml lays out a page with flexbox, Java 2D paints it, and a click finds its button. */
+    private static void webPage(GameTestHelper helper) {
+        String html = String.join("\n",
+                "<!doctype html><html><head><style>",
+                "body { margin: 0; font-family: sans-serif; background: #102030; color: white; }",
+                "h1 { font-size: 22px; margin: 8px; }",
+                ".row { display: flex; justify-content: space-between; align-items: center; padding: 8px; gap: 6px; }",
+                ".card { flex: 1; padding: 6px; background: #345; border-radius: 6px; border: 1px solid #89a; }",
+                ".big { flex: 2; background: linear-gradient(90deg, #345, #563); }",
+                "button { background: linear-gradient(#4a4, #262); color: white; border: none; border-radius: 4px; padding: 4px 10px; }",
+                "table { margin: 8px; border-collapse: collapse; } td { border: 1px solid #567; padding: 2px 6px; }",
+                ".bar { height: 8px; margin: 8px; background: #234; border-radius: 4px; } .fill { width: 70%; height: 8px; background: #e94; border-radius: 4px; }",
+                "</style></head><body>",
+                "<h1>Factory <small style='color:#9bd'>online</small></h1>",
+                "<div class='row'><div class='card' id='iron'>Iron <b>128</b></div><div class='card big' id='gold'>Gold <i>64</i></div>",
+                "<button data-event='smelt' id='go'>Smelt</button></div>",
+                "<div class='bar'><div class='fill'></div></div>",
+                "<table><tr><td>Coal</td><td>512</td></tr><tr><td>Copper</td><td>96</td></tr></table>",
+                "<ul><li>Furnaces: 4</li><li>Crushers: 2</li></ul>",
+                "</body></html>");
+        long start = System.nanoTime();
+        qbotics.web.WebPage page = new qbotics.web.WebPage(url -> null);
+        long loaded = System.nanoTime();
+        page.load(html, "");
+        float height = page.layout(384, 256);
+        java.awt.image.BufferedImage image = qbotics.web.WebPainter.paint(page, 0, 2, url -> null);
+        long painted = System.nanoTime();
+        try {
+            javax.imageio.ImageIO.write(image, "png", java.nio.file.Path.of("web-page-test.png").toFile());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        qbotics.Qbotics.LOGGER.info("Web page: engine {} ms, load+layout+paint {} ms, content height {}",
+                (loaded - start) / 1_000_000, (painted - loaded) / 1_000_000, height);
+        helper.assertTrue(height > 100, "the page has content: " + height);
+        // Lay out and paint again: how long a page update takes once the engine is warm.
+        long again = System.nanoTime();
+        page.load(html.replace("128", "129"), "");
+        page.layout(384, 256);
+        qbotics.web.WebPainter.paint(page, 0, 2, url -> null);
+        qbotics.Qbotics.LOGGER.info("Web page: an update {} ms", (System.nanoTime() - again) / 1_000_000);
+        // The button is at the right of the row: find it by scanning the row for a hit.
+        String found = null;
+        for (int x = 380; x > 200 && found == null; x -= 4) {
+            String hit = page.hit(x, 60);
+            if (hit != null && hit.contains("smelt")) {
+                found = hit;
+            }
+        }
+        helper.assertTrue(found != null && found.contains("\"event\":\"smelt\"") && found.contains("\"tag\":\"button\""),
+                "a click on the button finds it: " + found);
+        String card = page.hit(30, 60);
+        helper.assertTrue(card != null && card.contains("\"id\":\"iron\""), "a click on the iron card: " + card);
+        helper.succeed();
     }
 
     private static void ironQbot(GameTestHelper helper) {
