@@ -86,6 +86,13 @@ dependencies {
         implementation(notation) { transitive = false }
         jarJar(notation) { transitive = false }
     }
+    // The SSH gateway (design doc 9.5): Apache MINA SSHD, bundled the same way. It logs through
+    // SLF4J, which Minecraft already provides; EdDSA lets it take ed25519 keys.
+    for (notation in ["org.apache.sshd:sshd-common:${sshd_version}", "org.apache.sshd:sshd-core:${sshd_version}",
+                      "org.apache.sshd:sshd-sftp:${sshd_version}", "net.i2p.crypto:eddsa:${eddsa_version}"]) {
+        implementation(notation) { transitive = false }
+        jarJar(notation) { transitive = false }
+    }
 }
 
 // Fill in src/main/templates (neoforge.mods.toml) from gradle.properties.

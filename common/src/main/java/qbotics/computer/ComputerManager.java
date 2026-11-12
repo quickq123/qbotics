@@ -157,6 +157,27 @@ public final class ComputerManager {
         return computer;
     }
 
+    /** A running computer (or Qbot) in the world, and where its block is: for the SSH gateway to find it. */
+    public record Running(UUID deviceId, ResourceKey<Level> dimension, BlockPos pos, ServerComputer computer) {
+    }
+
+    /** Every running computer that has a block (not laptops). Call on the server thread. */
+    public java.util.List<Running> running() {
+        java.util.List<Running> all = new java.util.ArrayList<>();
+        places.forEach((id, place) -> {
+            ServerComputer computer = computers.get(id);
+            if (computer != null) {
+                all.add(new Running(id, place.dimension(), place.pos(), computer));
+            }
+        });
+        return all;
+    }
+
+    /** Where computers' own drives are kept (one folder each, named by drive ID). */
+    public Path drivesFolder() {
+        return drivesFolder;
+    }
+
     // ---- laptops (design doc §5.6) ---------------------------------------------------------
 
     /** Each player's laptop computer, by player: one each, whichever laptop item they use. */

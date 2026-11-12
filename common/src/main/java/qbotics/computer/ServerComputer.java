@@ -31,7 +31,8 @@ public final class ServerComputer {
     /** Basic tier heap (design doc §3.4). */
     private static final int HEAP_BYTES = 256 * 1024;
     /** Design doc §15: files.drive_quota_kb. Will come from config. */
-    private static final long DRIVE_QUOTA_BYTES = 1024 * 1024;
+    /** How much a computer's own drive holds. */
+    public static final long DRIVE_QUOTA_BYTES = 1024 * 1024;
     private static final int MAX_QUEUED_JOBS = 256;
     private static final int MAX_CAT_BYTES = 16 * 1024;
     public static final int MAX_SCRATCH_OUTPUT = 8000;

@@ -248,3 +248,13 @@ LAPTOP
  94. With a program open in the editor and running: its current line is marked green. Ctrl+Z:
      the line turns amber, the terminal says which line. F8 a few times: it walks line by line
      (into your own functions too). Ctrl+Z carries on.
+
+SSH GATEWAY (VS Code)
+ 95. In the world's serverconfig/qbotics-server.toml set [ssh_gateway] enabled = true; restart the
+     world. /qbotics ssh says it is on.
+ 96. On the PC: ssh-keygen -t ed25519 (if you have no key). In game: /qbotics ssh key add <the line
+     in id_ed25519.pub>.
+ 97. PowerShell: ssh <a computer's name>@localhost -p 2222 : its terminal. Type ls, run a program,
+     Ctrl+C it. ssh laptop@localhost -p 2222 reaches your laptop.
+ 98. VS Code, SSH FS extension: add the computer as a host (see reference 7f), open its files, edit
+     and save one, open its terminal. Then the SFTP extension on a local folder, and git init there.

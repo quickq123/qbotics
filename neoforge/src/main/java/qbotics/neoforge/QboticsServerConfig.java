@@ -21,6 +21,10 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue REACTIVATION_CHECKS;
     private static final ModConfigSpec.BooleanValue CHUNK_LOADING;
     private static final ModConfigSpec.BooleanValue LAPTOPS;
+    private static final ModConfigSpec.BooleanValue SSH;
+    private static final ModConfigSpec.IntValue SSH_PORT;
+    private static final ModConfigSpec.ConfigValue<String> SSH_BIND;
+    private static final ModConfigSpec.BooleanValue SSH_ALL;
     private static final ModConfigSpec.IntValue CHUNK_LOADERS;
     private static final ModConfigSpec.IntValue CHUNKS_PER_LOADER;
     private static final ModConfigSpec.BooleanValue CHUNK_LOADING_OFFLINE;
@@ -72,6 +76,17 @@ final class QboticsServerConfig {
                 .define("enabled", true);
         BUILDER.pop();
 
+        BUILDER.push("ssh_gateway");
+        BUILDER.comment("An SSH and SFTP server inside the game, so VS Code (the SSH FS or SFTP extensions), ssh and scp",
+                "can reach computers: log in as a computer's name (or \"laptop\") with a key added by /qbotics ssh key add.");
+        SSH = BUILDER.comment("true starts it with the server. Read when the server starts.").define("enabled", false);
+        SSH_PORT = BUILDER.defineInRange("port", 2222, 1, 65535);
+        SSH_BIND = BUILDER.comment("127.0.0.1: this PC only. 0.0.0.0: every network the server is on (open the port, and know who has keys).")
+                .define("bind_address", "127.0.0.1");
+        SSH_ALL = BUILDER.comment("true: a logged-in player reaches every computer, not only their own. For single-player and trusted servers.")
+                .define("all_computers", false);
+        BUILDER.pop();
+
         BUILDER.push("transport");
         BUILDER.comment("How much one antenna with a Transport Upgrade carries to and from other networks each second.");
         TRANSPORT_ITEMS = BUILDER.defineInRange("items_per_second", 1024, 0, 1_000_000);
@@ -99,6 +114,10 @@ final class QboticsServerConfig {
         QboticsConfig.reactivationChecksPerSecond = REACTIVATION_CHECKS.get();
         QboticsConfig.chunkLoadingEnabled = CHUNK_LOADING.get();
         QboticsConfig.laptopsEnabled = LAPTOPS.get();
+        QboticsConfig.sshEnabled = SSH.get();
+        QboticsConfig.sshPort = SSH_PORT.get();
+        QboticsConfig.sshBindAddress = SSH_BIND.get();
+        QboticsConfig.sshAllComputers = SSH_ALL.get();
         QboticsConfig.chunkLoadersPerPlayer = CHUNK_LOADERS.get();
         QboticsConfig.chunksPerLoader = CHUNKS_PER_LOADER.get();
         QboticsConfig.chunkLoadingWhileOffline = CHUNK_LOADING_OFFLINE.get();

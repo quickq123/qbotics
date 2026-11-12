@@ -553,6 +553,16 @@ radio.tune("mine-ops")
 
 ### 9.5 External access: built-in gateway
 
+> **Status (2026-11-12): the SSH gateway is built** (`docs/reference.md` §7f), decided by the project owner as the way
+> VS Code reaches computers (instead of a custom extension): an SSH and SFTP server inside the mod (Apache MINA SSHD,
+> bundled), off by default, on 127.0.0.1:2222 unless the admin opens it. Keys only, added in game with
+> `/qbotics ssh key add` and kept with the world; banned players refused. The login name picks the computer (`laptop`,
+> a name, a hardware address); only the player's own unless `ssh_gateway.all_computers`. The shell is the computer's
+> terminal (Ctrl+C, Ctrl+Z, Ctrl+D leaves); SFTP serves its real drive folder within its quota; no forwarding, no
+> exec. VS Code: the SSH FS extension (files and terminal) or the SFTP extension (a synced local folder, where real
+> Git works). Microsoft's Remote-SSH can't work (it installs a server program on the far end). The HTTP side below
+> (web panels, in-game HTTP servers) is still to come.
+
 The gateway runs **inside the mod**, on the Minecraft server, or on the built-in server in single-player. No separate relay program is needed.
 
 - **Off by default.** The server admin turns it on (`gateway.enabled`).
@@ -1436,7 +1446,7 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 | 8 | Uplink (with all §13 protections), then Git import/export (§17.5) | Real-internet access; moving code between worlds |
 | 9 | Web panels v1: engine evaluation, HTML/CSS v1 coverage, sync protocol, events | Flagship UI |
 | 10 | Web panels v2: JS sandbox, `<canvas>`, grid, animations | Full web development |
-| 11 | Built-in gateway, VS Code extension, package allowlist | Ecosystem |
+| 11 | Built-in gateway, VS Code extension, package allowlist. **SSH gateway built 2026-11-12** (§9.5): VS Code works through existing SSH extensions; HTTP gateway, allowlist to come | Ecosystem |
 | 12 | *(Lowest priority)* Public peripheral API + first-party adapters | Deep mod integration, only if needed |
 
 ---
@@ -1599,6 +1609,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | Logic Pin, Placer and Breaker built (§11.0.1), with the defaults listed there: strong power from an output pin, `wait_for` on counted events, netherite-tool speed for the Breaker, and placeholder recipes. Cables are now solid to fluids | Built 2026-11-11 |
 | 2026-11-11 | The cable's model is built in code: the block state keeps only the arms, and every cable has a block entity that keeps its plates (kind, medium, identity), which the model reads when drawing. Clears the way for the Logic Pin, Placer and Breaker (§11.0.1). Plates from worlds saved before this are dropped | Built 2026-11-11 |
 | 2026-11-11 | Much later: a recipe viewer (JEI) hands the player ready-made `Recipe` code for a recipe | Idea; not designed |
+| 2026-11-12 | Uplink, Git and VS Code: build the SSH gateway first (VS Code through SSH FS or SFTP, with real Git on the PC), then the uplink, then in-game Git with clone, pull **and push** (token in a GUI, server-stored, admin switch and warning as §17.5). SSH logins by key set in game; a config to reach every computer | SSH gateway built 2026-11-12 |
 | 2026-11-12 | The Laptop (mid to late game): shapeless USB + Computer (its files copied in under /imported/) + Infinite Antenna. One laptop computer, shell and set of files per player, whichever laptop item is used, so two laptops never work on the same files apart. Runs while its player is online and carries a laptop, else held (paused), so absent or banned players' programs stop. Two hard-drive slots (sneak + right-click in the air) at /net/disks/disk1-2. Built-in Infinite antenna: ssh to any antenna in its dimension and Infinite ones in others, all frequencies, access rules apply; not on a cable network. Config laptops.enabled. Direct connection: right-clicking a computer or Qbot of yours with the laptop opens its editor and terminal (others: ssh). Ctrl+Z pauses and resumes in every terminal (through ssh too). Step 3: the editor marks the running line (green, amber while paused), Ctrl+Z says where it paused, F8 steps line by line; free for programs nobody watches (§14.6) | Built 2026-11-12 |
 | 2026-11-12 | Qbots have no programming interface of their own, to raise the bar for programming bots (you rarely reprogram a machine on the fly): right-click opens its storage screen with Run (Resume while paused), Pause (a breakpoint: holds at the next step, sleep or returning world call) and Stop (kills it; Python restarts). The screen shows the state and the last two printed lines. Programs come from a Programmer, which also starts them; a running program restarts after a reload. The Qbot keeps its shell, so `ssh` still reaches it: a planned laptop will use ssh to program bots and networks on the fly. A **Log** button shows its whole output read-only, for debugging | Built 2026-11-12 |
 | 2026-11-12 | Changed items and recipes are removed outright for now (one playtester); no legacy items | Decided |

@@ -38,6 +38,13 @@ public final class QboticsConfig {
     public static volatile boolean chunkLoadingEnabled = true;
     /** Whether laptops can be opened at all. */
     public static volatile boolean laptopsEnabled = true;
+    /** The SSH gateway (design doc §9.5): off unless the admin turns it on. */
+    public static volatile boolean sshEnabled = false;
+    public static volatile int sshPort = 2222;
+    /** Where it listens: 127.0.0.1 (this PC only) unless the admin opens it wider (0.0.0.0). */
+    public static volatile String sshBindAddress = "127.0.0.1";
+    /** true: a logged-in player reaches every computer, not only their own (single-player, trusted servers). */
+    public static volatile boolean sshAllComputers = false;
     /** Antennas with a working Chunk Loader Upgrade a player may have; -1 for no limit. */
     public static volatile int chunkLoadersPerPlayer = 4;
     /** The most chunks one antenna keeps loaded (its network's, nearest first). */

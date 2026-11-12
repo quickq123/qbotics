@@ -393,6 +393,38 @@ public final class QboticsNeoForge {
                                             }
                                             return 1;
                                         })))
+                        // /qbotics ssh: the keys a player logs in to the SSH gateway with, and whether it is on.
+                        .then(net.minecraft.commands.Commands.literal("ssh")
+                                .executes(context -> {
+                                    for (String line : qbotics.gateway.SshCommands.status(context.getSource().getServer(), context.getSource().getPlayerOrException())) {
+                                        context.getSource().sendSuccess(() -> Component.literal(line), false);
+                                    }
+                                    return 1;
+                                })
+                                .then(net.minecraft.commands.Commands.literal("key")
+                                        .then(net.minecraft.commands.Commands.literal("add")
+                                                .then(net.minecraft.commands.Commands.argument("key", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                                                        .executes(context -> {
+                                                            String line = qbotics.gateway.SshCommands.add(context.getSource().getServer(), context.getSource().getPlayerOrException(),
+                                                                    com.mojang.brigadier.arguments.StringArgumentType.getString(context, "key"));
+                                                            context.getSource().sendSuccess(() -> Component.literal(line), false);
+                                                            return 1;
+                                                        })))
+                                        .then(net.minecraft.commands.Commands.literal("list")
+                                                .executes(context -> {
+                                                    for (String line : qbotics.gateway.SshCommands.list(context.getSource().getServer(), context.getSource().getPlayerOrException())) {
+                                                        context.getSource().sendSuccess(() -> Component.literal(line), false);
+                                                    }
+                                                    return 1;
+                                                }))
+                                        .then(net.minecraft.commands.Commands.literal("remove")
+                                                .then(net.minecraft.commands.Commands.argument("number", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+                                                        .executes(context -> {
+                                                            String line = qbotics.gateway.SshCommands.remove(context.getSource().getServer(), context.getSource().getPlayerOrException(),
+                                                                    com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "number"));
+                                                            context.getSource().sendSuccess(() -> Component.literal(line), false);
+                                                            return 1;
+                                                        })))))
                         .then(net.minecraft.commands.Commands.literal("stage")
                                 .requires(net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS))
                                 .executes(context -> {
@@ -407,7 +439,10 @@ public final class QboticsNeoForge {
                             }
                             return 1;
                         }))));
+        // The SSH gateway (design doc §9.5) starts with the server if the config turns it on.
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent event) -> qbotics.gateway.SshGateway.start(event.getServer()));
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> {
+            qbotics.gateway.SshGateway.stop();
             ComputerManager.shutDown(event.getServer());
             qbotics.upgrade.ChunkLoaders.clear();
             qbotics.network.Tunnels.clear();

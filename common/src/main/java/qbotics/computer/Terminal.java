@@ -37,7 +37,21 @@ public final class Terminal {
         }
     }
 
+    /** Told everything written, as it is written: an SSH session showing this terminal (see SshGateway). */
+    private final List<java.util.function.Consumer<String>> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public void addListener(java.util.function.Consumer<String> listener) {
+        listeners.add(listener);
+    }
+
+    public void removeListener(java.util.function.Consumer<String> listener) {
+        listeners.remove(listener);
+    }
+
     public synchronized void write(String text) {
+        for (java.util.function.Consumer<String> listener : listeners) {
+            listener.accept(text);
+        }
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             switch (c) {
@@ -61,6 +75,9 @@ public final class Terminal {
 
     /** Empties the screen and the scroll-back. */
     public synchronized void clear() {
+        for (java.util.function.Consumer<String> listener : listeners) {
+            listener.accept("\u001b[2J\u001b[H"); // clear the screen and go home, as a terminal program does
+        }
         for (char[] row : grid) {
             Arrays.fill(row, ' ');
         }

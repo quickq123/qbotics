@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000, "displays", 200_000, "antenna_upgrades", 200_000, "iron_qbot", 200_000);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("world_plates", 200_000, "test_stage", 200_000, "watching", 200_000, "events_module", 200_000, "drive_bays", 200_000, "programmer_block", 200_000, "displays", 200_000, "antenna_upgrades", 200_000, "iron_qbot", 200_000, "ssh_gateway", 200_000);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -62,6 +62,7 @@ public final class QboticsGameTests {
             Map.entry("laptop", QboticsGameTests::laptop),
             Map.entry("laptop_connect", QboticsGameTests::laptopConnect),
             Map.entry("step_through", QboticsGameTests::stepThrough),
+            Map.entry("ssh_gateway", QboticsGameTests::sshGateway),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -172,11 +173,24 @@ public final class QboticsGameTests {
         for (String line : List.of("python", "import time", "while True:", "    try:", "        time.sleep(10)", "    except:", "        print('ignored')", "")) {
             computer.submitLine(line);
         }
-        helper.runAfterDelay(60, computer::interrupt);
-        helper.runAfterDelay(80, computer::interrupt);
-        helper.runAfterDelay(100, () -> computer.submitLine("python"));
-        helper.runAfterDelay(105, () -> computer.submitLine("print('fresh', 'start')"));
-        helper.succeedWhen(() -> assertScreen(helper, computer, "ignored", "Python was restarted", "fresh start\n>>>"));
+        // Each step waits for the last one to show (the test server ticks faster than real time).
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            String now = screen(computer);
+            if (step[0] == 0 && now.contains("while True:") && now.contains("...")) {
+                computer.interrupt(); // the first Ctrl+C: the program catches it
+                step[0] = 1;
+            } else if (step[0] == 1 && now.contains("ignored")) {
+                computer.interrupt(); // the second: stopped for certain
+                step[0] = 2;
+            } else if (step[0] == 2 && now.contains("Python was restarted")) {
+                computer.submitLine("python");
+                computer.submitLine("print('fresh', 'start')");
+                step[0] = 3;
+            }
+            helper.assertTrue(step[0] == 3, "waiting at step " + step[0]);
+            assertScreen(helper, computer, "ignored", "Python was restarted", "fresh start\n>>>");
+        });
     }
 
     /** Calls a program left unanswered are forgotten when it ends, so the next program isn't refused. */
@@ -2538,6 +2552,121 @@ public final class QboticsGameTests {
             helper.assertTrue(step[0] == 5, "waiting at step " + step[0] + ", at " + now);
             helper.assertTrue(lines[1] != lines[2] && (lines[1] == 4 || lines[1] == 5) && (lines[2] == 4 || lines[2] == 5),
                     "each step should stop at the loop's other line: " + lines[0] + " then " + lines[1] + " then " + lines[2]);
+        });
+    }
+
+    /**
+     * The SSH gateway: a player's key logs in as one of their computers by its name; SFTP puts
+     * a file on its drive, the shell is its terminal; another key, or a name that isn't theirs,
+     * is refused.
+     */
+    private static void sshGateway(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        net.minecraft.server.MinecraftServer server = level.getServer();
+        UUID owner = UUID.randomUUID();
+        helper.setBlock(POS, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity block = helper.getBlockEntity(POS, ComputerBlockEntity.class);
+        block.onPlaced(owner);
+        String name = "miner" + Integer.toHexString(owner.hashCode() & 0xfff);
+        block.setDeviceName(name);
+        ServerComputer computer = ComputerManager.get(server).getOrStart(block);
+        java.security.KeyPair mine;
+        java.security.KeyPair stranger;
+        try {
+            java.security.KeyPairGenerator generator = java.security.KeyPairGenerator.getInstance("EC");
+            generator.initialize(256);
+            mine = generator.generateKeyPair();
+            stranger = generator.generateKeyPair();
+        } catch (java.security.GeneralSecurityException e) {
+            throw new IllegalStateException(e);
+        }
+        String added = qbotics.gateway.SshGateway.keys(server).add(owner,
+                org.apache.sshd.common.config.keys.PublicKeyEntry.toString(mine.getPublic()) + " test@pc");
+        helper.assertTrue(added == null, "the key should be added: " + added);
+        int port = qbotics.gateway.SshGateway.start(server, "127.0.0.1", 0);
+        helper.assertTrue(port > 0, "the gateway should start");
+
+        // The client runs on its own thread: the gateway asks the server thread which computer a login means.
+        java.util.Map<String, String> results = new java.util.concurrent.ConcurrentHashMap<>();
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            org.apache.sshd.client.SshClient client = org.apache.sshd.client.SshClient.setUpDefaultClient();
+            client.setServerKeyVerifier(org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier.INSTANCE);
+            // Nothing from this PC's own ~/.ssh: no config, no keys of its own.
+            client.setHostConfigEntryResolver(org.apache.sshd.client.config.hosts.HostConfigEntryResolver.EMPTY);
+            client.setKeyIdentityProvider(org.apache.sshd.common.keyprovider.KeyIdentityProvider.EMPTY_KEYS_PROVIDER);
+            client.start();
+            try {
+                // Logged in as their computer: SFTP writes a file onto its drive.
+                try (org.apache.sshd.client.session.ClientSession session = client.connect(name, "127.0.0.1", port).verify(10_000).getSession()) {
+                    session.addPublicKeyIdentity(mine);
+                    session.auth().verify(10_000);
+                    try (org.apache.sshd.sftp.client.SftpClient sftp = org.apache.sshd.sftp.client.SftpClientFactory.instance().createSftpClient(session)) {
+                        try (java.io.OutputStream file = sftp.write("/from_vscode.py")) {
+                            file.write("print('hi from the pc')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        }
+                        StringBuilder names = new StringBuilder();
+                        for (org.apache.sshd.sftp.client.SftpClient.DirEntry entry : sftp.readDir("/")) {
+                            names.append(entry.getFilename()).append(' ');
+                        }
+                        results.put("listed", names.toString());
+                    }
+                    // The shell is its terminal: typing "help" shows the computer's own help.
+                    try (org.apache.sshd.client.channel.ChannelShell shell = session.createShellChannel()) {
+                        java.io.ByteArrayOutputStream shown = new java.io.ByteArrayOutputStream();
+                        shell.setOut(shown);
+                        shell.setErr(shown);
+                        shell.open().verify(10_000);
+                        Thread.sleep(500);
+                        shell.getInvertedIn().write("help\r".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        shell.getInvertedIn().flush();
+                        for (int i = 0; i < 50 && !shown.toString(java.nio.charset.StandardCharsets.UTF_8).contains("Files:"); i++) {
+                            Thread.sleep(100);
+                        }
+                        results.put("shell", shown.toString(java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                }
+                // A name that isn't theirs: logged in, but nothing there.
+                try (org.apache.sshd.client.session.ClientSession session = client.connect("nosuchthing", "127.0.0.1", port).verify(10_000).getSession()) {
+                    session.addPublicKeyIdentity(mine);
+                    session.auth().verify(10_000);
+                    try (org.apache.sshd.sftp.client.SftpClient sftp = org.apache.sshd.sftp.client.SftpClientFactory.instance().createSftpClient(session)) {
+                        results.put("wrong_name", "opened");
+                    } catch (Exception refused) {
+                        results.put("wrong_name", "refused");
+                    }
+                }
+                // A key nobody added: not let in.
+                try (org.apache.sshd.client.session.ClientSession session = client.connect(name, "127.0.0.1", port).verify(10_000).getSession()) {
+                    session.addPublicKeyIdentity(stranger);
+                    session.auth().verify(10_000);
+                    results.put("stranger", "let in");
+                } catch (Exception refused) {
+                    results.put("stranger", "refused");
+                }
+            } catch (Exception e) {
+                results.put("error", e.toString());
+            } finally {
+                client.stop();
+                results.put("done", "yes");
+            }
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(results.containsKey("done"), "waiting for the SSH client");
+            qbotics.gateway.SshGateway.stop();
+            helper.assertTrue(!results.containsKey("error"), "the client failed: " + results.get("error"));
+            String file;
+            try {
+                file = new String(computer.drive().call(qbotics.engine.HostFileSystem.READ, "/from_vscode.py", new byte[0]),
+                        java.nio.charset.StandardCharsets.UTF_8);
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                file = "(missing: error " + e.errno + ")";
+            }
+            helper.assertTrue(file.contains("hi from the pc") && results.getOrDefault("listed", "").contains("from_vscode.py"),
+                    "SFTP should have put the file on the computer's drive: " + file + " / " + results.get("listed"));
+            helper.assertTrue(results.getOrDefault("shell", "").contains("Connected to " + name) && results.get("shell").contains("Files:"),
+                    "the shell should be the computer's terminal: " + results.get("shell"));
+            helper.assertTrue("refused".equals(results.get("wrong_name")), "a computer that isn't theirs should be refused: " + results.get("wrong_name"));
+            helper.assertTrue("refused".equals(results.get("stranger")), "a key nobody added should be refused: " + results.get("stranger"));
         });
     }
 

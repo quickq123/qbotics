@@ -1467,6 +1467,72 @@ your laptop gets *their* laptop computer, not yours.
 
 Its editor shows the line a program is on, and F8 steps through it (section 1.3b).
 
+## 7f. The SSH gateway: VS Code, ssh and scp on your PC
+
+The game can run an **SSH server**, so tools on your PC reach your in-game computers, Qbots and
+laptop: their files (SFTP) and their terminal (the shell). It is **off** until the server's
+admin turns it on, and by default it only accepts connections from the PC the server runs on.
+
+**Turning it on** (`qbotics-server.toml`; in single-player, the world's `serverconfig` folder):
+
+```toml
+[ssh_gateway]
+enabled = true
+port = 2222
+bind_address = "127.0.0.1"   # "0.0.0.0" to accept other PCs (open the port; know who has keys)
+all_computers = false        # true: logged-in players reach every computer, not only their own
+```
+
+**Your key.** You log in with an SSH key, never a password. On your PC, once:
+
+```
+ssh-keygen -t ed25519
+```
+
+Then copy the line in `id_ed25519.pub` (in `C:\Users\you\.ssh\` on Windows) and, in game:
+
+```
+/qbotics ssh key add ssh-ed25519 AAAAC3Nza... you@pc
+```
+
+`/qbotics ssh` says whether the gateway is on; `/qbotics ssh key list` and `/qbotics ssh key
+remove <number>` manage your keys. A banned player's keys don't work.
+
+**Logging in.** The login name picks the machine:
+
+| Login name | Reaches |
+|---|---|
+| `laptop` | Your laptop |
+| A computer's or Qbot's name (`miner`) | That computer of yours, if it is running (its area loaded) |
+| Its hardware address, or device ID | The same, when two share a name |
+
+```
+ssh miner@localhost -p 2222          # its terminal
+scp -P 2222 mine.py miner@localhost:/  # copy a file onto it
+```
+
+In the shell, typing works as in the game's terminal: Ctrl+C stops a program, Ctrl+Z pauses it,
+and Ctrl+D on an empty line leaves. A laptop whose player is offline (or carries no laptop) is
+held: you can still use its files.
+
+**VS Code.** Microsoft's Remote-SSH extension doesn't work (it installs a server program on the
+other end, which an in-game computer can't run). These do:
+
+- **SSH FS** (Kelvin Schoofs): opens a computer's files as a folder in VS Code, with its terminal
+  in a terminal tab. In its settings, add a host: host `localhost`, port `2222`, username the
+  computer's name, private key your `id_ed25519`, root `/`.
+- **SFTP** (Natizyskunk): keeps a folder on your PC in step with a computer. That folder is
+  ordinary files, so **real Git works there**: commit and push from your PC, and your GitHub
+  token never leaves it. Its `sftp.json`:
+
+```json
+{ "name": "miner", "host": "localhost", "port": 2222, "username": "miner",
+  "privateKeyPath": "C:/Users/you/.ssh/id_ed25519", "remotePath": "/", "uploadOnSave": true }
+```
+
+**What it reaches:** only that computer's own drive (not `/net`), within its 1 MB quota. Nothing
+else: no port forwarding, no commands outside the computer's own shell.
+
 ## 8. The Network Probe
 
 A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows the mode.
@@ -1541,6 +1607,10 @@ even across restarts, until someone opens it again.
 | `scheduler.reactivation_checks_per_s` | 1 | How often one player may try to switch on an inactive device |
 | `chunk_loading.enabled` | true | `false` switches every Chunk Loader Upgrade off (section 7.3b) |
 | `laptops.enabled` | true | `false` stops laptops opening (section 7e) |
+| `ssh_gateway.enabled` | false | `true` starts the SSH gateway with the server (section 7f) |
+| `ssh_gateway.port` | 2222 | Its port |
+| `ssh_gateway.bind_address` | 127.0.0.1 | Where it listens: this PC only; `0.0.0.0` for every network the server is on |
+| `ssh_gateway.all_computers` | false | `true`: a logged-in player reaches every computer, not only their own |
 | `chunk_loading.loaders_per_player` | 4 | Working chunk loaders per player; -1 for no limit (operators exempt as above) |
 | `chunk_loading.chunks_per_loader` | 25 | The most chunks one antenna holds |
 | `chunk_loading.while_owner_offline` | true | Whether loaders keep working while their owner is offline |

@@ -13,6 +13,9 @@ neoForge {
 dependencies {
     api "com.dylibso.chicory:runtime:${chicory_version}"
     api "com.dylibso.chicory:compiler:${chicory_version}"
+    api "org.apache.sshd:sshd-core:${sshd_version}"
+    api "org.apache.sshd:sshd-sftp:${sshd_version}"
+    api "net.i2p.crypto:eddsa:${eddsa_version}"
 }
 
 // A development aid, not part of the mod: draws the editor screen to PNG files without
