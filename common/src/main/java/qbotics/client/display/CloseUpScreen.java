@@ -15,6 +15,8 @@ import qbotics.net.DisplayPayloads;
  */
 public class CloseUpScreen extends Screen {
     private final BlockPos origin;
+    /** The tablet this is the view of, or null for a display block. */
+    private final java.util.@Nullable UUID tablet;
     // Where the picture is, in this screen's coordinates, and its scale from the display's own pixels.
     private float left;
     private float top;
@@ -26,8 +28,18 @@ public class CloseUpScreen extends Screen {
     private long lastSent;
 
     public CloseUpScreen(BlockPos origin) {
-        super(Component.translatable("screen.qbotics.close_up"));
+        this(origin, null);
+    }
+
+    /** A tablet's view: its tabs above the screen. */
+    public CloseUpScreen(BlockPos origin, java.util.@Nullable UUID tablet) {
+        super(Component.translatable(tablet == null ? "screen.qbotics.close_up" : "item.qbotics.tablet"));
         this.origin = origin;
+        this.tablet = tablet;
+    }
+
+    private int bar() {
+        return tablet == null ? 0 : ClientTablets.BAR;
     }
 
     @Override
@@ -37,6 +49,10 @@ public class CloseUpScreen extends Screen {
 
     @Override
     public void tick() {
+        if (tablet != null) {
+            ClientTablets.tick(this, tablet, origin, false);
+            return;
+        }
         // Walking away closes it.
         if (minecraft != null && minecraft.player != null
                 && minecraft.player.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(origin)) > 12 * 12) {
@@ -52,15 +68,21 @@ public class CloseUpScreen extends Screen {
             virtualW = DisplayDrawing.panelWidth(panel);
             virtualH = DisplayDrawing.panelHeight(panel);
         }
-        float room = Math.min((width - 24) / (float) virtualW, (height - 40) / (float) virtualH);
+        float room = Math.min((width - 24) / (float) virtualW, (height - 40 - bar()) / (float) virtualH);
         scale = Math.max(0.1f, room);
         left = (width - virtualW * scale) / 2;
-        top = (height - 16 - virtualH * scale) / 2;
+        top = bar() + (height - 16 - bar() - virtualH * scale) / 2;
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        if (tablet != null) {
+            ClientTablets.drawBar(graphics, font, tablet, width, mouseX, mouseY);
+            if (ClientTablets.screen(tablet) == null) {
+                return; // not paired: the bar says how
+            }
+        }
         Object view = ClientDisplays.view(origin);
         if (view == null) {
             graphics.centeredText(font, Component.translatable("screen.qbotics.close_up_waiting"), width / 2, height / 2, 0xFFFFFFFF);
@@ -100,6 +122,9 @@ public class CloseUpScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (super.mouseClicked(event, doubleClick)) {
+            return true;
+        }
+        if (tablet != null && ClientTablets.clickBar(font, tablet, event.x(), event.y())) {
             return true;
         }
         float[] at = at(event.x(), event.y());

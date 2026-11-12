@@ -296,6 +296,15 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.led_screen": "LED Screen",
     "item.qbotics.integrated_circuit": "Integrated Circuit",
     "item.qbotics.laptop": "Laptop",
+    "item.qbotics.tablet": "Tablet",
+    "item.qbotics.tablet.tip": "Right-click: its screen. Sneak + right-click an antenna: pair with (or unpair from) its network.",
+    "item.qbotics.tablet.paired": "Tabs: %s",
+    "message.qbotics.tablet.paired": "Tablet paired with %s",
+    "message.qbotics.tablet.unpaired": "Tablet unpaired from %s",
+    "message.qbotics.tablet.refused": "Can't pair: %s",
+    "message.qbotics.tablet.not_router": "That antenna isn't its network's router: pair with the network's first antenna.",
+    "message.qbotics.tablet.full": "A tablet can be paired with %s networks at most. Unpair one first.",
+    "screen.qbotics.tablet.unpaired": "Not paired with any network. Sneak and right-click a network's antenna with the tablet.",
     "item.qbotics.laptop.tip": "Right-click: your laptop. Sneak + right-click: its drives. On a computer or Qbot of yours: connect to it.",
     "message.qbotics.laptop.not_yours": "That isn't yours to connect to. ssh in instead, if its owner allows.",
     "item.qbotics.laptop.disks": "Hard drives: %s",
@@ -606,6 +615,65 @@ write_json("data/qbotics/recipe/light_emitting_diode.json", shaped(
 write_json("data/qbotics/recipe/led_screen.json", shaped(
     ["ODL", "ODL", "ODL"], {"O": "minecraft:gold_ingot", "D": "qbotics:light_emitting_diode", "L": "minecraft:glass"},
     "qbotics:led_screen", 4))
+# Tablet (design doc §10.6): a thin slate, its screen facing south (+z) like a block's front.
+# Held, the screen's picture is drawn over the dark glass by a special renderer (TabletScreenRenderer);
+# elsewhere (inventory, ground, frames) it is the plain model.
+def tablet_front():
+    px = [[CASE_DARK] * 16 for _ in range(16)]
+    for y in range(3, 13):
+        for x in range(1, 15):
+            px[y][x] = SCREEN
+    px[13][7] = px[13][8] = (110, 110, 116)   # the home button
+    return px
+
+
+def tablet_back():
+    px = [[(120, 120, 126)] * 16 for _ in range(16)]
+    for y in range(4, 7):
+        for x in range(11, 14):
+            px[y][x] = (60, 60, 66)            # the camera
+    return px
+
+
+write_png("assets/qbotics/textures/item/tablet_front.png", tablet_front())
+write_png("assets/qbotics/textures/item/tablet_back.png", tablet_back())
+write_json("assets/qbotics/models/item/tablet.json", {
+    "textures": {"front": "qbotics:item/tablet_front", "back": "qbotics:item/tablet_back", "particle": "qbotics:item/tablet_back"},
+    "elements": [{
+        "from": [0, 2, 7.5], "to": [16, 14, 8.5],
+        "faces": {
+            "south": {"uv": [0, 2, 16, 14], "texture": "#front"},
+            "north": {"uv": [0, 2, 16, 14], "texture": "#back"},
+            "east": {"uv": [0, 2, 1, 14], "texture": "#back"},
+            "west": {"uv": [0, 2, 1, 14], "texture": "#back"},
+            "up": {"uv": [0, 0, 16, 1], "texture": "#back"},
+            "down": {"uv": [0, 0, 16, 1], "texture": "#back"},
+        },
+    }],
+    "display": {
+        "gui": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [1, 1, 1]},
+        "ground": {"rotation": [0, 0, 0], "translation": [0, 2, 0], "scale": [0.5, 0.5, 0.5]},
+        "fixed": {"rotation": [0, 180, 0], "translation": [0, 0, 0], "scale": [1, 1, 1]},
+        "thirdperson_righthand": {"rotation": [-30, 180, 0], "translation": [0, 3, 2], "scale": [0.5, 0.5, 0.5]},
+        "thirdperson_lefthand": {"rotation": [-30, 180, 0], "translation": [0, 3, 2], "scale": [0.5, 0.5, 0.5]},
+        "firstperson_righthand": {"rotation": [-10, -15, 0], "translation": [-1, 5.5, 0], "scale": [0.5, 0.5, 0.5]},
+        "firstperson_lefthand": {"rotation": [-10, 15, 0], "translation": [-1, 5.5, 0], "scale": [0.5, 0.5, 0.5]},
+    },
+})
+HELD = ["firstperson_righthand", "firstperson_lefthand", "thirdperson_righthand", "thirdperson_lefthand"]
+write_json("assets/qbotics/items/tablet.json", {"model": {
+    "type": "minecraft:select", "property": "minecraft:display_context",
+    "cases": [{"when": HELD, "model": {"type": "minecraft:composite", "models": [
+        {"type": "minecraft:model", "model": "qbotics:item/tablet"},
+        {"type": "minecraft:special", "base": "qbotics:item/tablet", "model": {"type": "qbotics:tablet_screen"}},
+    ]}}],
+    "fallback": {"type": "minecraft:model", "model": "qbotics:item/tablet"},
+}})
+# A tablet: iron around an LCD Screen, an Integrated Circuit and an Infinite antenna.
+write_json("data/qbotics/recipe/tablet.json", shaped(
+    ["ISI", "ICI", "IAI"],
+    {"I": "minecraft:iron_ingot", "S": "qbotics:lcd_screen", "C": "qbotics:integrated_circuit", "A": "qbotics:antenna_infinite"},
+    "qbotics:tablet"))
 # Laptop (design doc §5.6): a USB, a computer (whose files come along) and an Infinite antenna.
 write_json("data/qbotics/recipe/laptop.json", {"type": "minecraft:crafting_shapeless", "category": "redstone",
     "ingredients": ["qbotics:usb", "qbotics:computer", "qbotics:antenna_infinite"], "result": {"id": "qbotics:laptop"}})

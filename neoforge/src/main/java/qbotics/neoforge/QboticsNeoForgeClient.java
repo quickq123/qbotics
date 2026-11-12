@@ -43,6 +43,10 @@ public final class QboticsNeoForgeClient {
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientTickEvent.Post event) ->
                     qbotics.client.shots.PlaytestStart.tick(net.minecraft.client.Minecraft.getInstance()));
         }
+        // Tablets: their tooltips list their tabs; held, their screens are drawn on them.
+        qbotics.tablet.TabletItem.tooltipTabs = qbotics.client.display.ClientTablets::tabs;
+        modBus.addListener((net.neoforged.neoforge.client.event.RegisterSpecialModelRendererEvent event) ->
+                event.register(Qbotics.id("tablet_screen"), qbotics.client.display.TabletScreenRenderer.Unbaked.MAP_CODEC));
         // Web Panels: clicks are found in this game, where their pages are laid out.
         qbotics.client.display.ClientWebPanels.install();
         // What Text Monitors and Control Panels show, drawn on their faces.
@@ -73,6 +77,8 @@ public final class QboticsNeoForgeClient {
             event.register(qbotics.net.DisplayPayloads.Panel.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onPanel(payload));
             event.register(qbotics.net.DisplayPayloads.OpenCloseUp.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onOpenCloseUp(payload));
             event.register(qbotics.net.DisplayPayloads.Web.TYPE, (payload, context) -> qbotics.client.display.ClientWebPanels.onWeb(payload));
+            event.register(qbotics.net.TabletPayloads.State.TYPE, (payload, context) -> qbotics.client.display.ClientTablets.onState(payload));
+            event.register(qbotics.net.TabletPayloads.Open.TYPE, (payload, context) -> qbotics.client.display.ClientTablets.onOpen(payload));
             event.register(qbotics.net.ProbePayloads.Info.TYPE, (payload, context) -> qbotics.client.ProbeScreen.show(payload));
             event.register(qbotics.net.XpPayloads.Info.TYPE, (payload, context) -> qbotics.client.XpScreen.show(payload));
             event.register(qbotics.net.GitPayloads.OpenToken.TYPE, (payload, context) -> qbotics.client.GitTokenScreen.show(payload));

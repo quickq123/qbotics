@@ -234,6 +234,7 @@ public final class Displays {
         if (server.getTickCount() % 2 != 0) {
             return;
         }
+        Tablets.get(server).tick(server);
         Iterator<Map.Entry<DisplayBlockEntity, Map<UUID, Sent>>> screens = LIVE.entrySet().iterator();
         while (screens.hasNext()) {
             Map.Entry<DisplayBlockEntity, Map<UUID, Sent>> entry = screens.next();
@@ -273,7 +274,7 @@ public final class Displays {
         }
     }
 
-    private static net.minecraft.network.protocol.common.custom.CustomPacketPayload payload(BlockPos pos, ScreenContent content, long since) {
+    static net.minecraft.network.protocol.common.custom.CustomPacketPayload payload(BlockPos pos, ScreenContent content, long since) {
         if (content instanceof TextScreen text) {
             synchronized (text) {
                 return new DisplayPayloads.Text(pos, text.cols(), text.rows(), (float) text.scale(), since == 0, text.rowsSince(since));
@@ -295,6 +296,10 @@ public final class Displays {
      * listening are told what it was ({@code data-event} or {@code id}, tag, name, value).
      */
     public static void onWebClick(ServerPlayer player, DisplayPayloads.WebClick click) {
+        if (Tablets.isKey(click.origin())) {
+            Tablets.get(player.level().getServer()).onWebClick(player, click);
+            return;
+        }
         if (!(player.level() instanceof ServerLevel level) || !level.isLoaded(click.origin())
                 || !(level.getBlockEntity(click.origin()) instanceof DisplayBlockEntity display) || !(display.content() instanceof WebScreen web)) {
             return;
@@ -312,9 +317,15 @@ public final class Displays {
         if (far > CLOSE_UP_RANGE * CLOSE_UP_RANGE) {
             return;
         }
+        webClicked(level, player, web, click.element(), display.mac(), display.deviceName(), display.getBlockPos(), null);
+    }
+
+    /** A click on a Web Panel's page (or a tablet's): the event for the programs listening. */
+    static void webClicked(ServerLevel level, ServerPlayer player, WebScreen web, String clicked, String mac, String name, BlockPos soundAt,
+            @Nullable JsonObject extra) {
         JsonObject element;
         try {
-            element = JsonParser.parseString(click.element()).getAsJsonObject();
+            element = JsonParser.parseString(clicked).getAsJsonObject();
         } catch (RuntimeException e) {
             return;
         }
@@ -324,8 +335,8 @@ public final class Displays {
             String text = element.has(field) && element.get(field).isJsonPrimitive() ? element.get(field).getAsString() : "";
             event.addProperty(field, text.length() > qbotics.web.WebInputs.MAX_AREA_LENGTH ? text.substring(0, qbotics.web.WebInputs.MAX_AREA_LENGTH) : text);
         }
-        String name = element.has("event") ? element.get("event").getAsString() : "";
-        event.addProperty("event", name.isEmpty() ? event.get("id").getAsString() : name);
+        String eventName = element.has("event") ? element.get("event").getAsString() : "";
+        event.addProperty("event", eventName.isEmpty() ? event.get("id").getAsString() : eventName);
         event.addProperty("enter", element.has("enter") && element.get("enter").getAsBoolean()); // Enter pressed in a text field
         if (element.has("data") && element.get("data").isJsonPrimitive()) {
             // panel.send(name, data) from the page's script: the data, as JSON.
@@ -335,10 +346,13 @@ public final class Displays {
                 event.add("data", com.google.gson.JsonNull.INSTANCE);
             }
         }
-        event.addProperty("mac", display.mac());
-        event.addProperty("panel", display.deviceName());
+        event.addProperty("mac", mac);
+        event.addProperty("panel", name);
         event.addProperty("player", player.getName().getString());
-        level.playSound(null, display.getBlockPos(), SoundEvents.STONE_BUTTON_CLICK_ON, SoundSource.BLOCKS, 0.3f, 1.4f);
+        if (extra != null) {
+            extra.entrySet().forEach(entry -> event.add(entry.getKey(), entry.getValue()));
+        }
+        level.playSound(null, soundAt, SoundEvents.STONE_BUTTON_CLICK_ON, SoundSource.BLOCKS, 0.3f, 1.4f);
         ComputerManager computers = ComputerManager.get(level.getServer());
         web.listeners.entrySet().removeIf(listener -> !computers.pushEvent(listener.getKey(), listener.getValue(), event));
     }
@@ -346,7 +360,7 @@ public final class Displays {
     // ---- programs: handles and fast drawing -----------------------------------------------
 
     /** A program's hold on a display. */
-    private record Handle(UUID computer, ResourceKey<Level> dimension, BlockPos computerPos, DisplayBlockEntity display, ScreenContent content) {
+    private record Handle(UUID computer, ResourceKey<Level> dimension, BlockPos computerPos, @Nullable DisplayBlockEntity display, ScreenContent content) {
     }
 
     private static final Map<Integer, Handle> HANDLES = new ConcurrentHashMap<>();
@@ -358,6 +372,15 @@ public final class Displays {
         if (content == null) {
             throw new IllegalStateException("not a screen's top-left block");
         }
+        return open(level, computerPos, computer, display, content);
+    }
+
+    /** Gives a computer a handle to draw on a tablet's screen (not a block: checked by the tablet). */
+    public static int openTablet(ServerLevel level, BlockPos computerPos, UUID computer, ScreenContent content) {
+        return open(level, computerPos, computer, null, content);
+    }
+
+    private static int open(ServerLevel level, BlockPos computerPos, UUID computer, @Nullable DisplayBlockEntity display, ScreenContent content) {
         int count = 0;
         for (Map.Entry<Integer, Handle> entry : HANDLES.entrySet()) {
             Handle handle = entry.getValue();
@@ -445,8 +468,13 @@ public final class Displays {
         ComputerManager computers = ComputerManager.get(server);
         HANDLES.entrySet().removeIf(entry -> {
             Handle handle = entry.getValue();
-            if (handle.content().isGone() || handle.display().isRemoved() || handle.display().content() != handle.content()
-                    || computers.computer(handle.computer()) == null) {
+            if (handle.content().isGone() || computers.computer(handle.computer()) == null) {
+                return true;
+            }
+            if (handle.display() == null) {
+                return false; // a tablet's screen: gone when the tablet is unpaired or changes kind
+            }
+            if (handle.display().isRemoved() || handle.display().content() != handle.content()) {
                 return true;
             }
             ServerLevel level = server.getLevel(handle.dimension());
@@ -465,7 +493,12 @@ public final class Displays {
         if (!(level.getBlockEntity(block.originPos()) instanceof DisplayBlockEntity display) || display.content() == null) {
             return;
         }
-        ScreenContent content = display.content();
+        touchedContent(level, display.content(), fx, fy, player, display.mac(), display.deviceName(), display.getBlockPos(), null);
+    }
+
+    /** A touch on a screen's content (a block's or a tablet's), told to the programs listening. */
+    static void touchedContent(ServerLevel level, ScreenContent content, double fx, double fy, ServerPlayer player, String mac, String name,
+            BlockPos soundAt, @Nullable JsonObject extra) {
         JsonObject event;
         if (content instanceof PanelScreen panel) {
             int cols;
@@ -479,7 +512,7 @@ public final class Displays {
                 return;
             }
             event.addProperty("type", "panel");
-            level.playSound(null, display.getBlockPos(), SoundEvents.STONE_BUTTON_CLICK_ON, SoundSource.BLOCKS, 0.3f, 1.4f);
+            level.playSound(null, soundAt, SoundEvents.STONE_BUTTON_CLICK_ON, SoundSource.BLOCKS, 0.3f, 1.4f);
         } else if (content instanceof TextScreen text) {
             int[] cell = text.cellAt(fx, fy);
             event = new JsonObject();
@@ -490,9 +523,12 @@ public final class Displays {
         } else {
             return;
         }
-        event.addProperty("mac", display.mac());
-        event.addProperty("name", display.deviceName());
+        event.addProperty("mac", mac);
+        event.addProperty("name", name);
         event.addProperty("player", player.getName().getString());
+        if (extra != null) {
+            extra.entrySet().forEach(entry -> event.add(entry.getKey(), entry.getValue()));
+        }
         ComputerManager computers = ComputerManager.get(level.getServer());
         content.listeners.entrySet().removeIf(listener -> !computers.pushEvent(listener.getKey(), listener.getValue(), event));
     }
@@ -521,6 +557,12 @@ public final class Displays {
 
     /** A touch from the close-up view: checked, then handled as a touch on the block. */
     public static void onCloseUpTouch(ServerPlayer player, DisplayPayloads.Touch touch) {
+        if (Tablets.isKey(touch.origin())) {
+            if (Float.isFinite(touch.x()) && Float.isFinite(touch.y())) {
+                Tablets.get(player.level().getServer()).onTouch(player, touch.origin(), Math.clamp(touch.x(), 0, 0.9999), Math.clamp(touch.y(), 0, 0.9999));
+            }
+            return;
+        }
         if (!(player.level() instanceof ServerLevel level) || !level.isLoaded(touch.origin())
                 || !(level.getBlockEntity(touch.origin()) instanceof DisplayBlockEntity display) || display.content() == null) {
             return;

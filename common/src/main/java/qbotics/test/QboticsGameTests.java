@@ -76,6 +76,7 @@ public final class QboticsGameTests {
             Map.entry("web_canvas_pictures", QboticsGameTests::webCanvasPictures),
             Map.entry("web_panel", QboticsGameTests::webPanel),
             Map.entry("flat_screens", QboticsGameTests::flatScreens),
+            Map.entry("tablet", QboticsGameTests::tablet),
             Map.entry("web_storage", QboticsGameTests::webStorage),
             Map.entry("qbot_camera", QboticsGameTests::qbotCamera),
             Map.entry("js_engine", QboticsGameTests::jsEngine),
@@ -3751,6 +3752,61 @@ public final class QboticsGameTests {
     }
 
     /** Control Panel themes, and the dial, number input and item display widgets, used as players use them. */
+    /**
+     * A tablet: paired with a network by its antenna, found by a program there, named, drawn on
+     * as a Control Panel, and pressed by the player holding it. Pairing again unpairs it.
+     */
+    private static void tablet(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 1));
+        helper.setBlock(new BlockPos(0, 2, 1), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        qbotics.block.AntennaBlockEntity antenna = helper.getBlockEntity(new BlockPos(0, 2, 1), qbotics.block.AntennaBlockEntity.class);
+        antenna.setAccess(qbotics.network.RadioNetwork.Access.PUBLIC);
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(QboticsContent.TABLET_ITEM.get());
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+        qbotics.display.Tablets tablets = qbotics.display.Tablets.get(helper.getLevel().getServer());
+        tablets.pair(player, stack, antenna);
+        helper.assertTrue(tablets.of(stack).apps().size() == 1, "the tablet is paired with the network");
+        String program = String.join("\n",
+                "import events",
+                "from logistics import network",
+                "net = network()",
+                "tab = net.tablet()",
+                "tab.title = 'Reactor'",
+                "p = tab.panel()",
+                "p.clear()",
+                "b = p.button('Go', at=(0, 0), span=(4, 2))",
+                "print('tablet', p.size(), tab.title, len(net.tablets()))",
+                "def go(e):",
+                "    print('go by', e.player)",
+                "    events.stop()",
+                "b.on_press(go)",
+                "events.run()",
+                "print('done')",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/t.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /t.py");
+        boolean[] pressed = {false};
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "tablet (12, 8) Reactor 1");
+            qbotics.display.Tablets.App app = tablets.of(stack).selectedApp();
+            helper.assertTrue(app != null && app.label().equals("Reactor") && app.content() instanceof qbotics.display.PanelScreen,
+                    "the tablet's tab is named Reactor and shows a panel");
+            helper.assertTrue(!app.content().listeners().isEmpty(), "the program listens");
+            if (!pressed[0]) {
+                tablets.onTouch(player, tablets.screenKey(stack), 0.1, 0.1);
+                pressed[0] = true;
+            }
+            assertScreen(helper, computer, "go by", "done");
+            tablets.pair(player, stack, antenna);
+            helper.assertTrue(tablets.of(stack).apps().isEmpty() && app.content().isGone(), "pairing again unpairs it");
+        });
+    }
+
     private static void panelWidgets(GameTestHelper helper) {
         net.minecraft.world.level.block.state.BlockState panelBlock = QboticsContent.CONTROL_PANEL_BLOCK.get().defaultBlockState()
                 .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH);

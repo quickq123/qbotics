@@ -7,6 +7,7 @@ basics/setup.sh
 displays/README.md
 displays/monitor/status.py
 displays/panel/panel.py
+displays/tablet/tablet.py
 displays/web_dashboard/dashboard.js
 displays/web_dashboard/dashboard.py
 displays/web_dashboard/index.html

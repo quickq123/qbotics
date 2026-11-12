@@ -941,6 +941,9 @@ _KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay,
 
 
 def _wrap(info):
+    if info["kind"] == "tablet":
+        import display
+        return display.Tablet(info)
     if info["kind"] in ("monitor", "panel", "web_panel"):
         import display     # the display module brings its own classes
         return {"monitor": display.Monitor, "panel": display.Panel, "web_panel": display.WebPanel}[info["kind"]](info)
@@ -1024,6 +1027,16 @@ class Network:
     def web_panels(self):
         """Every web panel on the network."""
         return self.devices("web_panel")
+
+    def tablet(self, key=None):
+        """A Tablet paired with this network's antenna: by the name of the player carrying
+        it, its name or its address; with no argument, the only one paired. See the
+        display module's Tablet."""
+        return _wrap(_call("tablet_find", key))
+
+    def tablets(self):
+        """Every Tablet paired with this network's antenna."""
+        return [_wrap(i) for i in _call("tablets")]
 
     def monitors(self):
         """Every text monitor on the network."""

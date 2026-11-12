@@ -1509,7 +1509,55 @@ their games, not how many screens there are:
 - **Scripts:** each player's game runs the scripts of the 8 nearest scripted Web Panels at a time;
   the others wait, showing their last picture, until you come closer.
 
+- **Tablets:** only the player holding a tablet is sent its screen, and only the selected tab's.
+  A tablet's Web Panel scripts run first among that player's scripted panels.
+
 Widgets bound straight to an action without code are planned but not built.
+
+### 7c.7 Tablets: a screen in your hand
+
+A **Tablet** is a screen you carry. It has an Infinite antenna inside, so it works anywhere, in
+any dimension.
+
+**Crafting:** `ISI` / `ICI` / `IAI`: iron ingots around an LCD Screen, an Integrated Circuit and an
+Infinite Antenna.
+
+| Do | Get |
+|---|---|
+| Sneak and right-click a network's antenna | Pairs the tablet with that network: a new tab. Do it again to unpair. The antenna's access setting decides who may pair (private: its owner only). Pair with the network's router, its first antenna |
+| Right-click in the air | The tablet's view: its tabs along the top, the selected tab's screen below. Click a tab to switch. Touch, drag and type as in a screen's close-up view |
+| Hold it | The selected tab's screen shows on the tablet in your hand, live |
+
+**Tabs, not fights.** Each network a tablet is paired with (up to 8) has a screen of its own on
+it: a tab. A network's programs only ever draw on their own tab, and you pick which tab shows.
+Programs on one network share its tab, as they share a Control Panel.
+
+**Programs.** A network's programs reach the tablets paired with it through its antenna:
+
+```python
+from logistics import network
+net = network()
+tab = net.tablet()          # the only tablet paired; or net.tablet("Steve"): by its player, name or address
+tab.title = "Reactor"       # what this network's tab says (until set: the antenna's name or address)
+panel = tab.panel()         # the tab's screen as a Control Panel: 12 x 8 cells
+mon = tab.monitor()         # ...or a Text Monitor: 45 x 20 characters
+web = tab.web_panel()       # ...or a Web Panel: 384 x 256 CSS pixels
+```
+
+| Call | Gives |
+|---|---|
+| `net.tablet(key=None)` | A tablet paired with this network: by the name of the player carrying it, its item name (rename it on an anvil) or its address; with no key, the only one |
+| `net.tablets()` | Every tablet paired with this network |
+| `tab.title` | What this network's tab says; set it to name the tab |
+| `tab.holder` | The player who carried it last |
+| `tab.monitor()`, `tab.panel()`, `tab.web_panel()` | This network's screen on it, as that kind of screen, with everything that kind can do (sections 7c.4 to 7c.5b) |
+| `tab.refresh()` | Looks it up again (who carries it) |
+
+The screen is as big as a display 3 blocks wide and 2 high. It is one kind at a time: asking for
+another kind starts it blank as that kind. Touches and clicks reach programs as a screen's do,
+from the player holding the tablet; their events also have `.tablet` (True) and `.title`. What a
+program draws is kept with the world, so a tablet shows it again when picked up. A tablet nobody
+has carried for 30 days is forgotten, with its pairings.
 
 **Recipes (placeholders):** Text Monitor (makes 2): `III` / `ISI` / `ICI` (iron, an LCD Screen,
 a cable). Control Panel (makes 2): `BLB` / `ISI` / `ICI` (stone buttons and a lever over iron, an

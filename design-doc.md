@@ -769,6 +769,29 @@ asyncio.run(main())
 - Update rate cap per panel (e.g. 5–10 per second) and a bandwidth cap per panel.
 - Sent only to players within the panel render distance.
 
+### 10.5 Tablets
+
+> **Status (2026-11-12): built** (`docs/reference.md` §7c.7). Decided by the project owner: a
+> handheld display, opened by right-click, with an Infinite antenna in its recipe (so it works
+> anywhere, like the Laptop's); programs reach it with `net.tablet()`; the program picks the
+> screen kind; the screen also shows on the tablet while held; programs name what the tablet
+> shows (`tab.title`).
+
+- **Pairing:** sneak + right-click a network's router antenna (its access setting applies);
+  again to unpair. Up to 8 networks per tablet.
+- **Who controls the screen:** each paired network gets its own screen on the tablet, a tab;
+  the holder picks the tab. Networks never contend for one screen; programs on one network
+  share its tab as they share a Control Panel.
+- **Screen:** 3 x 2 display blocks' worth (12 x 8 panel cells, 45 x 20 characters, 384 x 256
+  CSS pixels). One kind at a time: opening another kind replaces it blank.
+- **Where it lives:** on the server (saved data `qbotics:tablets`), under an ID on the item.
+  Players' games know a tablet screen by a made-up block position at y = 2047, above any
+  world's height, so display sending, drawing and touching work unchanged.
+- **Traffic:** only the holder is sent the screen, and only the selected tab's. Records unseen
+  in any player's inventory for 30 days (real time) are dropped.
+- **In hand:** a special item renderer draws the screen on the model's glass in first and
+  third person; elsewhere (inventory, ground, frames) the plain model.
+
 ---
 
 ## 11. Peripherals and mod integration
@@ -1716,6 +1739,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-12 | Tablets: a handheld screen with an Infinite antenna; paired with networks by their antennas, a tab per network (the holder picks), drawn on with `net.tablet()` as any kind of screen, titled by the program, and shown on the tablet while held (§10.5) | Built 2026-11-12 |
 | 2026-11-12 | Displays can lie on floors and ceilings: placed looking steeply down (pitch over 50 degrees) at a top face, or up at an underside, the screen lies flat with its top edge pointing away from the player. Block states gain six facings and `top`; flat screens join only screens lying the same way | Built 2026-11-12 |
 | 2026-11-10 | Look: whitish iron with redstone red; the plates carry no arrows because their shapes show direction | Decided |
 | 2026-11-10 | Network Probe: a hand tool that reads a device's name and addresses with one-click copy, and names the device. Names are the recommended way to address many devices in code | Built; to confirm |

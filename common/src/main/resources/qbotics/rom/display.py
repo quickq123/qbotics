@@ -16,6 +16,10 @@
     power = panel.gauge("Power", 0, 1000, unit="FE", at=(0, 2), span=(4, 1))
     power.value = 640
 
+    tab = net.tablet()                   # a Tablet paired with this network's antenna
+    tab.title = "Reactor"                # what its tab says
+    tpanel = tab.panel()                 # its screen, as a Control Panel (or .monitor(), .web_panel())
+
     web = net.web_panel("factory")       # a Web Panel: HTML and CSS
     web.show("/app/index.html")          # its page; {{iron}} in it shows web.state["iron"]
     web.state["iron"] = 128
@@ -41,7 +45,7 @@ def _draw(display, method, *args):
     # rebuilt, or the chunk reloaded) is replaced once, by looking the display up again.
     for attempt in (0, 1):
         if display._handle is None:
-            display._handle = _call("display_open", display.mac)["handle"]
+            display._handle = display._open()
         reply = _host.wait(_host.submit(json.dumps(["draw", display._handle, method] + list(args))))
         if reply is None:
             raise NetworkError("the call was interrupted")
@@ -60,6 +64,12 @@ class _Display(Device):
     def __init__(self, info):
         Device.__init__(self, info)
         self._handle = None
+        self._kind = None     # on a tablet: the kind of screen this program wants it to be
+
+    def _open(self):
+        if self._kind is None:
+            return _call("display_open", self.mac)["handle"]
+        return _call("display_open", self.mac, self._kind)["handle"]
 
     def size(self):
         """(columns, rows): characters on a monitor, grid cells on a panel."""
@@ -472,3 +482,66 @@ class WebPanel(_Display):
             return lambda f: (self.on_click(f), f)[1]
         events._on_display(self.mac, None, "web", function)
         return function
+
+
+class Tablet:
+    """A Tablet paired with this network: a screen a player carries. Pair one by sneaking and
+    right-clicking the network's antenna with it. This network has a tab of its own on it,
+    which shows whatever this network's programs draw; the player picks which tab shows.
+
+        tab = net.tablet()           # the only tablet paired; or by player, name or address
+        tab.title = "Reactor"        # what the tab says (the antenna's name until set)
+        panel = tab.panel()          # the screen as a Control Panel...
+        mon = tab.monitor()          # ...a Text Monitor...
+        web = tab.web_panel()        # ...or a Web Panel (384 x 256 CSS pixels)
+
+    The screen is as big as a display 3 blocks wide and 2 high. It is one kind at a time:
+    asking for another kind starts it blank as that kind."""
+
+    def __init__(self, info):
+        self._update(info)
+
+    def _update(self, info):
+        self._info = info
+        self.mac = info["mac"]          # the tablet's hardware address
+        self.name = info["name"]        # its name as an item (renamed on an anvil), or ""
+        self.holder = info["holder"]    # the player who carried it last
+        self.kind = "tablet"
+        self.ip = ""
+        self._title = info["title"]
+
+    @property
+    def title(self):
+        """What this network's tab on the tablet says. "" shows the antenna's name."""
+        return self._title
+
+    @title.setter
+    def title(self, text):
+        _call("tablet_title", self.mac, str(text))
+        self._title = str(text)
+
+    def _screen(self, cls, kind):
+        screen = cls(dict(self._info, kind=kind))
+        screen._kind = kind
+        return screen
+
+    def monitor(self):
+        """This network's screen on the tablet, as a Text Monitor (45 x 20 characters)."""
+        return self._screen(Monitor, "monitor")
+
+    def panel(self):
+        """This network's screen on the tablet, as a Control Panel (12 x 8 cells)."""
+        return self._screen(Panel, "panel")
+
+    def web_panel(self):
+        """This network's screen on the tablet, as a Web Panel (384 x 256 CSS pixels)."""
+        return self._screen(WebPanel, "web_panel")
+
+    def refresh(self):
+        """Looks the tablet up again: who carries it, its name."""
+        self._update(_call("tablet_find", self.mac))
+        return self
+
+    def __repr__(self):
+        name = ' "%s"' % self.name if self.name else ""
+        return "<tablet%s %s, carried by %s>" % (name, self.mac, self.holder or "nobody")

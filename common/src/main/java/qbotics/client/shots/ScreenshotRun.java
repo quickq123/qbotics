@@ -437,6 +437,24 @@ public final class ScreenshotRun {
         view("17c-themed-panel", new Vec3(28.0, 1.4, 2.6), new Vec3(28.0, 1.0, 0.5));
         then(5, minecraft -> onServer(minecraft, ScreenshotRun::buildFlatScreens));
         view("17d-flat-screens", new Vec3(32.0, 3.2, 5.2), new Vec3(32.0, 0.0, 1.5));
+        then(5, minecraft -> {
+            minecraft.options.hideGui = false;
+            onServer(minecraft, ScreenshotRun::buildTablet);
+        });
+        view("19-tablet-held", new Vec3(37.0, 1.6, 6.0), new Vec3(37.0, 1.6, 0.0));
+        then(5, minecraft -> onServer(minecraft, player ->
+                qbotics.display.Tablets.get(player.level().getServer()).open(player, player.getMainHandItem())));
+        then(20, minecraft -> shot(minecraft, "19b-tablet-view"));
+        then(5, minecraft -> {
+            minecraft.setScreen(null);
+            minecraft.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
+        });
+        then(10, minecraft -> shot(minecraft, "19c-tablet-third-person"));
+        then(5, minecraft -> {
+            minecraft.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+            minecraft.options.hideGui = true;
+            onServer(minecraft, player -> player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY));
+        });
         then(10, minecraft -> {
             minecraft.options.hideGui = false;
             onServer(minecraft, player -> {
@@ -684,6 +702,39 @@ public final class ScreenshotRun {
                 point.addProperty("value", 50 + 30 * Math.sin(i / 6.0) + (i % 7) * 2);
                 draw(c, "set", 8, point);
             }
+        }
+    }
+
+    /** A tablet in the player's hand, paired with two networks; the second ("Reactor") draws a panel on it. */
+    private static void buildTablet(ServerPlayer player) {
+        var level = player.level();
+        qbotics.display.Tablets tablets = qbotics.display.Tablets.get(level.getServer());
+        ItemStack stack = new ItemStack(QboticsContent.TABLET_ITEM.get());
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+        String[] names = {"Storage", "Reactor"};
+        for (int i = 0; i < 2; i++) {
+            BlockPos at = base.offset(36 + 3 * i, 0, -1);
+            level.setBlock(at, QboticsContent.ANTENNA_SHORT_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            if (level.getBlockEntity(at) instanceof qbotics.block.AntennaBlockEntity antenna) {
+                antenna.setAccess(qbotics.network.RadioNetwork.Access.PUBLIC);
+                antenna.setDeviceName(names[i]);
+                tablets.pair(player, stack, antenna);
+            }
+        }
+        qbotics.display.Tablets.App app = tablets.of(stack).selectedApp();
+        if (app != null) {
+            tablets.setTitle(app, "Reactor");
+            var c = tablets.use(app, "panel");
+            draw(c, "clear");
+            draw(c, "theme", "dark");
+            draw(c, "add", widget("label", "Reactor 1", 0, 0, 12, 1));
+            draw(c, "add", widget("dial", "Heat", 0, 1, 3, 3, "min", 0, "max", 100, "value", 64, "unit", "%"));
+            draw(c, "add", widget("gauge", "Power", 3, 1, 9, 1, "min", 0, "max", 1000, "value", 720, "unit", "FE"));
+            draw(c, "add", widget("toggle", "Pump", 3, 2, 4, 1, "value", 1));
+            draw(c, "add", widget("button", "Scram", 8, 2, 4, 1, "color", "red"));
+            draw(c, "add", widget("item", "Fuel", 3, 3, 2, 2, "item", "minecraft:blaze_rod", "value", 24));
+            draw(c, "add", widget("readout", "Steam", 5, 3, 7, 1, "value", 318, "unit", "mB/t"));
+            draw(c, "add", widget("lamp", "Ok", 0, 5, 3, 1, "value", 1, "color", "lime"));
         }
     }
 

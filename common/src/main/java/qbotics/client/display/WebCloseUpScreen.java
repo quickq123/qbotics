@@ -23,6 +23,8 @@ public class WebCloseUpScreen extends Screen {
     private static final int KEY_KP_ENTER = 335;
 
     private final BlockPos origin;
+    /** The tablet this is the view of, or null for a Web Panel block. */
+    private final java.util.@org.jspecify.annotations.Nullable UUID tablet;
     private float left;
     private float top;
     private float scale = 1;
@@ -64,8 +66,18 @@ public class WebCloseUpScreen extends Screen {
     }
 
     public WebCloseUpScreen(BlockPos origin) {
-        super(Component.translatable("screen.qbotics.close_up"));
+        this(origin, null);
+    }
+
+    /** A tablet's view: its tabs above the page. */
+    public WebCloseUpScreen(BlockPos origin, java.util.@org.jspecify.annotations.Nullable UUID tablet) {
+        super(Component.translatable(tablet == null ? "screen.qbotics.close_up" : "item.qbotics.tablet"));
         this.origin = origin;
+        this.tablet = tablet;
+    }
+
+    private int bar() {
+        return tablet == null ? 0 : ClientTablets.BAR;
     }
 
     @Override
@@ -75,6 +87,10 @@ public class WebCloseUpScreen extends Screen {
 
     @Override
     public void tick() {
+        if (tablet != null) {
+            ClientTablets.tick(this, tablet, origin, true);
+            return;
+        }
         if (minecraft != null && minecraft.player != null
                 && minecraft.player.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(origin)) > 12 * 12) {
             onClose();
@@ -93,15 +109,18 @@ public class WebCloseUpScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        if (tablet != null) {
+            ClientTablets.drawBar(graphics, font, tablet, width, mouseX, mouseY);
+        }
         ClientWebPanels.WebView view = ClientWebPanels.view(origin);
         Identifier texture = view == null ? null : ClientWebPanels.texture(view);
         if (view == null || texture == null) {
             graphics.centeredText(font, Component.translatable("screen.qbotics.close_up_waiting"), width / 2, height / 2, 0xFFFFFFFF);
             return;
         }
-        scale = Math.max(0.1f, Math.min((width - 24) / (float) view.width(), (height - 40) / (float) view.height()));
+        scale = Math.max(0.1f, Math.min((width - 24) / (float) view.width(), (height - 40 - bar()) / (float) view.height()));
         left = (width - view.width() * scale) / 2;
-        top = (height - 16 - view.height() * scale) / 2;
+        top = bar() + (height - 16 - bar() - view.height() * scale) / 2;
         int x0 = Math.round(left);
         int y0 = Math.round(top);
         int x1 = Math.round(left + view.width() * scale);
@@ -136,7 +155,7 @@ public class WebCloseUpScreen extends Screen {
         if (error != null) {
             // A script's last error, for whoever is writing the page.
             String line = error.lines().findFirst().orElse("");
-            graphics.centeredText(font, Component.literal(line.length() > 120 ? line.substring(0, 120) + "..." : line), width / 2, 4, 0xFFFF7070);
+            graphics.centeredText(font, Component.literal(line.length() > 120 ? line.substring(0, 120) + "..." : line), width / 2, 4 + bar(), 0xFFFF7070);
         }
     }
 
@@ -177,6 +196,9 @@ public class WebCloseUpScreen extends Screen {
             return true;
         }
         if (super.mouseClicked(event, doubleClick)) {
+            return true;
+        }
+        if (tablet != null && ClientTablets.clickBar(font, tablet, event.x(), event.y())) {
             return true;
         }
         float[] at = at(event.x(), event.y());

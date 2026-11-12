@@ -10,6 +10,7 @@ right-click with an empty hand** to see it close up (on a Web Panel: hover, scro
 | `panel` | Control Panel | `panel.py`: a switch, buttons, a slider, a gauge and a readout that players use |
 | `web_storage` | Web Panel | `storage.py`: a storage browser with item pictures, a search box and a scrolling list (HTML and CSS) |
 | `web_dashboard` | Web Panel | `dashboard.py`: a live chart drawn by the page's JavaScript, and a button that talks back to the program |
+| `tablet` | Tablet | `tablet.py`: a panel on a tablet you carry, named "Base" on its tab. Pair the tablet with this network's antenna first (sneak + right-click it) |
 
 Run each from its own folder, for example:
 

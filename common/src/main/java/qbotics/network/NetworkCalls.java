@@ -526,8 +526,50 @@ public final class NetworkCalls {
                 qbotics.block.WorldPlates.sense(level, pin); // starts from what is there now
                 return JsonNull.INSTANCE;
             }
+            case "tablet_find": {
+                // ["tablet_find", key]: a tablet paired with this network, by address, name or the player carrying it.
+                AntennaBlockEntity antenna = router(network);
+                qbotics.display.Tablets tablets = qbotics.display.Tablets.get(level.getServer());
+                try {
+                    return tablets.describe(tablets.find(antenna.deviceId(), string(args, 1)), antenna.deviceId());
+                } catch (IllegalArgumentException e) {
+                    throw new CallError(e.getMessage());
+                }
+            }
+            case "tablets": {
+                // ["tablets"]: every tablet paired with this network.
+                AntennaBlockEntity antenna = network.gateway();
+                JsonArray list = new JsonArray();
+                if (antenna != null) {
+                    qbotics.display.Tablets tablets = qbotics.display.Tablets.get(level.getServer());
+                    tablets.pairedWith(antenna.deviceId()).forEach(tablet -> list.add(tablets.describe(tablet, antenna.deviceId())));
+                }
+                return list;
+            }
+            case "tablet_title": {
+                // ["tablet_title", mac, title]: names this network's tab on the tablet.
+                qbotics.display.Tablets.App app = tabletApp(level, network, args);
+                qbotics.display.Tablets.get(level.getServer()).setTitle(app, string(args, 2) == null ? "" : string(args, 2));
+                return JsonNull.INSTANCE;
+            }
             case "display_open": {
                 // ["display_open", mac]: a handle for drawing on a monitor or panel (see Displays.drawFast).
+                // ["display_open", mac, kind]: on a tablet, its screen for this network, made that kind.
+                if (args.size() > 2) {
+                    qbotics.display.Tablets.App app = tabletApp(level, network, args);
+                    qbotics.display.ScreenContent content;
+                    try {
+                        content = qbotics.display.Tablets.get(level.getServer()).use(app, string(args, 2));
+                    } catch (IllegalArgumentException e) {
+                        throw new CallError(e.getMessage());
+                    }
+                    qbotics.computer.ServerComputer computer = runningAt(level, computerPos);
+                    JsonObject opened = new JsonObject();
+                    opened.addProperty("width", qbotics.display.Tablets.WIDTH);
+                    opened.addProperty("height", qbotics.display.Tablets.HEIGHT);
+                    opened.addProperty("handle", qbotics.display.Displays.openTablet(level, computerPos, computer.deviceId(), content));
+                    return opened;
+                }
                 NetworkDevice device = byMac(network, args, 1);
                 if (!(device instanceof qbotics.block.DisplayBlockEntity display) || display.content() == null) {
                     throw new CallError("Only a text monitor, a control panel or a web panel can be drawn on; this is " + article(device) + ".");
@@ -546,6 +588,13 @@ public final class NetworkCalls {
             }
             case "display_listen": {
                 // ["display_listen", mac, session]: this computer wants the display's touches pushed to it.
+                AntennaBlockEntity gateway = network.gateway();
+                qbotics.display.Tablets.App tabletApp = gateway == null || args.get(1).isJsonNull() ? null
+                        : qbotics.display.Tablets.get(level.getServer()).app(gateway.deviceId(), args.get(1).getAsString());
+                if (tabletApp != null) {
+                    tabletApp.content().listeners().put(runningAt(level, computerPos).deviceId(), args.get(2).getAsInt());
+                    return JsonNull.INSTANCE;
+                }
                 NetworkDevice device = byMac(network, args, 1);
                 if (!(device instanceof qbotics.block.DisplayBlockEntity display)) {
                     throw new CallError("Only a text monitor, a control panel or a web panel is touched; this is " + article(device) + ".");
@@ -1507,6 +1556,17 @@ public final class NetworkCalls {
             default:
                 throw new CallError("A laptop isn't on a cable network: it reaches computers and Qbots with ssh (ssh 100.64.0.12:1005).");
         }
+    }
+
+    /** This network's screen on the tablet a program named by its address. */
+    private static qbotics.display.Tablets.App tabletApp(ServerLevel level, CableNetwork network, JsonArray args) {
+        AntennaBlockEntity antenna = router(network);
+        String mac = string(args, 1);
+        qbotics.display.Tablets.App app = mac == null ? null : qbotics.display.Tablets.get(level.getServer()).app(antenna.deviceId(), mac);
+        if (app == null) {
+            throw new CallError("That tablet is no longer paired with this network.");
+        }
+        return app;
     }
 
     private static AntennaBlockEntity router(CableNetwork network) {

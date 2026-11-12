@@ -85,6 +85,9 @@ public final class QboticsContent {
     public static Supplier<BlockEntityType<AntennaBlockEntity>> ANTENNA_BLOCK_ENTITY;
     /** On a computer item: which drive (folder of files) it carries. */
     public static Supplier<DataComponentType<UUID>> DRIVE_ID;
+    /** A tablet (design doc §10.6), and the ID its screens are kept under. */
+    public static Supplier<? extends net.minecraft.world.item.Item> TABLET_ITEM;
+    public static Supplier<DataComponentType<UUID>> TABLET_ID;
 
     private QboticsContent() {
     }

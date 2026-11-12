@@ -125,6 +125,8 @@ public final class QboticsNeoForge {
     private static final DeferredItem<net.minecraft.world.item.Item> RAM_ITEM = ITEMS.registerSimpleItem("ram");
     /** A laptop (design doc §5.6): a player's own carried computer. */
     private static final DeferredItem<qbotics.laptop.LaptopItem> LAPTOP_ITEM = ITEMS.registerItem("laptop", qbotics.laptop.LaptopItem::new);
+    /** A tablet (design doc §10.6): a screen in the hand. */
+    static final DeferredItem<qbotics.tablet.TabletItem> TABLET_ITEM = ITEMS.registerItem("tablet", qbotics.tablet.TabletItem::new);
     private static final DeferredBlock<qbotics.qbot.QbotPartBlock> QBOT_PART = BLOCKS.registerBlock("qbot_part", qbotics.qbot.QbotPartBlock::new,
             properties -> properties.noOcclusion().noLootTable());
     static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.qbot.QbotBlockEntity>> QBOT_BLOCK_ENTITY =
@@ -285,6 +287,7 @@ public final class QboticsNeoForge {
                         output.accept(IRON_QBOT_ITEM.get());
                         output.accept(SERVER_ITEM.get());
                         output.accept(LAPTOP_ITEM.get());
+                        output.accept(TABLET_ITEM.get());
                         output.accept(TRANSPORT_UPGRADE.get());
                         output.accept(CHUNK_LOADER_UPGRADE.get());
                         output.accept(LIQUID_CRYSTAL_PANEL.get());
@@ -302,6 +305,10 @@ public final class QboticsNeoForge {
             DATA_COMPONENTS.registerComponentType("drive_id",
                     builder -> builder.persistent(UUIDUtil.CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC));
     /** On a hard drive: the ID its files are kept under. */
+    /** On a tablet: the ID its screens are kept under. */
+    private static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> TABLET_ID =
+            DATA_COMPONENTS.registerComponentType("tablet_id",
+                    builder -> builder.persistent(UUIDUtil.CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC));
     private static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> MEDIA_ID =
             DATA_COMPONENTS.registerComponentType("media_id",
                     builder -> builder.persistent(UUIDUtil.CODEC).networkSynchronized(UUIDUtil.STREAM_CODEC));
@@ -327,6 +334,8 @@ public final class QboticsNeoForge {
         QboticsContent.CABLE_BLOCK = CABLE;
         QboticsContent.DRIVE_ID = DRIVE_ID;
         QboticsContent.MEDIA_ID = MEDIA_ID;
+        QboticsContent.TABLET_ID = TABLET_ID;
+        QboticsContent.TABLET_ITEM = TABLET_ITEM;
         QboticsContent.DRIVE_BAY_BLOCK_ENTITY = DRIVE_BAY_BLOCK_ENTITY;
         QboticsContent.UPLINK_BLOCK_ENTITY = UPLINK_BLOCK_ENTITY;
         QboticsContent.UPLINK_BLOCK = UPLINK;
@@ -660,6 +669,13 @@ public final class QboticsNeoForge {
                 .playToClient(qbotics.net.DisplayPayloads.Panel.TYPE, qbotics.net.DisplayPayloads.Panel.STREAM_CODEC)
                 .playToClient(qbotics.net.DisplayPayloads.OpenCloseUp.TYPE, qbotics.net.DisplayPayloads.OpenCloseUp.STREAM_CODEC)
                 .playToClient(qbotics.net.DisplayPayloads.Web.TYPE, qbotics.net.DisplayPayloads.Web.STREAM_CODEC)
+                .playToClient(qbotics.net.TabletPayloads.State.TYPE, qbotics.net.TabletPayloads.State.STREAM_CODEC)
+                .playToClient(qbotics.net.TabletPayloads.Open.TYPE, qbotics.net.TabletPayloads.Open.STREAM_CODEC)
+                .playToServer(qbotics.net.TabletPayloads.Select.TYPE, qbotics.net.TabletPayloads.Select.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.display.Tablets.get(player.level().getServer()).select(player, payload.tablet(), payload.index());
+                    }
+                })
                 .playToServer(qbotics.net.DisplayPayloads.WebClick.TYPE, qbotics.net.DisplayPayloads.WebClick.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         qbotics.display.Displays.onWebClick(player, payload);

@@ -381,16 +381,21 @@ public final class ClientWebPanels {
         if (player == null) {
             return false;
         }
-        double mine = player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(view.origin));
+        double mine = distance(player, view);
         int nearer = 0;
         long now = System.currentTimeMillis();
         for (WebView other : VIEWS.values()) {
             if (other != view && WebScript.hasScripts(other.html) && now - other.lastSeen < 3000
-                    && player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(other.origin)) < mine) {
+                    && distance(player, other) < mine) {
                 nearer++;
             }
         }
         return nearer < MAX_RUNNING_SCRIPTS;
+    }
+
+    /** How far a panel is, squared: a tablet's screen is in the player's hand. */
+    private static double distance(net.minecraft.world.entity.player.Player player, WebView view) {
+        return qbotics.display.Tablets.isKey(view.origin) ? 0 : player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(view.origin));
     }
 
     /** Animation and timers: the scripts are woken again, at most 20 times a second, while someone is looking. */

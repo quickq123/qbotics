@@ -36,10 +36,6 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         this.items = context.itemModelResolver();
     }
 
-    /** An item icon over a Web Panel's page: where (CSS pixels) and the item, ready to draw. */
-    record WebItem(float x, float y, float width, float height, net.minecraft.client.renderer.item.ItemStackRenderState item) {
-    }
-
     public static final class State extends BlockEntityRenderState {
         boolean origin;
         Direction facing = Direction.NORTH;
@@ -48,10 +44,6 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         int width;
         int height;
         @Nullable Object view;
-        /** A Web Panel's picture, its width in CSS pixels, and the item icons over it. */
-        net.minecraft.resources.@Nullable Identifier texture;
-        int pageWidth;
-        List<WebItem> webItems = List.of();
     }
 
     @Override
@@ -78,21 +70,6 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         state.width = display.screenWidth();
         state.height = display.screenHeight();
         state.view = state.origin ? ClientDisplays.view(display.getBlockPos()) : null;
-        state.texture = state.view instanceof ClientWebPanels.WebView web ? ClientWebPanels.texture(web) : null;
-        state.webItems = List.of();
-        if (state.view instanceof ClientWebPanels.WebView web && !web.overlays().isEmpty()) {
-            state.pageWidth = web.width();
-            List<WebItem> found = new ArrayList<>();
-            for (qbotics.web.WebPainter.Overlay overlay : web.overlays()) {
-                net.minecraft.world.item.ItemStack stack = WebItems.stack(overlay.url());
-                if (!stack.isEmpty()) {
-                    var item = new net.minecraft.client.renderer.item.ItemStackRenderState();
-                    items.updateForTopItem(item, stack, net.minecraft.world.item.ItemDisplayContext.GUI, display.getLevel(), null, 0);
-                    found.add(new WebItem(overlay.x(), overlay.y(), overlay.width(), overlay.height(), item));
-                }
-            }
-            state.webItems = found;
-        }
     }
 
     @Override
@@ -100,37 +77,48 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         if (!state.origin || state.view == null) {
             return;
         }
-        if (state.view instanceof ClientWebPanels.WebView) {
-            submitWeb(state, poseStack, collector);
-            return;
-        }
-        int virtualW;
-        int virtualH;
-        boolean text = state.view instanceof ClientDisplays.TextView;
-        if (state.view instanceof ClientDisplays.TextView view) {
-            virtualW = DisplayDrawing.textWidth(view);
-            virtualH = DisplayDrawing.textHeight(view);
-        } else if (state.view instanceof ClientDisplays.PanelView view) {
-            virtualW = DisplayDrawing.panelWidth(view);
-            virtualH = DisplayDrawing.panelHeight(view);
-        } else {
-            return;
-        }
         poseStack.pushPose();
         // Turn so that x runs to the screen's right, y up, and z out of its face.
         poseStack.translate(0.5, 0.5, 0.5);
         poseStack.mulPose(state.turn);
         poseStack.translate(-0.5 + INSET, 0.5 - INSET, 0.5 + 0.003);
-        float sx = (state.width - 2 * INSET) / virtualW;
-        float sy = (state.height - 2 * INSET) / virtualH;
+        drawPicture(state.view, state.width - 2 * INSET, state.height - 2 * INSET, poseStack, collector, font, items);
+        poseStack.popPose();
+    }
+
+    /**
+     * Draws what a screen shows (a text, panel or web view), w by h, with the pose at its
+     * top-left corner: x to the right, y up and z out of it. For display blocks and tablets.
+     */
+    public static void drawPicture(Object view, float w, float h, PoseStack poseStack, SubmitNodeCollector collector, Font font,
+            net.minecraft.client.renderer.item.ItemModelResolver items) {
+        if (view instanceof ClientWebPanels.WebView web) {
+            drawWeb(web, w, h, poseStack, collector, items);
+            return;
+        }
+        int virtualW;
+        int virtualH;
+        boolean text = view instanceof ClientDisplays.TextView;
+        if (view instanceof ClientDisplays.TextView textView) {
+            virtualW = DisplayDrawing.textWidth(textView);
+            virtualH = DisplayDrawing.textHeight(textView);
+        } else if (view instanceof ClientDisplays.PanelView panelView) {
+            virtualW = DisplayDrawing.panelWidth(panelView);
+            virtualH = DisplayDrawing.panelHeight(panelView);
+        } else {
+            return;
+        }
+        poseStack.pushPose();
+        float sx = w / virtualW;
+        float sy = h / virtualH;
         // y downwards from here, as on a screen (like a sign's text).
         poseStack.scale(sx, -sy, sx);
 
         WorldCanvas canvas = new WorldCanvas(font, text ? 0 : 0.02f);
-        if (state.view instanceof ClientDisplays.TextView view) {
-            DisplayDrawing.drawText(canvas, view);
+        if (view instanceof ClientDisplays.TextView textView) {
+            DisplayDrawing.drawText(canvas, textView);
         } else {
-            DisplayDrawing.drawPanel(canvas, (ClientDisplays.PanelView) state.view);
+            DisplayDrawing.drawPanel(canvas, (ClientDisplays.PanelView) view);
         }
         List<WorldCanvas.Fill> fills = canvas.fills;
         collector.submitCustomGeometry(poseStack, RenderTypes.textBackground(), (pose, buffer) -> {
@@ -169,33 +157,34 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         poseStack.popPose();
     }
 
-    /** A Web Panel: its page's picture over the whole face. */
-    private static void submitWeb(State state, PoseStack poseStack, SubmitNodeCollector collector) {
-        if (state.texture == null) {
+    /** A Web Panel's page: its picture over the whole face, and the item icons over that. */
+    private static void drawWeb(ClientWebPanels.WebView web, float w, float h, PoseStack poseStack, SubmitNodeCollector collector,
+            net.minecraft.client.renderer.item.ItemModelResolver items) {
+        net.minecraft.resources.Identifier texture = ClientWebPanels.texture(web);
+        if (texture == null) {
             return;
         }
-        poseStack.pushPose();
-        poseStack.translate(0.5, 0.5, 0.5);
-        poseStack.mulPose(state.turn);
-        poseStack.translate(-0.5 + INSET, 0.5 - INSET, 0.5 + 0.003);
-        float w = state.width - 2 * INSET;
-        float h = state.height - 2 * INSET;
-        collector.submitCustomGeometry(poseStack, RenderTypes.text(state.texture), (pose, buffer) -> {
+        collector.submitCustomGeometry(poseStack, RenderTypes.text(texture), (pose, buffer) -> {
             buffer.addVertex(pose, 0, 0, 0).setColor(-1).setUv(0, 0).setLight(FULL_BRIGHT);
             buffer.addVertex(pose, 0, -h, 0).setColor(-1).setUv(0, 1).setLight(FULL_BRIGHT);
             buffer.addVertex(pose, w, -h, 0).setColor(-1).setUv(1, 1).setLight(FULL_BRIGHT);
             buffer.addVertex(pose, w, 0, 0).setColor(-1).setUv(1, 0).setLight(FULL_BRIGHT);
         });
         // Item icons, as the inventory draws them, flattened onto the face.
-        float unit = state.pageWidth > 0 ? w / state.pageWidth : 0;
-        for (WebItem item : state.webItems) {
+        float unit = web.width() > 0 ? w / web.width() : 0;
+        for (qbotics.web.WebPainter.Overlay overlay : web.overlays()) {
+            net.minecraft.world.item.ItemStack stack = WebItems.stack(overlay.url());
+            if (stack.isEmpty()) {
+                continue;
+            }
+            var item = new net.minecraft.client.renderer.item.ItemStackRenderState();
+            items.updateForTopItem(item, stack, net.minecraft.world.item.ItemDisplayContext.GUI, net.minecraft.client.Minecraft.getInstance().level, null, 0);
             poseStack.pushPose();
-            poseStack.translate((item.x() + item.width() / 2) * unit, -(item.y() + item.height() / 2) * unit, 0.01f);
-            poseStack.scale(item.width() * unit, item.height() * unit, 0.01f);
-            item.item().submit(poseStack, collector, FULL_BRIGHT, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, 0);
+            poseStack.translate((overlay.x() + overlay.width() / 2) * unit, -(overlay.y() + overlay.height() / 2) * unit, 0.01f);
+            poseStack.scale(overlay.width() * unit, overlay.height() * unit, 0.01f);
+            item.submit(poseStack, collector, FULL_BRIGHT, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, 0);
             poseStack.popPose();
         }
-        poseStack.popPose();
     }
 
     @Override
