@@ -34,6 +34,11 @@ public class IdeScreen extends Screen implements IdeView.Host {
         view.openFile(path);
     }
 
+    /** Brings the line the program paused on into view. */
+    void showLine(String path, int line) {
+        view.showLine(path, line);
+    }
+
     /** Screen pixels per font pixel: about one for every 500 pixels of window height. */
     private int pixelSize() {
         return zoom > 0 ? zoom : Math.max(1, this.minecraft.getWindow().getHeight() / 500);

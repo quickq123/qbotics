@@ -438,7 +438,10 @@ public final class QboticsNeoForge {
 
             @Override
             public void sendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
-                PacketDistributor.sendToPlayer(player, payload);
+                // A connection that can't take it (a test's stand-in player) is skipped, not an error.
+                if (player.connection != null && player.connection.hasChannel(payload)) {
+                    PacketDistributor.sendToPlayer(player, payload);
+                }
             }
 
             @Override
@@ -572,6 +575,7 @@ public final class QboticsNeoForge {
         event.registrar("1")
                 // The client-side handler is registered in QboticsNeoForgeClient.
                 .playToClient(TerminalStatePayload.TYPE, TerminalStatePayload.STREAM_CODEC)
+                .playToClient(qbotics.net.TracePayload.TYPE, qbotics.net.TracePayload.STREAM_CODEC)
                 .playToClient(IdePayloads.FileResponse.TYPE, IdePayloads.FileResponse.STREAM_CODEC)
                 .playToClient(IdePayloads.ScratchResult.TYPE, IdePayloads.ScratchResult.STREAM_CODEC)
                 .playToClient(IdePayloads.OpenFile.TYPE, IdePayloads.OpenFile.STREAM_CODEC)

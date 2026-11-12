@@ -112,6 +112,17 @@ final class CodeView {
 
     // ---- drawing -----------------------------------------------------------------
 
+    /** The line the program is on (0-based), marked green while it runs and amber while paused; -1 for none. */
+    int runLine = -1;
+    boolean runPaused;
+
+    /** Scrolls so a line (0-based) is in view. */
+    void reveal(int line) {
+        if (line < scrollLine || line >= scrollLine + visibleLines()) {
+            scrollLine = Math.max(0, line - visibleLines() / 3);
+        }
+    }
+
     void render(Ui ui, Ui.Rect rect, boolean focused, boolean cursorOn) {
         analyse();
         area = rect;
@@ -138,6 +149,11 @@ final class CodeView {
 
             if (currentLine) {
                 ui.fill(rect.x(), y, rect.width(), Ui.CELL_H, Ui.LINE_HIGHLIGHT);
+            }
+            if (line == runLine) {
+                // The program is here: a band across the line, and a mark in the gutter.
+                ui.fill(rect.x(), y, rect.width(), Ui.CELL_H, runPaused ? 0x50F0B030 : 0x3058E060);
+                ui.fill(rect.x(), y, 3, Ui.CELL_H, runPaused ? 0xFFF0B030 : 0xFF58E060);
             }
             // Text scrolled sideways must not show through the line numbers.
             ui.clip(textLeft - 2, rect.y(), rect.right() - textLeft + 2, rect.height());

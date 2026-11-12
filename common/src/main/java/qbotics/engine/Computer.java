@@ -41,6 +41,18 @@ public final class Computer {
     private final ExportFunction setBudget;
     private final ExportFunction heapUsed;
     private final ExportFunction replNeedsMore;
+    /** Where the player's own code is running (vm_split.c), for the editor's current-line display. */
+    private final ExportFunction where;
+    private int whereBuf;
+    private static final int WHERE_CAP = 256;
+    /**
+     * The budget's bits that switch the engine to its traced loop (see mpy_budget_expired):
+     * to step, or (watched) to note the line of the player's code that is running.
+     */
+    private static final int STEP_BIT = 0x40000000;
+    private static final int WATCH_BIT = 0x20000000;
+    /** Whether the last budget handed out asked the engine to note lines. */
+    private boolean watchSent;
 
     /** Where queued world calls go; stands in for the main-thread executor (design doc §2.2). */
     private final Function<String, CompletableFuture<String>> worldCalls;
@@ -90,10 +102,65 @@ public final class Computer {
      */
     public volatile boolean held;
 
+    /** A line of the player's own code: its number and its file ("/startup.py"). */
+    public record Location(int line, String file) {
+    }
+
+    /**
+     * Set while the player steps through the program (F8): it stops at each new line of
+     * their own code. Set while running, it stops at the next one.
+     */
+    public volatile boolean stepping;
+    /** Set while someone has this computer's editor open: then where it is gets noted as it runs. */
+    public volatile boolean watched;
+    /** Where the program was last seen (while watched, or where it paused); null if not in the player's code. */
+    public volatile Location location;
+    /** Told where the program is each time it pauses (Ctrl+Z, Pause, or a step). */
+    public java.util.function.Consumer<Location> onPause;
+
+    /** Where the player's own code is running now, or null. On the computer's thread only. */
+    private Location where() {
+        if (where == null) {
+            return null; // an engine built without it (an older one, in the benchmark)
+        }
+        int line = (int) where.apply(whereBuf, WHERE_CAP)[0];
+        if (line <= 0) {
+            return null;
+        }
+        byte[] raw = instance.memory().readBytes(whereBuf, WHERE_CAP);
+        int n = 0;
+        while (n < raw.length && raw[n] != 0) {
+            n++;
+        }
+        return new Location(line, new String(raw, 0, n, StandardCharsets.UTF_8));
+    }
+
+    private static ExportFunction optionalExport(Instance instance, String name) {
+        try {
+            return instance.export(name);
+        } catch (RuntimeException missing) {
+            return null;
+        }
+    }
+
+    /** Notes where the program is, if someone is watching. Cheap: a few frames are looked at. */
+    private void sample() {
+        if (watched) {
+            location = where();
+        }
+    }
+
     /** Waits while paused (or until stopped). With the CPU held, it is given up while waiting. */
     private void holdWhilePaused(boolean holdingCpu) {
         if (!paused && !held) {
             return;
+        }
+        if (paused) {
+            Location here = where();
+            location = here;
+            if (onPause != null && !stepping) {
+                onPause.accept(here); // a step's pause is shown by the editor, not the terminal
+            }
         }
         if (holdingCpu) {
             releaseCpu();
@@ -180,10 +247,12 @@ public final class Computer {
         setBudget = instance.export("mpy_set_budget");
         heapUsed = instance.export("mpy_heap_used");
         replNeedsMore = instance.export("mpy_repl_needs_more");
+        where = optionalExport(instance, "mpy_where");
         long rc = instance.export("mpy_init").apply(heapBytes)[0];
         if (rc != 0) {
             throw new IllegalStateException("mpy_init failed: " + rc + " " + takeOutput());
         }
+        whereBuf = (int) alloc.apply(WHERE_CAP)[0];
     }
 
     /** Runs a script. Returns true if it finished without an uncaught Python exception. */
@@ -250,6 +319,16 @@ public final class Computer {
         }
     }
 
+    /**
+     * After a sleep or a world call, if a step was asked for (or watching began or ended): end
+     * the slice at once, so the engine is told at the very next chance rather than a slice later.
+     */
+    private void stepSoon() {
+        if (stepping || watched != watchSent) {
+            setBudget.apply(1);
+        }
+    }
+
     /** Returns everything printed since the last call. */
     public String takeOutput() {
         String s = output.toString();
@@ -285,6 +364,7 @@ public final class Computer {
                     (inst, args) -> new long[] {System.nanoTime() / 1000}),
             new HostFunction("host", "sleep_ms", FunctionType.of(List.of(I32), List.of(I32)),
                     (inst, args) -> {
+                        sample();
                         releaseCpu();
                         try {
                             // Sleep in short steps so a stop request doesn't wait out a long sleep.
@@ -304,6 +384,7 @@ public final class Computer {
                         } finally {
                             acquireCpu();
                         }
+                        stepSoon();
                         return new long[] {takeStop() ? 1 : 0};
                     }),
             new HostFunction("host", "slice", FunctionType.of(List.of(), List.of(I32)),
@@ -319,13 +400,17 @@ public final class Computer {
                             case HARD:
                                 throw new HardStop();
                             default:
+                                sample();
                                 holdWhilePaused(true);
                                 // End of slice: let any waiting computer have the core.
                                 if (cpu != null && cpu.hasQueuedThreads()) {
                                     cpu.release();
                                     cpu.acquireUninterruptibly();
                                 }
-                                return new long[] {sliceBudget};
+                                // Watched or stepping, the engine runs its traced loop (vm_split.c);
+                                // otherwise its plain one, which costs nothing extra.
+                                watchSent = watched;
+                                return new long[] {sliceBudget | (stepping ? STEP_BIT : 0) | (watched ? WATCH_BIT : 0)};
                         }
                     }),
             new HostFunction("host", "submit", FunctionType.of(List.of(I32, I32), List.of(I32)),
@@ -385,6 +470,18 @@ public final class Computer {
                         instance.memory().write((int) args[0], java.util.Arrays.copyOf(bytes, length));
                         return new long[] {length};
                     }),
+            new HostFunction("host", "line", FunctionType.of(List.of(I32), List.of(I32)),
+                    (inst, args) -> {
+                        // Stepping, and the program reached a new line of the player's code: hold it there.
+                        if (stepping && stop == StopMode.NONE) {
+                            paused = true;
+                            holdWhilePaused(true);
+                        }
+                        if (stop == StopMode.HARD) {
+                            throw new HardStop();
+                        }
+                        return new long[] {stepping ? 1 : 0};
+                    }),
             new HostFunction("host", "wait", FunctionType.of(List.of(I32, I32, I32, I32), List.of(I32)),
                     (inst, args) -> new long[] {
                         await((int) args[0], (int) args[1], (int) args[2], (int) args[3])
@@ -439,6 +536,7 @@ public final class Computer {
             }
         }
         holdWhilePaused(true); // paused while the world answered: hold here, with the answer kept
+        stepSoon();
         byte[] bytes = result.getBytes(StandardCharsets.UTF_8);
         if (bytes.length > MAX_RESULT_BYTES) {
             bytes = "error:the answer is too large for this computer".getBytes(StandardCharsets.UTF_8);

@@ -63,6 +63,8 @@ enum {
     VM_RETURN,          // function returned; value in *code_state->sp
     VM_YIELD,           // generator yielded; value in *code_state->sp
     VM_RETURN_EXCEPTION, // unrecoverable; exception in code_state->state[0]
+    VM_SWITCH,          // tracing started or stopped: carry on in the other copy of the loop
+    VM_BACK,            // (vm_enter_traced) tracing stopped: the plain loop carries on
 };
 
 typedef struct _vm_t {
@@ -77,6 +79,7 @@ typedef struct _vm_t {
     mp_obj_t inject_exc;
     mp_obj_t raise_obj;
     int status;
+    int traced;                     // which copy of the loop is running (0 plain)
 } vm_t;
 
 // The names py/vm.c uses for its locals, so handler bodies read the same.
@@ -181,7 +184,7 @@ typedef struct _vm_t {
 #define OP(name) static MP_NOINLINE const byte *op_##name(vm_t *vm, const byte *ip)
 #define SP_LOAD() mp_obj_t *sp = vm->sp
 #define DISPATCH() do { vm->sp = sp; return ip; } while (0)
-#define DISPATCH_WITH_PEND_EXC_CHECK() do { vm->sp = sp; vm_pending_check(); return ip; } while (0)
+#define DISPATCH_WITH_PEND_EXC_CHECK() do { vm->sp = sp; if (vm_pending_check(vm)) { return vm_switch(vm, ip); } return ip; } while (0)
 #define STOP(why) do { vm->status = (why); return NULL; } while (0)
 // Raising directly (without nlr) lets the exception handler run without a longjmp.
 #define RAISE(o) do { vm->raise_obj = (o); STOP(VM_RAISE); } while (0)
@@ -189,8 +192,29 @@ typedef struct _vm_t {
 // We've just done a branch, use this as a convenient point to run periodic
 // code/checks: not _every_ instruction, but on average a branch should occur
 // every few instructions. May raise (via nlr).
-static inline void vm_pending_check(void) {
-    MICROPY_VM_HOOK_LOOP
+//
+// It also counts the host's budget (MICROPY_VM_HOOK_LOOP, written out here). Only when the
+// budget runs out, the rare branch, can the host have asked for line tracing to start or
+// stop; then this returns true and the loop switches copies. The rare paths are out of
+// line, so the handlers stay as small as before (the JVM compiles small methods best).
+extern int32_t mpy_trace;
+
+static MP_NOINLINE bool vm_budget_out(vm_t *vm) {
+    mpy_budget_expired();
+    return mpy_trace != vm->traced;
+}
+
+static MP_NOINLINE const byte *vm_switch(vm_t *vm, const byte *at) {
+    code_state->ip = at;
+    code_state->sp = vm->sp;
+    vm->status = VM_SWITCH;
+    return NULL;
+}
+
+static inline bool vm_pending_check(vm_t *vm) {
+    if (--mpy_budget <= 0 && vm_budget_out(vm)) {
+        return true;
+    }
 
     // Check for pending exceptions or scheduled tasks to run.
     if (
@@ -206,6 +230,7 @@ static inline void vm_pending_check(void) {
     ) {
         mp_handle_pending(MP_HANDLE_PENDING_CALLBACKS_AND_EXCEPTIONS);
     }
+    return false;
 }
 
 #if MICROPY_PY_BUILTINS_SLICE
@@ -539,7 +564,9 @@ OP(ROT_THREE) {
 OP(JUMP) {
     DECODE_SLABEL;
     ip += slab;
-    vm_pending_check();
+    if (vm_pending_check(vm)) {
+        return vm_switch(vm, ip);
+    }
     return ip;
 }
 
@@ -744,7 +771,9 @@ OP(POP_EXCEPT_JUMP) {
     POP_EXC_BLOCK();
     DECODE_ULABEL;
     ip += ulab;
-    vm_pending_check();
+    if (vm_pending_check(vm)) {
+        return vm_switch(vm, ip);
+    }
     return ip;
 }
 
@@ -1048,129 +1077,146 @@ OP(UNKNOWN) {
 
 // Runs opcodes until the function returns, yields or raises directly.
 // An exception raised by a callee leaves through nlr (longjmp) instead.
-static MP_NOINLINE int vm_run(vm_t *vm) {
-    mp_code_state_t *const cs = code_state;
-    const byte *ip = cs->ip;
-    vm->sp = cs->sp;
+// ---- where the program is, and stepping (for the editor) -------------------
+//
+// The plain copy of the dispatch loop does nothing extra, so a program nobody watches pays
+// nothing. While someone has its editor open (watching) or steps through it, the host
+// switches the program to the traced copy (vm_loop.inc), which calls vm_trace before each
+// opcode. vm_trace notes the last line of the player's own code that ran: while their code
+// is inside a library (qbot.py), that is the line that called it, which is what the editor
+// highlights. Stepping stops at each new line of their code.
 
-    // If we have exception to inject, now that we finish setting up
-    // execution context, raise it. This works as if MP_BC_RAISE_OBJ
-    // bytecode was executed.
-    // Injecting exc into yield from generator is a special case,
-    // handled by MP_BC_YIELD_FROM itself
-    if (vm->inject_exc != MP_OBJ_NULL && *ip != MP_BC_YIELD_FROM) {
-        mp_obj_t exc = vm->inject_exc;
-        vm->inject_exc = MP_OBJ_NULL;
-        vm->raise_obj = mp_make_raise_obj(exc);
-        return VM_RAISE;
+int32_t mpy_trace = 0;     // run the traced loop (watching or stepping); set from the budget
+int32_t mpy_stepping = 0;  // stop at each new line of the player's code; set from the budget
+int32_t mpy_where_line = 0;   // the last line of the player's own code that ran (0: none yet)
+qstr mpy_where_file = 0;      // its file
+
+// The player's own files are on the drive, so their names start with "/"; the libraries
+// built into the engine (qbot.py, logistics.py) and typed lines (<stdin>) don't.
+static bool own_file(qstr file) {
+    size_t len;
+    const byte *name = qstr_data(file, &len);
+    return len > 0 && name[0] == '/';
+}
+
+// The host is told of each new line of the player's code while stepping; it returns
+// whether to go on stepping (it may hold the program there first).
+__attribute__((import_module("host"), import_name("line"))) int32_t host_line(int32_t line);
+
+// What vm_trace worked out last: a function, the stretch of its bytecode on one line, that
+// line and file. Most opcodes fall in the same stretch as the one before, so most calls of
+// vm_trace are three comparisons.
+static mp_code_state_t *line_cs;
+static const byte *line_lo;
+static const byte *line_hi;
+static size_t line_no;
+static bool line_own;
+
+// The line of an opcode, and the stretch of bytecode [lo, hi) that is on the same line.
+static void find_line(mp_code_state_t *cs, const byte *at) {
+    const byte *ip = cs->fun_bc->bytecode;
+    MP_BC_PRELUDE_SIG_DECODE(ip);
+    MP_BC_PRELUDE_SIZE_DECODE(ip);
+    (void)n_state; (void)n_exc_stack; (void)scope_flags; (void)n_def_pos_args;
+    const byte *line_info_top = ip + n_info;
+    const byte *bytecode_start = ip + n_info + n_cell;
+    size_t bc = at - bytecode_start;
+    ip = mp_decode_uint_skip(ip); // the block's name
+    for (size_t i = 0; i < n_pos_args + n_kwonly_args; ++i) {
+        ip = mp_decode_uint_skip(ip);
     }
-
-    for (;;) {
-        // The exception handler needs the ip of the opcode being executed.
-        cs->ip = ip;
-        switch (*ip++) {
-            // The simplest and most frequent opcodes are done right here.
-            case MP_BC_LOAD_CONST_FALSE: *++vm->sp = mp_const_false; continue;
-            case MP_BC_LOAD_CONST_NONE: *++vm->sp = mp_const_none; continue;
-            case MP_BC_LOAD_CONST_TRUE: *++vm->sp = mp_const_true; continue;
-            case MP_BC_LOAD_NULL: *++vm->sp = MP_OBJ_NULL; continue;
-            case MP_BC_DUP_TOP: { mp_obj_t *sp = vm->sp; sp[1] = sp[0]; vm->sp = sp + 1; continue; }
-            case MP_BC_POP_TOP: vm->sp -= 1; continue;
-            case MULTI(MP_BC_LOAD_CONST_SMALL_INT_MULTI):
-                *++vm->sp = MP_OBJ_NEW_SMALL_INT((mp_int_t)ip[-1] - MP_BC_LOAD_CONST_SMALL_INT_MULTI - MP_BC_LOAD_CONST_SMALL_INT_MULTI_EXCESS);
-                continue;
-            case MULTI(MP_BC_LOAD_FAST_MULTI): {
-                mp_obj_t obj = fastn[MP_BC_LOAD_FAST_MULTI - (mp_int_t)ip[-1]];
-                if (obj == MP_OBJ_NULL) {
-                    ip = vm_local_name_error(vm);
-                    break;
-                }
-                *++vm->sp = obj;
-                continue;
-            }
-            case MULTI(MP_BC_STORE_FAST_MULTI):
-                fastn[MP_BC_STORE_FAST_MULTI - (mp_int_t)ip[-1]] = *vm->sp--;
-                continue;
-
-            case MP_BC_LOAD_CONST_SMALL_INT: CALL(LOAD_CONST_SMALL_INT);
-            case MP_BC_LOAD_CONST_STRING: CALL(LOAD_CONST_STRING);
-            case MP_BC_LOAD_CONST_OBJ: CALL(LOAD_CONST_OBJ);
-            case MP_BC_LOAD_FAST_N: CALL(LOAD_FAST_N);
-            case MP_BC_LOAD_DEREF: CALL(LOAD_DEREF);
-            case MP_BC_LOAD_NAME: CALL(LOAD_NAME);
-            case MP_BC_LOAD_GLOBAL: CALL(LOAD_GLOBAL);
-            case MP_BC_LOAD_ATTR: CALL(LOAD_ATTR);
-            case MP_BC_LOAD_METHOD: CALL(LOAD_METHOD);
-            case MP_BC_LOAD_SUPER_METHOD: CALL(LOAD_SUPER_METHOD);
-            case MP_BC_LOAD_BUILD_CLASS: CALL(LOAD_BUILD_CLASS);
-            case MP_BC_LOAD_SUBSCR: CALL(LOAD_SUBSCR);
-            case MP_BC_STORE_FAST_N: CALL(STORE_FAST_N);
-            case MP_BC_STORE_DEREF: CALL(STORE_DEREF);
-            case MP_BC_STORE_NAME: CALL(STORE_NAME);
-            case MP_BC_STORE_GLOBAL: CALL(STORE_GLOBAL);
-            case MP_BC_STORE_ATTR: CALL(STORE_ATTR);
-            case MP_BC_STORE_SUBSCR: CALL(STORE_SUBSCR);
-            case MP_BC_DELETE_FAST: CALL(DELETE_FAST);
-            case MP_BC_DELETE_DEREF: CALL(DELETE_DEREF);
-            case MP_BC_DELETE_NAME: CALL(DELETE_NAME);
-            case MP_BC_DELETE_GLOBAL: CALL(DELETE_GLOBAL);
-            case MP_BC_DUP_TOP_TWO: CALL(DUP_TOP_TWO);
-            case MP_BC_ROT_TWO: CALL(ROT_TWO);
-            case MP_BC_ROT_THREE: CALL(ROT_THREE);
-            case MP_BC_JUMP: CALL(JUMP);
-            case MP_BC_POP_JUMP_IF_TRUE: CALL(POP_JUMP_IF_TRUE);
-            case MP_BC_POP_JUMP_IF_FALSE: CALL(POP_JUMP_IF_FALSE);
-            case MP_BC_JUMP_IF_TRUE_OR_POP: CALL(JUMP_IF_TRUE_OR_POP);
-            case MP_BC_JUMP_IF_FALSE_OR_POP: CALL(JUMP_IF_FALSE_OR_POP);
-            case MP_BC_SETUP_WITH: CALL(SETUP_WITH);
-            case MP_BC_WITH_CLEANUP: CALL(WITH_CLEANUP);
-            case MP_BC_UNWIND_JUMP: CALL(UNWIND_JUMP);
-            case MP_BC_SETUP_EXCEPT:
-            case MP_BC_SETUP_FINALLY: CALL(SETUP_EXCEPT_OR_FINALLY);
-            case MP_BC_END_FINALLY: CALL(END_FINALLY);
-            case MP_BC_GET_ITER: CALL(GET_ITER);
-            case MP_BC_GET_ITER_STACK: CALL(GET_ITER_STACK);
-            case MP_BC_FOR_ITER: CALL(FOR_ITER);
-            case MP_BC_POP_EXCEPT_JUMP: CALL(POP_EXCEPT_JUMP);
-            case MP_BC_BUILD_TUPLE: CALL(BUILD_TUPLE);
-            case MP_BC_BUILD_LIST: CALL(BUILD_LIST);
-            case MP_BC_BUILD_MAP: CALL(BUILD_MAP);
-            case MP_BC_STORE_MAP: CALL(STORE_MAP);
-            #if MICROPY_PY_BUILTINS_SET
-            case MP_BC_BUILD_SET: CALL(BUILD_SET);
-            #endif
-            #if MICROPY_PY_BUILTINS_SLICE
-            case MP_BC_BUILD_SLICE: CALL(BUILD_SLICE);
-            #endif
-            case MP_BC_STORE_COMP: CALL(STORE_COMP);
-            case MP_BC_UNPACK_SEQUENCE: CALL(UNPACK_SEQUENCE);
-            case MP_BC_UNPACK_EX: CALL(UNPACK_EX);
-            case MP_BC_MAKE_FUNCTION: CALL(MAKE_FUNCTION);
-            case MP_BC_MAKE_FUNCTION_DEFARGS: CALL(MAKE_FUNCTION_DEFARGS);
-            case MP_BC_MAKE_CLOSURE: CALL(MAKE_CLOSURE);
-            case MP_BC_MAKE_CLOSURE_DEFARGS: CALL(MAKE_CLOSURE_DEFARGS);
-            case MP_BC_CALL_FUNCTION: CALL(CALL_FUNCTION);
-            case MP_BC_CALL_FUNCTION_VAR_KW: CALL(CALL_FUNCTION_VAR_KW);
-            case MP_BC_CALL_METHOD: CALL(CALL_METHOD);
-            case MP_BC_CALL_METHOD_VAR_KW: CALL(CALL_METHOD_VAR_KW);
-            case MP_BC_RETURN_VALUE: ip = vm_unwind_return(vm, ip, vm->sp); break;
-            case MP_BC_RAISE_LAST: CALL(RAISE_LAST);
-            case MP_BC_RAISE_OBJ: CALL(RAISE_OBJ);
-            case MP_BC_RAISE_FROM: CALL(RAISE_FROM);
-            case MP_BC_YIELD_VALUE: ip = vm_yield(vm, ip, vm->sp); break;
-            case MP_BC_YIELD_FROM: CALL(YIELD_FROM);
-            case MP_BC_IMPORT_NAME: CALL(IMPORT_NAME);
-            case MP_BC_IMPORT_FROM: CALL(IMPORT_FROM);
-            case MP_BC_IMPORT_STAR: CALL(IMPORT_STAR);
-            case MULTI(MP_BC_UNARY_OP_MULTI): CALL(UNARY_OP_MULTI);
-            case MULTI(MP_BC_BINARY_OP_MULTI): CALL(BINARY_OP_MULTI);
-            default: CALL(UNKNOWN);
+    #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+    qstr file = cs->fun_bc->context->constants.qstr_table[0];
+    #else
+    qstr file = cs->fun_bc->context->constants.source_file;
+    #endif
+    // As mp_bytecode_get_source_line, noting where the line's stretch begins and ends.
+    size_t line = 1;
+    size_t pos = 0;
+    size_t until = (size_t)-1;
+    const byte *info = ip;
+    while (info < line_info_top) {
+        mp_code_lineinfo_t decoded = mp_bytecode_decode_lineinfo(&info);
+        if (bc >= decoded.bc_increment) {
+            bc -= decoded.bc_increment;
+            pos += decoded.bc_increment;
+            line += decoded.line_increment;
+        } else {
+            until = pos + decoded.bc_increment;
+            break;
         }
-        if (MP_UNLIKELY(ip == NULL)) {
-            return vm->status;
+    }
+    line_cs = cs;
+    line_lo = bytecode_start + pos;
+    line_hi = until == (size_t)-1 ? (const byte *)-1 : bytecode_start + until;
+    line_no = line;
+    line_own = own_file(file);
+    if (line_own) {
+        mpy_where_file = file;
+    }
+}
+
+// Stepping: where the last stop was, so a new line (or the same line again, after a jump
+// back for the next turn of a loop) is told apart from the next opcode of the same line.
+static mp_code_state_t *step_cs;
+static size_t step_line;
+static const byte *step_at;
+
+// Runs before each opcode in the traced copy of the loop.
+static MP_NOINLINE void vm_trace(mp_code_state_t *cs, const byte *at) {
+    if (cs != line_cs || at < line_lo || at >= line_hi) {
+        find_line(cs, at);
+    }
+    if (!line_own) {
+        return; // inside a library: the player's last line stays the one that called it
+    }
+    mpy_where_line = (int32_t)line_no;
+    if (!mpy_stepping) {
+        return;
+    }
+    bool fresh = cs != step_cs || line_no != step_line || at < step_at;
+    step_cs = cs;
+    step_line = line_no;
+    step_at = at;
+    if (fresh) {
+        mpy_stepping = host_line((int32_t)line_no);
+    }
+}
+
+// Where the program is, for the host: the last line of the player's own code, and its file.
+int32_t mpy_where_now(qstr *file) {
+    *file = mpy_where_file;
+    return mpy_where_file == 0 ? 0 : mpy_where_line;
+}
+
+static int vm_enter_traced(vm_t *vm);
+
+#define VM_TRACED 1
+#define VM_RUN_NAME vm_run_traced
+#include "vm_loop.inc"
+#undef VM_TRACED
+#undef VM_RUN_NAME
+
+// Runs the traced loop until the function ends (its status) or tracing stops (VM_BACK).
+static MP_NOINLINE int vm_enter_traced(vm_t *vm) {
+    for (;;) {
+        vm->traced = mpy_trace;
+        int s = vm_run_traced(vm);
+        if (s != VM_SWITCH) {
+            return s;
+        }
+        if (!mpy_trace) {
+            vm->traced = 0;
+            return VM_BACK;
         }
     }
 }
+
+#define VM_TRACED 0
+#define VM_RUN_NAME vm_run
+#include "vm_loop.inc"
+#undef VM_TRACED
+#undef VM_RUN_NAME
 
 // ---- exception handling ----------------------------------------------------
 
@@ -1277,6 +1323,7 @@ mp_vm_return_kind_t MICROPY_WRAP_MP_EXECUTE_BYTECODE(mp_execute_bytecode)(mp_cod
         vm.inject_exc = inject_exc;
         vm.raise_obj = MP_OBJ_NULL;
         vm.status = 0;
+        vm.traced = 0;
     }
 
     // outer exception handling loop

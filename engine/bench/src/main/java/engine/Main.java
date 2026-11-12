@@ -103,13 +103,47 @@ public final class Main {
         Engine compiled = Engine.compiled(wasm);
         System.out.printf("parse + compile to JVM:    %7.0f ms  (one-time; build-time compilation removes it)%n", ms(t));
 
-        if (args.length > 1 && args[1].equals("throughput")) {
+        if (args.length > 1 && args[1].startsWith("throughput")) {
+            int repeats = args[1].length() > "throughput".length() ? Integer.parseInt(args[1].substring("throughput".length())) : 3;
             for (String name : List.of("loop", "fib", "objects")) {
-                throughput(name, "compiled", compiled, Files.readString(scripts.resolve(name + ".py")), 3);
+                throughput(name, "compiled", compiled, Files.readString(scripts.resolve(name + ".py")), repeats);
+                watchedThroughput(name, compiled, Files.readString(scripts.resolve(name + ".py")), repeats);
             }
             return;
         }
 
+        if (args.length > 1 && args[1].equals("patrol")) {
+            // A program that mostly sleeps, as Qbot programs do: 20 laps of a call, a print and
+            // a 50 ms sleep (about 1 s). Unwatched, watched, and with watching switched on and
+            // off every 200 ms, as the server does while editors open and close.
+            String src = String.join("\n", "import time", "def report(n):", "    print('lap', n)",
+                    "for n in range(20):", "    report(n)", "    time.sleep(0.05)", "");
+            for (int mode = 0; mode < 3; mode++) {
+                Computer c = new Computer(compiled, SERVER, INSTANT);
+                c.watched = mode == 1;
+                final int m = mode;
+                Thread flipper = new Thread(() -> {
+                    try {
+                        while (m == 2) {
+                            Thread.sleep(200);
+                            c.watched = !c.watched;
+                        }
+                    } catch (InterruptedException done) {
+                        // finished
+                    }
+                });
+                flipper.setDaemon(true);
+                flipper.start();
+                long began = System.nanoTime();
+                c.exec(src);
+                double took = ms(began);
+                flipper.interrupt();
+                String out = c.takeOutput().trim();
+                System.out.printf("patrol %-10s %6.0f ms  last: %s  location: %s%n",
+                        new String[] {"unwatched", "watched", "flipping"}[mode], took, out.substring(out.lastIndexOf('\n') + 1), c.location);
+            }
+            return;
+        }
         if (args.length > 1 && args[1].equals("exec")) {
             // Run one script and print what it printed: a quick way to try something on the engine.
             Computer c = new Computer(compiled, SERVER, INSTANT);
@@ -607,6 +641,21 @@ public final class Main {
             }
         }
         return rt.totalMemory() - rt.freeMemory();
+    }
+
+    /** The same while someone watches the program (the editor open): the engine notes each line. */
+    static void watchedThroughput(String name, Engine engine, String source, int runs) {
+        double best = Double.MAX_VALUE;
+        String out = "";
+        for (int i = 0; i < runs; i++) {
+            Computer c = new Computer(engine, SERVER, INSTANT);
+            c.watched = true;
+            long t = System.nanoTime();
+            c.exec(source);
+            best = Math.min(best, ms(t));
+            out = c.takeOutput().trim();
+        }
+        System.out.printf("%-8s %-12s                best %8.0f ms   (result %s)%n", name, "watched", best, out);
     }
 
     static void throughput(String name, String label, Engine engine, String source, int runs) {

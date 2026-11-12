@@ -517,6 +517,44 @@ public final class ComputerManager {
         }
     }
 
+    /** F8 in the editor the player has open. */
+    public void onStep(ServerPlayer player, UUID deviceId) {
+        ServerComputer computer = viewedComputer(player, deviceId);
+        if (computer != null) {
+            computer.step();
+        }
+    }
+
+    /** What each player was last told about where the program they have open is. */
+    private final Map<UUID, ServerComputer.Trace> traceSent = new HashMap<>();
+
+    /**
+     * Computers someone has open note which line they are on (their engine's traced loop;
+     * others run the plain one, at full speed), and those players are told when it changes.
+     */
+    private void updateTraces(MinecraftServer server) {
+        java.util.Set<UUID> open = new java.util.HashSet<>();
+        for (Viewing viewing : viewers.values()) {
+            open.add(viewing.deviceId());
+        }
+        for (Map.Entry<UUID, ServerComputer> entry : computers.entrySet()) {
+            entry.getValue().setWatched(open.contains(entry.getKey()));
+        }
+        traceSent.keySet().retainAll(viewers.keySet());
+        for (Map.Entry<UUID, Viewing> entry : viewers.entrySet()) {
+            ServerComputer computer = computers.get(entry.getValue().deviceId());
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+            if (computer == null || player == null) {
+                continue;
+            }
+            ServerComputer.Trace now = computer.trace();
+            if (!now.equals(traceSent.get(entry.getKey()))) {
+                traceSent.put(entry.getKey(), now);
+                Qbotics.platform().sendToPlayer(player, new qbotics.net.TracePayload(entry.getValue().deviceId(), now.file(), now.line(), now.paused()));
+            }
+        }
+    }
+
     /** The computer a player has open in the editor, or null. */
     public UUID viewedDevice(UUID player) {
         Viewing viewing = viewers.get(player);
@@ -583,6 +621,9 @@ public final class ComputerManager {
         }
         qbotics.network.ScreenSessions.tick(server, session -> NetworkCalls.interfaces(
                 qbotics.network.CableNetwork.at(qbotics.network.ScreenSessions.levelOf(session), qbotics.network.ScreenSessions.busPosOf(session))));
+        if (server.getTickCount() % 4 == 0) {
+            updateTraces(server);
+        }
         if (viewers.isEmpty()) {
             return;
         }

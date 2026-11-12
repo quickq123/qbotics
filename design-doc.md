@@ -1275,6 +1275,34 @@ Measured by the harness in `engine/bench` on the development PC (JDK 21.0.13, Ch
 
 ---
 
+### 14.6 Watching and stepping (2026-11-12)
+
+The editor's current-line display and F8 Step need the engine to know which line of the
+player's code is running. MicroPython's `sys.settrace` can't be used: the split interpreter
+(`vm_split.c`) doesn't support it. Designs tried, measured with `engine/bench` (`throughput`
+mode, best of several runs; loop is tight arithmetic, fib is calls, objects is lists and dicts):
+
+| Design | loop | fib | objects | Notes |
+|---|---|---|---|---|
+| Shipped engine (before) | 225 ms | 120 ms | 390 ms | |
+| A flag test before every opcode | +6% | +3% | 0% | Paid by every program |
+| A list of running frames, pushed and popped per call | 0% | **+10%** | 0% | The stores on every call cost more than expected under Chicory |
+| Two copies of the loop, chosen in `mp_execute_bytecode` | 0% | **+12-15%** | 0% | That function runs on every call; growing it slowed calls |
+| **Two copies, the plain loop handing over to the traced one itself** (built) | **0%** | **+0-5% (noise)** | **0%** | |
+
+The built design: `vm_loop.inc` is compiled twice. The **plain** copy does nothing extra. It
+hands over to the **traced** copy only at its entry (one flag test per call) and on its rare
+switch exit, raised from the time-slice checkpoint's "budget ran out" branch, so its hot path
+is unchanged. The host asks for tracing through two spare bits of the budget it hands out
+(watching: someone has the editor open; stepping), so nothing is written into a running engine
+from another thread. The traced copy calls `vm_trace` before each opcode, which keeps the
+stretch of bytecode on the current line and only decodes line numbers again outside it, and
+notes the last line of the player's own code (files whose names start with "/"; libraries and
+typed lines don't). Stepping calls the host (`line` import) at each new line, which holds the
+program there. Watched cost: loop about 2x, fib about 1.6x, objects about 1.07x. Programs that
+mostly sleep or wait on the world (Qbots) keep their pace (`patrol` mode: 1,016 ms unwatched,
+1,017 ms watched). Engine size +5.4 KB (673,693 bytes).
+
 ## 15. Configuration reference
 
 ### 15.1 Server (`config/qbotics-server.toml`; the `[limits]`, `[boot]` and `[scheduler]` settings below that exist so far are built, see `docs/reference.md` §9b)
@@ -1571,7 +1599,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-11 | Logic Pin, Placer and Breaker built (§11.0.1), with the defaults listed there: strong power from an output pin, `wait_for` on counted events, netherite-tool speed for the Breaker, and placeholder recipes. Cables are now solid to fluids | Built 2026-11-11 |
 | 2026-11-11 | The cable's model is built in code: the block state keeps only the arms, and every cable has a block entity that keeps its plates (kind, medium, identity), which the model reads when drawing. Clears the way for the Logic Pin, Placer and Breaker (§11.0.1). Plates from worlds saved before this are dropped | Built 2026-11-11 |
 | 2026-11-11 | Much later: a recipe viewer (JEI) hands the player ready-made `Recipe` code for a recipe | Idea; not designed |
-| 2026-11-12 | The Laptop (mid to late game): shapeless USB + Computer (its files copied in under /imported/) + Infinite Antenna. One laptop computer, shell and set of files per player, whichever laptop item is used, so two laptops never work on the same files apart. Runs while its player is online and carries a laptop, else held (paused), so absent or banned players' programs stop. Two hard-drive slots (sneak + right-click in the air) at /net/disks/disk1-2. Built-in Infinite antenna: ssh to any antenna in its dimension and Infinite ones in others, all frequencies, access rules apply; not on a cable network. Config laptops.enabled. Direct connection: right-clicking a computer or Qbot of yours with the laptop opens its editor and terminal (others: ssh). Ctrl+Z pauses and resumes in every terminal (through ssh too). Next: live current-line display with Step | Steps 1-2 built 2026-11-12 |
+| 2026-11-12 | The Laptop (mid to late game): shapeless USB + Computer (its files copied in under /imported/) + Infinite Antenna. One laptop computer, shell and set of files per player, whichever laptop item is used, so two laptops never work on the same files apart. Runs while its player is online and carries a laptop, else held (paused), so absent or banned players' programs stop. Two hard-drive slots (sneak + right-click in the air) at /net/disks/disk1-2. Built-in Infinite antenna: ssh to any antenna in its dimension and Infinite ones in others, all frequencies, access rules apply; not on a cable network. Config laptops.enabled. Direct connection: right-clicking a computer or Qbot of yours with the laptop opens its editor and terminal (others: ssh). Ctrl+Z pauses and resumes in every terminal (through ssh too). Step 3: the editor marks the running line (green, amber while paused), Ctrl+Z says where it paused, F8 steps line by line; free for programs nobody watches (§14.6) | Built 2026-11-12 |
 | 2026-11-12 | Qbots have no programming interface of their own, to raise the bar for programming bots (you rarely reprogram a machine on the fly): right-click opens its storage screen with Run (Resume while paused), Pause (a breakpoint: holds at the next step, sleep or returning world call) and Stop (kills it; Python restarts). The screen shows the state and the last two printed lines. Programs come from a Programmer, which also starts them; a running program restarts after a reload. The Qbot keeps its shell, so `ssh` still reaches it: a planned laptop will use ssh to program bots and networks on the fly. A **Log** button shows its whole output read-only, for debugging | Built 2026-11-12 |
 | 2026-11-12 | Changed items and recipes are removed outright for now (one playtester); no legacy items | Decided |
 | 2026-11-12 | Screens in two tiers, for early and mid game: LCD Screen (from Liquid Crystal Panels: glass panes, RGB dye, redstone; then redstone torches and panes) for the Computer and Text Monitor; LED Screen (from Light Emitting Diodes: glowstone and RGB dye; then gold and glass) for the Control Panel. The old Screen is removed | Built 2026-11-12 |

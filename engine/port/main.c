@@ -22,6 +22,8 @@ extern char __stack_high;
 static char *heap;
 
 int32_t mpy_budget = 0x7fffffff;
+extern int32_t mpy_where_line; // vm_split.c: the last line of the player's own code that ran
+extern qstr mpy_where_file;
 
 // Start the interpreter with a fixed heap (design doc §3.4). Returns 0 on success.
 WASM_EXPORT("mpy_init") int mpy_init(uint32_t heap_size) {
@@ -60,6 +62,8 @@ WASM_EXPORT("mpy_free") void mpy_free(void *ptr) {
 // expression is printed, as at the Python prompt.
 // Returns 0 on success, 1 if it ended with an uncaught exception.
 WASM_EXPORT("mpy_exec") int mpy_exec(const char *src, uint32_t len, int repl) {
+    mpy_where_line = 0; // nothing of this run has been seen yet
+    mpy_where_file = 0;
     nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0) {
         mp_lexer_t *lex = mp_lexer_new_from_str_len(MP_QSTR__lt_stdin_gt_, src, len, 0);
@@ -87,6 +91,28 @@ WASM_EXPORT("mpy_set_budget") void mpy_set_budget(int32_t budget) {
     mpy_budget = budget;
 }
 
+// Where the program is, for the editor (see vm_split.c): the line of the player's own code
+// that is running, with its file's name copied into buf (up to cap bytes, then a 0).
+// Returns the line, or 0 if no code of theirs is running.
+extern int32_t mpy_where_now(qstr *file);
+extern int32_t mpy_trace, mpy_stepping;
+
+WASM_EXPORT("mpy_where") int32_t mpy_where(char *buf, int32_t cap) {
+    qstr file = 0;
+    int32_t line = mpy_where_now(&file);
+    if (cap > 0) {
+        buf[0] = 0;
+    }
+    if (line > 0 && cap > 1) {
+        size_t len;
+        const char *name = (const char *)qstr_data(file, &len);
+        size_t n = len < (size_t)(cap - 1) ? len : (size_t)(cap - 1);
+        memcpy(buf, name, n);
+        buf[n] = 0;
+    }
+    return line;
+}
+
 WASM_EXPORT("mpy_gc_collect") void mpy_gc_collect(void) {
     gc_collect();
 }
@@ -98,6 +124,9 @@ WASM_EXPORT("mpy_heap_used") uint32_t mpy_heap_used(void) {
     return (uint32_t)info.used;
 }
 
+#define MPY_STEP_BIT (0x40000000)
+#define MPY_WATCH_BIT (0x20000000)
+
 void mpy_budget_expired(void) {
     int32_t next = host_slice();
     if (next <= 0) {
@@ -105,7 +134,11 @@ void mpy_budget_expired(void) {
         // Ctrl+C. KeyboardInterrupt, as in Python, so "except Exception" doesn't swallow it.
         mp_raise_type(&mp_type_KeyboardInterrupt);
     }
-    mpy_budget = next;
+    // The host asks for the traced loop (vm_split.c) with high bits of the budget: one
+    // while someone watches (to note the line), one to step.
+    mpy_stepping = (next & MPY_STEP_BIT) != 0;
+    mpy_trace = mpy_stepping ? 1 : (next & MPY_WATCH_BIT) != 0 ? 2 : 0;
+    mpy_budget = next & ~(MPY_STEP_BIT | MPY_WATCH_BIT);
 }
 
 // Conservative GC roots. `wasm-opt --spill-pointers` guarantees every live

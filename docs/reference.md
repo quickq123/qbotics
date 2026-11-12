@@ -90,6 +90,7 @@ which loses the variables typed at the `>>>` prompt but not your files.
 | Key | What it does |
 |---|---|
 | F5 | Saves and runs the open Python file |
+| F8 | Steps the running program to the next line of your code and holds it there (section 1.6) |
 | Ctrl+S | Saves |
 | Ctrl+F, Ctrl+H | Find; find and replace. F3 and Shift+F3 step through matches |
 | Ctrl+Space | Suggests completions |
@@ -109,7 +110,8 @@ Resting the mouse on a function name shows how to call it and what it does.
 |---|---|
 | Drag | Selects text. Double-click selects a word |
 | Ctrl+C | Copies the selection; with nothing selected, stops the program |
-| Ctrl+Z | Pauses the running program where it is (`[paused]`); again, it carries on. In an ssh session it pauses the program on the computer logged in to |
+| Ctrl+Z | Pauses the running program where it is, and says where: `[paused at line 10 of /patrol.py]`; again, it carries on. In an ssh session it pauses the program on the computer logged in to |
+| F8 | Steps the paused (or running) program to its next line (section 1.6) |
 | Ctrl+V | Pastes; each pasted line is entered |
 | Right-click | Copy, Copy All, Paste, Select All |
 | Click on the line being typed | Puts the cursor there |
@@ -118,6 +120,24 @@ Resting the mouse on a function name shows how to call it and what it does.
 | Backspace, Delete | Deletes before or after the cursor; with Ctrl, a word |
 | Up, Down | Earlier commands |
 | Page Up, Page Down, wheel | Scrolls back through output. End returns |
+
+### 1.6 Watching a program run, and stepping through it
+
+While a computer's editor is open (on the computer, by ssh, or a laptop connected to a Qbot),
+the editor marks the line of **your own code** the program is on: **green** while it runs,
+**amber** while it is paused. While your code is inside a library (a `qbot.forward()` that is
+still moving, a `time.sleep`), the marked line is the one that called it.
+
+- **Ctrl+Z** pauses the program there; the editor opens that file at that line, and the terminal
+  says `[paused at line N of /file.py]`. Ctrl+Z again carries on.
+- **F8** steps: the program runs to the next line of your code and holds there. A loop's lines
+  come round again each turn, and stepping goes into your own functions. F8 while it runs
+  stops it at the next line. Ctrl+Z carries on at full speed.
+- Ctrl+C still stops it at any time.
+
+Watching costs nothing to programs nobody has open. A program whose editor is open runs a
+little slower (for typical programs, which mostly wait on the world, not noticeably; tight
+number-crunching loops at about half speed), and only while it is open.
 
 ### 1.4 The scratchpad
 
@@ -1445,7 +1465,7 @@ your laptop gets *their* laptop computer, not yours.
 - A laptop isn't on a cable network, so calls such as `network().bus()` say to use ssh.
 - `laptops.enabled = false` in the server config stops laptops opening.
 
-Not yet: showing the line a program is on as it runs or is paused, with a Step key.
+Its editor shows the line a program is on, and F8 steps through it (section 1.6).
 
 ## 8. The Network Probe
 

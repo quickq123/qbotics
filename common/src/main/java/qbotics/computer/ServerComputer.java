@@ -93,8 +93,55 @@ public final class ServerComputer {
         if (!running || current == null) {
             return; // nothing running: nothing to pause
         }
-        current.paused = !current.paused;
-        terminal.write(current.paused ? "\n[paused - Ctrl+Z carries on, Ctrl+C stops]\n" : "[carrying on]\n");
+        if (current.paused) {
+            current.stepping = false;
+            current.paused = false;
+            terminal.write("[carrying on]\n");
+        } else {
+            current.paused = true; // it says where, as it stops (see newVm)
+        }
+    }
+
+    /**
+     * F8: runs the program to the next line of the player's own code and holds it there.
+     * Pressed while it runs, it stops at the next line. Ctrl+Z then carries on as normal.
+     */
+    public void step() {
+        ServerComputer remote = sshRemote;
+        if (remote != null) {
+            remote.step();
+            return;
+        }
+        Computer current = vm;
+        if (!running || current == null) {
+            return;
+        }
+        current.stepping = true;
+        current.paused = false;
+    }
+
+    /** Someone has this computer's editor open: its program notes which line it is on. */
+    private volatile boolean watched;
+
+    public void setWatched(boolean watch) {
+        watched = watch;
+        Computer current = vm;
+        if (current != null) {
+            current.watched = watch;
+        }
+    }
+
+    /** Where its program is, for the editor: a line of the player's code (or none), and whether it is paused there. */
+    public record Trace(String file, int line, boolean paused) {
+    }
+
+    public Trace trace() {
+        Computer current = vm;
+        if (!running || current == null) {
+            return new Trace("", 0, false);
+        }
+        Computer.Location at = current.location;
+        return new Trace(at == null ? "" : at.file(), at == null ? 0 : at.line(), current.paused);
     }
 
     /** Pause: the program waits where it is until Run (Resume) or Stop. */
@@ -779,6 +826,11 @@ public final class ServerComputer {
         computer.lineReader = this::readInputLine;
         computer.lastsAcrossRuns = RECEIVE_CALL::equals;
         computer.held = held;
+        computer.watched = watched;
+        // A pause says where it stopped (a step's pause is shown by the editor instead).
+        computer.onPause = at -> terminal.write(at == null
+                ? "\n[paused - F8 steps, Ctrl+Z carries on, Ctrl+C stops]\n"
+                : "\n[paused at line " + at.line() + " of " + at.file() + " - F8 steps, Ctrl+Z carries on, Ctrl+C stops]\n");
         vm = computer;
         return computer;
     }

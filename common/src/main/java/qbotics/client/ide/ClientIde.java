@@ -51,6 +51,18 @@ public final class ClientIde {
         return all;
     }
 
+    /** Where the program of an open computer is: its editor marks that line. */
+    public static void onTrace(qbotics.net.TracePayload trace) {
+        IdeSession session = IdeSession.of(trace.deviceId());
+        boolean newlyPaused = trace.paused() && (!session.tracePaused || session.traceLine != trace.line());
+        session.traceFile = trace.file();
+        session.traceLine = trace.line();
+        session.tracePaused = trace.paused();
+        if (newlyPaused && Minecraft.getInstance().screen instanceof IdeScreen screen && screen.session() == session) {
+            screen.showLine(trace.file(), trace.line()); // bring the line it stopped on into view
+        }
+    }
+
     /** The server opened a drive (a Programmer's) in the editor: files only, no terminal. */
     public static void onOpenEditor(IdePayloads.OpenEditor open) {
         IdeSession session = IdeSession.of(open.deviceId());

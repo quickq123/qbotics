@@ -64,6 +64,8 @@ final class IdeSession {
     /** One open file. */
     static final class Tab {
         String path;
+        /** A line (0-based) to bring into view once the file has loaded, or -1. */
+        int revealLine = -1;
         /** Null while the file is still loading or if it couldn't be opened. */
         CodeView view;
         /** Why the file couldn't be opened, or null. */
@@ -82,6 +84,10 @@ final class IdeSession {
     String title = "Computer";
     /** A laptop: it has no settings page (it isn't a block with a name or a login rule). */
     boolean laptop;
+    /** Where the program is (sent while the editor is open): its file, line (1-based, 0 none) and whether paused. */
+    String traceFile = "";
+    int traceLine;
+    boolean tracePaused;
 
     // Explorer
     final Node root = new Node("/", "", true, 0);

@@ -296,7 +296,7 @@ final class IdeView {
         } else if (problem != null) {
             left = "JSON problem on line " + problem.line() + ": " + problem.error();
         } else {
-            left = (session.editOnly ? "" : "F5 Run   ") + "Ctrl+S Save   Ctrl+F Find   Ctrl+H Replace   Ctrl+Space Suggest   Ctrl+/ Comment   Ctrl+Plus/Minus Text size   Esc Close";
+            left = (session.editOnly ? "" : "F5 Run   F8 Step   ") + "Ctrl+S Save   Ctrl+F Find   Ctrl+H Replace   Ctrl+Space Suggest   Ctrl+/ Comment   Ctrl+Plus/Minus Text size   Esc Close";
         }
         String right = "";
         if (tab != null && tab.view != null) {
@@ -578,6 +578,23 @@ final class IdeView {
     }
 
     /** Opens a file in a tab, or switches to its tab if it is already open. */
+    /**
+     * Shows where the program paused: its file (opened if it isn't), scrolled to the line.
+     * Where the player was typing stays where it was.
+     */
+    void showLine(String path, int line) {
+        if (path.isEmpty() || line <= 0) {
+            return;
+        }
+        Focus was = session.focus;
+        openFile(path);
+        session.focus = was;
+        Tab tab = session.active();
+        if (tab != null) {
+            tab.revealLine = line - 1;
+        }
+    }
+
     void openFile(String path) {
         session.focus = Focus.EDITOR;
         session.selectedPath = path;
@@ -922,6 +939,13 @@ final class IdeView {
         if (tab != null && tab.view != null) {
             refreshMatches(tab);
             boolean typingInFind = tab.find.open && tab.find.focused;
+            if (tab.revealLine >= 0) {
+                tab.view.reveal(tab.revealLine);
+                tab.revealLine = -1;
+            }
+            boolean here = session.traceLine > 0 && session.traceFile.equals(tab.path);
+            tab.view.runLine = here ? session.traceLine - 1 : -1;
+            tab.view.runPaused = session.tracePaused;
             tab.view.render(ui, r, session.focus == Focus.EDITOR && dialog == null && !typingInFind, cursorOn);
             if (tab.find.open) {
                 drawFindBar(ui, tab, cursorOn);
@@ -970,7 +994,7 @@ final class IdeView {
         }
         int[] selection = terminalSelection();
         String hint = selection != null ? "Ctrl+C copies the selected text"
-                : session.terminalScroll > 0 ? "Scrolled back - type or press End to return" : "Ctrl+C stops a program   Ctrl+Z pauses   Drag to select";
+                : session.terminalScroll > 0 ? "Scrolled back - type or press End to return" : "Ctrl+C stops a program   Ctrl+Z pauses   F8 steps   Drag to select";
         ui.text(hint, r.right() - ui.textWidth(hint) - 10, r.y() + 3, session.terminalScroll > 0 ? Ui.FOLDER : Ui.TEXT_DIM);
 
         int left = r.x() + 8;
@@ -1509,6 +1533,10 @@ final class IdeView {
         }
         if (key == InputConstants.KEY_F5 && !session.editOnly) {
             runActive();
+            return true;
+        }
+        if (key == InputConstants.KEY_F8 && !session.editOnly) {
+            backend.terminalInput(TerminalInputPayload.STEP, ""); // run to the next line and hold there
             return true;
         }
         if (control && key == InputConstants.KEY_W && session.active() != null) {

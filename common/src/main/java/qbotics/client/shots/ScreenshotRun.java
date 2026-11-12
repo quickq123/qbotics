@@ -481,6 +481,21 @@ public final class ScreenshotRun {
             onServer(minecraft, player -> qbotics.laptop.Laptops.open(player, player.getMainHandItem()));
         });
         then(30, minecraft -> shot(minecraft, "19b-laptop"));
+        // A program running on the laptop, paused: the editor opens it at the line it stopped on.
+        then(2, minecraft -> onServer(minecraft, player -> {
+            qbotics.computer.ServerComputer laptop = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player);
+            try {
+                laptop.drive().call(qbotics.engine.HostFileSystem.WRITE, "/patrol.py", String.join("\n",
+                        "import time", "", "def report(n):", "    print('lap', n)", "", "n = 0", "while True:",
+                        "    n += 1", "    report(n)", "    time.sleep(0.2)", "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                throw new IllegalStateException(e);
+            }
+            laptop.submitRunFile("/patrol.py");
+        }));
+        then(40, minecraft -> onServer(minecraft, player ->
+                qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player).togglePause()));
+        then(30, minecraft -> shot(minecraft, "19c-laptop-paused"));
         then(5, minecraft -> {
             minecraft.setScreen(null);
             minecraft.options.hideGui = true;

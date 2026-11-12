@@ -245,3 +245,6 @@ LAPTOP
  93. Right-click one of your Qbots with the laptop: its editor and terminal open. Edit its
      startup.py, type  run startup.py . Ctrl+Z pauses it ([paused]), Ctrl+Z again carries on,
      Ctrl+C stops it. Right-click someone else's computer: refused, "ssh in instead".
+ 94. With a program open in the editor and running: its current line is marked green. Ctrl+Z:
+     the line turns amber, the terminal says which line. F8 a few times: it walks line by line
+     (into your own functions too). Ctrl+Z carries on.

@@ -61,6 +61,8 @@ public final class QboticsGameTests {
             Map.entry("bus_tunnels", QboticsGameTests::busTunnels),
             Map.entry("laptop", QboticsGameTests::laptop),
             Map.entry("laptop_connect", QboticsGameTests::laptopConnect),
+            Map.entry("step_through", QboticsGameTests::stepThrough),
+            Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
             Map.entry("computer_interrupt_ignored", QboticsGameTests::computerInterruptIgnored),
@@ -2456,6 +2458,86 @@ public final class QboticsGameTests {
                 }
             }
             helper.assertTrue(step[0] == 4, "waiting at step " + step[0]);
+        });
+    }
+
+    /**
+     * Watching a program run: Ctrl+Z pauses it and says which line of the player's file it is
+     * on; F8 steps it one line at a time (here, between the two lines of a loop); Ctrl+Z
+     * carries on.
+     */
+    private static void stepThrough(GameTestHelper helper) {
+        stepThrough(helper, false);
+    }
+
+    /** The same on a laptop, carried by its player. */
+    private static void stepThroughLaptop(GameTestHelper helper) {
+        stepThrough(helper, true);
+    }
+
+    private static void stepThrough(GameTestHelper helper, boolean onLaptop) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer;
+        if (onLaptop) {
+            net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+            player.getInventory().setItem(0, new ItemStack(QboticsContent.LAPTOP_ITEM.get()));
+            computer = ComputerManager.get(level.getServer()).getOrStartLaptop(player);
+            qbotics.laptop.Laptops.refresh(player);
+        } else {
+            computer = placeAndStart(helper);
+        }
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/prog.py", String.join("\n",
+                    "import time", "n = 0", "while True:", "    n += 1", "    time.sleep(0.05)", "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        // As when someone has its editor open (the server turns watching off for computers nobody has open).
+        ServerComputer watchedOne = computer;
+        helper.onEachTick(() -> watchedOne.setWatched(true));
+        computer.submitRunFile("/prog.py");
+        int[] step = {0};
+        int[] lines = new int[3];
+        helper.succeedWhen(() -> {
+            ServerComputer.Trace now = computer.trace();
+            switch (step[0]) {
+                case 0 -> {
+                    if (!now.paused() && (now.line() == 4 || now.line() == 5) && now.file().equals("/prog.py")) {
+                        computer.togglePause(); // Ctrl+Z
+                        step[0] = 1;
+                    }
+                }
+                case 1 -> {
+                    if (now.paused() && screen(computer).contains("[paused at line " + now.line() + " of /prog.py")) {
+                        lines[0] = now.line();
+                        computer.step(); // F8
+                        step[0] = 2;
+                    }
+                }
+                case 2, 3 -> {
+                    int last = lines[step[0] - 2];
+                    if (now.paused() && now.line() != last && now.line() > 0) {
+                        lines[step[0] - 1] = now.line();
+                        if (step[0] == 3) {
+                            computer.togglePause(); // Ctrl+Z: carry on as normal
+                        } else {
+                            computer.step();
+                        }
+                        step[0]++;
+                    }
+                }
+                case 4 -> {
+                    if (!now.paused() && screen(computer).contains("[carrying on]")) {
+                        computer.interrupt();
+                        step[0] = 5;
+                    }
+                }
+                default -> {
+                }
+            }
+            helper.assertTrue(step[0] == 5, "waiting at step " + step[0] + ", at " + now);
+            helper.assertTrue(lines[1] != lines[2] && (lines[1] == 4 || lines[1] == 5) && (lines[2] == 4 || lines[2] == 5),
+                    "each step should stop at the loop's other line: " + lines[0] + " then " + lines[1] + " then " + lines[2]);
         });
     }
 
