@@ -580,6 +580,14 @@ public final class ClientAgent {
                 Map.of("computer", computer, "command", "The command"), "command"));
         tools.add(tool("check_code", "Checks Python for mistakes without running it: a file on a computer, or code given directly.",
                 Map.of("computer", computer, "path", "A file to check", "code", "Or the code itself")));
+        tools.add(tool("find_items", "Finds items in this game, every mod's included: by word (\"copper\"), pattern (\"*_ingot\"), "
+                + "tag (\"#c:ores\") or mod (\"@create\"). Gives each item's full name (mod:name) and display name.",
+                Map.of("query", "What to look for"), "query"));
+        tools.add(tool("item_info", "One item as this game has it: display name, mod, tags, stack size, fuel and food values, "
+                + "how many recipes make and use it.", Map.of("item", "The item: mod:name, or its display name"), "item"));
+        tools.add(tool("recipes", "The recipes in this game (every mod's, as this modpack has them) that make an item, or with "
+                + "uses=true those it is used in: crafting grids, furnaces, other mods' machines.",
+                Map.of("item", "The item: mod:name, or its display name", "uses", "\"true\" for the recipes it is used in"), "item"));
         tools.add(tool("search_manual", "Searches the Qbotics manual (devices, the logistics/events/network/display modules, limits).",
                 Map.of("query", "What to look for, e.g. \"furnace faces\" or \"events on_change\""), "query"));
         return tools;
@@ -664,6 +672,10 @@ public final class ClientAgent {
                 say("(running \"" + command + "\"" + on + ")", ChatFormatting.DARK_GRAY);
                 return serverTool(name, args);
             }
+            case "find_items", "item_info", "recipes":
+                say("(" + name.replace('_', ' ') + " " + (parsed.has("item") ? parsed.get("item").getAsString()
+                        : parsed.has("query") ? parsed.get("query").getAsString() : "") + ")", ChatFormatting.DARK_GRAY);
+                return serverTool(name, args);
             case "read_file", "list_files", "devices", "computers", "look":
                 say("(" + name.replace('_', ' ') + (parsed.has("path") ? " " + parsed.get("path").getAsString() : "") + on + ")", ChatFormatting.DARK_GRAY);
                 return serverTool(name, args);
@@ -747,6 +759,8 @@ public final class ClientAgent {
                 + " seconds; that is fine for a test.\n"
                 + "- The player may have to allow writes and runs. If they say no, explain or show the code instead.\n"
                 + "- When unsure how something in the mod works, use search_manual.\n"
+                + "- For items, tags and crafting, look them up in this game with find_items, item_info and recipes: it has other "
+                + "mods, and its recipes may differ from plain Minecraft's. Use the exact item names they give in code.\n"
                 + "- Replies appear in Minecraft chat, which is narrow: be brief (a few sentences), explain as to a beginner, and "
                 + "put code in ``` blocks only when showing code. No tables.\n\n"
                 + "About the computers' Python:\n" + guide;

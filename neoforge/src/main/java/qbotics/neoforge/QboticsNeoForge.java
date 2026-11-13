@@ -516,6 +516,7 @@ public final class QboticsNeoForge {
         // The SSH gateway (design doc §9.5) starts with the server if the config turns it on.
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent event) -> {
             qbotics.gateway.SshGateway.start(event.getServer());
+            qbotics.agent.GameKnowledge.warm(event.getServer()); // the recipe index, ahead of the first question
             // The AI model this server offers, if one is set up: tested before it is offered.
             net.minecraft.server.MinecraftServer started = event.getServer();
             qbotics.agent.ServerModel.test(() -> started.execute(() -> qbotics.agent.ServerModel.tellEveryone(started)));

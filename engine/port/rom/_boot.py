@@ -217,7 +217,7 @@ if "/lib" not in sys.path:
     sys.path.append("/lib")
 
 # The modules in this folder (the ROM). Keep in step with the files here.
-_ROM = ("_boot", "display", "events", "git", "logistics", "network", "pip", "qbot", "requests")
+_ROM = ("_boot", "display", "events", "game", "git", "logistics", "network", "pip", "qbot", "requests")
 _PATH = list(sys.path)
 
 

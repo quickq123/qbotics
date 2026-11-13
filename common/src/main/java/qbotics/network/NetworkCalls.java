@@ -185,8 +185,27 @@ public final class NetworkCalls {
         return LINKS;
     }
 
+    /** Items and recipes (the game module, and the shell's recipe, item and items): the same for computers and laptops. Null if not one of those. */
+    private static JsonElement game(MinecraftServer server, String method, JsonArray args) {
+        try {
+            return switch (method) {
+                case "game_recipes" -> qbotics.agent.GameKnowledge.recipes(server, args.get(1).getAsString(), args.get(2).getAsBoolean(),
+                        args.size() > 3 ? args.get(3).getAsInt() : 10);
+                case "game_item" -> qbotics.agent.GameKnowledge.itemInfo(server, args.get(1).getAsString());
+                case "game_find" -> qbotics.agent.GameKnowledge.findItems(args.get(1).getAsString(), args.size() > 2 ? args.get(2).getAsInt() : 40);
+                default -> null;
+            };
+        } catch (IllegalArgumentException e) {
+            throw new CallError(e.getMessage());
+        }
+    }
+
     private static JsonElement run(ServerLevel level, CableNetwork network, BlockPos computerPos, JsonArray args) {
         String method = args.get(0).getAsString();
+        JsonElement known = game(level.getServer(), method, args);
+        if (known != null) {
+            return known;
+        }
         if (method.startsWith("qbot_")) {
             return QbotCalls.call(method, level, computerPos, args); // a Qbot's program asking its body
         }
@@ -1519,6 +1538,10 @@ public final class NetworkCalls {
 
     private static JsonElement runLaptop(net.minecraft.server.level.ServerPlayer player, JsonArray args) {
         String method = args.get(0).getAsString();
+        JsonElement known = game(player.level().getServer(), method, args);
+        if (known != null) {
+            return known;
+        }
         switch (method) {
             case "ssh_open":
             case "ssh_reach": {

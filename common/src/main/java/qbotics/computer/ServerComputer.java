@@ -1153,6 +1153,9 @@ public final class ServerComputer {
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
             "         ssh <address>      use another computer's terminal from here; exit returns",
             "         git clone <url>    copy a GitHub repository here (git help: pull, status, push)",
+            "Game:    recipe <item>      the recipes that make an item, from every mod (--uses: that use it; --json)",
+            "         item <item>        an item's names, tags, stack size, fuel and food values",
+            "         items <word>       find items: a word, *pattern*, #tag or @mod",
             "Learn:   git clone helpme   examples of everything, by topic, to read and run (no internet needed)",
             "Server:  service start <file.py> [name]   run a program in the background (service help)",
             "Other:   clear   help       Ctrl+C stops a running program",
@@ -1160,8 +1163,8 @@ public final class ServerComputer {
             "");
 
     /** The shell's commands, longest first, for spotting one typed without its space. */
-    private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "pip", "ifconfig", "python", "mkdir", "clear", "help",
-            "service", "sleep", "echo", "edit", "pwd", "cat", "run", "ssh", "git", "sh", "ls", "cd", "rm", "mv", "cp", "py");
+    private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "recipe", "items", "pip", "ifconfig", "python", "mkdir", "clear", "help",
+            "service", "sleep", "echo", "edit", "item", "pwd", "cat", "run", "ssh", "git", "sh", "ls", "cd", "rm", "mv", "cp", "py");
 
     /**
      * A hint for a line that isn't a command: the space a command lost ("run9_world.py" is
@@ -1278,6 +1281,14 @@ public final class ServerComputer {
                         list.append(pyString(arg)).append(',');
                     }
                     ok = runPython(computer, "import os, git\nos.chdir(" + pyString(cwd) + ")\ngit._main(" + list.append(']') + ")");
+                }
+                case "recipe", "item", "items" -> {
+                    // What the game knows about items and recipes (the game module): recipe [--uses] [--json] <item>.
+                    StringBuilder list = new StringBuilder("[");
+                    for (String arg : args) {
+                        list.append(pyString(arg)).append(',');
+                    }
+                    ok = runPython(computer, "import game\ngame._shell(" + pyString(name) + ", " + list.append(']') + ")");
                 }
                 case "devices", "ifconfig" -> {
                     // --json: the same as a list of objects, for programs and AI tools to read.

@@ -65,6 +65,7 @@ public final class AgentTools {
                 case "devices" -> CompletableFuture.completedFuture(devices(player, args));
                 case "list_files", "read_file", "write_file" -> files(player, tool, args);
                 case "run" -> run(player, args);
+                case "find_items", "item_info", "recipes" -> knowledge(player, tool, args);
                 default -> CompletableFuture.completedFuture("There is no tool called " + tool + ".");
             };
         } catch (Problem problem) {
@@ -246,6 +247,24 @@ public final class AgentTools {
                     case HostFileSystem.EINVAL -> "That name isn't allowed: letters, digits and . _ - only.";
                     default -> "The drive said no (error " + e.errno + ").";
                 };
+            }
+        }, WORKER);
+    }
+
+    /** Items and recipes, as this world has them (GameKnowledge); read off the server's thread. */
+    private static CompletableFuture<String> knowledge(ServerPlayer player, String tool, JsonObject args) {
+        MinecraftServer server = player.level().getServer();
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return switch (tool) {
+                    case "find_items" -> GameKnowledge.findItems(text(args, "query"), 40).toString();
+                    case "item_info" -> GameKnowledge.itemInfo(server, text(args, "item")).toString();
+                    default -> "Recipes as this game has them. Items are mod:name; \"#...\" is a tag (any item carrying it); "
+                            + "type says the table or machine.\n"
+                            + GameKnowledge.recipes(server, text(args, "item"), "true".equalsIgnoreCase(text(args, "uses")), 8);
+                };
+            } catch (IllegalArgumentException e) {
+                return e.getMessage();
             }
         }, WORKER);
     }

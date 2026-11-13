@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -89,6 +89,7 @@ public final class QboticsGameTests {
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
             Map.entry("server_model", QboticsGameTests::serverModel),
+            Map.entry("game_knowledge", QboticsGameTests::gameKnowledge),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -3539,6 +3540,52 @@ public final class QboticsGameTests {
     }
 
     /**
+     * What the game knows about items and recipes, from a computer: the shell's recipe, item and
+     * items (readable and --json), a misspelt item, and the game module in a program.
+     */
+    private static void gameKnowledge(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/g.py", String.join("\n",
+                    "import game",
+                    "r = game.recipes('Crafting Table')",
+                    "print('types', sorted(set(x['type'] for x in r)))",
+                    "print('uses', len(game.uses('minecraft:iron_ingot', limit=50)))",
+                    "print('fuel', game.item('coal')['fuel_ticks'])",
+                    "print('found', [i['id'] for i in game.find_items('#c:ingots')][:3])",
+                    "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        for (String line : List.of("recipe crafting table", "item coal", "items *_ingot", "item iron_ingto", "run /g.py")) {
+            computer.submitLine(line);
+        }
+        java.util.concurrent.CompletableFuture<?>[] json = {null};
+        helper.succeedWhen(() -> {
+            String screen = screen(computer);
+            assertScreen(helper, computer, "make minecraft:crafting_table", "[minecraft:crafting_shaped]", "fuel_ticks         1600",
+                    "minecraft:iron_ingot", "Iron Ingot", "No item is called iron_ingto. Did you mean", "types ['minecraft:crafting_shaped']",
+                    "fuel 1600", "found [");
+            helper.assertTrue(screen.matches("(?s).*\\nuses [1-9][0-9]*\\n.*"), "game.uses finds recipes: " + screen);
+            helper.assertTrue(!screen.contains("Traceback"), "no errors: " + screen);
+            // --json, as a script over ssh gets it (the terminal wraps long lines; this doesn't).
+            if (json[0] == null) {
+                json[0] = computer.exec("recipe --uses --json iron_ingot", 20);
+                helper.fail("asked for JSON");
+            }
+            helper.assertTrue(json[0].isDone(), "waiting for the JSON");
+            String output = ((ServerComputer.ExecResult) json[0].join()).output().strip();
+            com.google.gson.JsonArray parsed;
+            try {
+                parsed = com.google.gson.JsonParser.parseString(output).getAsJsonArray();
+            } catch (RuntimeException e) {
+                throw new IllegalStateException("--json isn't JSON: " + output);
+            }
+            helper.assertTrue(parsed.size() == 10 && parsed.get(0).getAsJsonObject().has("type"), "--json is a list of recipes: " + output);
+        });
+    }
+
+    /**
      * The AI model a server offers (qbotics.agent.ServerModel), against a stand-in model: the
      * test passes and it is offered; a player's call goes with the server's model, key and
      * thinking, whatever the player's game sent; the per-minute limit; a model that can't be
@@ -3659,6 +3706,13 @@ public final class QboticsGameTests {
                 got.put("write", qbotics.agent.AgentTools.call(player, "write_file", on + ", \"path\": \"/t.py\", \"content\": \"print('agent was here')\\n\"}"));
                 got.put("nobody", qbotics.agent.AgentTools.call(player, "devices", "{\"computer\": \"nosuchpc\"}"));
                 got.put("look", qbotics.agent.AgentTools.call(player, "look", ""));
+                // What the game knows: items, tags, recipes (every mod's).
+                got.put("find", qbotics.agent.AgentTools.call(player, "find_items", "{\"query\": \"*_ingot\"}"));
+                got.put("info", qbotics.agent.AgentTools.call(player, "item_info", "{\"item\": \"Iron Ingot\"}"));
+                got.put("coal", qbotics.agent.AgentTools.call(player, "item_info", "{\"item\": \"coal\"}"));
+                got.put("makes", qbotics.agent.AgentTools.call(player, "recipes", "{\"item\": \"minecraft:iron_ingot\"}"));
+                got.put("uses", qbotics.agent.AgentTools.call(player, "recipes", "{\"item\": \"iron_ingot\", \"uses\": \"true\"}"));
+                got.put("typo", qbotics.agent.AgentTools.call(player, "item_info", "{\"item\": \"iron_ingto\"}"));
                 step[0] = 1;
                 helper.fail("asked");
             }
@@ -3685,6 +3739,15 @@ public final class QboticsGameTests {
                         "run gives the program's output: " + answer.apply("run"));
                 helper.assertTrue(answer.apply("nobody").contains("No computer of the player's is called nosuchpc"), "not theirs: " + answer.apply("nobody"));
                 helper.assertTrue(!answer.apply("look").isEmpty(), "look answers: " + answer.apply("look"));
+                helper.assertTrue(answer.apply("find").contains("{\"id\":\"minecraft:iron_ingot\",\"name\":\"Iron Ingot\"}"), "find_items: " + answer.apply("find"));
+                helper.assertTrue(answer.apply("info").contains("\"id\":\"minecraft:iron_ingot\"") && answer.apply("info").contains("#c:ingots"),
+                        "item_info by display name, with tags: " + answer.apply("info"));
+                helper.assertTrue(answer.apply("coal").contains("\"fuel_ticks\":1600"), "coal's fuel value: " + answer.apply("coal"));
+                helper.assertTrue(answer.apply("makes").contains("smelting") && answer.apply("makes").contains("minecraft:raw_iron"),
+                        "iron ingots are smelted from raw iron: " + answer.apply("makes"));
+                helper.assertTrue(answer.apply("uses").contains("iron_block"), "an iron block uses iron ingots: " + answer.apply("uses"));
+                helper.assertTrue(answer.apply("typo").contains("Did you mean") && answer.apply("typo").contains("iron_ingot"),
+                        "a misspelt item: " + answer.apply("typo"));
                 qbotics.QboticsConfig.aiEnabled = false;
                 String off = qbotics.agent.AgentTools.call(player, "computers", "").join();
                 qbotics.QboticsConfig.aiEnabled = true;

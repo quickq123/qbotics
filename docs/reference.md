@@ -67,6 +67,9 @@ The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (sectio
 | `run <file.py>` | Runs a program. `python <file.py>` does the same |
 | `python` | The Python prompt. `exit()` returns to the terminal |
 | `devices` | Lists the devices on this computer's network (also `ifconfig`). `devices --json`: every detail, as JSON, for programs and AI tools |
+| `recipe <item>` | The recipes that make an item, from every mod, as this world has them (section 7k). `--uses`: those it is used in; `--json`; `--limit n` |
+| `item <item>` | An item's names, mod, tags, stack size, fuel and food values (`--json`) |
+| `items <word>` | Finds items: a word, a `*pattern*`, a `#tag` or an `@mod` (`--json`) |
 | `devices <external IP>` | Lists the devices behind another antenna |
 | `ssh <name or address>` | Uses another computer's terminal from this one (section 7.4). `exit` returns |
 | `settings` | Opens this computer's settings page (section 1.5) |
@@ -2136,6 +2139,48 @@ its answer appear in everyone's chat, so a teacher and students can all work wit
 **Choosing a model.** Small local models (7 to 14 billion parameters) can do this, better with
 "tools" support listed by their server; one with vision for `look`. Larger ones are better at
 writing whole programs.
+
+## 7k. Items and recipes: the `game` module
+
+What the game itself knows about items and recipes: every item, tag and recipe loaded in this
+world, from every mod, including the modpack's own changes. The same answers come from the
+shell, from programs, and from the AI agent, so they always agree.
+
+```
+/ $ recipe crafting table
+1 recipe make minecraft:crafting_table:
+- minecraft:crafting_table  [minecraft:crafting_shaped]
+  {"pattern": ["##", "##"], "key": {"#": "#minecraft:planks"}, "result": {"id": "minecraft:crafting_table", "count": 1}}
+/ $ recipe --uses iron_ingot          # the recipes it is used in
+/ $ item coal                         # names, tags, stack size, fuel_ticks 1600 ...
+/ $ items @create                     # every item from a mod; or a word, *pattern*, #tag
+```
+
+`--json` gives the same as JSON, for programs and scripts (`ssh ... "recipe --json torch"`).
+
+```python
+import game
+for r in game.recipes("Crafting Table"):    # a list of dicts, at most 10 (limit=, up to 50)
+    print(r["type"], r["result"])
+game.uses("iron_ingot", limit=20)           # the recipes it is used in
+game.item("coal")["fuel_ticks"]             # 1600
+game.find_items("#c:ingots")                # [{"id": "minecraft:iron_ingot", "name": "Iron Ingot"}, ...]
+```
+
+| Call | Gives |
+|---|---|
+| `game.recipes(item, limit=10)` | The recipes that make it: a list of dicts; empty if nothing makes it |
+| `game.uses(item, limit=10)` | The recipes it is an ingredient of, those taking it by a tag it carries included |
+| `game.item(item)` | `id`, `name`, `mod`, `tags`, `stack_size`, `durability`, `fuel_ticks`, `food_nutrition`, how many recipes make and use it |
+| `game.find_items(query, limit=40)` | Items matching a word, pattern, tag or mod: `{"id", "name"}` each |
+
+An item can be its full name (`minecraft:crafting_table`), its name without the mod
+(`crafting_table`) or its display name (`"Crafting Table"`); a name that doesn't exist raises
+`NetworkError` with close matches. A recipe is a dict in the form the game loaded it from:
+`"type"` says the table or machine (`minecraft:crafting_shaped`, `minecraft:smelting`, or a
+mod's own, such as a crushing wheel's), so its other keys depend on the type. An ingredient
+written `"#c:ingots/iron"` is a tag: any item carrying it. Very long recipes come as just
+`{"id", "type", "too_long": true}`.
 
 ## 8. The Network Probe
 

@@ -11,7 +11,7 @@ tools that open the drive as a project find them.
   threads, no `FileNotFoundError` or `PermissionError` (catch `OSError`), no `subprocess`.
   Available: `time`, `json`, `os`, `sys`, `math`, `random`, `re`, `io`, `struct`, `collections`,
   `heapq`, `binascii`.
-- The game's own modules: `logistics` (devices, moving items, fluids, energy), `events`
+- The game's own modules: `game` (items and recipes as this world has them, every mod's), `logistics` (devices, moving items, fluids, energy), `events`
   (waiting for things), `network` (messages between computers), `display` (screens), `qbot`
   (robots), `requests` (HTTPS through an Uplink), `git`.
 - Each computer has its own files, about 1 MB. Paths start at `/`. `import` looks in the
@@ -29,6 +29,7 @@ on the computer as if typed, prints its output and ends with status 0 when it wo
 | `devices --json` | Every device on the computer's network: `ip`, `mac`, `kind` (bus, interface, pin, antenna, ...), `name`, and more. Use the `name` (or `ip`) in code: `net.bus("chest")` |
 | `run test.py` | Runs a program; its output and any traceback come back. Stopped after 120 seconds |
 | `ls`, `cat file`, `mkdir`, `rm`, `mv`, `cp` | Files, as usual |
+| `recipe <item>`, `item <item>`, `items <word>` | Recipes, item details and item search from this world's data, every mod's (`--json` too) |
 | `help` | Every shell command |
 
 A program that never ends (one using `events.run()`) runs until the time limit: for testing,
