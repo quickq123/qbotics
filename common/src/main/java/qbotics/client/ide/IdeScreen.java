@@ -16,6 +16,8 @@ import net.minecraft.network.chat.Component;
 public class IdeScreen extends Screen implements IdeView.Host {
     /** Screen pixels per font pixel; 0 = choose from the window size. Shared by all computers. */
     private static int zoom = Integer.getInteger("qbotics.ideZoom", 0);
+    /** Sharp screen fonts (true) or Minecraft's pixel font; Ctrl+P switches. Shared by all computers. */
+    private static boolean crisp = !Boolean.getBoolean("qbotics.idePixelFont");
 
     private final IdeView view;
     /** Editor units to Minecraft GUI units. */
@@ -79,7 +81,7 @@ public class IdeScreen extends Screen implements IdeView.Host {
         updateScale();
         graphics.pose().pushMatrix();
         graphics.pose().scale(scale, scale);
-        view.render(new GameUi(graphics, this.font),
+        view.render(new GameUi(graphics, this.font, pixelSize(), crisp),
                 (int) Math.ceil(this.width / scale), (int) Math.ceil(this.height / scale), mouseX / scale, mouseY / scale);
         graphics.pose().popMatrix();
     }
@@ -94,6 +96,16 @@ public class IdeScreen extends Screen implements IdeView.Host {
     @Override
     public void setClipboard(String text) {
         this.minecraft.keyboardHandler.setClipboard(text);
+    }
+
+    /** For the screenshot run: this many window pixels per editor unit. */
+    public void setZoomForShots(int pixels) {
+        zoom = pixels;
+    }
+
+    @Override
+    public void toggleFont() {
+        crisp = !crisp;
     }
 
     @Override

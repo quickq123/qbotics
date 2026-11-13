@@ -817,6 +817,19 @@ write_json("data/qbotics/tags/block/cable_connectable.json", {
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
                "qbotics:text_monitor", "qbotics:control_panel", "qbotics:web_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
+# ---- the editor's fonts (client/ide/GameUi.java) ----------------------------------------------
+# JetBrains Mono for code, Inter for the rest (both SIL Open Font License, beside them; cut down
+# to Latin, punctuation, arrows and box drawing). One version per zoom level: oversample N draws
+# each glyph N times as fine as an editor unit, which is N window pixels at that zoom, so text
+# is sharp at every size. Size 10: JetBrains Mono's 0.6 em advance is exactly the 6-unit cell.
+# Characters they lack come from Minecraft's own font.
+for level in range(1, 13):
+    for name, file in (("code", "jetbrains_mono.ttf"), ("ui", "inter.ttf")):
+        write_json("assets/qbotics/font/%s_%d.json" % (name, level), {"providers": [
+            {"type": "ttf", "file": "qbotics:" + file, "size": 10, "oversample": level},
+            {"type": "reference", "id": "minecraft:default"},
+        ]})
+
 # ---- helpme: the examples that come with the mod (git clone helpme) ---------------------------
 # The game copies the files listed here; written fresh each time, so new examples are included.
 HELPME = os.path.join(RES, "qbotics", "helpme")

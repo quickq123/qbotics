@@ -135,6 +135,7 @@ run /factory/report.py
 | Ctrl+W | Closes the tab |
 | Shift+Alt+F | Formats a JSON file |
 | Ctrl+Plus, Ctrl+Minus | Larger or smaller text |
+| Ctrl+P | Switches between the sharp screen fonts (the default: JetBrains Mono for code, Inter for the rest) and Minecraft's pixel font |
 | Tab, Shift+Tab | Indents or un-indents the selection |
 | Esc | Closes the screen (nothing is lost) |
 

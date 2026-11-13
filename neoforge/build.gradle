@@ -30,7 +30,10 @@ neoForge {
             client()
             gameDirectory = project.file('runs/shots')
             systemProperty 'qbotics.screenshots', 'true'
-            programArguments.addAll '--width', '1280', '--height', '720'
+            programArguments.addAll '--width', (project.findProperty('shotsWidth') ?: '1280').toString(),
+                    '--height', (project.findProperty('shotsHeight') ?: '720').toString()
+            // -Pshots=editor: only the editor's pictures (ScreenshotRun.planEditor), much quicker.
+            systemProperty 'qbotics.shotsOnly', (project.findProperty('shots') ?: '').toString()
         }
 
         // For playing with the mod: opens straight into a lasting creative world (made, with the

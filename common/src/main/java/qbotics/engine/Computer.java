@@ -136,7 +136,10 @@ public final class Computer {
         while (n < raw.length && raw[n] != 0) {
             n++;
         }
-        return new Location(line, new String(raw, 0, n, StandardCharsets.UTF_8));
+        String file = new String(raw, 0, n, StandardCharsets.UTF_8);
+        // A module imported by a program in the top folder is named "//name.py": import puts "/"
+        // and a slash before the name (rom/_boot.py _start).
+        return new Location(line, file.startsWith("//") ? file.substring(1) : file);
     }
 
     private static ExportFunction optionalExport(Instance instance, String name) {

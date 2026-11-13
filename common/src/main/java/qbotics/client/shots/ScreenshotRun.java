@@ -43,6 +43,10 @@ import qbotics.network.NetworkDevice.Kind;
  *
  * <p>It runs in single-player, where the game's server is in the same program, so the scene
  * is built by asking that server directly.
+ *
+ * <p>The script is in sections ({@link #SECTIONS}); {@code -Pshots=editor,displays} takes only
+ * those sections' pictures, which is much quicker when checking one thing. Each section starts
+ * from no screen open, the first-person camera and the GUI hidden, so any can run alone.
  */
 public final class ScreenshotRun {
     public static final boolean ENABLED = Boolean.getBoolean("qbotics.screenshots");
@@ -59,6 +63,29 @@ public final class ScreenshotRun {
     private static boolean worldAsked;
     private static boolean planned;
     private static BlockPos base;
+
+    /** The sections of the script, in the order they run. */
+    public static final java.util.List<String> SECTIONS = java.util.List.of(
+            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "night", "stage", "items");
+    /** The sections asked for (-Pshots=a,b), or every section. */
+    private static final java.util.Set<String> WANTED = wanted();
+    /** Whether the section being planned is wanted: steps of other sections are left out. */
+    private static boolean planning = true;
+
+    private static java.util.Set<String> wanted() {
+        String asked = System.getProperty("qbotics.shotsOnly", "").strip();
+        if (asked.isEmpty()) {
+            return new java.util.HashSet<>(SECTIONS);
+        }
+        java.util.Set<String> names = new java.util.HashSet<>();
+        for (String name : asked.split(",")) {
+            if (!SECTIONS.contains(name.strip())) {
+                throw new IllegalArgumentException("No screenshot section called " + name.strip() + "; there are " + SECTIONS);
+            }
+            names.add(name.strip());
+        }
+        return names;
+    }
 
     private ScreenshotRun() {
     }
@@ -89,6 +116,7 @@ public final class ScreenshotRun {
                 return;
             }
             planned = true;
+            Qbotics.LOGGER.info("Screenshot run: sections {}", SECTIONS.stream().filter(WANTED::contains).toList());
             plan();
             waiting = 60; // let the world around the player load
             return;
@@ -119,7 +147,35 @@ public final class ScreenshotRun {
     // ---- the script ---------------------------------------------------------------------
 
     private static void then(int waitTicks, Consumer<Minecraft> action) {
-        STEPS.add(new Step(waitTicks, action));
+        if (planning) {
+            STEPS.add(new Step(waitTicks, action));
+        }
+    }
+
+    /**
+     * The steps after this belong to one section of the script: planned only if it is wanted,
+     * and begun from a clean state (no screen, first person, GUI hidden, noon).
+     */
+    private static void section(String name) {
+        if (!SECTIONS.contains(name)) {
+            throw new IllegalArgumentException("Add the screenshot section " + name + " to SECTIONS");
+        }
+        planning = WANTED.contains(name);
+        then(10, minecraft -> {
+            Qbotics.LOGGER.info("Screenshot run: section {}", name);
+            if (minecraft.player != null) {
+                minecraft.player.closeContainer();
+            }
+            minecraft.setScreen(null);
+            minecraft.options.hideGui = true;
+            minecraft.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+            onServer(minecraft, player -> command(player, "time set noon"));
+        });
+    }
+
+    /** Steps every run has: building the scene, and finishing. */
+    private static void always() {
+        planning = true;
     }
 
     /** Runs something on the game's server, which is where blocks may be changed. */
@@ -161,7 +217,7 @@ public final class ScreenshotRun {
             onServer(minecraft, ScreenshotRun::buildScene);
         });
         // Everything, then each part closer up.
-        then(20, minecraft -> onServer(minecraft, ScreenshotRun::showCamera));
+        section("world");
         view("01-overview", new Vec3(6.5, 6.5, 8.5), new Vec3(6.5, 0.5, -2.0));
         view("02-plates-front", new Vec3(2.5, 2.4, 3.0), new Vec3(2.5, 1.5, 0.5));
         view("02b-fluid-and-energy-plates", new Vec3(5.5, 3.4, 1.4), new Vec3(5.5, 1.4, -2.0));
@@ -175,6 +231,8 @@ public final class ScreenshotRun {
         view("08-antennas", new Vec3(12.5, 2.8, -0.6), new Vec3(12.5, 1.2, -3.5));
         view("08b-cable-shapes", new Vec3(3.5, 3.4, -4.6), new Vec3(3.5, 0.5, -7.0));
         view("08c-server", new Vec3(18.5, 1.7, -2.0), new Vec3(18.5, 0.5, -5.0));
+        section("web");
+        then(20, minecraft -> onServer(minecraft, ScreenshotRun::showCamera));
         view("08d-web-panel", new Vec3(22.5, 1.4, -1.6), new Vec3(22.5, 1.0, -5.0));
         then(10, minecraft -> minecraft.setScreen(new qbotics.client.display.WebCloseUpScreen(base.offset(21, 1, -5))));
         then(40, minecraft -> shot(minecraft, "08e-web-close-up"));
@@ -201,6 +259,7 @@ public final class ScreenshotRun {
         then(25, minecraft -> shot(minecraft, "08g-script-b"));
 
         // The screens.
+        section("screens");
         then(15, minecraft -> onServer(minecraft, player -> {
             BlockPos at = base.offset(9, 0, -4);
             if (player.level().getBlockEntity(at) instanceof InterfaceBlockEntity store) {
@@ -411,7 +470,7 @@ public final class ScreenshotRun {
             }
         }));
         then(5, minecraft -> shot(minecraft, "10-probe-screen"));
-        then(10, minecraft -> minecraft.setScreen(null));
+        section("computer");
         then(80, minecraft -> onServer(minecraft, player -> {
             if (player.level().getBlockEntity(base.offset(6, 0, -4)) instanceof ComputerBlockEntity computer) {
                 ComputerManager.get(player.level().getServer()).openTerminal(player, computer);
@@ -430,6 +489,7 @@ public final class ScreenshotRun {
         then(10, minecraft -> minecraft.setScreen(null));
 
         // Displays: a 3x2 Text Monitor wall and a 2x2 Control Panel, filled in as a program would.
+        section("displays");
         then(20, minecraft -> onServer(minecraft, ScreenshotRun::buildDisplays));
         view("17-displays", new Vec3(22.5, 1.6, 5.2), new Vec3(22.5, 1.0, 0.5));
         view("17b-control-panel", new Vec3(25.0, 1.4, 2.6), new Vec3(25.0, 1.0, 0.5));
@@ -437,6 +497,18 @@ public final class ScreenshotRun {
         view("17c-themed-panel", new Vec3(28.0, 1.4, 2.6), new Vec3(28.0, 1.0, 0.5));
         then(5, minecraft -> onServer(minecraft, ScreenshotRun::buildFlatScreens));
         view("17d-flat-screens", new Vec3(32.0, 3.2, 5.2), new Vec3(32.0, 0.0, 1.5));
+        // A close-up of the Control Panel.
+        then(10, minecraft -> {
+            minecraft.options.hideGui = false;
+            onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(base.offset(24, 1, 0)) instanceof qbotics.block.DisplayBlockEntity panel) {
+                    qbotics.display.Displays.openCloseUp(player, panel);
+                }
+            });
+        });
+        then(10, minecraft -> shot(minecraft, "17c-panel-close-up"));
+
+        section("tablet");
         then(5, minecraft -> {
             minecraft.options.hideGui = false;
             onServer(minecraft, ScreenshotRun::buildTablet);
@@ -450,25 +522,10 @@ public final class ScreenshotRun {
             minecraft.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
         });
         then(10, minecraft -> shot(minecraft, "19c-tablet-third-person"));
-        then(5, minecraft -> {
-            minecraft.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
-            minecraft.options.hideGui = true;
-            onServer(minecraft, player -> player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY));
-        });
-        then(10, minecraft -> {
-            minecraft.options.hideGui = false;
-            onServer(minecraft, player -> {
-                if (player.level().getBlockEntity(base.offset(24, 1, 0)) instanceof qbotics.block.DisplayBlockEntity panel) {
-                    qbotics.display.Displays.openCloseUp(player, panel);
-                }
-            });
-        });
-        then(10, minecraft -> shot(minecraft, "17c-panel-close-up"));
-        then(5, minecraft -> {
-            minecraft.setScreen(null);
-            minecraft.options.hideGui = true;
-        });
+        then(5, minecraft -> onServer(minecraft, player -> player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY)));
+
         // An Iron Qbot: standing, mid-step, mid-swing, and its screen.
+        section("qbot");
         then(10, minecraft -> onServer(minecraft, player -> {
             BlockPos at = base.offset(24, 0, 3);
             player.level().setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState()
@@ -525,6 +582,7 @@ public final class ScreenshotRun {
         });
         then(4, minecraft -> shot(minecraft, "18e-qbot-log"));
         // The laptop: in the hand, its two drive slots, and the laptop itself.
+        section("laptop");
         then(5, minecraft -> {
             minecraft.player.closeContainer();
             onServer(minecraft, player -> {
@@ -550,8 +608,11 @@ public final class ScreenshotRun {
             qbotics.computer.ServerComputer laptop = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player);
             try {
                 laptop.drive().call(qbotics.engine.HostFileSystem.WRITE, "/patrol.py", String.join("\n",
-                        "import time", "", "def report(n):", "    print('lap', n)", "", "n = 0", "while True:",
-                        "    n += 1", "    report(n)", "    time.sleep(0.2)", "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        "import time", "", "def report(n):", "    print('lap', n)", "",
+                        "# Characters a pixel font blurs: > ) ] } 0 O o l 1 I | ; :",
+                        "limits = {'fast': [0, 10], 'slow': (1, 5)}", "n = 0", "while True:",
+                        "    n += 1", "    report(n)", "    if n >= 1000 or (n > 10 and n % 7 == 0):", "        n = int(str(n)[-1:])",
+                        "    time.sleep(0.2)", "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
             } catch (qbotics.engine.HostFileSystem.FsException e) {
                 throw new IllegalStateException(e);
             }
@@ -560,10 +621,13 @@ public final class ScreenshotRun {
         then(40, minecraft -> onServer(minecraft, player ->
                 qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player).togglePause()));
         then(30, minecraft -> shot(minecraft, "19c-laptop-paused"));
-        then(5, minecraft -> {
-            minecraft.setScreen(null);
-            minecraft.options.hideGui = true;
-        });
+
+        editor();
+
+        section("night");
+        if (!WANTED.contains("displays")) {
+            then(20, minecraft -> onServer(minecraft, ScreenshotRun::buildDisplays)); // built once only
+        }
         then(10, minecraft -> onServer(minecraft, player -> command(player, "time set midnight")));
         view("17d-displays-at-night", new Vec3(22.5, 1.6, 5.2), new Vec3(22.5, 1.0, 0.5));
         then(10, minecraft -> onServer(minecraft, player -> command(player, "time set noon")));
@@ -575,6 +639,7 @@ public final class ScreenshotRun {
         then(40, minecraft -> onServer(minecraft, player -> command(player, "time set noon")));
 
         // The test stage that /qbotics stage builds, set down beyond the scene.
+        section("stage");
         then(20, minecraft -> onServer(minecraft, player ->
                 qbotics.stage.TestStage.build(player.level(), base.offset(0, 0, 8), player.getUUID())));
         view("15-test-stage", new Vec3(7.0, 7.5, 21.5), new Vec3(7.0, 0.5, 11.5));
@@ -582,6 +647,7 @@ public final class ScreenshotRun {
         view("16b-test-stage-back-row", new Vec3(8.5, 3.4, 16.5), new Vec3(8.5, 0.4, 12.0));
 
         // The items, as the hotbar and the hand draw them.
+        section("items");
         then(10, minecraft -> {
             minecraft.options.hideGui = false;
             onServer(minecraft, player -> {
@@ -604,8 +670,74 @@ public final class ScreenshotRun {
             });
         });
         view("12-items-in-hotbar", new Vec3(6.5, 3.0, 5.0), new Vec3(6.5, 1.0, -2.0));
+        always();
         then(20, minecraft -> Qbotics.LOGGER.info("Screenshot run: finished"));
         then(0, Minecraft::stop);
+    }
+
+    /**
+     * The editor section: a laptop's editor with a file of code open and a few lines in its
+     * terminal, at zoom 1, 2 and 3, in the screen fonts and in Minecraft's pixel font (Ctrl+P).
+     */
+    private static void editor() {
+        section("editor");
+        then(10, minecraft -> onServer(minecraft, player -> {
+            player.getInventory().setItem(player.getInventory().getSelectedSlot(), new ItemStack(QboticsContent.LAPTOP_ITEM.get()));
+            qbotics.computer.ServerComputer laptop = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player);
+            try {
+                laptop.drive().call(qbotics.engine.HostFileSystem.WRITE, "/sorter.py", String.join("\n",
+                        "# Sorts the inbox into chests. Characters a pixel font blurs: > ) ] } 0 O o l 1 I | ; :",
+                        "import events",
+                        "from logistics import network, move",
+                        "",
+                        "net = network()",
+                        "inbox = net.bus(\"inbox\")",
+                        "RULES = {\"ores\": [\"#c:ores\", \"coal\"], \"food\": (\"#c:foods\",)}",
+                        "",
+                        "def sort(change=None):",
+                        "    for name, only in RULES.items():",
+                        "        moved = move(inbox, net.bus(name).destination(only=only))",
+                        "        if moved > 0 and moved != 1:",
+                        "            print(f\"{moved:>4} -> {name}\")",
+                        "",
+                        "events.on_change(inbox, lambda change: sort(change))",
+                        "events.run()",
+                        "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                throw new IllegalStateException(e);
+            }
+            qbotics.laptop.Laptops.open(player, player.getMainHandItem());
+        }));
+        then(40, minecraft -> onServer(minecraft, player -> {
+            qbotics.computer.ServerComputer laptop = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player);
+            laptop.submitLine("ls -l");
+            laptop.submitLine("edit sorter.py");
+        }));
+        for (int zoom = 1; zoom <= 3; zoom++) {
+            int level = zoom;
+            then(20, minecraft -> {
+                if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                    ide.setZoomForShots(level);
+                }
+            });
+            then(5, minecraft -> shot(minecraft, "ide-zoom" + level));
+            then(2, minecraft -> {
+                if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                    ide.toggleFont();
+                }
+            });
+            then(5, minecraft -> shot(minecraft, "ide-zoom" + level + "-pixel-font"));
+            then(2, minecraft -> {
+                if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                    ide.toggleFont();
+                }
+            });
+        }
+        then(2, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.setZoomForShots(0); // back to the size the window chooses
+            }
+        });
     }
 
     /** Takes the camera's picture once the scene stands, and shows it on the camera panel. */

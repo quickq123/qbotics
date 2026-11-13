@@ -6,7 +6,7 @@ package qbotics.client.ide;
  * that draws into an image.
  */
 abstract class Ui {
-    /** One character cell of code. Minecraft's font is proportional; cells make a fixed grid. */
+    /** One character cell of code: code is drawn on a fixed grid, whatever the font. */
     static final int CELL_W = 6;
     static final int CELL_H = 10;
 
@@ -44,8 +44,13 @@ abstract class Ui {
     static final int SYN_KEY = 0xFF9CDCFE;
 
     private static final String[] GLYPHS = new String[128];
-    private static final int[] GLYPH_OFFSET = new int[128];
-    private static boolean glyphsReady;
+    /** Where each character sits in its cell, for the code font they were measured with. */
+    private static final java.util.Map<Object, int[]> GLYPH_OFFSETS = new java.util.HashMap<>();
+    static {
+        for (char c = 0; c < 128; c++) {
+            GLYPHS[c] = String.valueOf(c);
+        }
+    }
 
     /** A filled rectangle. Colours are 0xAARRGGBB. */
     abstract void fill(int x, int y, int width, int height, int color);
@@ -55,17 +60,33 @@ abstract class Ui {
 
     abstract int textWidth(String text);
 
+    /** Text in the code font (monospaced where it can be). The same as text() unless a surface has one. */
+    void code(String text, int x, int y, int color) {
+        text(text, x, y, color);
+    }
+
+    int codeWidth(String text) {
+        return textWidth(text);
+    }
+
+    /** Which code font is in use, so glyph positions measured for one aren't used for another. */
+    Object codeFont() {
+        return "";
+    }
+
     /** Until unclip(), nothing is drawn outside this rectangle. */
     abstract void clip(int x, int y, int width, int height);
 
     abstract void unclip();
 
-    private void prepareGlyphs() {
-        for (char c = 0; c < 128; c++) {
-            GLYPHS[c] = String.valueOf(c);
-            GLYPH_OFFSET[c] = (CELL_W - textWidth(GLYPHS[c])) / 2;
-        }
-        glyphsReady = true;
+    private int[] glyphOffsets() {
+        return GLYPH_OFFSETS.computeIfAbsent(codeFont(), font -> {
+            int[] offsets = new int[128];
+            for (char c = 0; c < 128; c++) {
+                offsets[c] = (CELL_W - codeWidth(GLYPHS[c])) / 2;
+            }
+            return offsets;
+        });
     }
 
     void outline(int x, int y, int width, int height, int color) {
@@ -89,9 +110,7 @@ abstract class Ui {
 
     /** Code text on the character grid: characters from..to of text, the first drawn at (x, y). */
     void mono(CharSequence text, int from, int to, int x, int y, int color) {
-        if (!glyphsReady) {
-            prepareGlyphs();
-        }
+        int[] offsets = glyphOffsets();
         for (int i = from; i < to; i++) {
             char c = text.charAt(i);
             if (c == ' ') {
@@ -99,10 +118,10 @@ abstract class Ui {
             }
             int cellX = x + (i - from) * CELL_W;
             if (c < 128) {
-                text(GLYPHS[c], cellX + GLYPH_OFFSET[c], y + 1, color);
+                code(GLYPHS[c], cellX + offsets[c], y + 1, color);
             } else {
                 String glyph = String.valueOf(c);
-                text(glyph, cellX + (CELL_W - textWidth(glyph)) / 2, y + 1, color);
+                code(glyph, cellX + (CELL_W - codeWidth(glyph)) / 2, y + 1, color);
             }
         }
     }

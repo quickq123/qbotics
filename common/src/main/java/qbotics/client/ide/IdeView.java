@@ -44,6 +44,10 @@ final class IdeView {
 
         /** Ctrl+Plus and Ctrl+Minus: make everything larger (+1) or smaller (-1). */
         void changeZoom(int by);
+
+        /** Ctrl+P: sharp screen fonts or Minecraft's pixel font. */
+        default void toggleFont() {
+        }
     }
 
     private static final int TITLE_H = 16;
@@ -1549,6 +1553,10 @@ final class IdeView {
         }
         if (event.hasShiftDown() && event.hasAltDown() && key == InputConstants.KEY_F) {
             formatActive();
+            return true;
+        }
+        if (control && key == InputConstants.KEY_P) {
+            host.toggleFont();
             return true;
         }
         if (control && (key == InputConstants.KEY_EQUALS || key == InputConstants.KEY_ADD)) {
