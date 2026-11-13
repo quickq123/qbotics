@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -90,6 +90,7 @@ public final class QboticsGameTests {
             Map.entry("agent_tools", QboticsGameTests::agentTools),
             Map.entry("server_model", QboticsGameTests::serverModel),
             Map.entry("game_knowledge", QboticsGameTests::gameKnowledge),
+            Map.entry("auto_crafting", QboticsGameTests::autoCrafting),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -3536,6 +3537,64 @@ public final class QboticsGameTests {
             helper.assertTrue(countIn(helper, new BlockPos(5, 1, 1), Items.DIRT) == 7, "the dirt goes to the store");
             // Smelted iron comes back to the ores chest.
             helper.assertTrue(countIn(helper, new BlockPos(3, 1, 1), Items.IRON_INGOT) >= 1, "an ingot should be back in ores");
+        });
+    }
+
+    /**
+     * An auto-crafter, as a player would write one: game.plan works out torches from one log and
+     * one coal (planks, then sticks, then torches; at most 4), and each step is crafted at a
+     * crafting table with Recipe.from_game. Also: a recipe's slots, the fuels, and what is
+     * missing from an empty store.
+     */
+    private static void autoCrafting(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        setPort(helper, new BlockPos(1, 1, 0), Kind.BUS, Direction.SOUTH);
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.CHEST);
+        setPort(helper, new BlockPos(2, 1, 0), Kind.BUS, Direction.SOUTH);
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.CRAFTING_TABLE);
+        qbotics.block.ProbeItem.rename(helper.getLevel(), null,
+                new qbotics.net.ProbePayloads.Rename(helper.absolutePos(new BlockPos(1, 1, 0)), Direction.SOUTH.get3DDataValue(), "store"));
+        qbotics.block.ProbeItem.rename(helper.getLevel(), null,
+                new qbotics.net.ProbePayloads.Rename(helper.absolutePos(new BlockPos(2, 1, 0)), Direction.SOUTH.get3DDataValue(), "crafter"));
+        // Placed by a player: a bus works a screen for its owner.
+        helper.getBlockEntity(new BlockPos(2, 1, 0), PortBlockEntity.class).port(Direction.SOUTH).onPlaced(UUID.randomUUID());
+        var store = helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        store.setItem(0, new ItemStack(Items.OAK_LOG, 1));
+        store.setItem(1, new ItemStack(Items.COAL, 1));
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/craft.py", String.join("\n",
+                    "import game",
+                    "from logistics import network, Recipe",
+                    "net = network()",
+                    "store, crafter = net.bus('store'), net.bus('crafter')",
+                    "table = game.recipes('crafting_table')[0]['craft']",
+                    "print('table slots', [i['slot'] for i in table['inputs']], table['inputs'][0]['item'], 'out', table['output']['slot'], table['output']['item'])",
+                    "print('best fuel', game.fuels(1)[0]['id'])",
+                    "empty = game.plan('torch', 4)",
+                    "print('empty ok', empty['ok'], 'missing', sorted(m['item'] for m in empty['missing']))",
+                    "p = game.plan('torch', 4, store)",
+                    "print('plan', p['ok'], [s['makes']['item'] for s in p['steps']], 'max', p['max_craftable'])",
+                    "for step in p['steps']:",
+                    "    recipe = Recipe.from_game(step, sources=store, destination=store)",
+                    "    with crafter.open_screen() as screen:",
+                    "        recipe.craft(step['runs'], screen)",
+                    "print('torches', store.count('torch'), 'sticks', store.count('stick'), 'planks', store.count('#minecraft:planks'))",
+                    "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /craft.py");
+        computer.submitLine("recipe crafting table");
+        helper.succeedWhen(() -> {
+            String screen = screen(computer);
+            helper.assertTrue(!screen.contains("Traceback"), "no errors: " + screen);
+            assertScreen(helper, computer, "table slots [1, 2, 4, 5] #minecraft:planks out 0 minecraft:crafting_table",
+                    "best fuel minecraft:lava_bucket",
+                    "plan True ['minecraft:oak_planks', 'minecraft:stick', 'minecraft:torch'] max 4",
+                    "torches 4 sticks 3 planks 2",
+                    "at a crafting_table: slot 1: #minecraft:planks");
+            // From nothing: logs (for planks, and for charcoal, which torches take as well as coal).
+            helper.assertTrue(screen.matches("(?s).*empty ok False missing \\[[^\\]]*_log'.*"), "an empty store: " + screen);
         });
     }
 

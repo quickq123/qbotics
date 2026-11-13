@@ -1722,6 +1722,16 @@ and work on their code.
   made, the rest used), built in the background when the server starts and again after /reload (1,552 vanilla recipes
   in 38 ms). The same answers go to the agent (find_items, item_info, recipes), the shell (recipe, item, items, with
   --json) and programs (the game module), through the game_* calls of NetworkCalls (computers and laptops).
+- **Crafting for programs** (asked for by the owner, for a JEI-like auto-crafter on a Control Panel without hard-coded
+  recipes): each recipe the game can describe gets a craft form (GameKnowledge.craftForm, from the recipe's own JSON):
+  station, inputs by slot of that block's screen (Recipe's numbers), each with a filter usable as it is and the items
+  that fit (tags expanded), output and slot, leftovers (crafting remainders), stonecutter button, cooking time.
+  logistics.Recipe.from_game builds a Recipe from it. game.fuels lists what burns. game.plan (agent/CraftPlanner,
+  decided with the owner: tedious for players and better on the server's threads than in a computer) works out the
+  whole tree from what storage holds: steps in order, what is taken, what is missing, the most that could be made
+  (doubling then halving), choosing among recipes by what is at hand and never following a cycle, with a work cap. All
+  game_* calls are answered off the server's main thread (ComputerManager GAME_PREFIX). The agent gains plan (from
+  what the player carries). The auto_crafting test plans torches from a log and coal and crafts them with from_game.
 - **The editor's Chat panel** (asked for by the owner, also for teacher and student sessions): in the scratchpad's
   place, the game's chat (client/ide/ChatLog: what arrives, and the agent's own lines) with a box that sends as the chat
   box does. With the agent available (a model set and its server answering, looked at every 30 s), To: Chat | AI sends
@@ -1818,6 +1828,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-13 | Crafting for programs: recipes in a ready-to-craft form (station, slots, options, leftovers), Recipe.from_game, game.fuels, and game.plan (the whole tree from storage, done by the server) (§17.8) | Built 2026-11-13 |
 | 2026-11-13 | Items and recipes from this world's data, every mod's (§17.8): the AI agent's find_items, item_info and recipes; the shell's recipe, item and items (--json); the game module for programs | Built 2026-11-13 |
 | 2026-11-13 | A model the server offers its players (§17.8): set up by its owner (ai.url, ai.model, ai.key), called by the server for them so the address and key never reach players, tested when the server starts (/qbotics ai, /qbotics ai test), per-player and overall limits; players set up their own where none is offered | Built 2026-11-13 |
 | 2026-11-13 | The agent's thinking is limited (asked for by the project owner: Qwen took minutes thinking about simple questions): /ai think off, low (default), medium, high, sent as OpenAI's reasoning_effort (off: enable_thinking false through the chat template); a server that refuses them is asked again without. Measured on Qwen with llama.cpp: full 54 s, low 6 s, off 3 s | Built 2026-11-13 |

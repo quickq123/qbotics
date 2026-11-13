@@ -66,6 +66,7 @@ public final class AgentTools {
                 case "list_files", "read_file", "write_file" -> files(player, tool, args);
                 case "run" -> run(player, args);
                 case "find_items", "item_info", "recipes" -> knowledge(player, tool, args);
+                case "plan" -> plan(player, args);
                 default -> CompletableFuture.completedFuture("There is no tool called " + tool + ".");
             };
         } catch (Problem problem) {
@@ -263,6 +264,36 @@ public final class AgentTools {
                             + "type says the table or machine.\n"
                             + GameKnowledge.recipes(server, text(args, "item"), "true".equalsIgnoreCase(text(args, "uses")), 8);
                 };
+            } catch (IllegalArgumentException e) {
+                return e.getMessage();
+            }
+        }, WORKER);
+    }
+
+    /** How to make an item from what the player carries (the same planner as game.plan). */
+    private static CompletableFuture<String> plan(ServerPlayer player, JsonObject args) {
+        MinecraftServer server = player.level().getServer();
+        java.util.Map<String, Long> carried = new java.util.HashMap<>();
+        for (ItemStack stack : player.getInventory().getNonEquipmentItems()) {
+            if (!stack.isEmpty()) {
+                carried.merge(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(), (long) stack.getCount(), Long::sum);
+            }
+        }
+        long count;
+        try {
+            count = Math.max(1, Long.parseLong(text(args, "count").isEmpty() ? "1" : text(args, "count")));
+        } catch (NumberFormatException e) {
+            count = 1;
+        }
+        long wanted = count;
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                JsonObject plan = CraftPlanner.plan(server, text(args, "item"), wanted, carried, java.util.Set.of());
+                // The steps without their full recipes: enough for the model, much shorter.
+                for (com.google.gson.JsonElement step : plan.getAsJsonArray("steps")) {
+                    step.getAsJsonObject().remove("craft");
+                }
+                return "From what the player carries:\n" + plan;
             } catch (IllegalArgumentException e) {
                 return e.getMessage();
             }

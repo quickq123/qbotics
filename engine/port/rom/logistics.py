@@ -532,6 +532,29 @@ class Recipe:
         self.results = {}                 # slot number -> {"what": name or None, "amount": per run or None, "destination": or None}
         self.buttons = []                 # presses each run, in order, after the ingredients are in: {"button": n, "times": t}
 
+    @staticmethod
+    def from_game(recipe, sources=None, destination=None, xp=None):
+        """A Recipe made from the game's own (game.recipes, or a step of game.plan), ready to
+        craft at its station: a crafting table, a stonecutter or a smithing table, through a
+        bus on that block (open_screen). Furnaces cook over time instead: put the input in
+        with move() and collect the output (the recipe's "craft" gives their slots)."""
+        craft = recipe.get("craft", recipe) if isinstance(recipe, dict) else None
+        if not craft or "station" not in craft:
+            raise NetworkError("The game can't describe that recipe for a program (another mod's machine, or a special recipe).")
+        station = craft["station"]
+        if station not in ("minecraft:crafting_table", "minecraft:stonecutter", "minecraft:smithing_table"):
+            raise NetworkError("A %s works over time, not through its screen: put the input in its slot %d with move() and collect "
+                               "the output from slot %s." % (station.split(":")[-1], craft["inputs"][0]["slot"],
+                                                             craft["output"].get("slot", "-")))
+        made = Recipe(sources, destination, xp)
+        for line in craft["inputs"]:
+            made.ingredient(line["item"], Slot(line["slot"]), line["count"])
+        if "button" in craft:
+            made.button(craft["button"])
+        out = craft["output"]
+        made.result(Slot(out["slot"]), out["item"], out["count"])
+        return made
+
     def ingredient(self, what, slot, amount=1):
         """Adds an ingredient: this name or filter, into this slot, this many per run."""
         self.ingredients[_aim(None, None, slot)[2]] = {"what": what, "amount": amount}

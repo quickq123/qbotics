@@ -2173,10 +2173,67 @@ game.find_items("#c:ingots")                # [{"id": "minecraft:iron_ingot", "n
 | `game.uses(item, limit=10)` | The recipes it is an ingredient of, those taking it by a tag it carries included |
 | `game.item(item)` | `id`, `name`, `mod`, `tags`, `stack_size`, `durability`, `fuel_ticks`, `food_nutrition`, how many recipes make and use it |
 | `game.find_items(query, limit=40)` | Items matching a word, pattern, tag or mod: `{"id", "name"}` each |
+| `game.fuels(limit=20)` | What burns in a furnace, best first: `{"id", "name", "ticks", "smelts"}` (`items --fuels` in the shell) |
+| `game.plan(item, count=1, have=None, stations=None)` | How to make it from what is in storage, worked out by the server (below) |
 
 An item can be its full name (`minecraft:crafting_table`), its name without the mod
 (`crafting_table`) or its display name (`"Crafting Table"`); a name that doesn't exist raises
-`NetworkError` with close matches. A recipe is a dict in the form the game loaded it from:
+`NetworkError` with close matches.
+
+**Recipes ready to craft.** Each recipe the game can describe for a program also has `"craft"`:
+
+```python
+{"station": "minecraft:crafting_table",            # the block that makes it
+ "inputs": [{"slot": 1, "item": "#minecraft:planks", "count": 1,
+             "options": ["minecraft:oak_planks", "minecraft:spruce_planks", ...]}, ...],
+ "output": {"slot": 0, "item": "minecraft:crafting_table", "count": 1},
+ "leftovers": []}                                  # what the grid keeps: a bucket from milk
+```
+
+`slot` is the slot of that block's screen, as `Recipe` numbers them (a crafting table: 0 the
+product, 1 to 9 the grid; a furnace: 0 in, 1 fuel, 2 out; a stonecutter: 0 in, 1 out, with the
+`button` to press; a smithing table: 0 template, 1 base, 2 addition, 3 out). `item` is a filter
+to give `move` or `Recipe` as it is: a name, a `#tag` or `"a | b"`; `options` are the items that
+fit. Furnaces also give `cook_ticks`. Other mods' machines have no `"craft"` (their slots can't
+be known from the recipe); their raw recipe is still there.
+
+`Recipe.from_game(recipe, sources, destination)` (in `logistics`) makes a `Recipe` from one,
+for a crafting table, stonecutter or smithing table: `max_runs()`, `can_craft()` and `craft()`
+then work as for one written by hand.
+
+**Plans: the whole tree, worked out by the server.** `game.plan(item, count, have)` works out
+how to make it from what is in storage (`have`: a device such as a bus or an interface, a list
+of them, `contents()`, or `{item: count}`), every step in order, and is done by the server, not
+in the computer's small Python:
+
+```python
+from logistics import network, Recipe
+import game
+net = network()
+store, crafter = net.interface("store"), net.bus("crafter")   # a bus on a crafting table
+
+p = game.plan("chest", 4, store)
+print(p["ok"], p["max_craftable"], p["missing"])     # can it, how many could, what is short
+for step in p["steps"]:                              # planks, then the chests
+    recipe = Recipe.from_game(step, sources=store, destination=store)
+    with crafter.open_screen() as screen:
+        recipe.craft(step["runs"], screen)
+```
+
+| Key | |
+|---|---|
+| `steps` | The recipes in the order to do them: `{"recipe", "station", "runs", "makes": {"item", "count"}, "uses": [...], "craft"}` |
+| `from_storage` | What it takes from storage: `[{"item", "count"}]` |
+| `missing` | What isn't there and can't be made: `[{"item", "count"}]` |
+| `ok` | `True` if nothing is missing |
+| `max_craftable` | The most that could be made from what is there |
+
+Where several recipes make something, the one whose ingredients are most at hand is used (iron
+ingots from the raw iron you have, not from a block you don't); for a tag ingredient, whatever
+matching items are stored, mixed if need be. `stations=["crafting_table"]` keeps to the blocks
+your program works. A very large tree answers `"too_big": True`.
+
+A recipe is a dict in the form the game loaded it from:
 `"type"` says the table or machine (`minecraft:crafting_shaped`, `minecraft:smelting`, or a
 mod's own, such as a crushing wheel's), so its other keys depend on the type. An ingredient
 written `"#c:ingots/iron"` is a tag: any item carrying it. Very long recipes come as just

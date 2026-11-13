@@ -172,6 +172,10 @@ public final class ComputerManager {
      * @param callerId the computer asking: itself, or one of a Server's services
      * @param placeId  the computer whose block it is (a service's is its Server's)
      */
+    /** Items and recipes (the game module): read-only, so answered off the server's main thread (a big plan takes a while). */
+    private static final String GAME_PREFIX = "[\"game_";
+    private static final java.util.concurrent.ExecutorService GAME_WORKER = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+
     private java.util.function.Function<String, CompletableFuture<String>> worldCalls(UUID callerId, UUID placeId,
             ResourceKey<Level> dimension, BlockPos pos) {
         return call -> {
@@ -188,6 +192,10 @@ public final class ComputerManager {
                     qbotics.uplink.Uplink.fromComputer(server, place == null ? dimension : place.dimension(), place == null ? pos : place.pos(), call,
                             self == null ? ServerComputer.BASIC_HEAP_BYTES : self.heapBytes(), answer);
                 });
+                return answer;
+            }
+            if (call.startsWith(GAME_PREFIX)) {
+                outbox.add(server -> GAME_WORKER.execute(() -> answer.complete(qbotics.agent.GameKnowledge.answerCall(server, call))));
                 return answer;
             }
             if (call.startsWith(GIT_PREFIX)) {
@@ -297,6 +305,10 @@ public final class ComputerManager {
                     ServerComputer self = computers.get(id);
                     qbotics.uplink.GitService.run(server, owner, "laptop", self == null ? qbotics.engine.HostFileSystem.NONE : self.drive(), call, answer);
                 });
+                return answer;
+            }
+            if (call.startsWith(GAME_PREFIX)) {
+                outbox.add(server -> GAME_WORKER.execute(() -> answer.complete(qbotics.agent.GameKnowledge.answerCall(server, call))));
                 return answer;
             }
             outbox.add(server -> answer.complete(NetworkCalls.handleLaptop(server, owner, call)));

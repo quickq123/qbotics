@@ -588,6 +588,9 @@ public final class ClientAgent {
         tools.add(tool("recipes", "The recipes in this game (every mod's, as this modpack has them) that make an item, or with "
                 + "uses=true those it is used in: crafting grids, furnaces, other mods' machines.",
                 Map.of("item", "The item: mod:name, or its display name", "uses", "\"true\" for the recipes it is used in"), "item"));
+        tools.add(tool("plan", "How to make an item from what the player carries, worked out by the game: every step in order "
+                + "(each recipe, its station and how many times), what comes from their inventory, and what is missing.",
+                Map.of("item", "The item: mod:name, or its display name", "count", "How many (default 1)"), "item"));
         tools.add(tool("search_manual", "Searches the Qbotics manual (devices, the logistics/events/network/display modules, limits).",
                 Map.of("query", "What to look for, e.g. \"furnace faces\" or \"events on_change\""), "query"));
         return tools;
@@ -672,7 +675,7 @@ public final class ClientAgent {
                 say("(running \"" + command + "\"" + on + ")", ChatFormatting.DARK_GRAY);
                 return serverTool(name, args);
             }
-            case "find_items", "item_info", "recipes":
+            case "find_items", "item_info", "recipes", "plan":
                 say("(" + name.replace('_', ' ') + " " + (parsed.has("item") ? parsed.get("item").getAsString()
                         : parsed.has("query") ? parsed.get("query").getAsString() : "") + ")", ChatFormatting.DARK_GRAY);
                 return serverTool(name, args);
