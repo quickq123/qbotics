@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.input.KeyEvent;
+import qbotics.ide.Checker;
 import qbotics.ide.Completer;
 import qbotics.ide.Docs;
 import qbotics.ide.Finder;
@@ -42,6 +43,19 @@ final class CodeView {
     private int[] lineStartState = new int[0];
     private JsonTools.Result jsonProblem;
     private int longestLine;
+
+    // Mistakes, found a moment after typing stops (qbotics.ide.Checker), then by the engine.
+    private static final long CHECK_AFTER_MS = 500;
+    private static final int WARNING = 0xFFE0B040;
+    private List<Checker.Problem> problems = List.of();
+    private long checkedVersion = -1;
+    private long seenVersion = -1;
+    private long editedAt;
+    /** Asks the server to compile the file (FileRequest.CHECK), or null: set for an editor tab. */
+    IdeBackend compiler;
+    /** The file's path, for the engine's messages. */
+    String path = "/scratch.py";
+    private long compiledVersion = -1;
 
     /** Places the find bar's text was found; drawn highlighted. Set by the editor screen. */
     List<Finder.Match> matches = List.of();
@@ -123,8 +137,72 @@ final class CodeView {
         }
     }
 
+    /** The mistakes found in the text as it was a moment ago. */
+    List<Checker.Problem> problems() {
+        return problems;
+    }
+
+    /** The first mistake on a line, or null. */
+    Checker.Problem problemOn(int line) {
+        for (Checker.Problem problem : problems) {
+            if (problem.line() == line) {
+                return problem;
+            }
+        }
+        return null;
+    }
+
+    /** Checks the text once typing has paused; then, if it found nothing, has the engine compile it. */
+    private void checkProblems() {
+        if (language != Language.PYTHON) {
+            problems = List.of();
+            return;
+        }
+        long version = buffer.version();
+        long now = System.currentTimeMillis();
+        if (version != seenVersion) {
+            seenVersion = version;
+            editedAt = now;
+        }
+        if (version == checkedVersion || now - editedAt < CHECK_AFTER_MS) {
+            return;
+        }
+        checkedVersion = version;
+        List<String> lines = new ArrayList<>(buffer.lineCount());
+        for (int i = 0; i < buffer.lineCount(); i++) {
+            lines.add(buffer.line(i));
+        }
+        problems = Checker.check(lines, Docs.moduleExports());
+        boolean errors = problems.stream().anyMatch(p -> p.severity() == Checker.Severity.ERROR);
+        if (!errors && compiler != null && compiledVersion != version) {
+            compiledVersion = version;
+            compiler.file(qbotics.net.IdePayloads.FileRequest.CHECK, path,
+                    buffer.text().getBytes(java.nio.charset.StandardCharsets.UTF_8), (errno, data) -> {
+                        String answer = new String(data, java.nio.charset.StandardCharsets.UTF_8);
+                        int tab = answer.indexOf('\t');
+                        if (errno != 0 || tab < 0 || buffer.version() != version) {
+                            return;
+                        }
+                        try {
+                            int line = Integer.parseInt(answer.substring(0, tab)) - 1;
+                            if (line >= 0 && line < buffer.lineCount()) {
+                                String text = buffer.line(line);
+                                int start = text.length() - text.stripLeading().length();
+                                List<Checker.Problem> more = new ArrayList<>(problems);
+                                more.add(new Checker.Problem(line, start, Math.max(start + 1, text.stripTrailing().length()),
+                                        Checker.Severity.ERROR, "Python can't read this line: " + answer.substring(tab + 1) + "."));
+                                problems = more;
+                            }
+                        } catch (NumberFormatException e) {
+                            // Not an answer we understand: nothing to show.
+                        }
+                    });
+        }
+    }
+
     void render(Ui ui, Ui.Rect rect, boolean focused, boolean cursorOn) {
         analyse();
+        checkProblems();
         area = rect;
         int gutter = lineNumbers ? (String.valueOf(buffer.lineCount()).length() + 2) * Ui.CELL_W + 4 : 4;
         textLeft = rect.x() + gutter;
@@ -170,10 +248,17 @@ final class CodeView {
                 highlight(ui, from, to, y, Ui.SELECTION);
             }
             drawLine(ui, text, line, y);
+            for (Checker.Problem problem : problems) {
+                if (problem.line() == line) {
+                    squiggle(ui, problem.start(), problem.end(), y, problem.severity() == Checker.Severity.ERROR ? Ui.ERROR : WARNING);
+                }
+            }
             ui.unclip();
             if (lineNumbers) {
                 String number = String.valueOf(line + 1);
-                boolean bad = jsonProblem != null && jsonProblem.line() == line + 1;
+                Checker.Problem onLine = problemOn(line);
+                boolean bad = (jsonProblem != null && jsonProblem.line() == line + 1)
+                        || (onLine != null && onLine.severity() == Checker.Severity.ERROR);
                 ui.mono(number, textLeft - 4 - (number.length() + 1) * Ui.CELL_W, y,
                         bad ? Ui.ERROR : line == buffer.cursorLine() ? Ui.TEXT : Ui.TEXT_DIM);
             }
@@ -205,6 +290,17 @@ final class CodeView {
         int thumb = Math.max(10, track * visibleLines() / (buffer.lineCount() + visibleLines() - 1));
         int top = (track - thumb) * scrollLine / Math.max(1, maxScrollLine());
         return new Ui.Rect(area.right() - SCROLLBAR_W, area.y() + top, SCROLLBAR_W, thumb);
+    }
+
+    /** A wavy line under columns from..to of the line drawn at y, as code editors mark mistakes. */
+    private void squiggle(Ui ui, int from, int to, int y, int color) {
+        int x0 = textLeft + (from - scrollColumn) * Ui.CELL_W;
+        int x1 = textLeft + (to - scrollColumn) * Ui.CELL_W;
+        int base = y + Ui.CELL_H - 2;
+        for (int x = x0; x < x1; x++) {
+            int phase = (x - x0) % 4;
+            ui.fill(x, base + (phase == 1 ? -1 : phase == 3 ? 1 : 0), 1, 1, color);
+        }
     }
 
     /** A coloured background behind columns from..to of the line drawn at y. */
@@ -330,6 +426,12 @@ final class CodeView {
         }
         int line = lineAt(mouseY);
         int column = scrollColumn + (int) Math.floor((mouseX - textLeft) / Ui.CELL_W);
+        for (Checker.Problem problem : problems) {
+            if (problem.line() == line && column >= problem.start() && column < problem.end()) {
+                renderProblem(ui, problem, screenRight, screenBottom);
+                return;
+            }
+        }
         boolean sameWord = hover != null && line == hoverLine && column >= hover.start() && column < hover.end();
         if (hoverVersion != buffer.version() || !(sameWord || (line == hoverLine && column == hoverColumn))) {
             Docs.Hint found = Docs.lookup(buffer, line, column);
@@ -378,6 +480,30 @@ final class CodeView {
         ui.outline(x, y, width, height, Ui.BORDER);
         for (int i = 0; i < rows.size(); i++) {
             ui.mono(rows.get(i), x + 6, y + 3 + i * Ui.CELL_H, isSignature.get(i) ? Ui.SYN_FUNCTION : Ui.TEXT);
+        }
+    }
+
+    /** The box saying what is wrong, under the marked code. */
+    private void renderProblem(Ui ui, Checker.Problem problem, int screenRight, int screenBottom) {
+        boolean error = problem.severity() == Checker.Severity.ERROR;
+        List<String> rows = new ArrayList<>(Docs.wrap(problem.message(), HOVER_COLUMNS));
+        int longest = 0;
+        for (String row : rows) {
+            longest = Math.max(longest, row.length());
+        }
+        String title = error ? "Error" : "Warning";
+        int width = Math.max(longest * Ui.CELL_W, ui.textWidth(title)) + 12;
+        int height = (rows.size() + 1) * Ui.CELL_H + 8;
+        int wordX = textLeft + (problem.start() - scrollColumn) * Ui.CELL_W - 5;
+        int x = Math.max(2, Math.min(wordX, screenRight - width - 4));
+        int lineY = area.y() + (problem.line() - scrollLine) * Ui.CELL_H;
+        int y = lineY + Ui.CELL_H + 2 + height <= screenBottom ? lineY + Ui.CELL_H + 2 : Math.max(2, lineY - height - 2);
+        ui.fill(x + 2, y + 2, width, height, Ui.SHADOW);
+        ui.fill(x, y, width, height, Ui.MENU_BG);
+        ui.outline(x, y, width, height, error ? Ui.ERROR : WARNING);
+        ui.text(title, x + 6, y + 4, error ? Ui.ERROR : WARNING);
+        for (int i = 0; i < rows.size(); i++) {
+            ui.mono(rows.get(i), x + 6, y + 5 + (i + 1) * Ui.CELL_H, Ui.TEXT);
         }
     }
 

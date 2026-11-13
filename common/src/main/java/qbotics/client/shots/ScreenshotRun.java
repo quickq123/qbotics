@@ -733,6 +733,45 @@ public final class ScreenshotRun {
                 }
             });
         }
+        // Mistakes, marked as they would be a moment after typing; then one hovered over.
+        then(2, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.setZoomForShots(2);
+            }
+            onServer(minecraft, player -> {
+                qbotics.computer.ServerComputer laptop = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player);
+                try {
+                    laptop.drive().call(qbotics.engine.HostFileSystem.WRITE, "/broken.py", String.join("\n",
+                            "from logistics import network, mvoe",
+                            "import events",
+                            "",
+                            "net = network()",
+                            "inbox = net.bus(\"inbox\")",
+                            "",
+                            "def wrong:",
+                            "    count = 0",
+                            "    for stack in inbox.contents():",
+                            "        cuont += stack[\"count\"]",
+                            "    if count = 0:",
+                            "        print(\"empty\")",
+                            "",
+                            "events.every(5, wrong)",
+                            "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } catch (qbotics.engine.HostFileSystem.FsException e) {
+                    throw new IllegalStateException(e);
+                }
+                laptop.submitLine("edit broken.py");
+            });
+        });
+        then(100, minecraft -> { }); // (a step's wait comes after it): the file opens and is checked
+        then(5, minecraft -> shot(minecraft, "ide-problems"));
+        then(2, minecraft -> {
+            // The mouse over "wrong" on line 7 (zoom 2: an editor unit is two window pixels).
+            var window = minecraft.getWindow();
+            org.lwjgl.glfw.GLFW.glfwSetCursorPos(window.handle(), (160 + 4 + 4 * 6 + 4 + 6 * 6) * 2.0 * window.getScreenWidth() / window.getWidth(),
+                    (16 + 14 + 6 * 10 + 5) * 2.0 * window.getScreenHeight() / window.getHeight());
+        });
+        then(15, minecraft -> shot(minecraft, "ide-problem-hover"));
         then(2, minecraft -> {
             if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
                 ide.setZoomForShots(0); // back to the size the window chooses

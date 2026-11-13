@@ -39,6 +39,11 @@ public final class IdePayloads {
         public static final byte RENAME = 6;
         /** Creates an empty file; fails if the name is taken. */
         public static final byte CREATE = 7;
+        /**
+         * Compiles the Python in data (the file at path, as the editor has it, saved or not)
+         * without running it. The answer is "" if it compiles, otherwise "line\tmessage".
+         */
+        public static final byte CHECK = 8;
 
         public static final Type<FileRequest> TYPE = new Type<>(Qbotics.id("ide_file_request"));
         public static final StreamCodec<ByteBuf, FileRequest> STREAM_CODEC = StreamCodec.composite(

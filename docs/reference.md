@@ -141,6 +141,21 @@ run /factory/report.py
 
 Resting the mouse on a function name shows how to call it and what it does.
 
+### 1.2b Mistakes, marked as you type
+
+Half a second after you stop typing, the editor checks the Python file and underlines what is
+wrong with a wavy line: **red** for an error, something that stops the program from starting
+or from running that line, and **amber** for a warning, something that is probably a mistake.
+The line number turns red too. Rest the mouse on the underlined code to see what is wrong and
+how to put it right; the status bar shows the problem on the cursor's line, or how many there are.
+
+It finds, among others: a bracket or quote left open or closed with the wrong one, a missing
+`:` after `if`, `for`, `def` and the others, `def name:` without its `()`, indentation that
+doesn't line up, `=` where `==` was meant, `else if` for `elif`, `print "x"`, a name the mod's
+modules don't have (`from logistics import mvoe`: did you mean `move`?), and names used but
+never defined (`cuont`). When it finds no error, the computer's own Python compiles the file
+too (without running it), so anything else it can't read is marked as well.
+
 ### 1.3 Terminal mouse and keys
 
 | Action | What it does |

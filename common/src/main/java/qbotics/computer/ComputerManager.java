@@ -494,6 +494,16 @@ public final class ComputerManager {
     public void onFileRequest(ServerPlayer player, IdePayloads.FileRequest request) {
         ServerComputer computer = viewedComputer(player, request.deviceId());
         UUID playerId = player.getUUID();
+        if (request.op() == IdePayloads.FileRequest.CHECK) {
+            // Only for someone with this editor open; the drive isn't touched.
+            if (computer == null && viewedDrive(player, request.deviceId()) == null) {
+                reply(playerId, request, HostFileSystem.EACCES, new byte[0]);
+                return;
+            }
+            FILE_WORKER.execute(() -> reply(playerId, request, 0,
+                    CompileCheck.check(request.path(), request.data()).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            return;
+        }
         if (computer == null) {
             // Perhaps a Programmer's drive, open in the editor without a terminal.
             HostFileSystem drive = viewedDrive(player, request.deviceId());

@@ -86,6 +86,7 @@ public final class QboticsGameTests {
             Map.entry("helpme_storage", QboticsGameTests::helpmeStorage),
             Map.entry("helpme_factory", QboticsGameTests::helpmeFactory),
             Map.entry("helpme_events", QboticsGameTests::helpmeEvents),
+            Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -3514,6 +3515,22 @@ public final class QboticsGameTests {
             // Smelted iron comes back to the ores chest.
             helper.assertTrue(countIn(helper, new BlockPos(3, 1, 1), Items.IRON_INGOT) >= 1, "an ingot should be back in ores");
         });
+    }
+
+    /**
+     * The editor's second opinion (FileRequest.CHECK): the engine compiles a file without running
+     * it, and says which line it can't read and why; a good file gives nothing.
+     */
+    private static void compileCheck(GameTestHelper helper) {
+        java.util.function.Function<String, String> check = source ->
+                qbotics.computer.CompileCheck.check("/t.py", source.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String good = check.apply("import time\ndef f(x):\n    return x * 2\nprint(f'{f(2)}', 'it\\'s')\n");
+        String doubled = check.apply("x = 1\ny = = 2\n");
+        String outside = check.apply("x = 1\nreturn x\n");
+        helper.assertTrue(good.isEmpty(), "good code compiles: " + good);
+        helper.assertTrue(doubled.startsWith("2\t") && doubled.contains("invalid syntax"), "y = = 2 is line 2: " + doubled);
+        helper.assertTrue(outside.startsWith("2\t") && outside.contains("outside function"), "return outside a function: " + outside);
+        helper.succeed();
     }
 
     /** The helpme events examples that need no blocks, run as a player would: each ends by itself. */

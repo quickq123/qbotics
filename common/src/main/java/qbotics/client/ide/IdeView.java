@@ -303,6 +303,12 @@ final class IdeView {
             left = toast;
         } else if (problem != null) {
             left = "JSON problem on line " + problem.line() + ": " + problem.error();
+        } else if (tab != null && tab.view != null && !tab.view.problems().isEmpty()) {
+            // The mistake on the cursor's line, or how many there are.
+            qbotics.ide.Checker.Problem here = tab.view.problemOn(tab.view.buffer.cursorLine());
+            int count = tab.view.problems().size();
+            left = here != null ? "Line " + (here.line() + 1) + ": " + here.message()
+                    : count + (count == 1 ? " problem" : " problems") + " in this file: hover over the underlined code to see what is wrong";
         } else {
             left = (session.editOnly ? "" : "F5 Run   F8 Step   ") + "Ctrl+S Save   Ctrl+F Find   Ctrl+H Replace   Ctrl+Space Suggest   Ctrl+/ Comment   Ctrl+Plus/Minus Text size   Esc Close";
         }
@@ -555,6 +561,7 @@ final class IdeView {
                         if (tab.view != null) {
                             // A file renamed to end in .py becomes a Python file, coloured and runnable.
                             tab.view.setLanguage(Language.forFile(Paths.name(tab.path)));
+                            tab.view.path = tab.path;
                         }
                     }
                 }
@@ -619,12 +626,16 @@ final class IdeView {
             if (errno == HostFileSystem.ENOENT) {
                 // "edit new.py" in the terminal: start an empty file; saving creates it.
                 tab.view = new CodeView(new TextBuffer(""), Language.forFile(Paths.name(tab.path)), true);
+                tab.view.compiler = backend;
+                tab.view.path = tab.path;
             } else if (errno == HostFileSystem.EFBIG) {
                 tab.problem = "This file is too large for the editor (the limit is " + IdePayloads.MAX_FILE_BYTES / 1000 + " KB).";
             } else if (errno != 0) {
                 tab.problem = describe(errno, path);
             } else {
                 tab.view = new CodeView(new TextBuffer(new String(data, StandardCharsets.UTF_8)), Language.forFile(Paths.name(tab.path)), true);
+                tab.view.compiler = backend;
+                tab.view.path = tab.path;
             }
         });
     }

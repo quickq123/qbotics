@@ -132,6 +132,24 @@ public final class Docs {
 
     private static final String[] ROM_MODULES = {"logistics", "network", "events", "pip", "display", "qbot", "requests", "git"};
     private static List<Entry> library;
+    private static Map<String, java.util.Set<String>> exports;
+
+    /** The names each of the mod's modules offers (for the checker: a misspelt import). */
+    public static synchronized Map<String, java.util.Set<String>> moduleExports() {
+        if (exports == null) {
+            exports = new HashMap<>();
+            for (String module : ROM_MODULES) {
+                try (InputStream in = Docs.class.getResourceAsStream("/qbotics/rom/" + module + ".py")) {
+                    if (in != null) {
+                        exports.put(module, Checker.exports(new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("\r", "").lines().toList()));
+                    }
+                } catch (IOException e) {
+                    // That module's names aren't checked.
+                }
+            }
+        }
+        return exports;
+    }
     private static final Map<String, String> MODULE_NOTES = new HashMap<>();
 
     /** The mod's own modules, read from their source, then the hand-written entries. */

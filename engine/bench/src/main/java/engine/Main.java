@@ -144,6 +144,15 @@ public final class Main {
             }
             return;
         }
+        if (args.length > 1 && args[1].equals("editor")) {
+            // Only the editor's text logic and the checker: quick, no engine needed.
+            section("Editor logic");
+            editorLogic();
+            section("Checker");
+            checker();
+            System.out.println(failures == 0 ? "ALL CHECKS PASSED" : failures + " CHECKS FAILED");
+            System.exit(failures == 0 ? 0 : 1);
+        }
         if (args.length > 1 && args[1].equals("exec")) {
             // Run one script and print what it printed: a quick way to try something on the engine.
             Computer c = new Computer(compiled, SERVER, INSTANT);
@@ -172,6 +181,8 @@ public final class Main {
         fileSystem(compiled);
         section("Editor logic");
         editorLogic();
+        section("Checker");
+        checker();
 
         if (!quick) {
             section("Boot time per computer");
@@ -594,6 +605,128 @@ public final class Main {
         String out = c.takeOutput();
         check(name, ok == wantOk && out.equals(wantOut), out);
         return null;
+    }
+
+    /** The checker (qbotics.ide.Checker): what it finds, where, and no false alarms on the helpme examples. */
+    static void checker() throws Exception {
+        java.util.Map<String, java.util.Set<String>> modules = new java.util.HashMap<>();
+        try (var files = Files.list(Path.of("../port/rom"))) {
+            for (Path file : files.filter(f -> f.toString().endsWith(".py")).toList()) {
+                String name = file.getFileName().toString().replace(".py", "");
+                if (!name.startsWith("_")) {
+                    modules.put(name, qbotics.ide.Checker.exports(Files.readAllLines(file)));
+                }
+            }
+        }
+        check("exports", modules.get("logistics").contains("move") && modules.get("logistics").contains("Face")
+                && modules.get("events").contains("every") && modules.get("display").contains("COLORS")
+                && !modules.get("logistics").contains("_call"), modules.get("logistics").toString());
+        record Case(String name, String source, int line, int column, String severity, String says) {
+        }
+        List<Case> cases = List.of(
+                new Case("def without brackets", "def wrong:\n    pass", 0, 4, "ERROR", "brackets after"),
+                new Case("missing colon", "x = 1\nif x == 1\n    print(x)", 1, 9, "ERROR", "Add a :"),
+                new Case("unclosed bracket", "x = (1, 2\ny = 3", 0, 4, "ERROR", "never closed"),
+                new Case("wrong closing bracket", "print(\"a\"]", 0, 9, "ERROR", "Expected ) to close"),
+                new Case("closing with nothing open", "x = 1)", 0, 5, "ERROR", "nothing to close"),
+                new Case("= in a condition", "x = 1\nif x = 3:\n    pass", 1, 5, "ERROR", "Use =="),
+                new Case("unclosed text", "name = 'abc", 0, 7, "ERROR", "no closing '"),
+                new Case("unclosed triple", "x = \"\"\"abc\ny = 2", 0, 4, "ERROR", "never closed"),
+                new Case("block not indented", "def f():\nreturn 1", 1, 0, "ERROR", "Expected an indented line"),
+                new Case("indented for no reason", "x = 1\n    y = 2", 1, 0, "ERROR", "doesn't start a block"),
+                new Case("dedent to nowhere", "for i in range(3):\n    print(i)\n  print(2)", 2, 0, "ERROR", "doesn't line up"),
+                new Case("else if", "x = 1\nif x:\n    pass\nelse if x:\n    pass", 3, 0, "ERROR", "elif"),
+                new Case("print without brackets", "print \"hi\"", 0, 0, "ERROR", "print needs brackets"),
+                new Case("block at the end", "while True:", 0, 0, "ERROR", "nothing indented follows"),
+                new Case("! for not", "x = 1\nif !x:\n    pass", 1, 3, "ERROR", "not"),
+                new Case("misspelt import", "from logistics import network, mvoe", 0, 31, "ERROR", "Did you mean move?"),
+                new Case("misspelt module call", "import logistics\nlogistics.netwrok()", 1, 10, "ERROR", "Did you mean network?"),
+                new Case("undefined name", "nmae = 'a'\nprint(name)", 1, 6, "WARNING", "Did you mean nmae?"),
+                new Case("CPython-only exception", "try:\n    pass\nexcept FileNotFoundError:\n    pass", 2, 7, "WARNING", "OSError"));
+        for (Case c : cases) {
+            var found = qbotics.ide.Checker.check(List.of(c.source.split("\n", -1)), modules);
+            boolean ok = !found.isEmpty() && found.getFirst().line() == c.line && found.getFirst().start() == c.column
+                    && found.getFirst().severity().name().equals(c.severity) && found.getFirst().message().contains(c.says);
+            check("checker: " + c.name, ok, found.toString());
+        }
+        // Several mistakes at once: each is found, the names too.
+        var several = qbotics.ide.Checker.check(List.of(
+                "from logistics import network, mvoe", "import events", "", "net = network()", "inbox = net.bus(\"inbox\")", "",
+                "def wrong:", "    count = 0", "    for stack in inbox.contents():", "        cuont += stack[\"count\"]",
+                "    if count = 0:", "        print(\"empty\")", "", "events.every(5, wrong)", ""), modules);
+        check("checker: several mistakes", several.size() == 4 && several.get(0).message().contains("mvoe")
+                && several.get(1).message().contains("brackets") && several.get(2).message().contains("cuont")
+                && several.get(3).message().contains("=="), several.toString());
+        // Correct code of every kind: nothing found.
+        String fine = String.join("\n",
+                "import time, json as j",
+                "from logistics import network, move, Face, Slot",
+                "from events import every as each",
+                "import events",
+                "net = network()",
+                "a, (b, c) = 1, (2, 3)",
+                "count: int = 0",
+                "def tend(furnace, *rest, limit=16, **more) -> None:",
+                "    global count",
+                "    count += 1",
+                "    total = sum(x * 2 for x in range(limit) if x > 1)",
+                "    pairs = {k: v for k, v in more.items()}",
+                "    f = lambda y, z=2: y + z + limit",
+                "    if (n := len(rest)) > 0 and total != 3 and not f(1):",
+                "        print(f\"{n:>4} -> {furnace!r}\", end='')",
+                "    elif n <= -1: pass",
+                "    else:",
+                "        move(net.bus('ores'), furnace.destination(face=Face.TOP, slot=Slot(0)), 'coal | charcoal', limit)",
+                "    return [i for i in rest]",
+                "",
+                "class Job(object):",
+                "    '''A job.'''",
+                "    def __init__(self, name):",
+                "        self.name = name",
+                "        self.data = {'a': [1, 2], \"b\": (3,)}",
+                "",
+                "@events.every(5)",
+                "def tick():",
+                "    try:",
+                "        with open('/x.txt') as handle:",
+                "            print(handle.read(), j.dumps([1]))",
+                "    except OSError as error:",
+                "        print(error, time.time())",
+                "    finally:",
+                "        x = \\",
+                "            1 + \\",
+                "            2",
+                "    s = r'\\d' + b'x'.decode() + \"\"\"",
+                "multi \"line\" text",
+                "\"\"\"",
+                "    while count < 3:",
+                "        count += 1",
+                "    else:",
+                "        each(1, tick)",
+                "    for k in range(2): print(k)",
+                "    return 0x1F + 1e-3 + .5 + 1_000");
+        var none = qbotics.ide.Checker.check(List.of(fine.split("\n", -1)), modules);
+        check("checker: correct code passes", none.isEmpty(), none.toString());
+        // The helpme examples.
+        List<String> alarms = new ArrayList<>();
+        try (var files = Files.walk(Path.of("../../common/src/main/resources/qbotics/helpme"))) {
+            for (Path file : files.filter(f -> f.toString().endsWith(".py")).toList()) {
+                for (var problem : qbotics.ide.Checker.check(Files.readAllLines(file), modules)) {
+                    alarms.add(file.getFileName() + ":" + (problem.line() + 1) + " " + problem.message());
+                }
+            }
+        }
+        check("checker: no alarms in the helpme examples", alarms.isEmpty(), String.join("\n", alarms));
+        long t = System.nanoTime();
+        List<String> big = new ArrayList<>();
+        for (int i = 0; i < 40; i++) {
+            big.addAll(List.of(fine.split("\n", -1)));
+        }
+        for (int i = 0; i < 20; i++) {
+            qbotics.ide.Checker.check(big, modules);
+        }
+        double each = ms(t) / 20;
+        check("checker: 1,800 lines in under 20 ms", each < 20, each + " ms");
     }
 
     static synchronized void check(String name, boolean pass, String detail) {
