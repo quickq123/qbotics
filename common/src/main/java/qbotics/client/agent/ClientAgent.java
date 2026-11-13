@@ -195,6 +195,11 @@ public final class ClientAgent {
         ai.then(Commands.literal("auto")
                 .then(Commands.literal("on").executes(c -> set(s -> s.auto = true, "Auto mode on: the agent writes files and runs commands without asking.")))
                 .then(Commands.literal("off").executes(c -> set(s -> s.auto = false, "Auto mode off: the agent asks before writing files or running commands."))));
+        ai.then(Commands.literal("think")
+                .then(Commands.literal("off").executes(c -> set(s -> s.thinking = "off", "Thinking off: the quickest answers.")))
+                .then(Commands.literal("low").executes(c -> set(s -> s.thinking = "low", "Thinking low: a little thought before answering (the default).")))
+                .then(Commands.literal("medium").executes(c -> set(s -> s.thinking = "medium", "Thinking medium: more thought, slower.")))
+                .then(Commands.literal("high").executes(c -> set(s -> s.thinking = "high", "Thinking high: as much as the model likes; slow, for hard problems."))));
         ai.then(Commands.literal("vision")
                 .then(Commands.literal("on").executes(c -> set(s -> s.vision = true, "Vision on: \"@ai look ...\" shows the model your view.")))
                 .then(Commands.literal("off").executes(c -> set(s -> s.vision = false, "Vision off (for models that can't see images)."))));
@@ -213,7 +218,7 @@ public final class ClientAgent {
         say("The AI agent: type \"@ai\" and a question in chat, e.g. \"@ai why doesn't my sorter move coal?\". "
                 + "\"@ai look ...\" also shows it your view. It uses your own model:", ChatFormatting.GRAY);
         say("  /ai url http://localhost:11434/v1   (Ollama; LM Studio: http://localhost:1234/v1)", ChatFormatting.GRAY);
-        say("  /ai model qwen3-vl:8b   /ai key <key, or none>   /ai auto on|off   /ai vision on|off", ChatFormatting.GRAY);
+        say("  /ai model qwen3-vl:8b   /ai key <key, or none>   /ai auto on|off   /ai vision on|off   /ai think off|low|medium|high", ChatFormatting.GRAY);
         say("  /ai status   /ai clear (forget the conversation)   /ai stop", ChatFormatting.GRAY);
         return 1;
     }
@@ -221,7 +226,7 @@ public final class ClientAgent {
     private static int status() {
         AgentSettings s = AgentSettings.get();
         say("Model " + (s.model.isEmpty() ? "(not set: /ai model <name>)" : s.model) + " at " + s.url
-                + (s.key.isEmpty() ? "" : ", with a key") + ". Auto mode " + (s.auto ? "on" : "off") + ", vision " + (s.vision ? "on" : "off") + "."
+                + (s.key.isEmpty() ? "" : ", with a key") + ". Auto mode " + (s.auto ? "on" : "off") + ", vision " + (s.vision ? "on" : "off") + ", thinking " + s.thinking + "."
                 + (serverEnabled ? "" : " This server has turned the agent's tools off.")
                 + (serverShared ? " This server shows AI questions and answers to everyone." : ""), ChatFormatting.GRAY);
         return 1;
@@ -356,10 +361,41 @@ public final class ClientAgent {
         }
     }
 
+    /** Set when the model's server refused the thinking settings (a hosted API without them): they aren't sent again. */
+    private static volatile boolean noTemplateSwitches;
+
     /** One call to the model. */
     private static JsonObject complete(AgentSettings settings) throws Exception {
+        try {
+            return complete(settings, !noTemplateSwitches);
+        } catch (IllegalStateException refused) {
+            if (!noTemplateSwitches && refused.getMessage() != null && (refused.getMessage().contains("chat_template_kwargs") || refused.getMessage().contains("reasoning_effort"))) {
+                noTemplateSwitches = true;
+                return complete(settings, false);
+            }
+            throw refused;
+        }
+    }
+
+    private static JsonObject complete(AgentSettings settings, boolean templateSwitches) throws Exception {
         JsonObject body = new JsonObject();
         body.addProperty("model", settings.model);
+        if (templateSwitches) {
+            // How much models that think before answering (Qwen3 and others) do (/ai think): "off" through the
+            // model's chat template (llama.cpp's server, vLLM), the rest as OpenAI's reasoning_effort.
+            // Measured on Qwen with llama.cpp: full thinking 54 s, low 6 s, off 3 s for the same question.
+            switch (settings.thinking) {
+                case "off" -> {
+                    JsonObject switches = new JsonObject();
+                    switches.addProperty("enable_thinking", false);
+                    body.add("chat_template_kwargs", switches);
+                }
+                case "low", "medium" -> body.addProperty("reasoning_effort", settings.thinking);
+                default -> {
+                    // high: as much as the model likes
+                }
+            }
+        }
         JsonArray messages = new JsonArray();
         synchronized (history) {
             history.forEach(messages::add);
@@ -727,6 +763,8 @@ public final class ClientAgent {
         String key = "";
         boolean auto;
         boolean vision = true;
+        /** How much models that think before answering may: off, low (the default), medium or high. */
+        String thinking = "low";
 
         private static AgentSettings loaded;
 

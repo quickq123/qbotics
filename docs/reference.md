@@ -2099,7 +2099,10 @@ remembers the conversation until `/ai clear`; `/ai stop` stops it mid-way.
 
 In the computer's editor, the **Chat** panel (section 1.4b) asks it with the open file, cursor
 and selection sent along. `/ai auto on` lets it write and run without asking; `/ai auto off` puts the question back.
-`/ai status` shows the settings. It reaches only your own computers, as you can over ssh
+`/ai status` shows the settings. Models that think before answering (Qwen3 and
+others) are asked to think only a little, which makes answers many times quicker: `/ai think off`, `low`
+(the default), `medium` or `high` (as much as the model likes, for hard problems). Servers that don't
+take these settings are sent the question without them. It reaches only your own computers, as you can over ssh
 (section 7f). A computer running a program is busy: it can read its files but not run another.
 
 **For a class.** With the server's `ai.share_replies` on, every question asked of the agent and
