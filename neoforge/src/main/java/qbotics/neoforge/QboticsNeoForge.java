@@ -664,6 +664,7 @@ public final class QboticsNeoForge {
                 .playToClient(IdePayloads.FileResponse.TYPE, IdePayloads.FileResponse.STREAM_CODEC)
                 .playToClient(IdePayloads.ScratchResult.TYPE, IdePayloads.ScratchResult.STREAM_CODEC)
                 .playToClient(IdePayloads.OpenFile.TYPE, IdePayloads.OpenFile.STREAM_CODEC)
+                .playToClient(IdePayloads.FilesChanged.TYPE, IdePayloads.FilesChanged.STREAM_CODEC)
                 .playToClient(IdePayloads.OpenEditor.TYPE, IdePayloads.OpenEditor.STREAM_CODEC)
                 .playToClient(qbotics.net.DisplayPayloads.Text.TYPE, qbotics.net.DisplayPayloads.Text.STREAM_CODEC)
                 .playToClient(qbotics.net.DisplayPayloads.Panel.TYPE, qbotics.net.DisplayPayloads.Panel.STREAM_CODEC)

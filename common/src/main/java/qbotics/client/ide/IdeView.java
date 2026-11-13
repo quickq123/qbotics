@@ -120,10 +120,14 @@ final class IdeView {
         this.session = session;
         this.backend = backend;
         this.host = host;
-        if (!session.filesLoaded) {
-            session.filesLoaded = true;
-            loadFolder("/");
-        }
+        // Every time the screen opens: the files may have changed while it was closed. The
+        // tree shown meanwhile is the one from last time.
+        loadFolder("/");
+    }
+
+    /** Lists the open folders again (the files changed outside the editor). */
+    void reloadFiles() {
+        loadFolder("/");
     }
 
     IdeSession session() {

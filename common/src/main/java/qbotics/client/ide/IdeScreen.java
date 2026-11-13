@@ -30,6 +30,11 @@ public class IdeScreen extends Screen implements IdeView.Host {
         return view.session();
     }
 
+    /** Lists the open folders again (the files changed outside the editor). */
+    void reloadFiles() {
+        view.reloadFiles();
+    }
+
     void openFile(String path) {
         view.openFile(path);
     }

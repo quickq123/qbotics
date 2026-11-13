@@ -418,6 +418,11 @@ public final class ServerComputer {
         return drive;
     }
 
+    /** Goes up whenever the computer's files may have changed (see MountedFileSystem.changes). */
+    public long fileChanges() {
+        return drive.changes();
+    }
+
     // ---- requests from players (any thread) --------------------------------------
 
     /** A line the player typed and entered. Dropped if the computer is too far behind. */

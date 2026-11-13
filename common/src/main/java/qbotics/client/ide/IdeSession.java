@@ -94,7 +94,6 @@ final class IdeSession {
     final Set<String> expanded = new HashSet<>(Set.of("/"));
     String selectedPath = "/";
     int explorerScroll;
-    boolean filesLoaded;
 
     // Editor
     final List<Tab> tabs = new ArrayList<>();

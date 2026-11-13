@@ -45,6 +45,8 @@ public final class ComputerManager {
     private final Path drivesFolder;
     /** Player UUID -> the terminal that player has open. */
     private final Map<UUID, Viewing> viewers = new HashMap<>();
+    /** For each player with an editor open: the computer's file change count they last saw. */
+    private final Map<UUID, Long> filesSeen = new HashMap<>();
 
     private record Viewing(UUID deviceId, ResourceKey<Level> dimension, BlockPos pos) {
     }
@@ -767,11 +769,22 @@ public final class ComputerManager {
                     && player.level().getBlockEntity(entry.getValue().pos()) instanceof qbotics.block.ProgrammerBlockEntity;
             if (player == null || !inRange(player, entry.getValue()) || (!computers.containsKey(entry.getValue().deviceId()) && !driveOnly)) {
                 it.remove();
+                filesSeen.remove(entry.getKey());
                 continue;
             }
             TerminalStatePayload update = changed.get(entry.getValue().deviceId());
             if (update != null) {
                 Qbotics.platform().sendToPlayer(player, update);
+            }
+            // Files changed from the shell or a program (git clone, a script writing): the
+            // explorer only knows of its own changes, so tell it to look again. Twice a second.
+            ServerComputer computer = computers.get(entry.getValue().deviceId());
+            if (computer != null && server.getTickCount() % 10 == 0) {
+                long now = computer.fileChanges();
+                Long seen = filesSeen.put(entry.getKey(), now);
+                if (seen != null && seen != now) {
+                    Qbotics.platform().sendToPlayer(player, new IdePayloads.FilesChanged(entry.getValue().deviceId()));
+                }
             }
         }
     }

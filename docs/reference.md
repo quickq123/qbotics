@@ -29,7 +29,9 @@ Contents
 ## 1. The computer
 
 Right-click a computer to open its screen: files on the left, the editor in the middle, the
-terminal below, and an optional Python scratchpad on the right.
+terminal below, and an optional Python scratchpad on the right. The files on the left keep up
+with changes made from the terminal or by a program (`git clone`, `mkdir`, a script writing a
+file) within half a second.
 
 ### 1.0 Crafting: screens and the computer
 

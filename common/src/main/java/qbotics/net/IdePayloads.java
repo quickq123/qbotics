@@ -126,6 +126,19 @@ public final class IdePayloads {
         }
     }
 
+    /** The computer's files changed other than through the editor (the shell, a program): reload the explorer. */
+    public record FilesChanged(UUID deviceId) implements CustomPacketPayload {
+        public static final Type<FilesChanged> TYPE = new Type<>(Qbotics.id("ide_files_changed"));
+        public static final StreamCodec<ByteBuf, FilesChanged> STREAM_CODEC = StreamCodec.composite(
+                UUIDUtil.STREAM_CODEC, FilesChanged::deviceId,
+                FilesChanged::new);
+
+        @Override
+        public Type<FilesChanged> type() {
+            return TYPE;
+        }
+    }
+
     public record OpenFile(UUID deviceId, String path) implements CustomPacketPayload {
         public static final Type<OpenFile> TYPE = new Type<>(Qbotics.id("ide_open_file"));
         public static final StreamCodec<ByteBuf, OpenFile> STREAM_CODEC = StreamCodec.composite(

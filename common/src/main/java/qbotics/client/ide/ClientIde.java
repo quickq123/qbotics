@@ -85,6 +85,13 @@ public final class ClientIde {
         }
     }
 
+    /** The computer's files changed from the shell or a program: the explorer looks again. */
+    public static void onFilesChanged(IdePayloads.FilesChanged changed) {
+        if (Minecraft.getInstance().screen instanceof IdeScreen screen && screen.session().deviceId.equals(changed.deviceId())) {
+            screen.reloadFiles();
+        }
+    }
+
     /** The "edit" shell command: open a file in the editor that is showing this computer. */
     public static void onOpenFile(IdePayloads.OpenFile open) {
         if (Minecraft.getInstance().screen instanceof IdeScreen screen && screen.session().deviceId.equals(open.deviceId())) {

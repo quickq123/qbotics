@@ -21,6 +21,8 @@ public final class MountedFileSystem implements HostFileSystem {
     private final HostFileSystem own;
     /** Bay name, then drive name, to the drive's files. Replaced whole, never changed in place. */
     private volatile Map<String, Map<String, HostFileSystem>> mounts = Map.of();
+    /** Goes up whenever something may have changed what a listing shows: an open editor reloads its explorer. */
+    private final java.util.concurrent.atomic.AtomicLong changes = new java.util.concurrent.atomic.AtomicLong();
 
     public MountedFileSystem(HostFileSystem own) {
         this.own = own;
@@ -28,7 +30,15 @@ public final class MountedFileSystem implements HostFileSystem {
 
     /** The bays and drives this computer can see now (called by the server). */
     public void setMounts(Map<String, Map<String, HostFileSystem>> now) {
+        if (!now.equals(mounts)) {
+            changes.incrementAndGet();
+        }
         mounts = now;
+    }
+
+    /** A count of the changes made through this computer (writes, new folders, removals, renames, drives plugged in). */
+    public long changes() {
+        return changes.get();
     }
 
     public Map<String, Map<String, HostFileSystem>> mounts() {
@@ -86,6 +96,9 @@ public final class MountedFileSystem implements HostFileSystem {
 
     @Override
     public byte[] call(int op, String path, byte[] arg) throws FsException {
+        if (op != READ && op != STAT && op != LIST) {
+            changes.incrementAndGet(); // counted even if it fails: it may have done part of its work
+        }
         Place place = place(path);
         if (place.fs() == null) {
             return netFolder(op, place);
