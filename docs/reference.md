@@ -196,6 +196,19 @@ number-crunching loops at about half speed), and only while it is open.
 A box for trying a few lines of Python. Ctrl+Enter runs it. It shares variables with the
 terminal's Python prompt. `input()` does not work there.
 
+### 1.4b The Chat panel
+
+**Chat** at the top right opens the game's chat beside your code, in the scratchpad's place:
+what everyone says, and a box to type in (Enter sends; `/commands` work too). Handy in a class:
+read the teacher's instructions and answer without leaving the editor.
+
+With the AI agent set up and answering (section 7j), **To: Chat | AI** at the top of the panel
+chooses where typing goes. To the AI, your question is sent with what the editor shows: the open
+file, the cursor's line, what you have selected, unsaved changes, and the mistakes marked in it,
+so "why doesn't this work?" is enough. Shift+Enter starts a new line. The answer appears here and
+in the game's chat; when the AI asks to write or run something, **Allow** and **Deny** appear
+above the box. If the AI stops answering, what you typed for it is not sent anywhere else.
+
 ### 1.5 The settings page
 
 The **Settings** button at the top left (or the `settings` command) opens the computer's
@@ -2084,7 +2097,8 @@ remembers the conversation until `/ai clear`; `/ai stop` stops it mid-way.
 | See what you are looking at, or a picture of your view | When asked |
 | **Write a file** or **run a command** (`run test.py`) | It asks first: **[Allow]** or **[Deny]** in chat; point at the question to see the file. A command it runs shows in the computer's terminal and is stopped after 30 seconds |
 
-`/ai auto on` lets it write and run without asking; `/ai auto off` puts the question back.
+In the computer's editor, the **Chat** panel (section 1.4b) asks it with the open file, cursor
+and selection sent along. `/ai auto on` lets it write and run without asking; `/ai auto off` puts the question back.
 `/ai status` shows the settings. It reaches only your own computers, as you can over ssh
 (section 7f). A computer running a program is busy: it can read its files but not run another.
 

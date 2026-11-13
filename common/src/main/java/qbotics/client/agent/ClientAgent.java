@@ -91,8 +91,71 @@ public final class ClientAgent {
             help();
             return true;
         }
-        ask(question);
+        ask(question, null);
         return true;
+    }
+
+    // ---- for the editor's Chat panel -------------------------------------------------
+
+    private static volatile Boolean reachable;
+    private static volatile long checkedAt;
+    private static volatile boolean checking;
+    /** What the agent is waiting for the player to allow, or null. */
+    private static volatile String pendingWhat;
+
+    /**
+     * Whether the agent can be asked: a model is set and answered lately. Looks again (in the
+     * background) every 30 seconds, so a model started later shows up.
+     */
+    public static boolean available() {
+        AgentSettings settings;
+        try {
+            settings = AgentSettings.get();
+        } catch (RuntimeException e) {
+            return false; // no game (the editor's preview tool)
+        }
+        if (settings.model.isEmpty()) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (!checking && now - checkedAt > 30_000) {
+            checking = true;
+            checkedAt = now;
+            String url = settings.url.replaceAll("/+$", "") + "/models";
+            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(4)).GET();
+            if (!settings.key.isEmpty()) {
+                request.header("Authorization", "Bearer " + settings.key);
+            }
+            // Any answer means the server is up (not every one lists its models there).
+            HTTP.sendAsync(request.build(), HttpResponse.BodyHandlers.discarding()).whenComplete((response, error) -> {
+                reachable = error == null;
+                checking = false;
+            });
+        }
+        return Boolean.TRUE.equals(reachable);
+    }
+
+    /** A question from the editor: what it shows is the question; the model is also told what is open there. */
+    public static void askFromEditor(String question, String context) {
+        if (question.isBlank()) {
+            return;
+        }
+        ask(question.strip(), context);
+    }
+
+    public static boolean busy() {
+        return busy;
+    }
+
+    /** What the agent asks the player to allow, while it waits; else null. */
+    public static String pendingApproval() {
+        return pendingWhat;
+    }
+
+    public static void stopTurn() {
+        if (busy) {
+            stop();
+        }
     }
 
     public static void onSettings(AgentPayloads.Settings settings) {
@@ -191,7 +254,7 @@ public final class ClientAgent {
 
     // ---- a turn: the question, the model, its tools, the answer ----------------------------
 
-    private static void ask(String question) {
+    private static void ask(String question, String context) {
         AgentSettings settings = AgentSettings.get();
         if (settings.model.isEmpty()) {
             say("Set up your model first: /ai model <name> (and /ai url if it isn't Ollama on this PC). /ai for help.", ChatFormatting.YELLOW);
@@ -211,7 +274,7 @@ public final class ClientAgent {
         }
         Thread.ofVirtual().name("qbotics-ai").start(() -> {
             try {
-                turn(question, look && settings.vision, settings);
+                turn(context == null ? question : question + "\n\n" + context, look && settings.vision, settings);
             } catch (Exception e) {
                 say("The agent stopped: " + describe(e), ChatFormatting.RED);
             } finally {
@@ -491,6 +554,7 @@ public final class ClientAgent {
     private static boolean approve(String what, String preview) throws Exception {
         CompletableFuture<Boolean> answer = new CompletableFuture<>();
         approval = answer;
+        pendingWhat = what;
         MutableComponent line = Component.literal("[AI] wants to " + what + ". ").withStyle(ChatFormatting.GOLD);
         if (preview != null) {
             String shown = preview.length() > 3000 ? preview.substring(0, 3000) + "\n..." : preview;
@@ -510,6 +574,7 @@ public final class ClientAgent {
             return false;
         } finally {
             approval = null;
+            pendingWhat = null;
         }
     }
 
@@ -629,6 +694,7 @@ public final class ClientAgent {
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.execute(() -> {
             for (Component line : lines) {
+                qbotics.client.ide.ChatLog.add(line); // the editor's Chat panel shows it too
                 if (minecraft.player != null) {
                     minecraft.gui.getChat().addClientSystemMessage(line); // only in this player's chat
                 }

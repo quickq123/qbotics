@@ -852,6 +852,32 @@ public final class ScreenshotRun {
             qbotics.QboticsConfig.aiShareReplies = false;
             qbotics.client.agent.ClientAgent.onSettings(new qbotics.net.AgentPayloads.Settings(true, false));
         });
+        // The editor's Chat panel: a teacher's message in chat, then a question to the AI from the editor.
+        then(5, minecraft -> onServer(minecraft, player -> {
+            qbotics.laptop.Laptops.open(player, player.getMainHandItem());
+            player.level().getServer().getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "<Teacher> Everyone: open hello.py and ask the AI to make it count only coal."), false);
+        }));
+        then(30, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.setZoomForShots(1);
+                ide.chatForShots(false, "");
+            }
+        });
+        then(10, minecraft -> shot(minecraft, "agent-5-chat-panel"));
+        then(5, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.chatForShots(true, "Make hello.py count only coal");
+            }
+        });
+        then(60, minecraft -> { }); // (a step's wait comes after it): the answer arrives
+        then(5, minecraft -> shot(minecraft, "agent-6-chat-panel-ai"));
+        then(5, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.setZoomForShots(0);
+            }
+            minecraft.setScreen(null);
+        });
     }
 
     /** Takes the camera's picture once the scene stands, and shows it on the camera panel. */

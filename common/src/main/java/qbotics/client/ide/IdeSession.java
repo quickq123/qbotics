@@ -23,7 +23,7 @@ final class IdeSession {
         return SESSIONS.computeIfAbsent(deviceId, IdeSession::new);
     }
 
-    enum Focus { EDITOR, TERMINAL, SCRATCH }
+    enum Focus { EDITOR, TERMINAL, SCRATCH, CHAT }
 
     /** A file or folder in the explorer. */
     static final class Node {
@@ -163,6 +163,14 @@ final class IdeSession {
 
     // Scratchpad
     boolean scratchOpen;
+
+    // The Chat panel (in the scratchpad's place): the game's chat, and the AI agent when there is one.
+    boolean chatOpen;
+    /** True: what is typed goes to the AI agent, with what is open in the editor; false: to the game's chat. */
+    boolean chatToAi;
+    /** Rows scrolled up from the newest; 0 follows new messages. */
+    int chatScroll;
+    final CodeView chatInput = new CodeView(new TextBuffer(""), Language.PLAIN, false);
     final CodeView scratch = new CodeView(new TextBuffer("print(\"hello world\")"), Language.PYTHON, false);
     String scratchOutput = "";
     boolean scratchOk = true;

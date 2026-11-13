@@ -72,6 +72,13 @@ public final class QboticsNeoForgeClient {
                 event.setCanceled(true);
             }
         });
+        // The editor's Chat panel keeps what arrives in chat (lowest priority: after other mods have changed or hidden it).
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST,
+                (net.neoforged.neoforge.client.event.ClientChatReceivedEvent event) -> {
+                    if (!event.isCanceled() && !(event instanceof net.neoforged.neoforge.client.event.ClientChatReceivedEvent.System system && system.isOverlay())) {
+                        qbotics.client.ide.ChatLog.add(event.getMessage());
+                    }
+                });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.RegisterClientCommandsEvent event) ->
                 qbotics.client.agent.ClientAgent.register(event.getDispatcher()));
         modBus.addListener((RegisterClientPayloadHandlersEvent event) -> {

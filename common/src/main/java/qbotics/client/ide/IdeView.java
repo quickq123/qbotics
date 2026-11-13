@@ -48,6 +48,10 @@ final class IdeView {
         /** Ctrl+P: sharp screen fonts or Minecraft's pixel font. */
         default void toggleFont() {
         }
+
+        /** The Chat panel: a message (or a /command) to the game's chat, as the chat box sends it. */
+        default void sendChat(String text) {
+        }
     }
 
     private static final int TITLE_H = 16;
@@ -80,6 +84,9 @@ final class IdeView {
     private Rect terminalRect;
     private Rect scratchRect;
     private Rect scratchCodeRect;
+    private Rect chatInputRect;
+    private Rect chatTextRect = new Rect(0, 0, 0, 0);
+    private static final int CHAT_INPUT_H = 3 * Ui.CELL_H + 4;
 
     /** Something clickable drawn this frame. */
     private record Button(Rect rect, Runnable action) {
@@ -158,15 +165,17 @@ final class IdeView {
         int bodyH = viewHeight - TITLE_H - STATUS_H;
         explorerRect = new Rect(0, bodyY, EXPLORER_W, bodyH);
         int centerX = EXPLORER_W + 1;
-        int centerW = viewWidth - centerX - (session.scratchOpen ? SCRATCH_W + 1 : 0);
+        boolean right = session.scratchOpen || session.chatOpen;
+        int centerW = viewWidth - centerX - (right ? SCRATCH_W + 1 : 0);
         // The terminal's height can be changed by dragging the line above it.
         int wanted = session.terminalHeight > 0 ? session.terminalHeight : TERMINAL_H;
         int terminalH = session.editOnly ? 0 : Math.clamp(wanted, Math.min(MIN_TERMINAL_H, bodyH / 2), Math.max(MIN_TERMINAL_H, bodyH - 80));
         tabsRect = new Rect(centerX, bodyY, centerW, TAB_H);
         editorRect = new Rect(centerX, bodyY + TAB_H, centerW, bodyH - TAB_H - terminalH - 1);
         terminalRect = new Rect(centerX, bodyY + bodyH - terminalH, centerW, terminalH);
-        scratchRect = session.scratchOpen ? new Rect(viewWidth - SCRATCH_W, bodyY, SCRATCH_W, bodyH) : new Rect(viewWidth, bodyY, 0, bodyH);
+        scratchRect = right ? new Rect(viewWidth - SCRATCH_W, bodyY, SCRATCH_W, bodyH) : new Rect(viewWidth, bodyY, 0, bodyH);
         scratchCodeRect = new Rect(scratchRect.x() + 4, scratchRect.y() + HEADER_H + 16, SCRATCH_W - 8, Math.max(40, bodyH * 2 / 5));
+        chatInputRect = new Rect(scratchRect.x() + 4, scratchRect.bottom() - 4 - CHAT_INPUT_H, SCRATCH_W - 8, CHAT_INPUT_H);
     }
 
     // ---- drawing -----------------------------------------------------------------
@@ -188,6 +197,8 @@ final class IdeView {
         }
         if (session.scratchOpen) {
             drawScratch(ui, cursorOn);
+        } else if (session.chatOpen) {
+            drawChat(ui, cursorOn);
         }
         drawTitleBar(ui);
         drawStatusBar(ui);
@@ -197,7 +208,7 @@ final class IdeView {
             boolean onEdge = drag == Drag.TERMINAL_EDGE || (dialog == null && menu == null && onTerminalEdge(mouseX, mouseY));
             ui.fill(terminalRect.x(), terminalRect.y() - 1, terminalRect.width(), onEdge ? 2 : 1, onEdge ? Ui.STATUS_BG : Ui.BORDER);
         }
-        if (session.scratchOpen) {
+        if (session.scratchOpen || session.chatOpen) {
             ui.fill(scratchRect.x() - 1, TITLE_H, 1, viewHeight - TITLE_H - STATUS_H, Ui.BORDER);
         }
         // The autocomplete list goes on top of the panels around the text it belongs to.
@@ -279,6 +290,9 @@ final class IdeView {
             x -= ui.textWidth(scratchLabel) + 10;
             button(ui, x, 1, TITLE_H - 2, scratchLabel, false, true, session.scratchOpen ? Ui.ACCENT : Ui.BAR_BG, this::toggleScratch);
         }
+        String chatLabel = session.chatOpen ? "Hide Chat" : "Chat";
+        x -= ui.textWidth(chatLabel) + 10 + 4;
+        button(ui, x, 1, TITLE_H - 2, chatLabel, false, true, session.chatOpen ? Ui.ACCENT : Ui.BAR_BG, this::toggleChat);
         x -= ui.textWidth("Save") + 10 + 4;
         button(ui, x, 1, TITLE_H - 2, "Save", false, hasFile && tab.view.buffer.isDirty(), Ui.BAR_BG, this::saveActive);
         if (isJson) {
@@ -1354,7 +1368,203 @@ final class IdeView {
 
     private void toggleScratch() {
         session.scratchOpen = !session.scratchOpen;
+        session.chatOpen = false;
         session.focus = session.scratchOpen ? Focus.SCRATCH : Focus.EDITOR;
+    }
+
+    // ---- chat --------------------------------------------------------------------
+
+    /** For the screenshot run: open the Chat panel, choose where typing goes, and send a message. */
+    void chatForShots(boolean toAi, String text) {
+        session.chatOpen = true;
+        session.scratchOpen = false;
+        session.focus = Focus.CHAT;
+        session.chatToAi = toAi;
+        session.chatInput.buffer.replaceAll(text);
+        if (!text.isEmpty()) {
+            sendChat();
+        }
+    }
+
+    private void toggleChat() {
+        session.chatOpen = !session.chatOpen;
+        session.scratchOpen = false;
+        session.chatScroll = 0;
+        session.focus = session.chatOpen ? Focus.CHAT : Focus.EDITOR;
+    }
+
+    /** Enter in the Chat panel: to the AI agent (with what the editor shows), or to the game's chat. */
+    private void sendChat() {
+        String text = session.chatInput.buffer.text().strip();
+        if (text.isEmpty()) {
+            return;
+        }
+        if (session.chatToAi) {
+            // Never to the public chat instead: what was meant for the AI may not be meant for everyone.
+            if (!qbotics.client.agent.ClientAgent.available()) {
+                toast("The AI isn't answering. Nothing was sent; /ai status in chat shows its settings.", true);
+                return;
+            }
+            if (qbotics.client.agent.ClientAgent.busy()) {
+                toast("The AI is still answering the last question.", true);
+                return;
+            }
+            qbotics.client.agent.ClientAgent.askFromEditor(text, editorContext());
+        } else {
+            host.sendChat(text.replaceAll("\\s+", " "));
+        }
+        session.chatInput.buffer.replaceAll("");
+        session.chatScroll = 0;
+    }
+
+    /** What the AI is told about the editor with a question asked here. */
+    private String editorContext() {
+        StringBuilder context = new StringBuilder("(Asked from the editor of the computer the player opened last");
+        Tab tab = session.active();
+        if (tab != null && tab.view != null) {
+            TextBuffer buffer = tab.view.buffer;
+            context.append(". Open there: ").append(tab.path).append(", cursor on line ").append(buffer.cursorLine() + 1);
+            if (buffer.hasSelection() && buffer.selectedText().length() < 4000) {
+                context.append(". They have selected:\n```\n").append(buffer.selectedText()).append("\n```");
+            }
+            if (buffer.isDirty() && buffer.text().length() < 12_000) {
+                context.append("\nIt has unsaved changes; the text in the editor now:\n```\n").append(buffer.text()).append("\n```");
+            }
+            if (!tab.view.problems().isEmpty()) {
+                context.append("\nMistakes the editor marks:");
+                for (qbotics.ide.Checker.Problem problem : tab.view.problems()) {
+                    context.append("\nline ").append(problem.line() + 1).append(": ").append(problem.message());
+                }
+            }
+        }
+        return context.append(")").toString();
+    }
+
+    // The chat's lines, wrapped to the panel, kept until the chat, the width or the font changes.
+    private List<List<ChatLog.Piece>> chatRows = List.of();
+    private long chatRowsVersion = -1;
+    private int chatRowsWidth = -1;
+    private Object chatRowsFont;
+
+    private List<List<ChatLog.Piece>> chatRows(Ui ui, int width) {
+        long version = ChatLog.version();
+        if (version == chatRowsVersion && width == chatRowsWidth && ui.codeFont().equals(chatRowsFont)) {
+            return chatRows;
+        }
+        List<List<ChatLog.Piece>> rows = new ArrayList<>();
+        for (List<ChatLog.Piece> line : ChatLog.lines()) {
+            List<ChatLog.Piece> row = new ArrayList<>();
+            int x = 0;
+            for (ChatLog.Piece piece : line) {
+                // Words, each with the space after it.
+                for (String word : piece.text().split("(?<= )")) {
+                    int w = ui.textWidth(word);
+                    if (x + w > width && x > 0) {
+                        rows.add(row);
+                        row = new ArrayList<>();
+                        x = 0;
+                        word = word.stripLeading();
+                        w = ui.textWidth(word);
+                    }
+                    while (w > width && word.length() > 1) {
+                        // A word wider than the panel (a long address): cut it.
+                        int fits = 1;
+                        while (fits < word.length() && ui.textWidth(word.substring(0, fits + 1)) <= width) {
+                            fits++;
+                        }
+                        row.add(new ChatLog.Piece(word.substring(0, fits), piece.color()));
+                        rows.add(row);
+                        row = new ArrayList<>();
+                        word = word.substring(fits);
+                        w = ui.textWidth(word);
+                    }
+                    row.add(new ChatLog.Piece(word, piece.color()));
+                    x += w;
+                }
+            }
+            rows.add(row);
+        }
+        chatRows = rows;
+        chatRowsVersion = version;
+        chatRowsWidth = width;
+        chatRowsFont = ui.codeFont();
+        return rows;
+    }
+
+    private void drawChat(Ui ui, boolean cursorOn) {
+        Rect r = scratchRect;
+        boolean focused = session.focus == Focus.CHAT && dialog == null;
+        boolean aiHere = qbotics.client.agent.ClientAgent.available();
+        if (!aiHere) {
+            session.chatToAi = false;
+        }
+        ui.fill(r.x(), r.y(), r.width(), r.height(), Ui.SIDE_BG);
+        ui.text("CHAT", r.x() + 6, r.y() + 3, focused ? Ui.TEXT_BRIGHT : Ui.TEXT_DIM);
+        if (aiHere) {
+            // Where typing goes: the game's chat, or the AI.
+            int x = r.right() - 4 - (ui.textWidth("AI") + 10);
+            button(ui, x, r.y() + 1, HEADER_H - 2, "AI", false, true, session.chatToAi ? Ui.ACCENT : Ui.SIDE_BG, () -> session.chatToAi = true);
+            x -= ui.textWidth("Chat") + 10 + 2;
+            button(ui, x, r.y() + 1, HEADER_H - 2, "Chat", false, true, session.chatToAi ? Ui.SIDE_BG : Ui.ACCENT, () -> session.chatToAi = false);
+            ui.text("To:", x - ui.textWidth("To:") - 4, r.y() + 3, Ui.TEXT_DIM);
+        }
+
+        int y = r.y() + HEADER_H + 1;
+        if (session.chatToAi && qbotics.client.agent.ClientAgent.busy()) {
+            ui.text("The AI is working...", r.x() + 6, y + 2, Ui.FOLDER);
+            button(ui, r.right() - 4 - (ui.textWidth("Stop") + 10), y, 12, "Stop", false, true, Ui.SIDE_BG, qbotics.client.agent.ClientAgent::stopTurn);
+        } else {
+            ui.text(ui.fit(session.chatToAi ? "To the AI, with the open file" : "To everyone in the game's chat", r.width() - 12),
+                    r.x() + 6, y + 2, Ui.TEXT_DIM);
+        }
+        y += 14;
+
+        // The AI waiting for an answer: Allow or Deny, here as well as in the chat.
+        int bottom = chatInputRect.y() - 4;
+        String pending = qbotics.client.agent.ClientAgent.pendingApproval();
+        if (pending != null) {
+            List<String> words = qbotics.ide.Docs.wrap("The AI wants to " + pending + ".", Math.max(10, (r.width() - 16) / 5));
+            int boxH = words.size() * Ui.CELL_H + 22;
+            int boxY = bottom - boxH;
+            ui.fill(r.x() + 4, boxY, r.width() - 8, boxH, Ui.MENU_BG);
+            ui.outline(r.x() + 4, boxY, r.width() - 8, boxH, 0xFFE0B040);
+            for (int i = 0; i < words.size(); i++) {
+                ui.text(words.get(i), r.x() + 8, boxY + 3 + i * Ui.CELL_H, Ui.TEXT_BRIGHT);
+            }
+            int bx = button(ui, r.x() + 8, boxY + boxH - 16, 13, "Allow", false, true, 0xFF2E7D32, () -> qbotics.client.agent.ClientAgent.answer(true));
+            button(ui, bx + 4, boxY + boxH - 16, 13, "Deny", false, true, 0xFF8E2A2A, () -> qbotics.client.agent.ClientAgent.answer(false));
+            bottom = boxY - 4;
+        }
+
+        // The messages, newest at the bottom.
+        chatTextRect = new Rect(r.x() + 4, y, r.width() - 8, Math.max(0, bottom - y));
+        List<List<ChatLog.Piece>> rows = chatRows(ui, chatTextRect.width() - 4);
+        int fit = Math.max(1, chatTextRect.height() / Ui.CELL_H);
+        session.chatScroll = Math.clamp(session.chatScroll, 0, Math.max(0, rows.size() - fit));
+        int last = rows.size() - session.chatScroll;
+        int first = Math.max(0, last - fit);
+        ui.clip(chatTextRect.x(), chatTextRect.y(), chatTextRect.width(), chatTextRect.height());
+        if (rows.isEmpty()) {
+            ui.text("Nothing said yet.", chatTextRect.x() + 2, chatTextRect.y() + 2, Ui.TEXT_DIM);
+        }
+        int rowY = chatTextRect.bottom() - (last - first) * Ui.CELL_H;
+        for (int i = first; i < last; i++) {
+            int x = chatTextRect.x() + 2;
+            for (ChatLog.Piece piece : rows.get(i)) {
+                ui.text(piece.text(), x, rowY + 1, piece.color());
+                x += ui.textWidth(piece.text());
+            }
+            rowY += Ui.CELL_H;
+        }
+        ui.unclip();
+
+        // Where the message is typed.
+        Rect input = chatInputRect;
+        ui.outline(input.x() - 1, input.y() - 1, input.width() + 2, input.height() + 2, focused ? Ui.STATUS_BG : Ui.BORDER);
+        session.chatInput.render(ui, input, focused, cursorOn);
+        if (session.chatInput.buffer.text().isEmpty()) {
+            ui.text(session.chatToAi ? "Ask the AI... (Enter sends)" : "Say something... (Enter sends)", input.x() + 6, input.y() + 2, Ui.TEXT_DIM);
+        }
     }
 
     private void runScratch() {
@@ -1495,6 +1705,7 @@ final class IdeView {
             }
             case TERMINAL -> terminalAppend(String.valueOf((char) codepoint));
             case SCRATCH -> session.scratch.charTyped(codepoint);
+            case CHAT -> session.chatInput.charTyped(codepoint);
         }
     }
 
@@ -1595,6 +1806,14 @@ final class IdeView {
                     session.scratch.keyPressed(event, host);
                 }
             }
+            case CHAT -> {
+                // Enter sends; Shift+Enter starts a new line (for code to ask the AI about).
+                if ((key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) && !event.hasShiftDown()) {
+                    sendChat();
+                } else {
+                    session.chatInput.keyPressed(event, host);
+                }
+            }
         }
         return true;
     }
@@ -1691,6 +1910,11 @@ final class IdeView {
             if (button == LEFT_BUTTON && scratchCodeRect.contains(x, y)) {
                 session.scratch.mouseDown(x, y, shift, doubleClick);
             }
+        } else if (session.chatOpen && scratchRect.contains(x, y)) {
+            session.focus = Focus.CHAT;
+            if (button == LEFT_BUTTON && chatInputRect.contains(x, y)) {
+                session.chatInput.mouseDown(x, y, shift, doubleClick);
+            }
         }
     }
 
@@ -1707,6 +1931,8 @@ final class IdeView {
                 tab.view.mouseDrag(x, y);
             } else if (session.focus == Focus.SCRATCH) {
                 session.scratch.mouseDrag(x, y);
+            } else if (session.focus == Focus.CHAT) {
+                session.chatInput.mouseDrag(x, y);
             }
         }
     }
@@ -1719,6 +1945,7 @@ final class IdeView {
             }
         }
         session.scratch.mouseUp();
+        session.chatInput.mouseUp();
     }
 
     /**
@@ -1742,6 +1969,8 @@ final class IdeView {
             session.terminalScroll = Math.max(0, session.terminalScroll + (int) Math.round(vertical * 3));
         } else if (session.scratchOpen && scratchCodeRect.contains(x, y)) {
             session.scratch.scroll(vertical, horizontal);
+        } else if (session.chatOpen && chatTextRect.contains(x, y)) {
+            session.chatScroll = Math.max(0, session.chatScroll + (int) Math.round(vertical * 3));
         }
     }
 }

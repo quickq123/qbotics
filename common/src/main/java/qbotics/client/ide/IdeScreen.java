@@ -98,9 +98,28 @@ public class IdeScreen extends Screen implements IdeView.Host {
         this.minecraft.keyboardHandler.setClipboard(text);
     }
 
+    /** For the screenshot run: the Chat panel, sending a message to the AI or the game's chat. */
+    public void chatForShots(boolean toAi, String text) {
+        view.chatForShots(toAi, text);
+    }
+
     /** For the screenshot run: this many window pixels per editor unit. */
     public void setZoomForShots(int pixels) {
         zoom = pixels;
+    }
+
+    @Override
+    public void sendChat(String text) {
+        if (this.minecraft.player == null) {
+            return;
+        }
+        this.minecraft.gui.getChat().addRecentChat(text);
+        // As the chat box does: a /command, or a message (which may be "@ai ...", for the agent).
+        if (text.startsWith("/")) {
+            this.minecraft.player.connection.sendCommand(text.substring(1));
+        } else {
+            this.minecraft.player.connection.sendChat(text);
+        }
     }
 
     @Override
