@@ -20,7 +20,7 @@ Run them in order: each builds on the one before.
 | `3_filters.py` | Where things are allowed to go: `only`, `without`, and a list of chests tried in order | Buses named `inbox`, `ores`, `food` and `store` |
 | `4_furnace.py` | Faces and slots: ore in the top, fuel in the side, smelted items out of the bottom | Buses named `store` and `furnace` |
 | `5_watch.py` | Waiting for a chest to change, without checking again and again | A bus named `inbox` |
-| `6_sort.py` | The same with `events`: sort whatever arrives, for as long as it runs | Buses named `inbox` and `store` |
+| `6_sort.py` | The same with `events` (explained in `/helpme/events`): sort whatever arrives, for as long as it runs | Buses named `inbox` and `store` |
 | `7_craft.py` | Crafting torches at a crafting table with a `Recipe` | Buses named `store` and `crafter` (on a crafting table) |
 
 Run one:

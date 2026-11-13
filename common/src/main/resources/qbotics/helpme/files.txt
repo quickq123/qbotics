@@ -30,6 +30,11 @@ displays/web_dashboard/index.html
 displays/web_storage/index.html
 displays/web_storage/storage.py
 displays/web_storage/style.css
+events/1_timers.py
+events/2_handlers.py
+events/3_chest.py
+events/4_quick.py
+events/README.md
 internet/README.md
 internet/zen.py
 network/README.md

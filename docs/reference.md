@@ -1893,6 +1893,7 @@ folder with a README saying what its examples do and which blocks they need:
 |---|---|
 | `basics` | Python, files, the network (start here) |
 | `buses` | Seven steps with Serial Buses (count, move, filters, a furnace, watching, sorting, crafting), then `factory`: one program, one job per file, started together under `events` |
+| `events` | Timers, handlers, passing your own values, keeping handlers quick (most need no blocks) |
 | `redstone` | Logic Pins and events |
 | `displays` | A Text Monitor, a Control Panel, a Web Panel storage browser (item pictures, search) and a Web Panel dashboard (JavaScript, canvas) |
 | `qbots` | A tunnel digger and the camera |

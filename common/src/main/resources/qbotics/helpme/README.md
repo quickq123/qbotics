@@ -18,6 +18,7 @@ Open a file in the editor with `edit <file>`. Ctrl+C stops a running program.
 |---|---|
 | `basics` | **Start here.** Python on a computer, files, and what is on the network |
 | `buses` | Counting, moving, sorting, smelting and crafting with Serial Buses, step by step; then `factory`, a whole program with one job per file |
+| `events` | **How to wait for things:** timers, chests, levers, messages, all at once, with `events` |
 | `redstone` | Redstone in and out with Logic Pins, and reacting to events |
 | `displays` | Screens: a Text Monitor, a Control Panel, and Web Panels (HTML, CSS, JavaScript) |
 | `qbots` | Robots: a Qbot that digs a tunnel, and its camera |
