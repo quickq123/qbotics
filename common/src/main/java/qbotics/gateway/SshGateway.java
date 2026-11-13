@@ -103,6 +103,8 @@ public final class SshGateway {
         });
         ssh.setForwardingFilter(RejectAllForwardingFilter.INSTANCE);
         ssh.setShellFactory(channel -> new GatewayShell(mc));
+        // ssh name@server "command": one command, its output and status (scripts, AI tools).
+        ssh.setCommandFactory((channel, command) -> new GatewayExec(mc, command));
         SftpSubsystemFactory sftp = new SftpSubsystemFactory.Builder().build();
         sftp.addSftpEventListener(QUOTA);
         ssh.setSubsystemFactories(List.of(sftp));

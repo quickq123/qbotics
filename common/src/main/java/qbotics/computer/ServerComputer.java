@@ -240,6 +240,20 @@ public final class ServerComputer {
     private record Interrupt() implements Job {
     }
 
+    /** A command from outside the terminal (ssh "command", the AI agent), whose output and outcome are wanted. */
+    private record Exec(String line, int timeoutSeconds, CompletableFuture<ExecResult> done) implements Job {
+    }
+
+    /** What a command run with {@link #exec} printed, and its status: 0 if it worked. */
+    public record ExecResult(int status, String output) {
+    }
+
+    private static final int MAX_EXEC_OUTPUT = 64 * 1024;
+    /** Commands that need someone at the keyboard, so can't be run from outside. */
+    private static final java.util.Set<String> INTERACTIVE = java.util.Set.of("ssh", "edit", "settings", "clear");
+    private static final java.util.concurrent.ScheduledExecutorService EXEC_TIMER =
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().name("qbotics-exec-timer").factory());
+
     private final UUID deviceId;
     private final UUID driveId;
     /** Its own drive, with the drive bays on its network mounted under /net (design doc §17.6). */
@@ -427,6 +441,67 @@ public final class ServerComputer {
     /** A line the player typed and entered. Dropped if the computer is too far behind. */
     public void submitLine(String line) {
         jobs.offer(new Line(line));
+    }
+
+    /**
+     * Runs one shell command as if typed at the prompt (it shows in the terminal), for ssh
+     * "command" and the AI agent, and answers with what it printed and whether it worked. A
+     * program still going after timeoutSeconds is stopped, as Ctrl+C would. If the computer
+     * isn't at its prompt (a program is running, or it is in an ssh session) it says so at once.
+     */
+    public CompletableFuture<ExecResult> exec(String line, int timeoutSeconds) {
+        CompletableFuture<ExecResult> done = new CompletableFuture<>();
+        List<String> words = splitArgumentsOrEmpty(line);
+        if (!words.isEmpty() && (INTERACTIVE.contains(words.getFirst())
+                || ((words.getFirst().equals("python") || words.getFirst().equals("py")) && words.size() == 1))) {
+            done.complete(new ExecResult(2, words.getFirst() + " needs someone at the computer's keyboard, so it can't be run this way.\n"));
+        } else if (!atShellPrompt || sshRemote != null || !jobs.offer(new Exec(line, Math.max(1, timeoutSeconds), done))) {
+            done.complete(busy());
+        }
+        return done;
+    }
+
+    private static ExecResult busy() {
+        return new ExecResult(3, "The computer is busy: a program is running, or it is in an ssh session or waiting for input. "
+                + "Stop it first (Ctrl+C in its terminal).\n");
+    }
+
+    private static List<String> splitArgumentsOrEmpty(String line) {
+        try {
+            return splitArguments(line);
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+    }
+
+    /** At the prompt: a command from outside, its output collected as it is written. */
+    private void runExec(Computer computer, Exec exec) throws InterruptedException {
+        StringBuilder out = new StringBuilder();
+        java.util.function.Consumer<String> collect = text -> {
+            synchronized (out) {
+                if (out.length() < MAX_EXEC_OUTPUT) {
+                    out.append(text, 0, Math.min(text.length(), MAX_EXEC_OUTPUT - out.length()));
+                }
+            }
+        };
+        terminal.write(exec.line() + "\n");
+        terminal.addListener(collect);
+        java.util.concurrent.ScheduledFuture<?> stopper = EXEC_TIMER.schedule(() -> {
+            collect.accept("\n[stopped after " + exec.timeoutSeconds() + " seconds]\n");
+            interrupt();
+        }, exec.timeoutSeconds(), java.util.concurrent.TimeUnit.SECONDS);
+        boolean ok = false;
+        try {
+            ok = command(computer, exec.line());
+        } finally {
+            stopper.cancel(false);
+            terminal.removeListener(collect);
+            String output;
+            synchronized (out) {
+                output = out.toString();
+            }
+            exec.done().complete(new ExecResult(ok ? 0 : 1, output));
+        }
     }
 
     /** The editor's Run button: run a Python file, as if "run file" had been typed. */
@@ -693,6 +768,10 @@ public final class ServerComputer {
                 runScratch(computer, scratch);
                 continue;
             }
+            if (job instanceof Exec exec && !atShellPrompt) {
+                exec.done().complete(busy()); // at the Python prompt, say
+                continue;
+            }
             promptShown = false;
             return job;
         }
@@ -762,6 +841,9 @@ public final class ServerComputer {
             terminal.write("Password: ");
             Job typed = jobs.take();
             terminal.write("\n"); // what was typed is not written out
+            if (typed instanceof Exec exec) {
+                exec.done().complete(busy());
+            }
             if (!(typed instanceof Line password)) {
                 return;
             }
@@ -817,6 +899,7 @@ public final class ServerComputer {
                     case RunFile ignored -> {
                         // The editor's files are this computer's; the session is the other one's. Nothing to run there.
                     }
+                    case Exec exec -> exec.done().complete(busy());
                 }
             }
         } finally {
@@ -840,6 +923,7 @@ public final class ServerComputer {
                     terminal.write(line.text() + "\n");
                     command(computer, line.text());
                 }
+                case Exec exec -> runExec(computer, exec);
                 case RunFile file -> {
                     terminal.write("run " + file.path() + "\n");
                     if (file.program()) {
@@ -923,6 +1007,7 @@ public final class ServerComputer {
                     case Scratch scratch -> listener.scratchResult(deviceId, scratch.player(), scratch.runId(), false,
                             "The program in the terminal is waiting for you to type something there.\n");
                     case RunFile ignored -> terminal.write("\n(a program is already running and waiting for input)\n");
+                    case Exec exec -> exec.done().complete(busy());
                 }
             }
         } finally {
@@ -1194,8 +1279,12 @@ public final class ServerComputer {
                     }
                     ok = runPython(computer, "import os, git\nos.chdir(" + pyString(cwd) + ")\ngit._main(" + list.append(']') + ")");
                 }
-                case "devices", "ifconfig" -> ok = runPython(computer,
-                        "import logistics\nlogistics._print_devices(" + (args.isEmpty() ? "" : pyString(args.getFirst())) + ")");
+                case "devices", "ifconfig" -> {
+                    // --json: the same as a list of objects, for programs and AI tools to read.
+                    boolean json = args.remove("--json");
+                    ok = runPython(computer, "import logistics\nlogistics._print_devices(" + (args.isEmpty() ? "None" : pyString(args.getFirst()))
+                            + (json ? ", True" : "") + ")");
+                }
                 case "python", "py" -> {
                     if (args.isEmpty()) {
                         repl(computer);

@@ -66,7 +66,7 @@ The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (sectio
 | `edit <file>` | Opens a file in the editor (a new file is created when saved) |
 | `run <file.py>` | Runs a program. `python <file.py>` does the same |
 | `python` | The Python prompt. `exit()` returns to the terminal |
-| `devices` | Lists the devices on this computer's network (also `ifconfig`) |
+| `devices` | Lists the devices on this computer's network (also `ifconfig`). `devices --json`: every detail, as JSON, for programs and AI tools |
 | `devices <external IP>` | Lists the devices behind another antenna |
 | `ssh <name or address>` | Uses another computer's terminal from this one (section 7.4). `exit` returns |
 | `settings` | Opens this computer's settings page (section 1.5) |
@@ -1858,6 +1858,25 @@ other end, which an in-game computer can't run). These do:
 { "name": "miner", "host": "localhost", "port": 2222, "username": "miner",
   "privateKeyPath": "C:/Users/you/.ssh/id_ed25519", "remotePath": "/", "uploadOnSave": true }
 ```
+
+**One command at a time.** Put a command after the login and it runs on the computer as if
+typed at its prompt (it shows in its terminal too); its output comes back and ssh ends with
+its status, 0 if it worked. This is how scripts, and AI assistants on your PC, look at the game
+and test programs:
+
+```
+ssh miner@localhost -p 2222 "devices --json"   # the network, as JSON
+ssh miner@localhost -p 2222 "run test.py"      # its output, and any error
+```
+
+A program still going after 120 seconds is stopped, as Ctrl+C would. A computer already
+running a program answers "busy" (status 3) until it is stopped; commands that need the
+keyboard (`python` alone, `ssh`, `edit`, `settings`) are refused (status 2).
+
+**AI assistants.** `git clone helpme` brings `AGENTS.md`, a short guide for AI coding tools
+(what the computers' Python can do, the shape of a program, how to test over ssh), and
+`REFERENCE.md`, this manual. Copy both to the top of the drive (`cp /helpme/AGENTS.md /`) and
+tools that open the drive in VS Code read them.
 
 **What it reaches:** only that computer's own drive (not `/net`), within its 1 MB quota. Nothing
 else: no port forwarding, no commands outside the computer's own shell.

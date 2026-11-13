@@ -1,4 +1,6 @@
+AGENTS.md
 README.md
+REFERENCE.md
 basics/README.md
 basics/devices.py
 basics/hello.py

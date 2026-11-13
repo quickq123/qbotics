@@ -840,6 +840,7 @@ if os.path.isdir(HELPME):
             path = os.path.relpath(os.path.join(folder, name), HELPME).replace(os.sep, "/")
             if path != "files.txt":
                 listed.append(path)
+    listed.append("REFERENCE.md")  # docs/reference.md, copied in by the build (neoforge/build.gradle)
     with open(os.path.join(HELPME, "files.txt"), "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(sorted(listed)) + "\n")
 

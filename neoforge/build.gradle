@@ -14,6 +14,15 @@ sourceSets.main {
     resources.srcDir 'src/generated/resources'
 }
 
+// The manual also ships in the helpme examples, as REFERENCE.md: for AI assistants working on
+// a computer's files, and the in-game agent's look-ups. Copied at build time so it never lags.
+processResources {
+    from(rootProject.file('docs/reference.md')) {
+        into 'qbotics/helpme'
+        rename { 'REFERENCE.md' }
+    }
+}
+
 neoForge {
     version = project.neo_version
 

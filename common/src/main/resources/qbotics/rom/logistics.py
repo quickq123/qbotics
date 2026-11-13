@@ -1120,9 +1120,19 @@ def network():
     return Network()
 
 
-def _print_devices(address=None):
+def _print_devices(address=None, as_json=False):
     # The shell's "devices" command; with an address, the devices behind another antenna.
+    # as_json: "devices --json", every detail the game knows, for programs and AI tools.
     try:
+        if as_json:
+            import json
+            listed = _call("devices", address) if address is not None else _call("devices")
+            if address is None:
+                me = _call("self")["mac"]
+                for d in listed:
+                    d["this_computer"] = d["mac"] == me
+            print(json.dumps(listed))
+            return
         if address is not None:
             print("%-22s %-14s %-9s %s" % ("Address", "IP there", "Kind", "Name"))
             for d in _call("devices", address):

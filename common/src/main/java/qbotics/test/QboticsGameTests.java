@@ -2648,6 +2648,17 @@ public final class QboticsGameTests {
                         }
                         results.put("shell", shown.toString(java.nio.charset.StandardCharsets.UTF_8));
                     }
+                    // One command at a time (ssh name@server "command"): its output and exit status.
+                    for (String command : List.of("run /from_vscode.py", "devices --json", "cat /nothing.txt", "python")) {
+                        try (org.apache.sshd.client.channel.ChannelExec exec = session.createExecChannel(command)) {
+                            java.io.ByteArrayOutputStream printed = new java.io.ByteArrayOutputStream();
+                            exec.setOut(printed);
+                            exec.setErr(printed);
+                            exec.open().verify(10_000);
+                            exec.waitFor(java.util.EnumSet.of(org.apache.sshd.client.channel.ClientChannelEvent.CLOSED), 30_000);
+                            results.put("exec " + command, exec.getExitStatus() + "|" + printed.toString(java.nio.charset.StandardCharsets.UTF_8));
+                        }
+                    }
                 }
                 // A name that isn't theirs: logged in, but nothing there.
                 try (org.apache.sshd.client.session.ClientSession session = client.connect("nosuchthing", "127.0.0.1", port).verify(10_000).getSession()) {
@@ -2690,6 +2701,14 @@ public final class QboticsGameTests {
             helper.assertTrue(results.getOrDefault("shell", "").contains("Connected to " + name) && results.get("shell").contains("Files:"),
                     "the shell should be the computer's terminal: " + results.get("shell"));
             helper.assertTrue("refused".equals(results.get("wrong_name")), "a computer that isn't theirs should be refused: " + results.get("wrong_name"));
+            String ran = results.getOrDefault("exec run /from_vscode.py", "");
+            helper.assertTrue(ran.startsWith("0|") && ran.contains("hi from the pc"), "ssh \"run file\" prints its output, status 0: " + ran);
+            String devices = results.getOrDefault("exec devices --json", "");
+            helper.assertTrue(devices.startsWith("0|") && com.google.gson.JsonParser.parseString(devices.substring(2)).getAsJsonArray()
+                    .asList().stream().anyMatch(d -> d.getAsJsonObject().get("this_computer").getAsBoolean()), "devices --json is JSON: " + devices);
+            helper.assertTrue(results.getOrDefault("exec cat /nothing.txt", "").startsWith("1|"), "a failed command has status 1: "
+                    + results.get("exec cat /nothing.txt"));
+            helper.assertTrue(results.getOrDefault("exec python", "").startsWith("2|"), "the Python prompt needs a keyboard: " + results.get("exec python"));
             helper.assertTrue("refused".equals(results.get("stranger")), "a key nobody added should be refused: " + results.get("stranger"));
         });
     }
