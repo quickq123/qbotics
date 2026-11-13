@@ -710,10 +710,33 @@ asyncio.run(main())
 > times a second, only while someone is looking), console, and `panel` (state, onState, send). When a script changes the
 > DOM the page is serialized (elements numbered for clicks; canvases as `canvas:N` images) and laid out again; canvas
 > calls are batched and painted with Java 2D. Clicks go to scripts first; `panel.send` reaches `@web.on` with `.data`;
-> script errors reach the close-up and an `error` event. Measured: QuickJS on Chicory runs all compiled, a few million
-> steps a second (fib(24) 340 ms); a frame of the test animation ~17 ms (scripts 5, layout 11). A later speed-up: split
-> QuickJS's interpreter loop as the Python engine's was. Not yet: fetch (by design), modules. `drawImage` (built): canvases, `<img>` and `Image` with item: (the item's
+> script errors reach the close-up and an `error` event. Speed: QuickJS's interpreter loop is split into one function
+> per opcode at build time (`engine/js/split_interp.py`, below), as the Python engine's is. Not yet: fetch (by design), modules. `drawImage` (built): canvases, `<img>` and `Image` with item: (the item's
 > texture, else a block's side, read from the resources) and image: (Qbot pictures), nearest-neighbour.
+
+**JavaScript speed (2026-11-12).** `JS_CallInternal`, QuickJS's interpreter, was one 47 KB Wasm function: far over the
+8,000 bytes of JVM bytecode HotSpot compiles, so every opcode, and every call (each call enters it again), ran in the
+JVM's own interpreter. `engine/js/split_interp.py` rewrites it while building (QuickJS's source stays pinned and
+untouched): each case's code, unchanged, becomes its own function; a slim loop (`js_vm_run`) dispatches to them; the
+search for a `catch` is a function of its own (`js_vm_unwind`); the loop's shared locals live in a struct. The script
+checks its assumptions about the source and stops rather than build a wrong engine. Two build traps: clang runs
+wasm-opt itself after linking (`--no-wasm-opt` turns that off), and Binaryen inlines every function with one caller
+(`-ocimfs=40` stops it); either puts the loop back together. Measured with `engine/bench` (`./gradlew -q jsbench`,
+best of 8 runs, no JVM flags):
+
+| Script | Before | Split |
+|---|---|---|
+| loop: 1,000,000 iterations | 2,040 ms | 505 ms |
+| fib(24): calls | 330 ms | 56 ms |
+| objects: 40,000 objects, Map, filter/map/reduce | 620 ms | 203 ms |
+| strings: padStart, join, split | 180 ms | 60 ms |
+| math: 200,000 x sin, cos, sqrt | 1,530 ms | 321 ms |
+| json: stringify and parse 5,000 rows x 5 | 245 ms | 230 ms |
+
+Checked with QuickJS's own tests (`./gradlew -q jstest`, one test function at a time): the split and unsplit builds
+(`SPLIT=0 engine/js/build.sh`) give identical results. Tried and dropped: inlining the forty one-line opcodes into the
+loop made it too big to compile again (loop 2,972 ms); inlining a few gained nothing. JSON is unchanged: its time is in
+QuickJS's own JSON code, not in huge methods (switching HotSpot's limit off changes nothing now).
 
 **Principle:** Python owns the data and the actions. The panel only displays and handles interaction on screen.
 
@@ -1739,6 +1762,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-12 | Web Panel JavaScript: QuickJS's interpreter loop split into one function per opcode at build time, so the JVM compiles it: 3 to 6 times faster (§10.3) | Built 2026-11-12 |
 | 2026-11-12 | Tablets: a handheld screen with an Infinite antenna; paired with networks by their antennas, a tab per network (the holder picks), drawn on with `net.tablet()` as any kind of screen, titled by the program, and shown on the tablet while held (§10.5) | Built 2026-11-12 |
 | 2026-11-12 | Displays can lie on floors and ceilings: placed looking steeply down (pitch over 50 degrees) at a top face, or up at an underside, the screen lies flat with its top edge pointing away from the player. Block states gain six facings and `top`; flat screens join only screens lying the same way | Built 2026-11-12 |
 | 2026-11-10 | Look: whitish iron with redstone red; the plates carry no arrows because their shapes show direction | Decided |

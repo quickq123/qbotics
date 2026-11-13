@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the web panels' JavaScript engine (QuickJS + bridge.c) to engine/js/out/js.wasm, inside
 # the toolchain container (../Dockerfile), and copy it into the mod's resources.
-# Usage: engine/js/build.sh
+# Usage: engine/js/build.sh   (SPLIT=0 engine/js/build.sh: QuickJS's interpreter loop as it comes, unsplit)
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -13,7 +13,7 @@ mkdir -p out
 MSYS_NO_PATHCONV=1 docker run --rm \
     -v "$(pwd -W 2>/dev/null || pwd):/js" \
     -v qbot-js-build:/build \
-    -e QUICKJS_COMMIT="$QUICKJS_COMMIT" \
+    -e QUICKJS_COMMIT="$QUICKJS_COMMIT" -e SPLIT="${SPLIT:-1}" \
     "$IMAGE" bash /js/build-inside.sh
 
 mkdir -p ../../common/src/main/resources/qbotics/web
