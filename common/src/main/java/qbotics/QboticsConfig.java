@@ -53,6 +53,22 @@ public final class QboticsConfig {
     public static volatile boolean aiEnabled = true;
     /** Show every question asked of the agent, and its answers, to everyone (teacher and student sessions). */
     public static volatile boolean aiShareReplies = false;
+    /**
+     * The server's own AI model, offered to every player (design doc §17.8): its OpenAI-style
+     * address, model and key. The server calls it for them, so players never see these. Empty
+     * url or model: none is offered, and players use their own.
+     */
+    public static volatile String aiUrl = "";
+    public static volatile String aiModel = "";
+    public static volatile String aiKey = "";
+    /** How much the server's model may think: off, low, medium, high. */
+    public static volatile String aiThinking = "low";
+    /** Whether the server's model can see pictures (for "@ai look"). */
+    public static volatile boolean aiVision = false;
+    /** Fair use of the server's model: questions to it a minute, per player (each tool step is one). */
+    public static volatile int aiRequestsPerMinute = 30;
+    /** At most this many calls to the server's model at once; more wait their turn. */
+    public static volatile int aiMaxParallel = 4;
     /** The uplink (design doc §9.4): whether computers may reach the real internet at all. */
     public static volatile boolean uplinkEnabled = true;
     /** Sites it may reach (a domain covers the names under it); empty: any public site. */

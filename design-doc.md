@@ -1704,6 +1704,14 @@ and work on their code.
 - **Chat**: "@ai ..." is caught before it is sent (ClientChatEvent) and only the player sees it. With the server's
   ai.share_replies (decided with the owner, for teacher and student sessions), the question and answer go to the server
   (AgentPayloads.Share) and are broadcast to everyone instead. ai.enabled off makes every tool answer that it is off.
+- **A model the server offers** (asked for by the owner: a server owner sets up the connector for everyone, the setup
+  hidden from players, above all any key; players set up their own where there is none). ai.url, ai.model, ai.key,
+  ai.thinking, ai.vision in qbotics-server.toml. Since a key must not reach players, the server calls the model for them
+  (agent/ServerModel, AgentPayloads.ModelRequest and ModelReply): a player's game sends only the conversation (messages
+  and tools); the model, thinking and key are the server's, whatever else the request held. A short test when the
+  server starts (/qbotics ai test again) decides whether it is offered; players learn only its name (Settings). Fair use:
+  ai.requests_per_minute per player, ai.max_parallel overall. A bonus: players needn't reach the model themselves.
+  The player's own model is used where none is offered, or by choice (/ai use own).
 - **The editor's Chat panel** (asked for by the owner, also for teacher and student sessions): in the scratchpad's
   place, the game's chat (client/ide/ChatLog: what arrives, and the agent's own lines) with a box that sends as the chat
   box does. With the agent available (a model set and its server answering, looked at every 30 s), To: Chat | AI sends
@@ -1800,6 +1808,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-13 | A model the server offers its players (§17.8): set up by its owner (ai.url, ai.model, ai.key), called by the server for them so the address and key never reach players, tested when the server starts (/qbotics ai, /qbotics ai test), per-player and overall limits; players set up their own where none is offered | Built 2026-11-13 |
 | 2026-11-13 | The agent's thinking is limited (asked for by the project owner: Qwen took minutes thinking about simple questions): /ai think off, low (default), medium, high, sent as OpenAI's reasoning_effort (off: enable_thinking false through the chat template); a server that refuses them is asked again without. Measured on Qwen with llama.cpp: full 54 s, low 6 s, off 3 s | Built 2026-11-13 |
 | 2026-11-13 | The editor's Chat panel: the game's chat beside the code, for everyone; To: Chat or AI when the agent is available, the AI getting the open file, cursor and selection (§17.8) | Built 2026-11-13 |
 | 2026-11-13 | AI assistants, step 2: the in-game agent (§17.8): "@ai ..." in chat to the player's own model (OpenAI-style API, local or hosted), tools done by the server as the player, writes and runs asked first unless auto mode, look and screenshots when asked, ai.enabled and ai.share_replies (teacher and student sessions) | Built 2026-11-13 |

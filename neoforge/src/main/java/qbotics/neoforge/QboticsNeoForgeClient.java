@@ -84,6 +84,7 @@ public final class QboticsNeoForgeClient {
         modBus.addListener((RegisterClientPayloadHandlersEvent event) -> {
             event.register(qbotics.net.AgentPayloads.ToolResult.TYPE, (payload, context) -> qbotics.client.agent.ClientAgent.onToolResult(payload));
             event.register(qbotics.net.AgentPayloads.Settings.TYPE, (payload, context) -> qbotics.client.agent.ClientAgent.onSettings(payload));
+            event.register(qbotics.net.AgentPayloads.ModelReply.TYPE, (payload, context) -> qbotics.client.agent.ClientAgent.onModelReply(payload));
             event.register(TerminalStatePayload.TYPE, (payload, context) -> ClientIde.onTerminalState(payload));
             event.register(qbotics.net.TracePayload.TYPE, (payload, context) -> ClientIde.onTrace(payload));
             event.register(IdePayloads.FileResponse.TYPE, (payload, context) -> ClientIde.onFileResponse(payload));

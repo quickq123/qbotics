@@ -29,6 +29,13 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.BooleanValue SSH_ALL;
     private static final ModConfigSpec.BooleanValue AI;
     private static final ModConfigSpec.BooleanValue AI_SHARE;
+    private static final ModConfigSpec.ConfigValue<String> AI_URL;
+    private static final ModConfigSpec.ConfigValue<String> AI_MODEL;
+    private static final ModConfigSpec.ConfigValue<String> AI_KEY;
+    private static final ModConfigSpec.ConfigValue<String> AI_THINKING;
+    private static final ModConfigSpec.BooleanValue AI_VISION;
+    private static final ModConfigSpec.IntValue AI_PER_MINUTE;
+    private static final ModConfigSpec.IntValue AI_PARALLEL;
     private static final ModConfigSpec.BooleanValue UPLINK;
     private static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> UPLINK_ALLOW;
     private static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> UPLINK_DENY;
@@ -111,6 +118,20 @@ final class QboticsServerConfig {
                 .define("enabled", true);
         AI_SHARE = BUILDER.comment("true: everyone sees every question asked of the agent and its answer, in chat. For teacher and student sessions.")
                 .define("share_replies", false);
+        BUILDER.comment("A model this server offers to every player, so they needn't set up their own. The server calls it for",
+                "them: players never see the address or the key. Checked with a small test when the server starts",
+                "(/qbotics ai test again). Empty url or model: none is offered, and players set up their own.");
+        AI_URL = BUILDER.comment("Its OpenAI-style address, e.g. http://192.168.1.190:11435/v1 (llama.cpp, Ollama, LM Studio, vLLM, a hosted API).")
+                .define("url", "");
+        AI_MODEL = BUILDER.comment("The model's name, as that server lists it.").define("model", "");
+        AI_KEY = BUILDER.comment("Its API key, if it needs one. Stays on the server.").define("key", "");
+        AI_THINKING = BUILDER.comment("How much it may think before answering: off, low, medium or high. Low is much quicker than high.")
+                .define("thinking", "low", o -> o instanceof String s && java.util.List.of("off", "low", "medium", "high").contains(s));
+        AI_VISION = BUILDER.comment("true if the model can see pictures (\"@ai look\" sends the player's view).").define("vision", false);
+        AI_PER_MINUTE = BUILDER.comment("Calls to it a minute, per player (one question can take several, one per step).")
+                .defineInRange("requests_per_minute", 30, 1, 10_000);
+        AI_PARALLEL = BUILDER.comment("At most this many calls at once, for everyone together; more wait their turn.")
+                .defineInRange("max_parallel", 4, 1, 64);
         BUILDER.pop();
 
         BUILDER.push("uplink");
@@ -170,6 +191,13 @@ final class QboticsServerConfig {
         QboticsConfig.sshAllComputers = SSH_ALL.get();
         QboticsConfig.aiEnabled = AI.get();
         QboticsConfig.aiShareReplies = AI_SHARE.get();
+        QboticsConfig.aiUrl = AI_URL.get().strip();
+        QboticsConfig.aiModel = AI_MODEL.get().strip();
+        QboticsConfig.aiKey = AI_KEY.get().strip();
+        QboticsConfig.aiThinking = AI_THINKING.get();
+        QboticsConfig.aiVision = AI_VISION.get();
+        QboticsConfig.aiRequestsPerMinute = AI_PER_MINUTE.get();
+        QboticsConfig.aiMaxParallel = AI_PARALLEL.get();
         QboticsConfig.uplinkEnabled = UPLINK.get();
         QboticsConfig.uplinkAllowDomains = java.util.List.copyOf(UPLINK_ALLOW.get());
         QboticsConfig.uplinkDenyDomains = java.util.List.copyOf(UPLINK_DENY.get());

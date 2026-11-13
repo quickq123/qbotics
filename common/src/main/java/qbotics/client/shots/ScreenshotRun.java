@@ -785,17 +785,23 @@ public final class ScreenshotRun {
      * here that answers as Ollama would): it looks (the block, and a picture), lists devices,
      * asks to write a file ([Allow] / [Deny] in chat), and answers.
      */
+    private static String standInUrl = "";
+
     private static void agent() {
         section("agent");
         then(5, minecraft -> {
             java.util.concurrent.atomic.AtomicInteger asked = new java.util.concurrent.atomic.AtomicInteger();
             java.util.concurrent.atomic.AtomicBoolean sawPicture = new java.util.concurrent.atomic.AtomicBoolean();
+            java.util.concurrent.atomic.AtomicBoolean sawKey = new java.util.concurrent.atomic.AtomicBoolean();
             try {
                 com.sun.net.httpserver.HttpServer model = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
                 model.createContext("/v1/chat/completions", exchange -> {
                     String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
                     if (body.contains("data:image/png;base64,")) {
                         sawPicture.set(true);
+                    }
+                    if ("Bearer secret-for-shots".equals(exchange.getRequestHeaders().getFirst("Authorization"))) {
+                        sawKey.set(true);
                     }
                     String message = switch (asked.getAndIncrement()) {
                         case 0 -> "{\"role\":\"assistant\",\"content\":\"<think>Let me look.</think>\",\"tool_calls\":["
@@ -807,7 +813,8 @@ public final class ScreenshotRun {
                                 + "\\\"from logistics import network\\\\nnet = network()\\\\nprint(net.bus(\\\\\\\"chest\\\\\\\").count())\\\\n\\\"}\"}}]}";
                         default -> "{\"role\":\"assistant\",\"content\":\"Your laptop has no cable network of its own. I wrote /hello.py, which "
                                 + "counts what is in the chest:\\n```\\nnet = network()\\nprint(net.bus(\\\"chest\\\").count())\\n```\\n"
-                                + "Run it with: run hello.py" + (sawPicture.get() ? " (I saw your view.)" : " (no picture reached me)") + "\"}";
+                                + "Run it with: run hello.py" + (sawPicture.get() ? " (I saw your view.)" : " (no picture reached me)")
+                                + (sawKey.get() ? " [asked by the server, with its key]" : "") + "\"}";
                     };
                     byte[] reply = ("{\"choices\":[{\"message\":" + message + "}]}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
                     exchange.getResponseHeaders().add("Content-Type", "application/json");
@@ -817,6 +824,7 @@ public final class ScreenshotRun {
                 });
                 model.start();
                 qbotics.client.agent.ClientAgent.useForShots("http://127.0.0.1:" + model.getAddress().getPort() + "/v1");
+                standInUrl = "http://127.0.0.1:" + model.getAddress().getPort() + "/v1";
             } catch (java.io.IOException e) {
                 throw new IllegalStateException(e);
             }
@@ -842,7 +850,7 @@ public final class ScreenshotRun {
         // Shared replies (ai.share_replies): this game shows nothing itself; what appears came from the server, for everyone.
         then(5, minecraft -> {
             qbotics.QboticsConfig.aiShareReplies = true;
-            qbotics.client.agent.ClientAgent.onSettings(new qbotics.net.AgentPayloads.Settings(true, true));
+            qbotics.client.agent.ClientAgent.onSettings(new qbotics.net.AgentPayloads.Settings(true, true, false, "", false));
             qbotics.client.agent.ClientAgent.onChat("@ai thanks! how do I run it?");
         });
         then(60, minecraft -> minecraft.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false)));
@@ -850,8 +858,25 @@ public final class ScreenshotRun {
         then(5, minecraft -> {
             minecraft.setScreen(null);
             qbotics.QboticsConfig.aiShareReplies = false;
-            qbotics.client.agent.ClientAgent.onSettings(new qbotics.net.AgentPayloads.Settings(true, false));
+            qbotics.client.agent.ClientAgent.onSettings(new qbotics.net.AgentPayloads.Settings(true, false, false, "", false));
         });
+        // The server's own model (ai.url, ai.model, ai.key): tested, offered, and asked through the server.
+        then(5, minecraft -> onServer(minecraft, player -> {
+            qbotics.QboticsConfig.aiUrl = standInUrl;
+            qbotics.QboticsConfig.aiModel = "class-model";
+            qbotics.QboticsConfig.aiKey = "secret-for-shots";
+            net.minecraft.server.MinecraftServer server = player.level().getServer();
+            qbotics.agent.ServerModel.test(() -> server.execute(() -> {
+                qbotics.agent.ServerModel.tellEveryone(server);
+                for (String line : qbotics.agent.ServerModel.report(true)) {
+                    player.sendSystemMessage(net.minecraft.network.chat.Component.literal(line));
+                }
+            }));
+        }));
+        then(40, minecraft -> qbotics.client.agent.ClientAgent.onChat("@ai which model are you?"));
+        then(60, minecraft -> minecraft.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false)));
+        then(10, minecraft -> shot(minecraft, "agent-7-server-model"));
+        then(5, minecraft -> minecraft.setScreen(null));
         // The editor's Chat panel: a teacher's message in chat, then a question to the AI from the editor.
         then(5, minecraft -> onServer(minecraft, player -> {
             qbotics.laptop.Laptops.open(player, player.getMainHandItem());

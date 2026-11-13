@@ -2066,7 +2066,13 @@ files, and at what you are looking at, and can write and test programs. **It use
 model**: a local one (Ollama, LM Studio, llama.cpp's server) or any service with an
 OpenAI-style API. The model's address and key stay on your PC; the mod has no model of its own.
 
-**Setting it up**, once (the settings are kept in `config/qbotics-ai.json` in your game folder):
+**On a server that offers one, there is nothing to set up**: the server's owner has given it a
+model, and `@ai` simply works (`/qbotics ai` says whether this server has one). The server calls
+the model for you, so its address and any key stay on the server. `/ai use own` uses your own
+model instead; `/ai use server` goes back.
+
+**Your own model.** Where the server offers none, set one up once (kept in
+`config/qbotics-ai.json` in your game folder):
 
 ```
 /ai url http://localhost:11434/v1     # Ollama (the default); LM Studio: http://localhost:1234/v1
@@ -2104,6 +2110,24 @@ others) are asked to think only a little, which makes answers many times quicker
 (the default), `medium` or `high` (as much as the model likes, for hard problems). Servers that don't
 take these settings are sent the question without them. It reaches only your own computers, as you can over ssh
 (section 7f). A computer running a program is busy: it can read its files but not run another.
+
+**Offering a model to everyone** (server owners). In `qbotics-server.toml`, under `[ai]`:
+
+```toml
+url = "http://192.168.1.190:11435/v1"   # the model's OpenAI-style address, as the server reaches it
+model = "qwen3.8-code"
+key = ""                                # if it needs one; never sent to players
+thinking = "low"                        # off, low, medium, high
+vision = true                           # if it can see pictures
+requests_per_minute = 30                # per player (each step of an answer is one)
+max_parallel = 4                        # calls at once, for everyone; more wait their turn
+```
+
+When the server starts it tests the model with a short question, and offers it only if that
+works; `/qbotics ai` shows how it went and `/qbotics ai test` (operators) tries again, after
+starting the model's server, say. Players only ever learn the model's name. Since the server
+makes the calls, players needn't reach the model themselves: one on your home network serves
+players anywhere.
 
 **For a class.** With the server's `ai.share_replies` on, every question asked of the agent and
 its answer appear in everyone's chat, so a teacher and students can all work with one answer.
@@ -2196,6 +2220,11 @@ even across restarts, until someone opens it again.
 | `ssh_gateway.all_computers` | false | `true`: a logged-in player reaches every computer, not only their own |
 | `ai.enabled` | true | `false`: the in-game AI agent can't look at or change anything (section 7j) |
 | `ai.share_replies` | false | `true`: everyone sees every question asked of the agent, and its answer (for classes) |
+| `ai.url`, `ai.model`, `ai.key` | "" | A model this server offers every player (section 7j); the key stays on the server |
+| `ai.thinking` | low | How much the server's model may think: off, low, medium, high |
+| `ai.vision` | false | `true` if the server's model can see pictures |
+| `ai.requests_per_minute` | 30 | Calls to the server's model a minute, per player |
+| `ai.max_parallel` | 4 | Calls to it at once, for everyone; more wait their turn |
 | `uplink.enabled` | true | `false`: no computer reaches the internet (section 7g) |
 | `uplink.allow_domains` | [] | Sites it may reach (a domain covers names under it); empty: any public site |
 | `uplink.deny_domains` | [] | Sites it never reaches |

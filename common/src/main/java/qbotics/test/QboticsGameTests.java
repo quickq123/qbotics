@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -88,6 +88,7 @@ public final class QboticsGameTests {
             Map.entry("helpme_events", QboticsGameTests::helpmeEvents),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
+            Map.entry("server_model", QboticsGameTests::serverModel),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -3534,6 +3535,87 @@ public final class QboticsGameTests {
             helper.assertTrue(countIn(helper, new BlockPos(5, 1, 1), Items.DIRT) == 7, "the dirt goes to the store");
             // Smelted iron comes back to the ores chest.
             helper.assertTrue(countIn(helper, new BlockPos(3, 1, 1), Items.IRON_INGOT) >= 1, "an ingot should be back in ores");
+        });
+    }
+
+    /**
+     * The AI model a server offers (qbotics.agent.ServerModel), against a stand-in model: the
+     * test passes and it is offered; a player's call goes with the server's model, key and
+     * thinking, whatever the player's game sent; the per-minute limit; a model that can't be
+     * reached isn't offered; nothing set up, nothing offered.
+     */
+    private static void serverModel(GameTestHelper helper) {
+        java.util.List<String> bodies = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        java.util.List<String> keys = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        com.sun.net.httpserver.HttpServer model;
+        try {
+            model = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        model.createContext("/v1/chat/completions", exchange -> {
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+            keys.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
+            byte[] reply = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"OK\"}}]}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, reply.length);
+            exchange.getResponseBody().write(reply);
+            exchange.close();
+        });
+        model.start();
+        String url = qbotics.QboticsConfig.aiUrl;
+        String name = qbotics.QboticsConfig.aiModel;
+        String key = qbotics.QboticsConfig.aiKey;
+        int perMinute = qbotics.QboticsConfig.aiRequestsPerMinute;
+        java.util.Map<String, Object> got = new java.util.concurrent.ConcurrentHashMap<>();
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                qbotics.QboticsConfig.aiUrl = "http://127.0.0.1:" + model.getAddress().getPort() + "/v1/";
+                qbotics.QboticsConfig.aiModel = "class-model";
+                qbotics.QboticsConfig.aiKey = "the-key";
+                qbotics.QboticsConfig.aiRequestsPerMinute = 2;
+                got.put("test", qbotics.agent.ServerModel.test(() -> { }).join());
+                got.put("offered", qbotics.agent.ServerModel.settings());
+                UUID player = UUID.randomUUID();
+                String asked = "{\"model\":\"something-else\",\"max_tokens\":99999,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"tools\":[]}";
+                got.put("first", qbotics.agent.ServerModel.relay(player, asked).join());
+                got.put("second", qbotics.agent.ServerModel.relay(player, asked).join());
+                got.put("third", qbotics.agent.ServerModel.relay(player, asked).join());
+                qbotics.QboticsConfig.aiUrl = "http://127.0.0.1:1/v1";
+                got.put("unreachable", qbotics.agent.ServerModel.test(() -> { }).join());
+                got.put("unreachable_settings", qbotics.agent.ServerModel.settings());
+                qbotics.QboticsConfig.aiUrl = "";
+                got.put("unset", qbotics.agent.ServerModel.test(() -> { }).join());
+            } catch (RuntimeException e) {
+                got.put("error", e.toString());
+            } finally {
+                qbotics.QboticsConfig.aiUrl = url;
+                qbotics.QboticsConfig.aiModel = name;
+                qbotics.QboticsConfig.aiKey = key;
+                qbotics.QboticsConfig.aiRequestsPerMinute = perMinute;
+                model.stop(0);
+                got.put("done", true);
+            }
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(got.containsKey("done"), "waiting for the stand-in model");
+            helper.assertTrue(!got.containsKey("error"), "failed: " + got.get("error"));
+            helper.assertTrue(((qbotics.agent.ServerModel.Status) got.get("test")).state() == qbotics.agent.ServerModel.State.WORKING,
+                    "the test passes: " + got.get("test"));
+            qbotics.net.AgentPayloads.Settings offered = (qbotics.net.AgentPayloads.Settings) got.get("offered");
+            helper.assertTrue(offered.offered() && offered.model().equals("class-model"), "players are offered it, by name only: " + offered);
+            helper.assertTrue(((qbotics.agent.ServerModel.Reply) got.get("first")).status() == 200, "a player's call is answered: " + got.get("first"));
+            String sent = bodies.get(1); // [0] was the test
+            helper.assertTrue(sent.contains("\"model\":\"class-model\"") && !sent.contains("something-else") && !sent.contains("max_tokens")
+                    && sent.contains("\"reasoning_effort\":\"low\"") && sent.contains("\"content\":\"hi\""),
+                    "the server's model and thinking, the player's messages, nothing else of theirs: " + sent);
+            helper.assertTrue(keys.get(1).equals("Bearer the-key"), "with the server's key: " + keys);
+            helper.assertTrue(((qbotics.agent.ServerModel.Reply) got.get("third")).status() == 429, "the third call in a minute (limit 2) waits: "
+                    + got.get("third"));
+            qbotics.agent.ServerModel.Status unreachable = (qbotics.agent.ServerModel.Status) got.get("unreachable");
+            helper.assertTrue(unreachable.state() == qbotics.agent.ServerModel.State.FAILED && unreachable.detail().contains("couldn't connect")
+                    && !((qbotics.net.AgentPayloads.Settings) got.get("unreachable_settings")).offered(), "unreachable: not offered: " + unreachable);
+            helper.assertTrue(((qbotics.agent.ServerModel.Status) got.get("unset")).state() == qbotics.agent.ServerModel.State.NOT_SET_UP,
+                    "nothing set up: " + got.get("unset"));
         });
     }
 

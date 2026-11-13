@@ -433,6 +433,30 @@ public final class QboticsNeoForge {
                                             }
                                             return 1;
                                         })))
+                        // /qbotics ai: the AI model this server offers; "test" (operators) tries it again.
+                        .then(net.minecraft.commands.Commands.literal("ai")
+                                .executes(context -> {
+                                    boolean operator = net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS)
+                                            .test(context.getSource());
+                                    for (String line : qbotics.agent.ServerModel.report(operator)) {
+                                        context.getSource().sendSuccess(() -> Component.literal(line), false);
+                                    }
+                                    return 1;
+                                })
+                                .then(net.minecraft.commands.Commands.literal("test")
+                                        .requires(net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_GAMEMASTERS))
+                                        .executes(context -> {
+                                            net.minecraft.commands.CommandSourceStack source = context.getSource();
+                                            net.minecraft.server.MinecraftServer server = source.getServer();
+                                            source.sendSuccess(() -> Component.literal("Testing this server's AI model..."), false);
+                                            qbotics.agent.ServerModel.test(() -> server.execute(() -> {
+                                                qbotics.agent.ServerModel.tellEveryone(server);
+                                                for (String line : qbotics.agent.ServerModel.report(true)) {
+                                                    source.sendSuccess(() -> Component.literal(line), false);
+                                                }
+                                            }));
+                                            return 1;
+                                        })))
                         // /qbotics git token: the screen where a player gives their GitHub token, for git push.
                         .then(net.minecraft.commands.Commands.literal("git")
                                 .then(net.minecraft.commands.Commands.literal("token")
@@ -490,7 +514,12 @@ public final class QboticsNeoForge {
                             return 1;
                         }))));
         // The SSH gateway (design doc §9.5) starts with the server if the config turns it on.
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent event) -> qbotics.gateway.SshGateway.start(event.getServer()));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent event) -> {
+            qbotics.gateway.SshGateway.start(event.getServer());
+            // The AI model this server offers, if one is set up: tested before it is offered.
+            net.minecraft.server.MinecraftServer started = event.getServer();
+            qbotics.agent.ServerModel.test(() -> started.execute(() -> qbotics.agent.ServerModel.tellEveryone(started)));
+        });
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> {
             qbotics.gateway.SshGateway.stop();
             ComputerManager.shutDown(event.getServer());
@@ -512,7 +541,7 @@ public final class QboticsNeoForge {
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
                 // What the in-game AI agent may do here (ai.enabled, ai.share_replies).
-                Qbotics.platform().sendToPlayer(player, new qbotics.net.AgentPayloads.Settings(qbotics.QboticsConfig.aiEnabled, qbotics.QboticsConfig.aiShareReplies));
+                Qbotics.platform().sendToPlayer(player, qbotics.agent.ServerModel.settings());
             }
         });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
@@ -690,6 +719,20 @@ public final class QboticsNeoForge {
                                 answer = answer.substring(0, qbotics.net.AgentPayloads.MAX_TEXT - 20) + "\n...(cut short)";
                             }
                             Qbotics.platform().sendToPlayer(player, new qbotics.net.AgentPayloads.ToolResult(payload.id(), answer));
+                        }));
+                    }
+                })
+                .playToClient(qbotics.net.AgentPayloads.ModelReply.TYPE, qbotics.net.AgentPayloads.ModelReply.STREAM_CODEC)
+                .playToServer(qbotics.net.AgentPayloads.ModelRequest.TYPE, qbotics.net.AgentPayloads.ModelRequest.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        net.minecraft.server.MinecraftServer server = player.level().getServer();
+                        qbotics.agent.ServerModel.relay(player.getUUID(), payload.json()).whenComplete((reply, error) -> server.execute(() -> {
+                            String body = error != null ? "{\"error\":{\"message\":\"The server couldn't ask its AI.\"}}" : reply.body();
+                            if (body.length() > 1_000_000) {
+                                body = "{\"error\":{\"message\":\"The AI's answer was too long.\"}}";
+                            }
+                            Qbotics.platform().sendToPlayer(player, new qbotics.net.AgentPayloads.ModelReply(payload.id(),
+                                    error != null ? 502 : reply.status(), body));
                         }));
                     }
                 })

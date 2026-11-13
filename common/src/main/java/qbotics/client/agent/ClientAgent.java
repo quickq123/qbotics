@@ -73,6 +73,11 @@ public final class ClientAgent {
     // What the server allows, sent when joining (AgentPayloads.Settings).
     private static volatile boolean serverEnabled = true;
     private static volatile boolean serverShared;
+    // The model the server offers, if any: its name; it is called through the server, never directly.
+    private static volatile boolean serverOffers;
+    private static volatile String serverModel = "";
+    private static volatile boolean serverVision;
+    private static final Map<Integer, CompletableFuture<AgentPayloads.ModelReply>> MODEL_PENDING = new ConcurrentHashMap<>();
 
     private static final AtomicInteger NEXT_ID = new AtomicInteger(1);
     private static final Map<Integer, CompletableFuture<String>> PENDING = new ConcurrentHashMap<>();
@@ -113,6 +118,9 @@ public final class ClientAgent {
             settings = AgentSettings.get();
         } catch (RuntimeException e) {
             return false; // no game (the editor's preview tool)
+        }
+        if (usingServer(settings)) {
+            return true; // the server tested it, and offers it only while it works
         }
         if (settings.model.isEmpty()) {
             return false;
@@ -161,6 +169,26 @@ public final class ClientAgent {
     public static void onSettings(AgentPayloads.Settings settings) {
         serverEnabled = settings.enabled();
         serverShared = settings.shared();
+        serverOffers = settings.offered();
+        serverModel = settings.model();
+        serverVision = settings.vision();
+    }
+
+    public static void onModelReply(AgentPayloads.ModelReply reply) {
+        CompletableFuture<AgentPayloads.ModelReply> waiting = MODEL_PENDING.remove(reply.id());
+        if (waiting != null) {
+            waiting.complete(reply);
+        }
+    }
+
+    /** True when questions go to the server's model: it offers one, and the player hasn't chosen their own. */
+    private static boolean usingServer(AgentSettings settings) {
+        return serverOffers && !"own".equals(settings.use);
+    }
+
+    /** Whether the model in use can be shown pictures. */
+    private static boolean canSee(AgentSettings settings) {
+        return settings.vision && (!usingServer(settings) || serverVision);
     }
 
     public static void onToolResult(AgentPayloads.ToolResult result) {
@@ -200,6 +228,9 @@ public final class ClientAgent {
                 .then(Commands.literal("low").executes(c -> set(s -> s.thinking = "low", "Thinking low: a little thought before answering (the default).")))
                 .then(Commands.literal("medium").executes(c -> set(s -> s.thinking = "medium", "Thinking medium: more thought, slower.")))
                 .then(Commands.literal("high").executes(c -> set(s -> s.thinking = "high", "Thinking high: as much as the model likes; slow, for hard problems."))));
+        ai.then(Commands.literal("use")
+                .then(Commands.literal("server").executes(c -> set(s -> s.use = "server", "Using this server's AI model when it offers one.")))
+                .then(Commands.literal("own").executes(c -> set(s -> s.use = "own", "Using your own model (/ai url, /ai model), even where the server offers one."))));
         ai.then(Commands.literal("vision")
                 .then(Commands.literal("on").executes(c -> set(s -> s.vision = true, "Vision on: \"@ai look ...\" shows the model your view.")))
                 .then(Commands.literal("off").executes(c -> set(s -> s.vision = false, "Vision off (for models that can't see images)."))));
@@ -215,6 +246,12 @@ public final class ClientAgent {
     }
 
     private static int help() {
+        if (usingServer(AgentSettings.get())) {
+            say("This server offers an AI model (" + serverModel + "): type \"@ai\" and a question in chat, e.g. \"@ai why doesn't my "
+                    + "sorter move coal?\"" + (serverVision ? ", or \"@ai look ...\" to show it your view" : "") + ". Nothing to set up.", ChatFormatting.GRAY);
+            say("  /ai auto on|off   /ai status   /ai clear (forget the conversation)   /ai stop   /ai use own (your own model instead)", ChatFormatting.GRAY);
+            return 1;
+        }
         say("The AI agent: type \"@ai\" and a question in chat, e.g. \"@ai why doesn't my sorter move coal?\". "
                 + "\"@ai look ...\" also shows it your view. It uses your own model:", ChatFormatting.GRAY);
         say("  /ai url http://localhost:11434/v1   (Ollama; LM Studio: http://localhost:1234/v1)", ChatFormatting.GRAY);
@@ -225,6 +262,15 @@ public final class ClientAgent {
 
     private static int status() {
         AgentSettings s = AgentSettings.get();
+        if (usingServer(s)) {
+            say("Using this server's AI model: " + serverModel + (serverVision ? " (it can see pictures)" : "") + ". Auto mode "
+                    + (s.auto ? "on" : "off") + ". /ai use own to use your own instead."
+                    + (serverShared ? " This server shows AI questions and answers to everyone." : ""), ChatFormatting.GRAY);
+            return 1;
+        }
+        if (serverOffers) {
+            say("This server offers its AI model (" + serverModel + "), but you chose your own: /ai use server to switch.", ChatFormatting.GRAY);
+        }
         say("Model " + (s.model.isEmpty() ? "(not set: /ai model <name>)" : s.model) + " at " + s.url
                 + (s.key.isEmpty() ? "" : ", with a key") + ". Auto mode " + (s.auto ? "on" : "off") + ", vision " + (s.vision ? "on" : "off") + ", thinking " + s.thinking + "."
                 + (serverEnabled ? "" : " This server has turned the agent's tools off.")
@@ -261,8 +307,10 @@ public final class ClientAgent {
 
     private static void ask(String question, String context) {
         AgentSettings settings = AgentSettings.get();
-        if (settings.model.isEmpty()) {
-            say("Set up your model first: /ai model <name> (and /ai url if it isn't Ollama on this PC). /ai for help.", ChatFormatting.YELLOW);
+        if (!usingServer(settings) && settings.model.isEmpty()) {
+            say((serverOffers ? "You chose your own model (/ai use own) but haven't set it up: "
+                    : "This server offers no AI model, so set up your own: ")
+                    + "/ai model <name> (and /ai url if it isn't Ollama on this PC). /ai for help.", ChatFormatting.YELLOW);
             return;
         }
         if (busy) {
@@ -279,7 +327,7 @@ public final class ClientAgent {
         }
         Thread.ofVirtual().name("qbotics-ai").start(() -> {
             try {
-                turn(context == null ? question : question + "\n\n" + context, look && settings.vision, settings);
+                turn(context == null ? question : question + "\n\n" + context, look && canSee(settings), settings);
             } catch (Exception e) {
                 say("The agent stopped: " + describe(e), ChatFormatting.RED);
             } finally {
@@ -366,6 +414,9 @@ public final class ClientAgent {
 
     /** One call to the model. */
     private static JsonObject complete(AgentSettings settings) throws Exception {
+        if (usingServer(settings)) {
+            return completeOnServer(settings);
+        }
         try {
             return complete(settings, !noTemplateSwitches);
         } catch (IllegalStateException refused) {
@@ -375,6 +426,41 @@ public final class ClientAgent {
             }
             throw refused;
         }
+    }
+
+    /** The server's model: the conversation goes to the server, which calls the model (its address and key stay there). */
+    private static JsonObject completeOnServer(AgentSettings settings) throws Exception {
+        JsonObject body = new JsonObject();
+        JsonArray messages = new JsonArray();
+        synchronized (history) {
+            history.forEach(messages::add);
+        }
+        body.add("messages", messages);
+        body.add("tools", tools(settings));
+        int id = NEXT_ID.getAndIncrement();
+        CompletableFuture<AgentPayloads.ModelReply> reply = new CompletableFuture<>();
+        MODEL_PENDING.put(id, reply);
+        Qbotics.platform().sendToServer(new AgentPayloads.ModelRequest(id, GSON.toJson(body)));
+        AgentPayloads.ModelReply answer;
+        try {
+            answer = reply.get(7, TimeUnit.MINUTES);
+        } catch (java.util.concurrent.TimeoutException e) {
+            throw new IllegalStateException("the server's AI didn't answer in time");
+        } finally {
+            MODEL_PENDING.remove(id);
+        }
+        JsonObject parsed;
+        try {
+            parsed = JsonParser.parseString(answer.body()).getAsJsonObject();
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("the server's AI answered " + answer.status() + " with something unreadable");
+        }
+        if (answer.status() != 200 || !parsed.has("choices")) {
+            String said = parsed.has("error") && parsed.get("error").isJsonObject() && parsed.getAsJsonObject("error").has("message")
+                    ? parsed.getAsJsonObject("error").get("message").getAsString() : answer.body();
+            throw new IllegalStateException(said.length() > 300 ? said.substring(0, 300) : said);
+        }
+        return parsed.getAsJsonArray("choices").get(0).getAsJsonObject().getAsJsonObject("message");
     }
 
     private static JsonObject complete(AgentSettings settings, boolean templateSwitches) throws Exception {
@@ -480,7 +566,7 @@ public final class ClientAgent {
         tools.add(tool("computers", "The player's computers (and laptop): names, whether running, which they opened last.", Map.of()));
         tools.add(tool("look", "What the player is looking at in the game: the block, a device on it (name, kind, address), "
                 + "what a plate points at, and what a container holds.", Map.of()));
-        if (settings.vision) {
+        if (canSee(settings)) {
             tools.add(tool("screenshot", "A picture of what the player sees now. Use when the layout of blocks matters.", Map.of()));
         }
         tools.add(tool("devices", "Every device on a computer's cable network: kind, name (use it in code), addresses, what plates point at.",
@@ -535,8 +621,8 @@ public final class ClientAgent {
         String on = parsed.has("computer") ? " on " + parsed.get("computer").getAsString() : "";
         switch (name) {
             case "screenshot":
-                if (!settings.vision) {
-                    return "Vision is off.";
+                if (!canSee(settings)) {
+                    return "This model can't be shown pictures.";
                 }
                 say("(taking a picture of the player's view)", ChatFormatting.DARK_GRAY);
                 return Screenshots.capture().get(10, TimeUnit.SECONDS);
@@ -765,6 +851,8 @@ public final class ClientAgent {
         boolean vision = true;
         /** How much models that think before answering may: off, low (the default), medium or high. */
         String thinking = "low";
+        /** "own": the player's own model even where the server offers one; otherwise the server's when offered. */
+        String use = "server";
 
         private static AgentSettings loaded;
 

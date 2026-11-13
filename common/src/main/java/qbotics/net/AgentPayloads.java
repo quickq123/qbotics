@@ -66,12 +66,48 @@ public final class AgentPayloads {
         }
     }
 
-    /** Server to client, on joining: whether the agent may use the world, and whether replies are shared. */
-    public record Settings(boolean enabled, boolean shared) implements CustomPacketPayload {
+    /** Client to server: one call to the server's model, the conversation as JSON ({"messages": ..., "tools": ...}). */
+    public record ModelRequest(int id, String json) implements CustomPacketPayload {
+        public static final Type<ModelRequest> TYPE = new Type<>(Qbotics.id("agent_model_request"));
+        public static final StreamCodec<ByteBuf, ModelRequest> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, ModelRequest::id,
+                ByteBufCodecs.stringUtf8(4_000_000), ModelRequest::json,
+                ModelRequest::new);
+
+        @Override
+        public Type<ModelRequest> type() {
+            return TYPE;
+        }
+    }
+
+    /** Server to client: the server's model answered (HTTP status, and the OpenAI-style reply or an error). */
+    public record ModelReply(int id, int status, String body) implements CustomPacketPayload {
+        public static final Type<ModelReply> TYPE = new Type<>(Qbotics.id("agent_model_reply"));
+        public static final StreamCodec<ByteBuf, ModelReply> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, ModelReply::id,
+                ByteBufCodecs.VAR_INT, ModelReply::status,
+                ByteBufCodecs.stringUtf8(1_000_000), ModelReply::body,
+                ModelReply::new);
+
+        @Override
+        public Type<ModelReply> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * Server to client, on joining and when it changes: whether the agent may use the world,
+     * whether replies are shared, and whether the server offers its own model (its name, and
+     * whether it sees pictures; never its address or key).
+     */
+    public record Settings(boolean enabled, boolean shared, boolean offered, String model, boolean vision) implements CustomPacketPayload {
         public static final Type<Settings> TYPE = new Type<>(Qbotics.id("agent_settings"));
         public static final StreamCodec<ByteBuf, Settings> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.BOOL, Settings::enabled,
                 ByteBufCodecs.BOOL, Settings::shared,
+                ByteBufCodecs.BOOL, Settings::offered,
+                ByteBufCodecs.stringUtf8(256), Settings::model,
+                ByteBufCodecs.BOOL, Settings::vision,
                 Settings::new);
 
         @Override
