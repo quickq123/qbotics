@@ -773,6 +773,29 @@ public final class ScreenshotRun {
                     (16 + 14 + 6 * 10 + 5) * 2.0 * window.getScreenHeight() / window.getHeight());
         });
         then(15, minecraft -> shot(minecraft, "ide-problem-hover"));
+        // Moving a file by dragging it in the explorer: sorter.py over the lib folder, then dropped.
+        then(2, minecraft -> onServer(minecraft, player -> {
+            qbotics.computer.ServerComputer laptop = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player);
+            try {
+                laptop.drive().call(qbotics.engine.HostFileSystem.MKDIR, "/lib", new byte[0]);
+                laptop.drive().call(qbotics.engine.HostFileSystem.WRITE, "/lib/helpers.py", "# helpers\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                throw new IllegalStateException(e);
+            }
+        }));
+        then(30, minecraft -> { }); // the explorer sees the new folder
+        then(2, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.dragForShots("/sorter.py", "/lib");
+            }
+        });
+        then(5, minecraft -> shot(minecraft, "ide-drag-file"));
+        then(2, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.dragForShots("/sorter.py", null);
+            }
+        });
+        then(20, minecraft -> shot(minecraft, "ide-dropped-file"));
         then(2, minecraft -> {
             if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
                 ide.setZoomForShots(0); // back to the size the window chooses

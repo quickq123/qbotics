@@ -33,6 +33,14 @@ terminal below, and an optional Python scratchpad on the right. The files on the
 with changes made from the terminal or by a program (`git clone`, `mkdir`, a script writing a
 file) within half a second.
 
+**Moving files on the left:** drag a file or folder onto a folder to move it there; dropping it on
+a file puts it in that file's folder, and on the empty space below the list, at the top of the
+drive. The folder it would go to is outlined while you drag; resting on a closed folder for a
+moment opens it, and dragging near the top or bottom scrolls the list. Open tabs follow what was
+moved. It won't replace a file of the same name there, or put a folder inside itself. A click
+without moving still opens a file or a folder. Right-click a file or folder for **Rename** and
+**Delete**.
+
 ### 1.0 Crafting: screens and the computer
 
 Screens come in two tiers. The **LCD Screen** is the early-game one; the **LED Screen** costs

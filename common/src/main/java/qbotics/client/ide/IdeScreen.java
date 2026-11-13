@@ -103,6 +103,11 @@ public class IdeScreen extends Screen implements IdeView.Host {
         view.chatForShots(toAi, text);
     }
 
+    /** For the screenshot run: drags one file or folder in the explorer over another; over null drops it. */
+    public void dragForShots(String from, String over) {
+        view.dragForShots(from, over);
+    }
+
     /** For the screenshot run: this many window pixels per editor unit. */
     public void setZoomForShots(int pixels) {
         zoom = pixels;

@@ -65,7 +65,7 @@ final class IdeView {
     private static final int MIN_TERMINAL_H = HEADER_H + 3 * Ui.CELL_H + 6;
 
     /** What a held-down left mouse button is doing. */
-    private enum Drag { NONE, TEXT, TERMINAL_TEXT, TERMINAL_EDGE }
+    private enum Drag { NONE, TEXT, TERMINAL_TEXT, TERMINAL_EDGE, NODE }
 
     private Drag drag = Drag.NONE;
 
@@ -190,6 +190,7 @@ final class IdeView {
         boolean cursorOn = blink / 10 % 2 == 0;
 
         drawExplorer(ui);
+        tickNodeDrag();
         drawTabs(ui);
         drawEditor(ui, cursorOn);
         if (!session.editOnly) {
@@ -233,6 +234,7 @@ final class IdeView {
         if (dialog != null) {
             drawDialog(ui, cursorOn);
         }
+        drawNodeGhost(ui);
     }
 
     /** The line between the editor and the terminal, which can be dragged. */
@@ -377,6 +379,11 @@ final class IdeView {
             } else if (hovered(row) && menu == null) {
                 ui.fill(row.x(), row.y(), row.width(), ROW_H, Ui.LINE_HIGHLIGHT);
             }
+            if (moving != null && node.folder && node.path.equals(dropFolder)) {
+                // Where a dragged file or folder would go.
+                ui.fill(row.x(), row.y(), row.width(), ROW_H, Ui.ACTIVE_ROW);
+                ui.outline(row.x(), row.y(), row.width(), ROW_H, Ui.STATUS_BG);
+            }
             int indent = r.x() + 6 + visibleDepths.get(i) * 8;
             if (node.folder) {
                 ui.arrow(indent, y + 3, session.expanded.contains(node.path), Ui.TEXT);
@@ -385,7 +392,161 @@ final class IdeView {
                 ui.text(ui.fit(node.name, r.right() - indent - 12), indent + 8, y + 2, fileColor(node.name));
             }
         }
+        if (moving != null && "/".equals(dropFolder)) {
+            ui.outline(r.x(), listY, r.width(), listH, Ui.STATUS_BG); // the top of the drive
+        }
         ui.unclip();
+    }
+
+    // ---- dragging files and folders to move them ---------------------------------
+
+    /** How far the mouse must move, held down on a file or folder, before it is being dragged. */
+    private static final double DRAG_START = 4;
+    /** How long a dragged file rests on a closed folder before the folder opens. */
+    private static final long OPEN_AFTER_MILLIS = 600;
+    /** The file or folder the left button went down on, in the explorer, or null. */
+    private Node pressedNode;
+    private double pressX;
+    private double pressY;
+    /** The file or folder being dragged, once the mouse has moved far enough, or null. */
+    private Node moving;
+    private double dragX;
+    private double dragY;
+    /** The folder it would be dropped into ("/" for the top of the drive), or null: nowhere. */
+    private String dropFolder;
+    /** The closed folder the drag is resting on, and since when. */
+    private String restingOn;
+    private long restingSince;
+
+    /** The folder a drop at this point would move into: the folder under it, a file's folder, or the top. */
+    private String dropFolderAt(double x, double y) {
+        if (!explorerRect.contains(x, y) || y < explorerRect.y() + HEADER_H) {
+            return null;
+        }
+        Node node = nodeAt(y);
+        if (node == null) {
+            return "/";
+        }
+        return node.folder ? node.path : Paths.parent(node.path);
+    }
+
+    /** Each frame of a drag: open a folder it rests on, and scroll near the explorer's top and bottom. */
+    private void tickNodeDrag() {
+        if (moving == null) {
+            return;
+        }
+        Node under = explorerRect.contains(dragX, dragY) ? nodeAt(dragY) : null;
+        String resting = under != null && under.folder && !session.expanded.contains(under.path) ? under.path : null;
+        if (resting == null || !resting.equals(restingOn)) {
+            restingOn = resting;
+            restingSince = System.currentTimeMillis();
+        } else if (System.currentTimeMillis() - restingSince > OPEN_AFTER_MILLIS) {
+            session.expanded.add(resting);
+            loadFolder(resting);
+            restingOn = null;
+        }
+        if (dragX >= explorerRect.x() && dragX < explorerRect.right()) {
+            int listY = explorerRect.y() + HEADER_H;
+            if (dragY < listY + ROW_H) {
+                session.explorerScroll = Math.max(0, session.explorerScroll - 2);
+            } else if (dragY > explorerRect.y() + explorerRect.height() - ROW_H) {
+                session.explorerScroll += 2;
+            }
+        }
+        dropFolder = dropFolderAt(dragX, dragY);
+    }
+
+    /** The dragged item's name, beside the mouse. */
+    private void drawNodeGhost(Ui ui) {
+        if (moving == null) {
+            return;
+        }
+        String label = moving.name;
+        int w = ui.textWidth(label) + 8;
+        int x = (int) dragX + 10;
+        int y = (int) dragY + 4;
+        ui.fill(x, y, w, ROW_H + 2, Ui.MENU_BG);
+        ui.outline(x, y, w, ROW_H + 2, dropFolder == null ? Ui.BORDER : Ui.STATUS_BG);
+        ui.text(label, x + 4, y + 3, moving.folder ? Ui.FOLDER : fileColor(moving.name));
+    }
+
+    /**
+     * For the screenshot run: presses on one file or folder in the explorer and drags it over
+     * another (as the mouse would), or with over null lets go. Paths must be showing.
+     */
+    void dragForShots(String from, String over) {
+        if (over == null) {
+            mouseReleased();
+            return;
+        }
+        double x = explorerRect.x() + 30;
+        mouseClicked(x, rowY(from), LEFT_BUTTON, false, false);
+        mouseDragged(x + 20, rowY(from) + 6, LEFT_BUTTON);
+        mouseDragged(x + 24, rowY(over), LEFT_BUTTON);
+    }
+
+    private double rowY(String path) {
+        for (int i = 0; i < visibleNodes.size(); i++) {
+            if (visibleNodes.get(i).path.equals(path)) {
+                return explorerRect.y() + HEADER_H + i * ROW_H - session.explorerScroll + ROW_H / 2.0;
+            }
+        }
+        throw new IllegalStateException(path + " isn't showing in the explorer");
+    }
+
+    /** Moves a file or folder into a folder, as dropping it there does. */
+    private void moveInto(Node node, String folder) {
+        String target = Paths.join(folder, node.name);
+        if (target.equals(node.path) || folder.equals(Paths.parent(node.path))) {
+            return; // dropped where it already is
+        }
+        if (node.folder && Paths.isInside(folder, node.path)) {
+            toast("A folder can't go inside itself.", true);
+            return;
+        }
+        Node into = session.find(folder);
+        if (into != null) {
+            for (Node child : into.children) {
+                if (child.name.equals(node.name)) {
+                    toast((folder.equals("/") ? "The top of the drive" : Paths.name(folder)) + " already has a " + node.name
+                            + ". Rename one of them first.", true);
+                    return;
+                }
+            }
+        }
+        backend.file(FileRequest.RENAME, node.path, target.getBytes(StandardCharsets.UTF_8), (errno, data) -> {
+            if (errno != 0) {
+                toast(describe(errno, node.path), true);
+                return;
+            }
+            followMove(node.path, target);
+            session.expanded.add(folder);
+            loadFolder(Paths.parent(node.path));
+            loadFolder(folder);
+            toast("Moved " + node.name + " to " + folder, false);
+        });
+    }
+
+    /** Open tabs, open folders and the selection follow a file or folder to its new path. */
+    private void followMove(String from, String to) {
+        for (Tab tab : session.tabs) {
+            if (Paths.isInside(tab.path, from)) {
+                tab.path = to + tab.path.substring(from.length());
+                if (tab.view != null) {
+                    // A file renamed to end in .py becomes a Python file, coloured and runnable.
+                    tab.view.setLanguage(Language.forFile(Paths.name(tab.path)));
+                    tab.view.path = tab.path;
+                }
+            }
+        }
+        List<String> opened = new ArrayList<>(session.expanded);
+        for (String path : opened) {
+            if (Paths.isInside(path, from)) {
+                session.expanded.remove(path);
+                session.expanded.add(to + path.substring(from.length()));
+            }
+        }
+        session.selectedPath = to;
     }
 
     private static int fileColor(String name) {
@@ -568,21 +729,8 @@ final class IdeView {
                     toast(describe(errno, node.path), true);
                     return;
                 }
-                // Open tabs follow the file (or everything in the folder) to its new name.
-                for (Tab tab : session.tabs) {
-                    if (Paths.isInside(tab.path, node.path)) {
-                        tab.path = target + tab.path.substring(node.path.length());
-                        if (tab.view != null) {
-                            // A file renamed to end in .py becomes a Python file, coloured and runnable.
-                            tab.view.setLanguage(Language.forFile(Paths.name(tab.path)));
-                            tab.view.path = tab.path;
-                        }
-                    }
-                }
-                if (session.expanded.remove(node.path)) {
-                    session.expanded.add(target);
-                }
-                session.selectedPath = target;
+                // Open tabs (and open folders) follow the file, or everything in the folder, to its new name.
+                followMove(node.path, target);
                 loadFolder(Paths.parent(node.path));
             });
         });
@@ -1872,12 +2020,11 @@ final class IdeView {
             if (button == RIGHT_BUTTON) {
                 openMenuFor(node, (int) x, (int) y);
             } else if (button == LEFT_BUTTON && node != null) {
-                if (!node.folder) {
-                    openFile(node.path);
-                } else if (!session.expanded.remove(node.path)) {
-                    session.expanded.add(node.path);
-                    loadFolder(node.path);
-                }
+                // Opened when the button comes up, unless the mouse moved: then it is dragged.
+                drag = Drag.NODE;
+                pressedNode = node;
+                pressX = x;
+                pressY = y;
             }
         } else if (tabsRect.contains(x, y)) {
             int tabX = tabsRect.x();
@@ -1919,7 +2066,16 @@ final class IdeView {
     }
 
     void mouseDragged(double x, double y, int button) {
-        if (drag == Drag.TERMINAL_EDGE) {
+        if (drag == Drag.NODE) {
+            dragX = x;
+            dragY = y;
+            if (moving == null && Math.hypot(x - pressX, y - pressY) >= DRAG_START) {
+                moving = pressedNode;
+            }
+            if (moving != null) {
+                dropFolder = dropFolderAt(x, y);
+            }
+        } else if (drag == Drag.TERMINAL_EDGE) {
             session.terminalHeight = Math.max(MIN_TERMINAL_H, viewHeight - STATUS_H - (int) y);
         } else if (drag == Drag.TERMINAL_TEXT && session.terminalSelection != null) {
             int[] cell = terminalCellAt(x, y);
@@ -1938,6 +2094,23 @@ final class IdeView {
     }
 
     void mouseReleased() {
+        if (drag == Drag.NODE && pressedNode != null) {
+            Node node = pressedNode;
+            if (moving != null) {
+                if (dropFolder != null) {
+                    moveInto(moving, dropFolder);
+                }
+            } else if (!node.folder) {
+                openFile(node.path);
+            } else if (!session.expanded.remove(node.path)) {
+                session.expanded.add(node.path);
+                loadFolder(node.path);
+            }
+            pressedNode = null;
+            moving = null;
+            dropFolder = null;
+            restingOn = null;
+        }
         drag = Drag.NONE;
         for (Tab tab : session.tabs) {
             if (tab.view != null) {
