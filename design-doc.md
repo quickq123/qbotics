@@ -1681,6 +1681,33 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 
 ---
 
+### 17.8 The in-game AI agent
+
+Asked for by the project owner (2026-11-13), for beginners: an AI agent in chat, on the player's own model (they use
+local models such as Qwen through an OpenAI-style API), that can see the game, including a picture of the player's view,
+and work on their code.
+
+- **The agent runs in the player's game** (client/agent/ClientAgent), not the server: the model is on their PC, and its
+  address and key never leave it. It speaks the OpenAI chat-completions API with tools, which Ollama, LM Studio,
+  llama.cpp, vLLM and the hosted services all offer. Qwen-style tool calls written in the text are understood too, and
+  `<think>` reasoning is dropped.
+- **Tools that touch the world are done by the server, as the player** (agent/AgentTools, AgentPayloads.ToolCall): their
+  computers and laptop (the same set ssh reaches, SshGateway.computersOf), a computer's devices (NetworkCalls.describeAll),
+  list, read and write files, run a command (ServerComputer.exec: shown in its terminal, stopped after 30 s), and what
+  the player looks at (the block, the probe's reading, what a plate points at, container contents). Done in the game:
+  check_code (the editor's Checker), search_manual (REFERENCE.md by section), screenshot (the player's view, at most 1024
+  px wide, as a PNG data URL; a picture goes in a user message after the tool's answer, since not every server takes one
+  in a tool message). Pictures are dropped from the conversation after the turn.
+- **Approval** (decided with the owner): reading is free; writing a file or running a command asks [Allow] / [Deny] in
+  chat (clickable; the file shows on hover), unless the player turns on auto mode (/ai auto on). Vision only when asked
+  ("@ai look ...", or the model's screenshot tool).
+- **Chat**: "@ai ..." is caught before it is sent (ClientChatEvent) and only the player sees it. With the server's
+  ai.share_replies (decided with the owner, for teacher and student sessions), the question and answer go to the server
+  (AgentPayloads.Share) and are broadcast to everyone instead. ai.enabled off makes every tool answer that it is off.
+- Checked: the agent_tools game test (each server tool as a player, a computer not theirs, ai.enabled off); the agent
+  screenshot section runs the whole loop against a stand-in model on a local port (look, screenshot, devices, a write
+  waiting for [Allow], the answer, and shared replies coming back through the server).
+
 ## 18. Decision log
 
 | Date | Decision | Status |
@@ -1768,6 +1795,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-13 | AI assistants, step 2: the in-game agent (§17.8): "@ai ..." in chat to the player's own model (OpenAI-style API, local or hosted), tools done by the server as the player, writes and runs asked first unless auto mode, look and screenshots when asked, ai.enabled and ai.share_replies (teacher and student sessions) | Built 2026-11-13 |
 | 2026-11-13 | AI assistants, step 1 (asked for by the project owner): ssh name@server "command" runs one shell command (ServerComputer.exec: shown in its terminal, output collected, stopped after a time limit, "busy" at once if not at its prompt, keyboard-only commands refused) and returns its output and status; devices --json; helpme gains AGENTS.md (a guide for AI coding tools) and REFERENCE.md (this manual, copied in by the build). Step 2, an in-game agent on the player's own model, follows | Built 2026-11-13 |
 | 2026-11-13 | Mistakes marked as you type (asked for by the project owner): qbotics.ide.Checker, plain Java, reads the file half a second after typing stops and explains brackets, quotes, colons, def brackets, indentation, = for ==, else if, print without brackets, misspelt names from the mod's modules (errors), and names never defined (warnings, with did-you-mean; one union of every name bound in the file, so no false alarms from scopes). Wavy underlines, red line numbers, a hover box and the status bar. When it finds no error, FileRequest.CHECK has the server compile the file with a small dedicated Python (CompileCheck), so the engine's own SyntaxError is marked too. Bench checks: each mistake at its place, none on correct code or any helpme example, 1,800 lines under 20 ms | Built 2026-11-13 |
 | 2026-11-13 | Editor text in screen fonts: JetBrains Mono for code and the terminal, Inter for the rest (SIL OFL, subset to Latin, punctuation, arrows and box drawing, ~100 KB each). Minecraft's TTF provider with one font per zoom level (oversample = window pixels per editor unit), so glyphs are drawn pixel for pixel and stay sharp; size 10 makes the mono advance exactly the 6-unit cell. Ctrl+P switches back to the pixel font. Asked for by the project owner: the pixel font made > and ) look alike. `runClientShots -Pshots=editor` takes only the editor's pictures (26 s) | Built 2026-11-13 |

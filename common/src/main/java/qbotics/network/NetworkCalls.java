@@ -1752,6 +1752,16 @@ public final class NetworkCalls {
 
     // ---- describing things -----------------------------------------------------------
 
+    /** Every device on the network at a place, as "devices --json" lists them (for the AI agent). */
+    public static JsonArray describeAll(ServerLevel level, BlockPos at) {
+        CableNetwork network = CableNetwork.at(level, at);
+        JsonArray list = new JsonArray();
+        for (NetworkDevice device : network.devices()) {
+            list.add(describe(level, network, device));
+        }
+        return list;
+    }
+
     private static JsonObject describe(ServerLevel level, CableNetwork network, NetworkDevice device) {
         JsonObject info = new JsonObject();
         info.addProperty("ip", device.ip());

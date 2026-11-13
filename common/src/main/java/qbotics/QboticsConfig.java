@@ -49,6 +49,10 @@ public final class QboticsConfig {
     public static volatile String sshBindAddress = "127.0.0.1";
     /** true: a logged-in player reaches every computer, not only their own (single-player, trusted servers). */
     public static volatile boolean sshAllComputers = false;
+    /** The in-game AI agent (design doc §17.8): whether its tools may act in the world. */
+    public static volatile boolean aiEnabled = true;
+    /** Show every question asked of the agent, and its answers, to everyone (teacher and student sessions). */
+    public static volatile boolean aiShareReplies = false;
     /** The uplink (design doc §9.4): whether computers may reach the real internet at all. */
     public static volatile boolean uplinkEnabled = true;
     /** Sites it may reach (a domain covers the names under it); empty: any public site. */

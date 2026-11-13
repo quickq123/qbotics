@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -87,6 +87,7 @@ public final class QboticsGameTests {
             Map.entry("helpme_factory", QboticsGameTests::helpmeFactory),
             Map.entry("helpme_events", QboticsGameTests::helpmeEvents),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
+            Map.entry("agent_tools", QboticsGameTests::agentTools),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -3533,6 +3534,69 @@ public final class QboticsGameTests {
             helper.assertTrue(countIn(helper, new BlockPos(5, 1, 1), Items.DIRT) == 7, "the dirt goes to the store");
             // Smelted iron comes back to the ores chest.
             helper.assertTrue(countIn(helper, new BlockPos(3, 1, 1), Items.IRON_INGOT) >= 1, "an ingot should be back in ores");
+        });
+    }
+
+    /**
+     * The in-game AI agent's tools (qbotics.agent.AgentTools), as the agent calls them for a
+     * player: their computers, a computer's devices, files written, read and listed, a command
+     * run with its output; a computer that isn't theirs; and all of it off when ai.enabled is.
+     */
+    private static void agentTools(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        helper.setBlock(new BlockPos(0, 1, 0), QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity block = helper.getBlockEntity(new BlockPos(0, 1, 0), ComputerBlockEntity.class);
+        block.onPlaced(player.getUUID());
+        String name = "agentpc" + Integer.toHexString(player.getUUID().hashCode() & 0xfff);
+        block.setDeviceName(name);
+        ComputerManager.get(helper.getLevel().getServer()).getOrStart(block);
+        setPort(helper, new BlockPos(1, 1, 0), Kind.BUS, Direction.SOUTH);
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.CHEST);
+        qbotics.block.ProbeItem.rename(helper.getLevel(), null,
+                new qbotics.net.ProbePayloads.Rename(helper.absolutePos(new BlockPos(1, 1, 0)), Direction.SOUTH.get3DDataValue(), "chest"));
+        String on = "{\"computer\": \"" + name + "\"";
+        java.util.Map<String, java.util.concurrent.CompletableFuture<String>> got = new java.util.LinkedHashMap<>();
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            if (step[0] == 0) {
+                // Wait for the computer's shell, then ask everything at once.
+                helper.assertTrue(screen(ComputerManager.get(helper.getLevel().getServer()).computer(block.deviceId())).contains("$"), "booting");
+                got.put("computers", qbotics.agent.AgentTools.call(player, "computers", ""));
+                got.put("devices", qbotics.agent.AgentTools.call(player, "devices", on + "}"));
+                got.put("write", qbotics.agent.AgentTools.call(player, "write_file", on + ", \"path\": \"/t.py\", \"content\": \"print('agent was here')\\n\"}"));
+                got.put("nobody", qbotics.agent.AgentTools.call(player, "devices", "{\"computer\": \"nosuchpc\"}"));
+                got.put("look", qbotics.agent.AgentTools.call(player, "look", ""));
+                step[0] = 1;
+                helper.fail("asked");
+            }
+            if (step[0] == 1) {
+                helper.assertTrue(got.get("write").isDone(), "writing");
+                got.put("read", qbotics.agent.AgentTools.call(player, "read_file", on + ", \"path\": \"/t.py\"}"));
+                got.put("list", qbotics.agent.AgentTools.call(player, "list_files", on + "}"));
+                got.put("run", qbotics.agent.AgentTools.call(player, "run", on + ", \"command\": \"run /t.py\"}"));
+                step[0] = 2;
+                helper.fail("asked more");
+            }
+            if (step[0] == 2) {
+                for (var entry : got.entrySet()) {
+                    helper.assertTrue(entry.getValue().isDone(), "waiting for " + entry.getKey());
+                }
+                java.util.function.Function<String, String> answer = key -> got.get(key).join();
+                helper.assertTrue(answer.apply("computers").contains("\"name\":\"" + name + "\"") && answer.apply("computers").contains("\"running\":true"),
+                        "their computer is listed: " + answer.apply("computers"));
+                helper.assertTrue(answer.apply("devices").contains("\"name\":\"chest\""), "the bus named chest is on its network: " + answer.apply("devices"));
+                helper.assertTrue(answer.apply("write").startsWith("Wrote /t.py"), "the file is written: " + answer.apply("write"));
+                helper.assertTrue(answer.apply("read").contains("agent was here"), "and read back: " + answer.apply("read"));
+                helper.assertTrue(answer.apply("list").contains("t.py"), "and listed: " + answer.apply("list"));
+                helper.assertTrue(answer.apply("run").startsWith("status 0") && answer.apply("run").contains("agent was here"),
+                        "run gives the program's output: " + answer.apply("run"));
+                helper.assertTrue(answer.apply("nobody").contains("No computer of the player's is called nosuchpc"), "not theirs: " + answer.apply("nobody"));
+                helper.assertTrue(!answer.apply("look").isEmpty(), "look answers: " + answer.apply("look"));
+                qbotics.QboticsConfig.aiEnabled = false;
+                String off = qbotics.agent.AgentTools.call(player, "computers", "").join();
+                qbotics.QboticsConfig.aiEnabled = true;
+                helper.assertTrue(off.contains("turned the AI agent's tools off"), "ai.enabled off: " + off);
+            }
         });
     }
 

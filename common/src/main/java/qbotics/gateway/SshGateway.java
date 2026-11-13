@@ -169,7 +169,30 @@ public final class SshGateway {
     }
 
     /** The computer a session reaches: its identity, its drive folder, what to call it, and it running (or null). */
-    record Target(UUID deviceId, Path drive, String label, @Nullable ServerComputer computer, boolean laptop) {
+    public record Target(UUID deviceId, Path drive, String label, @Nullable ServerComputer computer, boolean laptop) {
+    }
+
+    /**
+     * The computers a player may reach (their own running ones, or every one with all_computers
+     * on), and their laptop first. On the server thread. Used by the in-game AI agent too.
+     */
+    public static List<Target> computersOf(MinecraftServer mc, UUID player) {
+        ComputerManager manager = ComputerManager.get(mc);
+        List<Target> all = new ArrayList<>();
+        all.add(new Target(Laptops.deviceId(player), manager.driveFolder(Laptops.driveId(player)), "laptop", manager.laptops().get(player), true));
+        for (ComputerManager.Running running : manager.running()) {
+            ServerLevel level = mc.getLevel(running.dimension());
+            if (level == null || !level.isLoaded(running.pos())
+                    || !(level.getBlockEntity(running.pos()) instanceof ComputerBlockEntity block)) {
+                continue;
+            }
+            if (!QboticsConfig.sshAllComputers && !player.equals(block.owner())) {
+                continue;
+            }
+            String label = block.deviceName().isEmpty() ? block.mac() : block.deviceName();
+            all.add(new Target(running.deviceId(), manager.driveFolder(block.driveId()), label, running.computer(), false));
+        }
+        return all;
     }
 
     /** The root of a session's SFTP files, for the quota check. */

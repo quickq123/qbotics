@@ -45,6 +45,13 @@ public final class ComputerManager {
     private final Path drivesFolder;
     /** Player UUID -> the terminal that player has open. */
     private final Map<UUID, Viewing> viewers = new HashMap<>();
+    /** The computer each player opened last (for the AI agent: "this computer"). */
+    private final Map<UUID, UUID> lastOpened = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** The computer a player opened last, or null. */
+    public UUID lastOpened(UUID player) {
+        return lastOpened.get(player);
+    }
     /** For each player with an editor open: the computer's file change count they last saw. */
     private final Map<UUID, Long> filesSeen = new HashMap<>();
 
@@ -304,6 +311,7 @@ public final class ComputerManager {
     public void openLaptopScreen(ServerPlayer player) {
         ServerComputer computer = getOrStartLaptop(player);
         UUID id = computer.deviceId();
+        lastOpened.put(player.getUUID(), id);
         viewers.put(player.getUUID(), new Viewing(id, player.level().dimension(), player.blockPosition()));
         Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(id, true, computer.asShown(computer.shownTerminal().full())));
     }
@@ -606,6 +614,7 @@ public final class ComputerManager {
     public void openTerminal(ServerPlayer player, ComputerBlockEntity block) {
         UUID deviceId = block.deviceId();
         ServerComputer computer = getOrStart(block);
+        lastOpened.put(player.getUUID(), deviceId);
         viewers.put(player.getUUID(), new Viewing(deviceId, player.level().dimension(), block.getBlockPos()));
         Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(deviceId, true, computer.asShown(computer.shownTerminal().full())));
     }
@@ -616,6 +625,7 @@ public final class ComputerManager {
      */
     public ServerComputer watchOutput(ServerPlayer player, ComputerBlockEntity block) {
         ServerComputer computer = getOrStart(block);
+        lastOpened.put(player.getUUID(), block.deviceId());
         viewers.put(player.getUUID(), new Viewing(block.deviceId(), player.level().dimension(), block.getBlockPos()));
         Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(block.deviceId(), false, computer.asShown(computer.shownTerminal().full())));
         return computer;
@@ -700,6 +710,7 @@ public final class ComputerManager {
      * terminal and nothing to run (design doc §5.4).
      */
     public void openDriveEditor(ServerPlayer player, qbotics.block.ProgrammerBlockEntity programmer) {
+        lastOpened.put(player.getUUID(), programmer.deviceId());
         viewers.put(player.getUUID(), new Viewing(programmer.deviceId(), player.level().dimension(), programmer.getBlockPos().immutable()));
         player.closeContainer();
         Qbotics.platform().sendToPlayer(player, new IdePayloads.OpenEditor(programmer.deviceId(), "Programmer"));

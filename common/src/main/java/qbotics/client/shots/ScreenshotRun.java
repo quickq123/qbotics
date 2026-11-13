@@ -66,7 +66,7 @@ public final class ScreenshotRun {
 
     /** The sections of the script, in the order they run. */
     public static final java.util.List<String> SECTIONS = java.util.List.of(
-            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "night", "stage", "items");
+            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "agent", "night", "stage", "items");
     /** The sections asked for (-Pshots=a,b), or every section. */
     private static final java.util.Set<String> WANTED = wanted();
     /** Whether the section being planned is wanted: steps of other sections are left out. */
@@ -623,6 +623,7 @@ public final class ScreenshotRun {
         then(30, minecraft -> shot(minecraft, "19c-laptop-paused"));
 
         editor();
+        agent();
 
         section("night");
         if (!WANTED.contains("displays")) {
@@ -776,6 +777,80 @@ public final class ScreenshotRun {
             if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
                 ide.setZoomForShots(0); // back to the size the window chooses
             }
+        });
+    }
+
+    /**
+     * The agent section: the in-game AI agent talking to a stand-in model (a small HTTP server
+     * here that answers as Ollama would): it looks (the block, and a picture), lists devices,
+     * asks to write a file ([Allow] / [Deny] in chat), and answers.
+     */
+    private static void agent() {
+        section("agent");
+        then(5, minecraft -> {
+            java.util.concurrent.atomic.AtomicInteger asked = new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.atomic.AtomicBoolean sawPicture = new java.util.concurrent.atomic.AtomicBoolean();
+            try {
+                com.sun.net.httpserver.HttpServer model = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+                model.createContext("/v1/chat/completions", exchange -> {
+                    String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    if (body.contains("data:image/png;base64,")) {
+                        sawPicture.set(true);
+                    }
+                    String message = switch (asked.getAndIncrement()) {
+                        case 0 -> "{\"role\":\"assistant\",\"content\":\"<think>Let me look.</think>\",\"tool_calls\":["
+                                + "{\"id\":\"a\",\"type\":\"function\",\"function\":{\"name\":\"look\",\"arguments\":\"{}\"}},"
+                                + "{\"id\":\"b\",\"type\":\"function\",\"function\":{\"name\":\"screenshot\",\"arguments\":\"{}\"}},"
+                                + "{\"id\":\"c\",\"type\":\"function\",\"function\":{\"name\":\"devices\",\"arguments\":\"{}\"}}]}";
+                        case 1 -> "{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"d\",\"type\":\"function\",\"function\":"
+                                + "{\"name\":\"write_file\",\"arguments\":\"{\\\"path\\\": \\\"/hello.py\\\", \\\"content\\\": "
+                                + "\\\"from logistics import network\\\\nnet = network()\\\\nprint(net.bus(\\\\\\\"chest\\\\\\\").count())\\\\n\\\"}\"}}]}";
+                        default -> "{\"role\":\"assistant\",\"content\":\"Your laptop has no cable network of its own. I wrote /hello.py, which "
+                                + "counts what is in the chest:\\n```\\nnet = network()\\nprint(net.bus(\\\"chest\\\").count())\\n```\\n"
+                                + "Run it with: run hello.py" + (sawPicture.get() ? " (I saw your view.)" : " (no picture reached me)") + "\"}";
+                    };
+                    byte[] reply = ("{\"choices\":[{\"message\":" + message + "}]}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().add("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, reply.length);
+                    exchange.getResponseBody().write(reply);
+                    exchange.close();
+                });
+                model.start();
+                qbotics.client.agent.ClientAgent.useForShots("http://127.0.0.1:" + model.getAddress().getPort() + "/v1");
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+            minecraft.options.hideGui = false;
+            // Opened once, the laptop is "the computer opened last".
+            onServer(minecraft, player -> {
+                player.getInventory().setItem(player.getInventory().getSelectedSlot(), new ItemStack(QboticsContent.LAPTOP_ITEM.get()));
+                qbotics.laptop.Laptops.open(player, player.getMainHandItem());
+            });
+        });
+        then(40, minecraft -> minecraft.setScreen(null));
+        view("agent-0-view", new Vec3(13.5, 2.4, 1.0), new Vec3(13.5, 0.6, -2.0));
+        then(5, minecraft -> {
+            minecraft.options.hideGui = false;
+            qbotics.client.agent.ClientAgent.onChat("@ai look: what is this, and can you write me a program that counts the chest?");
+        });
+        then(60, minecraft -> shot(minecraft, "agent-1-approval"));
+        then(5, minecraft -> qbotics.client.agent.ClientAgent.answer(true));
+        then(60, minecraft -> shot(minecraft, "agent-2-answer"));
+        then(5, minecraft -> minecraft.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false)));
+        then(10, minecraft -> shot(minecraft, "agent-3-chat-open"));
+        then(5, minecraft -> minecraft.setScreen(null));
+        // Shared replies (ai.share_replies): this game shows nothing itself; what appears came from the server, for everyone.
+        then(5, minecraft -> {
+            qbotics.QboticsConfig.aiShareReplies = true;
+            qbotics.client.agent.ClientAgent.onSettings(new qbotics.net.AgentPayloads.Settings(true, true));
+            qbotics.client.agent.ClientAgent.onChat("@ai thanks! how do I run it?");
+        });
+        then(60, minecraft -> minecraft.setScreen(new net.minecraft.client.gui.screens.ChatScreen("", false)));
+        then(10, minecraft -> shot(minecraft, "agent-4-shared"));
+        then(5, minecraft -> {
+            minecraft.setScreen(null);
+            qbotics.QboticsConfig.aiShareReplies = false;
+            qbotics.client.agent.ClientAgent.onSettings(new qbotics.net.AgentPayloads.Settings(true, false));
         });
     }
 

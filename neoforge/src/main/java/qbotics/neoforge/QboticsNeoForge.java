@@ -509,6 +509,12 @@ public final class QboticsNeoForge {
                 }
             }
         });
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player) {
+                // What the in-game AI agent may do here (ai.enabled, ai.share_replies).
+                Qbotics.platform().sendToPlayer(player, new qbotics.net.AgentPayloads.Settings(qbotics.QboticsConfig.aiEnabled, qbotics.QboticsConfig.aiShareReplies));
+            }
+        });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
                 ComputerManager.get(player.level().getServer()).onPlayerLeft(player);
@@ -672,6 +678,30 @@ public final class QboticsNeoForge {
                 .playToClient(qbotics.net.DisplayPayloads.Web.TYPE, qbotics.net.DisplayPayloads.Web.STREAM_CODEC)
                 .playToClient(qbotics.net.TabletPayloads.State.TYPE, qbotics.net.TabletPayloads.State.STREAM_CODEC)
                 .playToClient(qbotics.net.TabletPayloads.Open.TYPE, qbotics.net.TabletPayloads.Open.STREAM_CODEC)
+                // The in-game AI agent: its tools act as the player who asked; shared questions and answers go to everyone.
+                .playToClient(qbotics.net.AgentPayloads.ToolResult.TYPE, qbotics.net.AgentPayloads.ToolResult.STREAM_CODEC)
+                .playToClient(qbotics.net.AgentPayloads.Settings.TYPE, qbotics.net.AgentPayloads.Settings.STREAM_CODEC)
+                .playToServer(qbotics.net.AgentPayloads.ToolCall.TYPE, qbotics.net.AgentPayloads.ToolCall.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        net.minecraft.server.MinecraftServer server = player.level().getServer();
+                        qbotics.agent.AgentTools.call(player, payload.tool(), payload.args()).whenComplete((text, error) -> server.execute(() -> {
+                            String answer = error != null ? "The tool failed: " + error.getMessage() : text;
+                            if (answer.length() > qbotics.net.AgentPayloads.MAX_TEXT) {
+                                answer = answer.substring(0, qbotics.net.AgentPayloads.MAX_TEXT - 20) + "\n...(cut short)";
+                            }
+                            Qbotics.platform().sendToPlayer(player, new qbotics.net.AgentPayloads.ToolResult(payload.id(), answer));
+                        }));
+                    }
+                })
+                .playToServer(qbotics.net.AgentPayloads.Share.TYPE, qbotics.net.AgentPayloads.Share.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player && qbotics.QboticsConfig.aiShareReplies) {
+                        String name = player.getGameProfile().name();
+                        for (net.minecraft.network.chat.Component line : payload.answer()
+                                ? qbotics.agent.AgentChat.answer(name, payload.text()) : qbotics.agent.AgentChat.question(name, payload.text())) {
+                            player.level().getServer().getPlayerList().broadcastSystemMessage(line, false);
+                        }
+                    }
+                })
                 .playToServer(qbotics.net.TabletPayloads.Select.TYPE, qbotics.net.TabletPayloads.Select.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         qbotics.display.Tablets.get(player.level().getServer()).select(player, payload.tablet(), payload.index());

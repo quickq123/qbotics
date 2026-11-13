@@ -66,7 +66,17 @@ public final class QboticsNeoForgeClient {
             event.register(QboticsNeoForge.QBOT_MENU.get(), qbotics.client.QbotScreen::new);
             event.register(QboticsNeoForge.LAPTOP_MENU.get(), qbotics.client.LaptopScreen::new);
         });
+        // The in-game AI agent: "@ai ..." in chat is for it, not the server; /ai sets it up.
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientChatEvent event) -> {
+            if (qbotics.client.agent.ClientAgent.onChat(event.getMessage())) {
+                event.setCanceled(true);
+            }
+        });
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.RegisterClientCommandsEvent event) ->
+                qbotics.client.agent.ClientAgent.register(event.getDispatcher()));
         modBus.addListener((RegisterClientPayloadHandlersEvent event) -> {
+            event.register(qbotics.net.AgentPayloads.ToolResult.TYPE, (payload, context) -> qbotics.client.agent.ClientAgent.onToolResult(payload));
+            event.register(qbotics.net.AgentPayloads.Settings.TYPE, (payload, context) -> qbotics.client.agent.ClientAgent.onSettings(payload));
             event.register(TerminalStatePayload.TYPE, (payload, context) -> ClientIde.onTerminalState(payload));
             event.register(qbotics.net.TracePayload.TYPE, (payload, context) -> ClientIde.onTrace(payload));
             event.register(IdePayloads.FileResponse.TYPE, (payload, context) -> ClientIde.onFileResponse(payload));

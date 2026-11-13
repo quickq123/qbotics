@@ -2046,6 +2046,56 @@ terminal keeps the Server's 2 MB), and its own light on the rack: **green** whil
 - Services share the game's computer time with every other computer: four services are four
   programs, not a faster one.
 
+## 7j. The AI agent: help in chat from your own model
+
+Ask an AI model for help without leaving the game: it looks at your computers, devices and
+files, and at what you are looking at, and can write and test programs. **It uses your own
+model**: a local one (Ollama, LM Studio, llama.cpp's server) or any service with an
+OpenAI-style API. The model's address and key stay on your PC; the mod has no model of its own.
+
+**Setting it up**, once (the settings are kept in `config/qbotics-ai.json` in your game folder):
+
+```
+/ai url http://localhost:11434/v1     # Ollama (the default); LM Studio: http://localhost:1234/v1
+/ai model qwen3-vl:8b                 # the model's name, as your server lists it
+/ai key <key>                         # only for services that need one; /ai key none removes it
+```
+
+**Asking.** Type `@ai` and a question in chat. Only you see it (unless the server shares
+replies, below):
+
+```
+@ai why doesn't my sorter move coal?
+@ai write me a program that keeps the furnace fed from the chest named ores
+@ai look: how should I connect this?
+```
+
+Starting with `look` also shows the model a picture of your view and what the block you are
+looking at is. That needs a model that can see pictures (a "VL" or vision model); for one that
+can't, `/ai vision off`.
+
+While it works, chat shows what it does in grey: `(devices)`, `(read file /main.py)`. It
+remembers the conversation until `/ai clear`; `/ai stop` stops it mid-way.
+
+| What it can do | |
+|---|---|
+| See your computers and laptop, and which you opened last | It works on that one unless told another |
+| List a computer's devices, read its files, check code for mistakes, search this manual | Freely |
+| See what you are looking at, or a picture of your view | When asked |
+| **Write a file** or **run a command** (`run test.py`) | It asks first: **[Allow]** or **[Deny]** in chat; point at the question to see the file. A command it runs shows in the computer's terminal and is stopped after 30 seconds |
+
+`/ai auto on` lets it write and run without asking; `/ai auto off` puts the question back.
+`/ai status` shows the settings. It reaches only your own computers, as you can over ssh
+(section 7f). A computer running a program is busy: it can read its files but not run another.
+
+**For a class.** With the server's `ai.share_replies` on, every question asked of the agent and
+its answer appear in everyone's chat, so a teacher and students can all work with one answer.
+`ai.enabled` off stops the agent touching anything in the world (it can still answer).
+
+**Choosing a model.** Small local models (7 to 14 billion parameters) can do this, better with
+"tools" support listed by their server; one with vision for `look`. Larger ones are better at
+writing whole programs.
+
 ## 8. The Network Probe
 
 A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows the mode.
@@ -2127,6 +2177,8 @@ even across restarts, until someone opens it again.
 | `ssh_gateway.port` | 2222 | Its port |
 | `ssh_gateway.bind_address` | 127.0.0.1 | Where it listens: this PC only; `0.0.0.0` for every network the server is on |
 | `ssh_gateway.all_computers` | false | `true`: a logged-in player reaches every computer, not only their own |
+| `ai.enabled` | true | `false`: the in-game AI agent can't look at or change anything (section 7j) |
+| `ai.share_replies` | false | `true`: everyone sees every question asked of the agent, and its answer (for classes) |
 | `uplink.enabled` | true | `false`: no computer reaches the internet (section 7g) |
 | `uplink.allow_domains` | [] | Sites it may reach (a domain covers names under it); empty: any public site |
 | `uplink.deny_domains` | [] | Sites it never reaches |

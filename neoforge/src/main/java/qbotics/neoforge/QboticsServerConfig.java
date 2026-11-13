@@ -27,6 +27,8 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue SSH_PORT;
     private static final ModConfigSpec.ConfigValue<String> SSH_BIND;
     private static final ModConfigSpec.BooleanValue SSH_ALL;
+    private static final ModConfigSpec.BooleanValue AI;
+    private static final ModConfigSpec.BooleanValue AI_SHARE;
     private static final ModConfigSpec.BooleanValue UPLINK;
     private static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> UPLINK_ALLOW;
     private static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> UPLINK_DENY;
@@ -102,6 +104,15 @@ final class QboticsServerConfig {
                 .define("all_computers", false);
         BUILDER.pop();
 
+        BUILDER.push("ai");
+        BUILDER.comment("The in-game AI agent: each player talks to their own model (a local one such as Ollama or LM Studio,",
+                "or any OpenAI-style API) in chat with @ai. The model runs on the player's PC; this decides what it may do here.");
+        AI = BUILDER.comment("false: the agent can't look at or change anything in the world (it can still answer from what it knows).")
+                .define("enabled", true);
+        AI_SHARE = BUILDER.comment("true: everyone sees every question asked of the agent and its answer, in chat. For teacher and student sessions.")
+                .define("share_replies", false);
+        BUILDER.pop();
+
         BUILDER.push("uplink");
         BUILDER.comment("The Uplink block: HTTPS requests from computers to the real internet (requests.get). Private and",
                 "local addresses are never reached, whatever these say.");
@@ -157,6 +168,8 @@ final class QboticsServerConfig {
         QboticsConfig.sshPort = SSH_PORT.get();
         QboticsConfig.sshBindAddress = SSH_BIND.get();
         QboticsConfig.sshAllComputers = SSH_ALL.get();
+        QboticsConfig.aiEnabled = AI.get();
+        QboticsConfig.aiShareReplies = AI_SHARE.get();
         QboticsConfig.uplinkEnabled = UPLINK.get();
         QboticsConfig.uplinkAllowDomains = java.util.List.copyOf(UPLINK_ALLOW.get());
         QboticsConfig.uplinkDenyDomains = java.util.List.copyOf(UPLINK_DENY.get());
