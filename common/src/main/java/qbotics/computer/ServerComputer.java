@@ -1156,6 +1156,7 @@ public final class ServerComputer {
             "Game:    recipe <item>      the recipes that make an item, from every mod (--uses: that use it; --json)",
             "         item <item>        an item's names, tags, stack size, fuel and food values",
             "         items <word>       find items: a word, *pattern*, #tag or @mod",
+            "Qbot:    craft <item> [count]   craft from what a Qbot carries (craft alone: its 3x3 grid)",
             "Learn:   git clone helpme   examples of everything, by topic, to read and run (no internet needed)",
             "Server:  service start <file.py> [name]   run a program in the background (service help)",
             "Other:   clear   help       Ctrl+C stops a running program",
@@ -1163,7 +1164,7 @@ public final class ServerComputer {
             "");
 
     /** The shell's commands, longest first, for spotting one typed without its space. */
-    private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "recipe", "items", "pip", "ifconfig", "python", "mkdir", "clear", "help",
+    private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "recipe", "craft", "items", "pip", "ifconfig", "python", "mkdir", "clear", "help",
             "service", "sleep", "echo", "edit", "item", "pwd", "cat", "run", "ssh", "git", "sh", "ls", "cd", "rm", "mv", "cp", "py");
 
     /**
@@ -1289,6 +1290,18 @@ public final class ServerComputer {
                         list.append(pyString(arg)).append(',');
                     }
                     ok = runPython(computer, "import game\ngame._shell(" + pyString(name) + ", " + list.append(']') + ")");
+                }
+                case "craft" -> {
+                    // A Qbot's built-in crafting table (qbot.craft): craft <item> [count], or craft [count] for its grid.
+                    if (!qbot) {
+                        terminal.write("Only a Qbot can craft: it has a crafting table built in.\n");
+                    } else {
+                        StringBuilder list = new StringBuilder("[");
+                        for (String arg : args) {
+                            list.append(pyString(arg)).append(',');
+                        }
+                        ok = runPython(computer, "import qbot\nqbot._shell_craft(" + list.append(']') + ")");
+                    }
                 }
                 case "devices", "ifconfig" -> {
                     // --json: the same as a list of objects, for programs and AI tools to read.

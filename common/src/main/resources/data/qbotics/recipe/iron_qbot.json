@@ -4,11 +4,14 @@
   "key": {
     "I": "minecraft:iron_ingot",
     "C": "qbotics:computer",
-    "H": "minecraft:chest"
+    "H": "minecraft:chest",
+    "T": "minecraft:crafting_table",
+    "A": "minecraft:iron_axe",
+    "P": "minecraft:iron_pickaxe"
   },
   "pattern": [
-    "III",
-    "ICI",
+    "ITI",
+    "ACP",
     "IHI"
   ],
   "result": {

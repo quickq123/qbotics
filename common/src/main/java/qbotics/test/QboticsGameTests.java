@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -129,6 +129,7 @@ public final class QboticsGameTests {
             Map.entry("displays", QboticsGameTests::displays),
             Map.entry("antenna_upgrades", QboticsGameTests::antennaUpgrades),
             Map.entry("iron_qbot", QboticsGameTests::ironQbot),
+            Map.entry("qbot_crafting", QboticsGameTests::qbotCrafting),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4309,6 +4310,44 @@ public final class QboticsGameTests {
             helper.assertTrue(!(helper.getLevel().getBlockState(helper.absolutePos(start)).getBlock() instanceof qbotics.qbot.QbotBlock),
                     "it should have left where it started");
         });
+    }
+
+    /** A Qbot's built-in crafting table: a furnace laid out in its grid, then torches from a log and coal, by name. */
+    private static void qbotCrafting(GameTestHelper helper) {
+        ComputerManager manager = ComputerManager.get(helper.getLevel().getServer());
+        BlockPos at = new BlockPos(1, 1, 1);
+        helper.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(at, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        for (int slot : new int[] {0, 1, 2, 4, 6, 8, 9, 10}) {
+            qbot.items().setItem(slot, new ItemStack(Blocks.COBBLESTONE));
+        }
+        qbot.items().setItem(12, new ItemStack(Blocks.OAK_LOG));
+        qbot.items().setItem(13, new ItemStack(Items.COAL));
+        String program = String.join("\n",
+                "import qbot",
+                "from qbot import inventory, QbotError",
+                "print('grid', qbot.craft())",
+                "print('planks', qbot.craft('Oak Planks', 4))",
+                "print('sticks', qbot.craft('stick', 4))",
+                "print('torches', qbot.craft('torch', 4))",
+                "for wanted in ('torch', 'bedrock'):",
+                "    try:",
+                "        qbot.craft(wanted)",
+                "    except QbotError as e:",
+                "        print('refused:', e)",
+                "print('have', inventory.count('furnace'), inventory.count('torch'), inventory.count('stick'), inventory.count('oak_planks'))",
+                "");
+        ServerComputer computer = manager.getOrStart(qbot);
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/q.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not write the test program", e);
+        }
+        computer.submitLine("run /q.py");
+        helper.succeedWhen(() -> assertScreen(helper, computer, "grid 1\n", "planks 4\n", "sticks 4\n", "torches 4\n",
+                "refused: The Qbot doesn't hold what minecraft:torch needs", "refused: No crafting table recipe makes minecraft:bedrock",
+                "have 1 4 3 2\n"));
     }
 
     /** The settings page: what it shows, what saving changes, and what it refuses. */

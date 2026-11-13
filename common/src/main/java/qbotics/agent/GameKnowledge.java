@@ -260,7 +260,7 @@ public final class GameKnowledge {
     }
 
     /** The craft forms of the recipes that make an item (those the game can describe). */
-    static List<JsonObject> craftForms(MinecraftServer server, String itemId) {
+    public static List<JsonObject> craftForms(MinecraftServer server, String itemId) {
         Index recipes = index(server);
         List<JsonObject> forms = new ArrayList<>();
         for (ResourceKey<Recipe<?>> key : recipes.makes().getOrDefault(itemId, List.of())) {

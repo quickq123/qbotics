@@ -11,7 +11,8 @@
     inventory.drop(Side.FRONT, "minecraft:cobblestone")    # into a chest in front, or onto the ground
 
 A step or a turn takes a quarter of a second. Anything it can't do raises QbotError,
-saying why; nothing fails quietly. It digs as an iron tool would (an Iron Qbot); a tool in
+saying why; nothing fails quietly. It crafts what it carries (craft("torch", 16)) with the
+crafting table built into it. It digs as an iron tool would (an Iron Qbot); a tool in
 its hand (tools.equip) digs, attacks and is used as a player's would, and wears out."""
 import time
 from logistics import NetworkError, _call
@@ -254,6 +255,38 @@ class _Tools:
 
 
 tools = _Tools()
+
+
+def craft(item=None, count=1):
+    """Crafts from what it carries, as at a crafting table (it has one built in), by the
+    game's recipes, every mod's. Returns how many it made.
+
+    By name, craft("torch", 16): it finds a recipe whose ingredients it holds, takes them from
+    any of its slots, and crafts until it has made at least count (or runs out: then it makes
+    what it can; QbotError if it can make none, saying what the recipe needs).
+
+    With no item, craft(count=1): it crafts what is laid out in the top-left 3x3 of its 4x4
+    inventory (slots 0-2, 4-6 and 8-10), one of each per craft, as a player's grid would;
+    what it makes goes into slots 3, 7, 11 and 12-15. This works for every recipe, those
+    known only by their pattern too (fireworks, dyed armour).
+
+    A craft is all or nothing: if what it makes won't fit, it isn't done. What a recipe leaves
+    behind (the bucket from a cake) stays in its inventory."""
+    return _q("qbot_craft", item, count)["made"]
+
+
+def _shell_craft(args):
+    # The shell's craft command: craft <item> [count], or craft [count] for the grid.
+    words = list(args)
+    count = 1
+    if words and words[-1].isdigit():
+        count = int(words.pop())
+    try:
+        item = " ".join(words) or None
+        reply = _q("qbot_craft", item, count)
+        print("Made %d %s." % (reply["made"], reply["item"]))
+    except QbotError as e:
+        print(e)
 
 
 class _Energy:

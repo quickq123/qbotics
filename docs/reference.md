@@ -70,6 +70,7 @@ The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (sectio
 | `recipe <item>` | The recipes that make an item, from every mod, as this world has them (section 7k). `--uses`: those it is used in; `--json`; `--limit n` |
 | `item <item>` | An item's names, mod, tags, stack size, fuel and food values (`--json`) |
 | `items <word>` | Finds items: a word, a `*pattern*`, a `#tag` or an `@mod` (`--json`) |
+| `craft <item> [count]` | On a Qbot (through `ssh`): crafts from what it carries (section 7d.3a). `craft [count]` alone crafts what is laid out in its grid |
 | `devices <external IP>` | Lists the devices behind another antenna |
 | `ssh <name or address>` | Uses another computer's terminal from this one (section 7.4). `exit` returns |
 | `settings` | Opens this computer's settings page (section 1.5) |
@@ -1644,6 +1645,7 @@ selects everything), then **Ctrl+C** or **Copy selected**. With nothing selected
 | Energy cell | **1,000,000 FE** |
 | Tanks | **Two of 4,000 mB**, one fluid each, so it can carry water and lava at once |
 | Digs as | An unenchanted **iron** tool, with nothing in its hand |
+| Crafts | As a **crafting table**, from what it carries (section 7d.3a) |
 
 - **No fuel.** Moving and working cost nothing. The energy cell and tanks are things it
   carries, to fill machines and tanks with or bring back.
@@ -1735,6 +1737,31 @@ the Qbot; the default), `"far"`, `"top"`, `"bottom"`, `"left"`, `"right"`. From 
 furnace, `inventory.drop(Side.FRONT, "raw_iron", 16, face="top")` fills its input and
 `face="left"` (or right) its fuel.
 
+### 7d.3a Crafting: a crafting table built in
+
+A Qbot crafts from what it carries, as a player at a crafting table would, by this world's
+own recipes (every mod's). Nothing is shown on its screen: it is done by its program, or by
+`craft` in its shell.
+
+```python
+import qbot
+qbot.craft("oak planks", 4)      # from a log it carries: 4
+qbot.craft("stick", 4)
+qbot.craft("torch", 16)          # as many as it can, up to 16 (whole crafts: may be a few more)
+qbot.craft()                     # whatever is laid out in its grid, once
+```
+
+| Call | Does |
+|---|---|
+| `qbot.craft(item, count=1)` | Finds a crafting-table recipe for the item whose ingredients it holds, takes them from any of its slots, and crafts until it has made at least `count`. Returns how many it made: fewer if it ran out. `QbotError` if it can make none, saying what the recipe needs |
+| `qbot.craft(count=1)` | Crafts what is laid out in the top-left 3x3 of its inventory, as a player's grid: slots `0 1 2` / `4 5 6` / `8 9 10`, one of each slot per craft. What it makes goes into slots 3, 7, 11 and 12 to 15. Every recipe works this way, those known only by their pattern too (fireworks, dyed armour, map copies) |
+
+- **By name** it doesn't craft the parts: for torches it needs sticks and coal, not planks.
+  `game.plan` (section 7k) works out the steps, and each step's `makes` names what to craft.
+- For a tag ingredient ("any planks") it uses the kind it holds most of.
+- **A craft is all or nothing.** If what it makes, and what the grid leaves (the buckets from a
+  cake), won't fit in its inventory, that craft isn't done.
+
 ### 7d.3b The camera: pictures of what it sees
 
 ```python
@@ -1771,7 +1798,8 @@ restart, take them again.
 Better tiers (diamond, with a full chest of slots), inventory filters, pipes and hoppers reaching
 into a Qbot, and the Transport Upgrade in a Qbot are planned but not built.
 
-**Recipe (placeholder):** `III` / `ICI` / `IHI`: iron around a computer, over a chest.
+**Recipe:** `ITI` / `ACP` / `IHI`: a crafting table on top, an iron axe and an iron pickaxe either side
+of a computer, a chest below, iron in the corners.
 
 ---
 

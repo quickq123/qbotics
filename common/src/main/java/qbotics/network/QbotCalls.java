@@ -88,6 +88,8 @@ final class QbotCalls {
             case "qbot_read" -> items(container(level, qbot, side(qbot, args), NetworkCalls.string(args, 2)));
             case "qbot_equip" -> equip(qbot, NetworkCalls.string(args, 1));
             case "qbot_unequip" -> unequip(qbot);
+            case "qbot_craft" -> QbotCrafting.craft(level, qbot, NetworkCalls.string(args, 1),
+                    java.util.Objects.requireNonNullElse(NetworkCalls.wholeNumber(args, 2, "count"), 1));
             case "qbot_energy" -> energy(level, qbot, side(qbot, args), NetworkCalls.wholeNumber(args, 2, "amount"), args.get(3).getAsBoolean(),
                     NetworkCalls.string(args, 4));
             case "qbot_fluid" -> fluid(level, qbot, side(qbot, args), NetworkCalls.string(args, 2), NetworkCalls.wholeNumber(args, 3, "amount"),
