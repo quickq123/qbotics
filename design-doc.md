@@ -1726,7 +1726,7 @@ and work on their code.
   pickaxe either side of the computer, a chest below): qbot.craft(item, count) crafts by name from anything it carries,
   by the game's crafting-table recipes (the craft forms of §17.8, the kind it holds most of for a tag), checked and made
   by the game's own RecipeManager; qbot.craft() with no item crafts the top-left 3x3 of its 4x4 inventory as a grid,
-  products into the other seven slots, so pattern-only recipes work too. Each craft is done on a copy and kept only if
+  products into slot 7 first (shaded on its screen), then the other slots outside the grid, so pattern-only recipes work too. Each craft is done on a copy and kept only if
   the product and remainders fit. The shell has craft (a Qbot only). network/QbotCrafting; the qbot_crafting test.
 - **Crafting for programs** (asked for by the owner, for a JEI-like auto-crafter on a Control Panel without hard-coded
   recipes): each recipe the game can describe gets a craft form (GameKnowledge.craftForm, from the recipe's own JSON):

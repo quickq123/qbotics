@@ -1740,8 +1740,9 @@ furnace, `inventory.drop(Side.FRONT, "raw_iron", 16, face="top")` fills its inpu
 ### 7d.3a Crafting: a crafting table built in
 
 A Qbot crafts from what it carries, as a player at a crafting table would, by this world's
-own recipes (every mod's). Nothing is shown on its screen: it is done by its program, or by
-`craft` in its shell.
+own recipes (every mod's), by its program or by `craft` in its shell. Its screen shows the grid:
+the crafting table's top, faintly, over slots 0-2, 4-6 and 8-10, with slot 7, where the product goes,
+shaded. Each of its 16 slots shows its number in the corner.
 
 ```python
 import qbot
@@ -1754,7 +1755,7 @@ qbot.craft()                     # whatever is laid out in its grid, once
 | Call | Does |
 |---|---|
 | `qbot.craft(item, count=1)` | Finds a crafting-table recipe for the item whose ingredients it holds, takes them from any of its slots, and crafts until it has made at least `count`. Returns how many it made: fewer if it ran out. `QbotError` if it can make none, saying what the recipe needs |
-| `qbot.craft(count=1)` | Crafts what is laid out in the top-left 3x3 of its inventory, as a player's grid: slots `0 1 2` / `4 5 6` / `8 9 10`, one of each slot per craft. What it makes goes into slots 3, 7, 11 and 12 to 15. Every recipe works this way, those known only by their pattern too (fireworks, dyed armour, map copies) |
+| `qbot.craft(count=1)` | Crafts what is laid out in the top-left 3x3 of its inventory, as a player's grid: slots `0 1 2` / `4 5 6` / `8 9 10`, one of each slot per craft. What it makes goes into slot 7, beside the grid's middle row (then 3, 11 and 12 to 15 once that is full). Every recipe works this way, those known only by their pattern too (fireworks, dyed armour, map copies) |
 
 - **By name** it doesn't craft the parts: for torches it needs sticks and coal, not planks.
   `game.plan` (section 7k) works out the steps, and each step's `makes` names what to craft.

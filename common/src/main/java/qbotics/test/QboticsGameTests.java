@@ -4327,7 +4327,7 @@ public final class QboticsGameTests {
         String program = String.join("\n",
                 "import qbot",
                 "from qbot import inventory, QbotError",
-                "print('grid', qbot.craft())",
+                "print('grid', qbot.craft(), [s['slot'] for s in inventory.list() if s['item'] == 'minecraft:furnace'])",
                 "print('planks', qbot.craft('Oak Planks', 4))",
                 "print('sticks', qbot.craft('stick', 4))",
                 "print('torches', qbot.craft('torch', 4))",
@@ -4345,7 +4345,7 @@ public final class QboticsGameTests {
             throw new IllegalStateException("could not write the test program", e);
         }
         computer.submitLine("run /q.py");
-        helper.succeedWhen(() -> assertScreen(helper, computer, "grid 1\n", "planks 4\n", "sticks 4\n", "torches 4\n",
+        helper.succeedWhen(() -> assertScreen(helper, computer, "grid 1 [7]\n", "planks 4\n", "sticks 4\n", "torches 4\n",
                 "refused: The Qbot doesn't hold what minecraft:torch needs", "refused: No crafting table recipe makes minecraft:bedrock",
                 "have 1 4 3 2\n"));
     }

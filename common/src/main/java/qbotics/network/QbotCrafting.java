@@ -286,19 +286,12 @@ final class QbotCrafting {
         return all;
     }
 
-    /** Its slots outside the crafting grid: 3, 7, 11 and 12 to 15. */
+    /**
+     * Where what the grid makes goes: slot 7 first (right of the grid's middle row, shaded on
+     * its screen, as a crafting table's output sits), then the rest outside the grid.
+     */
     private static int[] otherSlots() {
-        List<Integer> others = new ArrayList<>();
-        outer:
-        for (int slot = 0; slot < QbotBlockEntity.SLOTS; slot++) {
-            for (int g : GRID) {
-                if (g == slot) {
-                    continue outer;
-                }
-            }
-            others.add(slot);
-        }
-        return others.stream().mapToInt(Integer::intValue).toArray();
+        return new int[] {7, 3, 11, 12, 13, 14, 15};
     }
 
     private static JsonObject result(String id, int made) {

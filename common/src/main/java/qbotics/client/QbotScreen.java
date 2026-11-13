@@ -20,6 +20,11 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
     private static final int GAUGE_H = 72;
     private static final int ENERGY = PlateTints.ENERGY;
     private static final int ENERGY_DARK = 0xFF5A1410;
+    /** The crafting table's top, shown faintly over the slots that are its crafting grid. */
+    private static final net.minecraft.resources.Identifier CRAFTING_TOP =
+            net.minecraft.resources.Identifier.withDefaultNamespace("textures/block/crafting_table_top.png");
+    /** The slot what it crafts from its grid goes to first (right of the grid's middle row). */
+    public static final int CRAFT_OUTPUT = 7;
 
     private net.minecraft.client.gui.components.Button run;
     private net.minecraft.client.gui.components.Button pause;
@@ -312,6 +317,15 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
                 Panels.slot(graphics, x + QbotMenu.GRID_X - 1 + col * 18, y + QbotMenu.GRID_Y - 1 + row * 18);
             }
         }
+        // Its built-in crafting table (qbot.craft()): the table's top, faint, over the 3x3 grid
+        // (slots 0-2, 4-6, 8-10), and the slot its product goes to first shaded.
+        int gridX = x + QbotMenu.GRID_X - 1;
+        int gridY = y + QbotMenu.GRID_Y - 1;
+        graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, CRAFTING_TOP, gridX + 3, gridY + 3, 0.0F, 0.0F,
+                48, 48, 16, 16, 16, 16, 0x70FFFFFF);
+        int outX = gridX + (CRAFT_OUTPUT % 4) * 18;
+        int outY = gridY + (CRAFT_OUTPUT / 4) * 18;
+        graphics.fill(outX + 1, outY + 1, outX + 17, outY + 17, 0x50E8B040);
         Panels.slot(graphics, x + QbotMenu.HAND_X - 1, y + QbotMenu.HAND_Y - 1);
         Panels.socket(graphics, x + QbotMenu.HAND_X, y + QbotMenu.UPGRADE_Y);
         Panels.slot(graphics, x + QbotMenu.HAND_X - 1, y + QbotMenu.UPGRADE_Y - 1);
@@ -335,6 +349,25 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
         }
         // The program's strip: what it is doing, then its last lines.
         Panels.sunken(graphics, x + 7, y + QbotMenu.OUTPUT_Y, Panels.WIDTH - 14, 31, 0xFF141414);
+    }
+
+    /**
+     * Each inventory slot's number (0 to 15, as inventory.list() and the grid count them),
+     * small, in its top-left corner. A probe in Slots mode draws its own numbers instead.
+     */
+    private void drawSlotNumbers(GuiGraphicsExtractor graphics) {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player != null && qbotics.block.ProbeItem.showsSlots(player)) {
+            return;
+        }
+        graphics.pose().pushMatrix();
+        graphics.pose().scale(0.5F, 0.5F);
+        for (int slot = 0; slot < QbotBlockEntity.SLOTS; slot++) {
+            int sx = QbotMenu.GRID_X + (slot % 4) * 18;
+            int sy = QbotMenu.GRID_Y + (slot / 4) * 18;
+            graphics.text(font, String.valueOf(slot), sx * 2, sy * 2, 0xFFE8E8E8, true);
+        }
+        graphics.pose().popMatrix();
     }
 
     private void drawProgram(GuiGraphicsExtractor graphics) {
@@ -369,6 +402,7 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
         super.extractLabels(graphics, mouseX, mouseY);
         graphics.text(font, Component.translatable("screen.qbotics.qbot.hand"), QbotMenu.HAND_X - 1, QbotMenu.HAND_Y + 18, Panels.LABEL, false);
         graphics.text(font, Component.translatable("screen.qbotics.qbot.upgrade"), QbotMenu.HAND_X - 4, QbotMenu.UPGRADE_Y + 18, Panels.LABEL, false);
+        drawSlotNumbers(graphics);
         drawProgram(graphics);
     }
 

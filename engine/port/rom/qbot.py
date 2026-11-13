@@ -267,7 +267,7 @@ def craft(item=None, count=1):
 
     With no item, craft(count=1): it crafts what is laid out in the top-left 3x3 of its 4x4
     inventory (slots 0-2, 4-6 and 8-10), one of each per craft, as a player's grid would;
-    what it makes goes into slots 3, 7, 11 and 12-15. This works for every recipe, those
+    what it makes goes into slot 7 (then 3, 11 and 12-15). This works for every recipe, those
     known only by their pattern too (fireworks, dyed armour).
 
     A craft is all or nothing: if what it makes won't fit, it isn't done. What a recipe leaves
