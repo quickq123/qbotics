@@ -215,3 +215,18 @@ vfs.mount(_Drive(), "/")
 import sys
 if "/lib" not in sys.path:
     sys.path.append("/lib")
+
+# The modules in this folder (the ROM). Keep in step with the files here.
+_ROM = ("_boot", "display", "events", "git", "logistics", "network", "pip", "qbot", "requests")
+_PATH = list(sys.path)
+
+
+def _start(folder):
+    """Called before each program the shell runs (run, startup, a service), as if Python had
+    just started: modules imported from files are forgotten, so an edited file is read again;
+    the events module starts with no handlers; and import looks in the program's own folder
+    first, then the current folder and /lib, as a program's sys.path changes are undone."""
+    for name in list(sys.modules):
+        if name not in _ROM or name == "events":
+            del sys.modules[name]
+    sys.path[:] = ([folder] if folder not in _PATH else []) + _PATH

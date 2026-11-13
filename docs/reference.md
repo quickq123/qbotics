@@ -81,6 +81,10 @@ program's name typed on its own suggests `run` in front of it.
 
 Ctrl+C stops a running program. A file named `/startup.py` runs when the computer starts.
 
+A program can `import` the `.py` files beside it, wherever it is run from: import looks in the
+program's own folder first, then the current folder, then `/lib`. Each run reads the files it
+imports afresh, so a change to one takes effect the next time the program runs.
+
 Ctrl+C reaches the program as `KeyboardInterrupt`, as in Python, straight away, even in the
 middle of a `time.sleep()` or while a call waits for the game. `except Exception` doesn't catch
 it, so a `while True` loop with `try`/`except Exception` inside still stops. A program can catch
@@ -1888,7 +1892,7 @@ folder with a README saying what its examples do and which blocks they need:
 | Folder | Examples |
 |---|---|
 | `basics` | Python, files, the network (start here) |
-| `storage` | Counting, moving and sorting items |
+| `buses` | Seven steps with Serial Buses (count, move, filters, a furnace, watching, sorting, crafting), then `factory`: one program, one job per file, started together under `events` |
 | `redstone` | Logic Pins and events |
 | `displays` | A Text Monitor, a Control Panel, a Web Panel storage browser (item pictures, search) and a Web Panel dashboard (JavaScript, canvas) |
 | `qbots` | A tunnel digger and the camera |

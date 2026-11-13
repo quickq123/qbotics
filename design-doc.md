@@ -1627,8 +1627,14 @@ Lower heaps and fewer computers running at once by default, because one PC carri
 > (`qbotics/helpme`, listed in `files.txt` by make_assets.py) and `git clone helpme` copies them to `/helpme` without the
 > Uplink, as a repository whose commit is a fingerprint of the files: `git pull` updates them when the mod does, with the
 > usual refusal over local changes; no push. Sorted by topic folders with a README each (decided: easier than one
-> numbered list): basics, storage, redstone, displays (monitor, panel, web storage, web dashboard), qbots, network,
-> internet, server. `git status` never needs the Uplink. Game tests run the storage examples against real blocks.
+> numbered list): basics, buses, redstone, displays (monitor, panel, web storage, web dashboard), qbots, network,
+> internet, server. `git status` never needs the Uplink. Game tests run the bus examples against real blocks.
+> **buses (2026-11-13, asked for by the project owner: buses are the most used feature):** replaced `storage`.
+> Numbered beginner steps (1_count to 7_craft), then `factory/`: devices in one file, one job per file with a
+> `start()` that does the job once and adds its handlers to `events`, `main.py` starting them all, and `safely()` so
+> one job's error doesn't stop the rest. It needed two changes to `run` (rom/_boot.py `_start`): import looks in the
+> program's own folder first (as in CPython), and modules imported from files are forgotten before each program
+> (the computer's Python lives as long as the shell, so an edited module used to stay as first imported).
 
 > **Status (2026-11-12): built** (`docs/reference.md` §7h), for GitHub: `git clone/pull/status/push` at the shell and
 > `import git`. The game does the work through the uplink (all its checks) and writes the drive directly, so a repo may
@@ -1762,6 +1768,7 @@ A block that holds several **hard drives**, like the drive bays in Applied Energ
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-13 | helpme `buses` (replaces `storage`): seven beginner steps and `factory/`, a program with one job per file started under events. `run` now imports from the program's own folder first and rereads imported files each run (rom/_boot.py `_start`) | Built 2026-11-13 |
 | 2026-11-12 | Web Panel JavaScript: QuickJS's interpreter loop split into one function per opcode at build time, so the JVM compiles it: 3 to 6 times faster (§10.3) | Built 2026-11-12 |
 | 2026-11-12 | Tablets: a handheld screen with an Infinite antenna; paired with networks by their antennas, a tab per network (the holder picks), drawn on with `net.tablet()` as any kind of screen, titled by the program, and shown on the tablet while held (§10.5) | Built 2026-11-12 |
 | 2026-11-12 | Displays can lie on floors and ceilings: placed looking steeply down (pitch over 50 degrees) at a top face, or up at an underside, the screen lies flat with its top edge pointing away from the player. Block states gain six facings and `top`; flat screens join only screens lying the same way | Built 2026-11-12 |

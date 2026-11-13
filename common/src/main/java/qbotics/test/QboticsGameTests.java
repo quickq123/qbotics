@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -84,6 +84,7 @@ public final class QboticsGameTests {
             Map.entry("helpme", QboticsGameTests::helpme),
             Map.entry("shell_scripts", QboticsGameTests::shellScripts),
             Map.entry("helpme_storage", QboticsGameTests::helpmeStorage),
+            Map.entry("helpme_factory", QboticsGameTests::helpmeFactory),
             Map.entry("step_through_laptop", QboticsGameTests::stepThroughLaptop),
             Map.entry("qbot_program_controls", QboticsGameTests::qbotProgramControls),
             Map.entry("computer_interrupt_sleep", QboticsGameTests::computerInterruptSleep),
@@ -3479,6 +3480,52 @@ public final class QboticsGameTests {
         });
     }
 
+    /**
+     * The helpme factory (buses/factory), run as a player would from another folder, against named
+     * buses on five chests and a furnace: the inbox is sorted by the rules, raw ore is smelted
+     * and the ingots come back to the ores chest, and the report job says what is low.
+     */
+    private static void helpmeFactory(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        String[] names = {"inbox", "tools", "ores", "food", "store", "furnace"};
+        for (int i = 0; i < names.length; i++) {
+            BlockPos cable = new BlockPos(1 + i, 1, 0);
+            setPort(helper, cable, Kind.BUS, Direction.SOUTH);
+            helper.setBlock(cable.south(), names[i].equals("furnace") ? Blocks.FURNACE : Blocks.CHEST);
+            qbotics.block.ProbeItem.rename(helper.getLevel(), null,
+                    new qbotics.net.ProbePayloads.Rename(helper.absolutePos(cable), Direction.SOUTH.get3DDataValue(), names[i]));
+        }
+        var inbox = helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        inbox.setItem(0, new ItemStack(Items.RAW_IRON, 3));
+        inbox.setItem(1, new ItemStack(Items.COAL, 4));
+        inbox.setItem(2, new ItemStack(Items.IRON_PICKAXE));
+        inbox.setItem(3, new ItemStack(Items.BREAD, 5));
+        inbox.setItem(4, new ItemStack(Items.DIRT, 7));
+        for (String line : List.of("git clone helpme", "run /helpme/buses/factory/main.py")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "Started sorter", "Started smelter", "Started report", "The factory is running", "Low: ");
+            helper.assertTrue(inbox.isEmpty(), "the inbox should be sorted");
+            helper.assertTrue(countIn(helper, new BlockPos(2, 1, 1), Items.IRON_PICKAXE) == 1, "the pickaxe goes to tools");
+            helper.assertTrue(countIn(helper, new BlockPos(4, 1, 1), Items.BREAD) == 5, "the bread goes to food");
+            helper.assertTrue(countIn(helper, new BlockPos(5, 1, 1), Items.DIRT) == 7, "the dirt goes to the store");
+            // Smelted iron comes back to the ores chest.
+            helper.assertTrue(countIn(helper, new BlockPos(3, 1, 1), Items.IRON_INGOT) >= 1, "an ingot should be back in ores");
+        });
+    }
+
+    private static int countIn(GameTestHelper helper, BlockPos pos, net.minecraft.world.item.Item item) {
+        var container = (net.minecraft.world.Container) helper.getBlockEntity(pos, net.minecraft.world.level.block.entity.BlockEntity.class);
+        int count = 0;
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            if (container.getItem(i).is(item)) {
+                count += container.getItem(i).getCount();
+            }
+        }
+        return count;
+    }
+
     /** The helpme storage examples, run as a player would, against a real bus, chest and Web Panel. */
     private static void helpmeStorage(GameTestHelper helper) {
         ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
@@ -3490,7 +3537,7 @@ public final class QboticsGameTests {
         chest.setItem(2, new ItemStack(Items.IRON_INGOT, 5));
         helper.setBlock(new BlockPos(0, 2, 0), QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
                 .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH));
-        for (String line : List.of("git clone helpme", "cd /helpme/storage", "run count.py", "cd /helpme/displays/web_storage", "run storage.py")) {
+        for (String line : List.of("git clone helpme", "cd /helpme/buses", "run 1_count.py", "cd /helpme/displays/web_storage", "run storage.py")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> {
@@ -3510,7 +3557,8 @@ public final class QboticsGameTests {
     /**
      * Shell scripts: commands run in order from the script's folder; the first failure stops
      * it (a missing file, a refused git, a program ending with sys.exit(1)); scripts run scripts
-     * (not forever); startup.sh runs when the computer starts.
+     * (not forever); startup.sh runs when the computer starts. A program imports files from its own
+     * folder, run from anywhere, and an edited file is read again on the next run.
      */
     private static void shellScripts(GameTestHelper helper) {
         ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
@@ -3525,15 +3573,19 @@ public final class QboticsGameTests {
         files.put("/s/outer.sh", "sh setup.sh\necho outer done\n");
         files.put("/s/loop.sh", "sh loop.sh\n");
         files.put("/startup.sh", "echo started by startup.sh\n");
+        files.put("/m/app.py", "import helper\nprint('helper says', helper.WORD)\n");
+        files.put("/m/helper.py", "WORD = 'one'\n");
+        files.put("/m/change.py", "open('/m/helper.py', 'w').write(\"WORD = 'two'\\n\")\n");
         try {
             computer.drive().call(qbotics.engine.HostFileSystem.MKDIR, "/s", new byte[0]);
+            computer.drive().call(qbotics.engine.HostFileSystem.MKDIR, "/m", new byte[0]);
             for (var file : files.entrySet()) {
                 computer.drive().call(qbotics.engine.HostFileSystem.WRITE, file.getKey(), file.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
             }
         } catch (qbotics.engine.HostFileSystem.FsException e) {
             throw new IllegalStateException(e);
         }
-        for (String line : List.of("run /s/setup.sh", "pwd", "sh /s/fail.sh", "sh /s/gitfail.sh", "run /s/exits.sh", "sh /s/outer.sh",
+        for (String line : List.of("run /m/app.py", "run /m/change.py", "run /m/app.py", "run /s/setup.sh", "pwd", "sh /s/fail.sh", "sh /s/gitfail.sh", "run /s/exits.sh", "sh /s/outer.sh",
                 "sh /s/loop.sh")) {
             computer.submitLine(line);
         }
@@ -3545,7 +3597,7 @@ public final class QboticsGameTests {
                 assertScreen(helper, computer, "+ echo Setting up", "Setting up", "hi from python", "/s/made", "before the error",
                         "fail.sh stopped at line 2: cat missing.txt", "isn't a cloned repository", "gitfail.sh stopped at line 1",
                         "quiet ran", "quiet was fine", "bye from loud", "exits.sh stopped at line 3", "outer done",
-                        "Scripts are running scripts 8 deep");
+                        "Scripts are running scripts 8 deep", "helper says one", "helper says two");
                 helper.assertTrue(!screen.contains("never shown") && !screen.contains("Traceback") && !screen.contains("SystemExit"),
                         "nothing after a failure, and sys.exit is quiet: " + screen);
                 // The shell is back where it was after a script: "pwd" printed "/", not "/s/made".

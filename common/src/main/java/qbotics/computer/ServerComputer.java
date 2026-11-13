@@ -358,8 +358,7 @@ public final class ServerComputer {
         boolean ok;
         try {
             String folder = serviceFile.substring(0, Math.max(1, serviceFile.lastIndexOf('/')));
-            ok = runPython(computer, "import os, sys\nos.chdir(" + pyString(folder) + ")\nsys.modules.pop('events', None)\nexecfile("
-                    + pyString(serviceFile) + ")");
+            ok = runPython(computer, startProgram(folder, serviceFile) + "execfile(" + pyString(serviceFile) + ")");
         } catch (Restart restart) {
             ok = false;
         }
@@ -654,7 +653,7 @@ public final class ServerComputer {
                                 runScript(computer, STARTUP_SCRIPT);
                             }
                             if (exists(STARTUP_FILE)) {
-                                runPython(computer, "execfile(" + pyString(STARTUP_FILE) + ")");
+                                runPython(computer, startProgram("/", STARTUP_FILE) + "execfile(" + pyString(STARTUP_FILE) + ")");
                             }
                         }
                     }
@@ -1021,7 +1020,15 @@ public final class ServerComputer {
         }
         // Programs see the shell's folder as their current folder, and start with no event
         // handlers left over from an earlier program (the events module is loaded afresh).
-        return runPython(computer, "import os, sys\nos.chdir(" + pyString(cwd) + ")\nsys.modules.pop('events', None)\nexecfile(" + pyString(file) + ")");
+        return runPython(computer, startProgram(cwd, file) + "execfile(" + pyString(file) + ")");
+    }
+
+    /**
+     * What runs before a program: its current folder, and a fresh start (rom/_boot.py's
+     * _start): files it imports are read again, and import looks in the program's own folder.
+     */
+    private static String startProgram(String cwd, String file) {
+        return "import os, _boot\nos.chdir(" + pyString(cwd) + ")\n_boot._start(" + pyString(Paths.parent(file)) + ")\n";
     }
 
     private void runScratch(Computer computer, Scratch scratch) {

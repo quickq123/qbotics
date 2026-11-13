@@ -9,4 +9,4 @@ Nothing but a computer is needed for the first two.
 | `devices.py` | What is on this computer's network, and naming the computer | `run devices.py` (add some cables and devices first) |
 | `setup.sh` | A shell script: commands run one after another, and `startup.sh` | `run setup.sh` |
 
-Next: `/helpme/storage` to move items, or `/helpme/displays` for screens.
+Next: `/helpme/buses` to move items, or `/helpme/displays` for screens.

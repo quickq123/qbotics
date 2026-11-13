@@ -1,6 +1,6 @@
 # What is in a chest. An Item Serial Bus is a plate on a cable that works the block it
 # points at. Put a chest down, a cable beside it, and right-click the chest holding the bus.
-# Run it:  run count.py
+# Run it:  run 1_count.py
 from logistics import network
 
 CHEST = None          # the bus's name ("chest"), or None for the only bus on the network
