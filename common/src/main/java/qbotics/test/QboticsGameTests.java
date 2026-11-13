@@ -1818,7 +1818,7 @@ public final class QboticsGameTests {
                 "        move(store, chest, 'coal', 3)",
                 "    elif n == 4:",
                 "        network.send(me, {'hi': 42})",
-                "    elif n == 7:",
+                "    elif n == 14:      # chests are looked at 4 times a second: time to see the coal",
                 "        events.stop()",
                 "",
                 "events.after(30, events.stop)    # in case something never comes",
@@ -1834,7 +1834,7 @@ public final class QboticsGameTests {
         }
         computer.submitLine("run /ev.py");
         helper.succeedWhen(() -> assertScreen(helper, computer, "pin sensor rising 15\n", "pin sensor falling 0\n",
-                "chest minecraft:coal 0 3\n", "message 42\n", "ran 7 steps\n", "There is nothing to wait for"));
+                "chest minecraft:coal 0 3\n", "message 42\n", "ran 14 steps\n", "There is nothing to wait for"));
     }
 
     /**
@@ -3556,8 +3556,12 @@ public final class QboticsGameTests {
         model.createContext("/v1/chat/completions", exchange -> {
             bodies.add(new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
             keys.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
-            byte[] reply = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"OK\"}}]}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, reply.length);
+            boolean fail = bodies.getLast().contains("please fail");
+            // As llama.cpp answers: extras about the machine on success, and errors naming its files.
+            byte[] reply = (fail ? "{\"error\":{\"message\":\"failed to load model /blobs/sha256-secret on gpu 1\"}}"
+                    : "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"OK\",\"reasoning_content\":\"hmm\"}}],"
+                    + "\"system_fingerprint\":\"b6543-cuda\",\"timings\":{\"predicted_per_second\":88.5}}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(fail ? 500 : 200, reply.length);
             exchange.getResponseBody().write(reply);
             exchange.close();
         });
@@ -3572,14 +3576,15 @@ public final class QboticsGameTests {
                 qbotics.QboticsConfig.aiUrl = "http://127.0.0.1:" + model.getAddress().getPort() + "/v1/";
                 qbotics.QboticsConfig.aiModel = "class-model";
                 qbotics.QboticsConfig.aiKey = "the-key";
-                qbotics.QboticsConfig.aiRequestsPerMinute = 2;
+                qbotics.QboticsConfig.aiRequestsPerMinute = 3;
                 got.put("test", qbotics.agent.ServerModel.test(() -> { }).join());
                 got.put("offered", qbotics.agent.ServerModel.settings());
                 UUID player = UUID.randomUUID();
                 String asked = "{\"model\":\"something-else\",\"max_tokens\":99999,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"tools\":[]}";
                 got.put("first", qbotics.agent.ServerModel.relay(player, asked).join());
-                got.put("second", qbotics.agent.ServerModel.relay(player, asked).join());
+                got.put("second", qbotics.agent.ServerModel.relay(player, asked.replace("hi", "please fail")).join());
                 got.put("third", qbotics.agent.ServerModel.relay(player, asked).join());
+                got.put("fourth", qbotics.agent.ServerModel.relay(player, asked).join());
                 qbotics.QboticsConfig.aiUrl = "http://127.0.0.1:1/v1";
                 got.put("unreachable", qbotics.agent.ServerModel.test(() -> { }).join());
                 got.put("unreachable_settings", qbotics.agent.ServerModel.settings());
@@ -3603,14 +3608,20 @@ public final class QboticsGameTests {
                     "the test passes: " + got.get("test"));
             qbotics.net.AgentPayloads.Settings offered = (qbotics.net.AgentPayloads.Settings) got.get("offered");
             helper.assertTrue(offered.offered() && offered.model().equals("class-model"), "players are offered it, by name only: " + offered);
-            helper.assertTrue(((qbotics.agent.ServerModel.Reply) got.get("first")).status() == 200, "a player's call is answered: " + got.get("first"));
+            qbotics.agent.ServerModel.Reply first = (qbotics.agent.ServerModel.Reply) got.get("first");
+            helper.assertTrue(first.status() == 200 && first.body().contains("\"content\":\"OK\"") && !first.body().contains("b6543")
+                    && !first.body().contains("timings") && !first.body().contains("reasoning_content"),
+                    "a player's call is answered with the message only, nothing about the model's machine: " + first.body());
+            qbotics.agent.ServerModel.Reply failed = (qbotics.agent.ServerModel.Reply) got.get("second");
+            helper.assertTrue(failed.status() == 502 && !failed.body().contains("blobs") && !failed.body().contains("gpu")
+                    && failed.body().contains("had a problem"), "the model's error doesn't reach the player: " + failed.body());
             String sent = bodies.get(1); // [0] was the test
             helper.assertTrue(sent.contains("\"model\":\"class-model\"") && !sent.contains("something-else") && !sent.contains("max_tokens")
                     && sent.contains("\"reasoning_effort\":\"low\"") && sent.contains("\"content\":\"hi\""),
                     "the server's model and thinking, the player's messages, nothing else of theirs: " + sent);
             helper.assertTrue(keys.get(1).equals("Bearer the-key"), "with the server's key: " + keys);
-            helper.assertTrue(((qbotics.agent.ServerModel.Reply) got.get("third")).status() == 429, "the third call in a minute (limit 2) waits: "
-                    + got.get("third"));
+            helper.assertTrue(((qbotics.agent.ServerModel.Reply) got.get("fourth")).status() == 429, "the fourth call in a minute (limit 3) waits: "
+                    + got.get("fourth"));
             qbotics.agent.ServerModel.Status unreachable = (qbotics.agent.ServerModel.Status) got.get("unreachable");
             helper.assertTrue(unreachable.state() == qbotics.agent.ServerModel.State.FAILED && unreachable.detail().contains("couldn't connect")
                     && !((qbotics.net.AgentPayloads.Settings) got.get("unreachable_settings")).offered(), "unreachable: not offered: " + unreachable);

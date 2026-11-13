@@ -184,13 +184,50 @@ public final class ServerModel {
                     noThinkingSettings = true; // a server without them: ask again plainly
                     response = post(body, QboticsConfig.aiThinking, Duration.ofMinutes(5)).get(6, TimeUnit.MINUTES);
                 }
-                return new Reply(response.statusCode(), response.body());
+                return forPlayer(response.statusCode(), response.body());
             } catch (Exception e) {
-                return new Reply(502, error("This server's AI didn't answer: " + describe(e)));
+                Qbotics.LOGGER.warn("The server's AI model ({}) didn't answer a player's question: {}", QboticsConfig.aiModel, describe(e));
+                return new Reply(502, error(PROBLEM));
             } finally {
                 gate.release();
             }
         }, java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+    }
+
+    private static final String PROBLEM = "This server's AI had a problem answering. Try again in a moment; "
+            + "if it keeps happening, tell the server's owner (the details are in the server's log).";
+
+    /**
+     * What a player is sent of the model's answer: only the message (its text and tool calls),
+     * never the rest of what the model's server said (its build, its timings) and never its
+     * errors, which can name files and settings on the machine running it. Those go to the
+     * server's log, for its owner.
+     */
+    static Reply forPlayer(int status, String body) {
+        if (status == 200) {
+            try {
+                JsonObject message = JsonParser.parseString(body).getAsJsonObject().getAsJsonArray("choices").get(0)
+                        .getAsJsonObject().getAsJsonObject("message");
+                JsonObject kept = new JsonObject();
+                kept.addProperty("role", "assistant");
+                kept.add("content", message.has("content") ? message.get("content") : com.google.gson.JsonNull.INSTANCE);
+                if (message.get("tool_calls") instanceof JsonArray calls) {
+                    kept.add("tool_calls", calls);
+                }
+                JsonObject choice = new JsonObject();
+                choice.add("message", kept);
+                JsonArray choices = new JsonArray();
+                choices.add(choice);
+                JsonObject reply = new JsonObject();
+                reply.add("choices", choices);
+                return new Reply(200, reply.toString());
+            } catch (RuntimeException e) {
+                Qbotics.LOGGER.warn("The server's AI model ({}) gave an answer that isn't an OpenAI-style reply: {}", QboticsConfig.aiModel, shorten(body));
+                return new Reply(502, error(PROBLEM));
+            }
+        }
+        Qbotics.LOGGER.warn("The server's AI model ({}) answered a player's question with {}: {}", QboticsConfig.aiModel, status, shorten(body));
+        return new Reply(502, error(PROBLEM));
     }
 
     /** The model's answer: an HTTP status, and the body (an OpenAI-style reply, or an error). */

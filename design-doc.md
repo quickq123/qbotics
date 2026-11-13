@@ -1711,6 +1711,8 @@ and work on their code.
   and tools); the model, thinking and key are the server's, whatever else the request held. A short test when the
   server starts (/qbotics ai test again) decides whether it is offered; players learn only its name (Settings). Fair use:
   ai.requests_per_minute per player, ai.max_parallel overall. A bonus: players needn't reach the model themselves.
+  Players are sent only the model's message (text and tool calls), never the rest of its server's reply (build, timings)
+  nor its errors, which can name files and settings on the machine running it: those go to the server's log.
   The player's own model is used where none is offered, or by choice (/ai use own).
 - **The editor's Chat panel** (asked for by the owner, also for teacher and student sessions): in the scratchpad's
   place, the game's chat (client/ide/ChatLog: what arrives, and the agent's own lines) with a box that sends as the chat
