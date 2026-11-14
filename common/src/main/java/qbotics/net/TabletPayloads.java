@@ -46,6 +46,18 @@ public final class TabletPayloads {
         }
     }
 
+    /** Client to server: the player pressed Delete twice: unpair the tab at this index. */
+    public record Unpair(UUID tablet, int index) implements CustomPacketPayload {
+        public static final Type<Unpair> TYPE = new Type<>(Qbotics.id("tablet_unpair"));
+        public static final StreamCodec<ByteBuf, Unpair> STREAM_CODEC = StreamCodec.composite(
+                UUIDUtil.STREAM_CODEC, Unpair::tablet, ByteBufCodecs.VAR_INT, Unpair::index, Unpair::new);
+
+        @Override
+        public Type<Unpair> type() {
+            return TYPE;
+        }
+    }
+
     /** Client to server: the player picked a tab. */
     public record Select(UUID tablet, int index) implements CustomPacketPayload {
         public static final Type<Select> TYPE = new Type<>(Qbotics.id("tablet_select"));

@@ -1589,7 +1589,7 @@ public final class NetworkCalls {
      */
     private static java.util.UUID tabletKey(ServerLevel level, CableNetwork network, BlockPos computerPos) {
         if (level.getBlockEntity(computerPos) instanceof qbotics.qbot.QbotBlockEntity qbot) {
-            return qbot.deviceId();
+            return qbot.driveId(); // its tab follows its drive, kept when it is broken and placed again
         }
         return router(network).deviceId();
     }
@@ -1597,7 +1597,7 @@ public final class NetworkCalls {
     /** The same, or null for a computer whose network has no antenna (it has no tablets). */
     private static java.util.@org.jspecify.annotations.Nullable UUID tabletKeyOrNull(ServerLevel level, CableNetwork network, BlockPos computerPos) {
         if (level.getBlockEntity(computerPos) instanceof qbotics.qbot.QbotBlockEntity qbot) {
-            return qbot.deviceId();
+            return qbot.driveId();
         }
         return network.gateway() == null ? null : network.gateway().deviceId();
     }

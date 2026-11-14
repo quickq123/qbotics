@@ -1572,8 +1572,9 @@ Infinite Antenna.
 | Do | Get |
 |---|---|
 | Sneak and right-click a network's antenna | Pairs the tablet with that network: a new tab. Do it again to unpair. The antenna's access setting decides who may pair (private: its owner only). Pair with the network's router, its first antenna |
-| Sneak and right-click a Qbot | Pairs the tablet with that Qbot: a tab for its own program, reached by its radio anywhere (section 7d.3c). Only its owner may |
+| Sneak and right-click a Qbot | Pairs the tablet with that Qbot: a tab for its own program, reached by its radio anywhere (section 7d.3c). Only its owner may. The tab stays the Qbot's when it is broken (renamed on an anvil, say) and placed again |
 | Right-click in the air | The tablet's view: its tabs along the top, the selected tab's screen below. Click a tab to switch. Touch, drag and type as in a screen's close-up view |
+| **Delete**, twice, in the tablet's view | Unpairs the tab showing, without going back to its antenna or Qbot: the first press asks ("Press Delete again to unpair ..."), a second within 3 seconds unpairs. While a page's text field is being typed in, Delete goes to the field |
 | Hold it | The selected tab's screen shows on the tablet in your hand, live |
 
 **Tabs, not fights.** Each network a tablet is paired with (up to 8) has a screen of its own on
@@ -1826,7 +1827,8 @@ count against the antenna limit. A Qbot's radio carries messages; `ssh` still re
 through the network it is cabled to.
 
 **A tablet of its own.** Sneak and right-click a Qbot with a tablet to pair the tablet with the
-Qbot itself (again to unpair; only its owner may). The tablet gets a tab that is the Qbot's,
+Qbot itself (again to unpair, or press Delete twice in the tablet's view; only its owner may
+pair). The tab goes with the Qbot's drive, so it is kept when the Qbot is broken and placed again. The tablet gets a tab that is the Qbot's,
 and the Qbot's program draws on it as any network's program does, with no antenna or base
 computer, wherever the Qbot goes:
 

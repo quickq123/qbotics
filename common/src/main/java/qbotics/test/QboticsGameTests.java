@@ -4459,6 +4459,9 @@ public final class QboticsGameTests {
             synchronized (screen) {
                 helper.assertTrue(screen.stateJson().contains("moved forward"), "the tablet shows what it did");
             }
+            // Delete pressed twice on the tablet: the tab showing is unpaired.
+            tablets.unpairTab(player, stack.get(QboticsContent.TABLET_ID.get()), 0);
+            helper.assertTrue(tablets.of(stack).apps().isEmpty() && screen.isGone(), "Delete unpairs the tab showing");
         });
     }
 

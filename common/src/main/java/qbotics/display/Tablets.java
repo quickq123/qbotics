@@ -205,10 +205,11 @@ public final class Tablets extends SavedData {
     /**
      * Sneak and right-click a Qbot: pairs the tablet with it, or unpairs it if it was. The tab is
      * the Qbot's own (its radio reaches the tablet anywhere): its program draws there with
-     * network().tablet(). Only the Qbot's owner may pair.
+     * network().tablet(). Only the Qbot's owner may pair. The tab is the Qbot's drive's, which
+     * stays with the Qbot when it is broken, renamed and placed again (its device ID doesn't).
      */
     public void pair(ServerPlayer player, ItemStack stack, qbotics.qbot.QbotBlockEntity qbot) {
-        if (unpair(player, stack, qbot.deviceId())) {
+        if (unpair(player, stack, qbot.driveId())) {
             return;
         }
         if (!java.util.Objects.equals(qbot.owner(), player.getUUID())) {
@@ -216,7 +217,7 @@ public final class Tablets extends SavedData {
             return;
         }
         String label = qbot.deviceName().isEmpty() ? "Qbot " + qbot.radioIp(player.level().getServer()) : qbot.deviceName();
-        add(player, stack, qbot.deviceId(), label, "tab = network().tablet()   (in the Qbot's program)");
+        add(player, stack, qbot.driveId(), label, "tab = network().tablet()   (in the Qbot's program)");
     }
 
     /** Unpairs the tablet from this network (or Qbot) if it was paired. True if it was. */
@@ -383,6 +384,20 @@ public final class Tablets extends SavedData {
         App app = held(player, click.origin());
         if (app != null && app.content instanceof WebScreen web && player.level() instanceof ServerLevel level) {
             Displays.webClicked(level, player, web, click.element(), app.tablet.mac(), app.tablet.name, player.blockPosition(), extra(app));
+        }
+    }
+
+    /** The player pressed Delete (twice) on a tablet they hold: unpairs the tab at this index. */
+    public void unpairTab(ServerPlayer player, UUID id, int index) {
+        for (InteractionHand hand : InteractionHand.values()) {
+            ItemStack stack = player.getItemInHand(hand);
+            if (isTablet(stack) && id.equals(stack.get(QboticsContent.TABLET_ID.get()))) {
+                Tablet tablet = of(stack);
+                if (index >= 0 && index < tablet.apps.size()) {
+                    unpair(player, stack, tablet.apps.get(index).antenna);
+                }
+                return;
+            }
         }
     }
 

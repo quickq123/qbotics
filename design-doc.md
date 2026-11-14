@@ -1733,8 +1733,11 @@ and work on their code.
   the base, sharing remote's index.html and style.css) drives a Qbot from a tablet by radio; the qbot_remote test runs
   driver.py by radio.
 - **A tablet paired with a Qbot** (asked for by the owner): sneak and right-click a Qbot with a tablet pairs it with
-  the Qbot itself (owner only), a tab keyed by the Qbot's device ID where networks' tabs are keyed by their router
-  antenna's (Tablets.pair for a Qbot; NetworkCalls.tabletKey). The Qbot's program finds it with network().tablet()
+  the Qbot itself (owner only), a tab keyed by the Qbot's drive ID where networks' tabs are keyed by their router
+  antenna's (Tablets.pair for a Qbot; NetworkCalls.tabletKey). The drive ID, not the device ID: a Qbot gets a new
+  device ID each time it is placed, so a Qbot broken, renamed on an anvil and placed again paired anew and its old
+  tab could not be unpaired (found by the owner). Delete pressed twice in the tablet's view unpairs the tab showing
+  (TabletPayloads.Unpair; the first press asks on the tab bar), for any tab left behind. The Qbot's program finds it with network().tablet()
   and draws there wherever it goes: tablet handles don't depend on where the computer is. helpme's
   qbots/remote is the controller on the Qbot alone, as the folder's main project for beginners (asked for by the owner:
   new players can drive a Qbot early): its startup.py draws the page and handles each button with events, copied to
@@ -1855,6 +1858,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-13 | Tablets: Delete twice unpairs the tab showing; a Qbot's tab follows its drive, so it survives the Qbot being broken and placed again | Built 2026-11-13 |
 | 2026-11-13 | A tablet pairs with a Qbot (sneak and right-click it): a tab the Qbot's own program draws on with network().tablet(), anywhere; helpme qbots/remote is now that, one startup.py on the Qbot (the radio version moved to qbots/remote/base) | Built 2026-11-13 |
 | 2026-11-13 | A Qbot is built from a Laptop and has its Infinite antenna: its own radio address (qbot.address()), messages to and from it anywhere, owner only, not counted as an antenna; web.image takes a picture number; helpme/qbots/remote drives a Qbot from a tablet with its camera view | Built 2026-11-13 |
 | 2026-11-13 | The editor's explorer: drag files and folders onto a folder to move them (a rename on the drive; tabs and open folders follow) | Built 2026-11-13 |

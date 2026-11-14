@@ -93,6 +93,35 @@ public final class ClientTablets {
         }
     }
 
+    // ---- Delete: unpair the tab showing, after a second press to be sure ----
+
+    /** How long after the first Delete a second one unpairs. */
+    private static final long CONFIRM_MILLIS = 3000;
+    private static @Nullable UUID armedTablet;
+    private static int armedIndex = -1;
+    private static long armedAt;
+
+    private static boolean armed(UUID tablet, State state) {
+        return tablet.equals(armedTablet) && armedIndex == state.selected() && System.currentTimeMillis() - armedAt < CONFIRM_MILLIS;
+    }
+
+    /** Delete was pressed in a tablet's view: the first press asks, a second (within 3 seconds) unpairs the tab showing. */
+    static void deletePressed(UUID tablet) {
+        State state = STATES.get(tablet);
+        if (state == null || state.selected() < 0 || state.selected() >= state.tabs().size()) {
+            return;
+        }
+        if (armed(tablet, state)) {
+            Qbotics.platform().sendToServer(new TabletPayloads.Unpair(tablet, state.selected()));
+            armedTablet = null;
+            armedIndex = -1;
+        } else {
+            armedTablet = tablet;
+            armedIndex = state.selected();
+            armedAt = System.currentTimeMillis();
+        }
+    }
+
     /** Draws the tab bar: one tab per paired network, the selected one lit. */
     static void drawBar(GuiGraphicsExtractor graphics, Font font, UUID tablet, int width, int mouseX, int mouseY) {
         State state = STATES.get(tablet);
@@ -113,6 +142,18 @@ public final class ClientTablets {
             }
             graphics.text(font, label, x + 7, 8, selected ? 0xFFFFFFFF : 0xFFB0B0B0, false);
             x += w + 3;
+        }
+        // At the right: how to unpair the tab showing, or the question after a first Delete.
+        boolean asking = state.selected() >= 0 && state.selected() < state.tabs().size() && armed(tablet, state);
+        Component hint = asking
+                ? Component.translatable("screen.qbotics.tablet.delete_confirm", state.tabs().get(state.selected()))
+                : Component.translatable("screen.qbotics.tablet.delete_hint");
+        int hintX = width - 8 - font.width(hint);
+        if (asking || hintX > x + 8) {
+            if (asking) {
+                graphics.fill(hintX - 6, 3, width - 2, BAR, 0xFF5A1E1E);
+            }
+            graphics.text(font, hint, hintX, 8, asking ? 0xFFFFD0D0 : 0xFF6A7078, false);
         }
     }
 

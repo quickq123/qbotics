@@ -761,6 +761,11 @@ public final class QboticsNeoForge {
                         }
                     }
                 })
+                .playToServer(qbotics.net.TabletPayloads.Unpair.TYPE, qbotics.net.TabletPayloads.Unpair.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.display.Tablets.get(player.level().getServer()).unpairTab(player, payload.tablet(), payload.index());
+                    }
+                })
                 .playToServer(qbotics.net.TabletPayloads.Select.TYPE, qbotics.net.TabletPayloads.Select.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         qbotics.display.Tablets.get(player.level().getServer()).select(player, payload.tablet(), payload.index());

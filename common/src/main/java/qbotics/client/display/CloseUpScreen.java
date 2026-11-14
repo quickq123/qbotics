@@ -120,6 +120,15 @@ public class CloseUpScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        if (tablet != null && event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE) {
+            ClientTablets.deletePressed(tablet); // unpair the tab showing (pressed twice)
+            return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (super.mouseClicked(event, doubleClick)) {
             return true;

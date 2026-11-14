@@ -270,6 +270,10 @@ public class WebCloseUpScreen extends Screen {
                 }
             }
         }
+        if (tablet != null && event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE) {
+            ClientTablets.deletePressed(tablet); // unpair the tab showing (pressed twice)
+            return true;
+        }
         return super.keyPressed(event);
     }
 }
