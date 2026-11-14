@@ -157,6 +157,9 @@ public final class ComputerManager {
                 block instanceof qbotics.block.ServerBlockEntity ? qbotics.block.ServerBlockEntity.DRIVE_BYTES : ServerComputer.DRIVE_QUOTA_BYTES);
         computers.put(block.deviceId(), computer);
         places.put(block.deviceId(), new Viewing(block.deviceId(), dimension, pos));
+        if (block instanceof qbotics.qbot.QbotBlockEntity qbot && block.getLevel() != null && block.getLevel().getServer() != null) {
+            qbot.radioIp(block.getLevel().getServer()); // its radio has an address from the start
+        }
         booting.remove(block.deviceId());
         block.setOn(true); // it comes back on by itself when its chunk next loads
         if (block instanceof qbotics.block.ServerBlockEntity) {
@@ -332,6 +335,18 @@ public final class ComputerManager {
 
     /** Where each running computer is, so a program's shutdown can find its block. */
     private final Map<UUID, Viewing> places = new HashMap<>();
+
+    /** The running Qbot whose radio has this external address ("100.64.0.9"), loaded, or null. */
+    public qbotics.qbot.@org.jspecify.annotations.Nullable QbotBlockEntity qbotByRadio(MinecraftServer server, String ip) {
+        for (Viewing place : places.values()) {
+            net.minecraft.server.level.ServerLevel level = server.getLevel(place.dimension());
+            if (level != null && level.isLoaded(place.pos()) && level.getBlockEntity(place.pos()) instanceof qbotics.qbot.QbotBlockEntity qbot
+                    && qbot.deviceId().equals(place.deviceId()) && ip.equals(qbot.radioIpIfAny())) {
+                return qbot;
+            }
+        }
+        return null;
+    }
 
     /** A running computer's block moved (a Qbot stepped): its program and the players watching it follow. */
     public void moved(UUID deviceId, ResourceKey<Level> dimension, BlockPos to) {

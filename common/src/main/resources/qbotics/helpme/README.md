@@ -21,7 +21,7 @@ Open a file in the editor with `edit <file>`. Ctrl+C stops a running program.
 | `events` | **How to wait for things:** timers, chests, levers, messages, all at once, with `events` |
 | `redstone` | Redstone in and out with Logic Pins, and reacting to events |
 | `displays` | Screens: a Text Monitor, a Control Panel, and Web Panels (HTML, CSS, JavaScript) |
-| `qbots` | Robots: a Qbot that digs a tunnel, and its camera |
+| `qbots` | Robots: a Qbot that digs a tunnel, its camera, and driving one from your tablet |
 | `network` | Computers sending each other messages |
 | `internet` | The real internet (an Uplink), and git |
 | `server` | Programs that run in the background on a Server |

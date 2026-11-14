@@ -134,6 +134,32 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
         return getBlockState().getValue(QbotBlock.FACING);
     }
 
+    // ---- its radio: the laptop it is built from, an Infinite antenna (design doc §8) ----
+
+    /** The port a Qbot's radio answers on: it is its own router and its own computer. */
+    public static final int RADIO_PORT = qbotics.network.RadioNetwork.PORT_BASE + 1;
+    /** Its external address number (100.64.x.y), given the first time it is needed and kept as it moves. */
+    private int radioNumber;
+
+    /** Its external address, without the port ("100.64.0.9"), given now if it has none. */
+    public String radioIp(net.minecraft.server.MinecraftServer server) {
+        if (radioNumber <= 0) {
+            radioNumber = qbotics.network.RadioNetwork.get(server).takeAddress();
+            setChanged();
+        }
+        return qbotics.network.RadioNetwork.externalIp(radioNumber);
+    }
+
+    /** Its external address with its port, as network.send() takes it ("100.64.0.9:1001"). */
+    public String radioAddress(net.minecraft.server.MinecraftServer server) {
+        return radioIp(server) + ":" + RADIO_PORT;
+    }
+
+    /** Its external address if it has one yet, else "". */
+    public String radioIpIfAny() {
+        return qbotics.network.RadioNetwork.externalIp(radioNumber);
+    }
+
     public SimpleContainer items() {
         return items;
     }
@@ -412,6 +438,7 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
         output.putBoolean("program_running", programRunning);
+        output.putInt("radio", radioNumber);
         output.store("items", STACKS, items.getItems());
         output.store("hand", STACKS, hand.getItems());
         output.store("upgrades", STACKS, upgrades.getItems());
@@ -446,6 +473,7 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
         programRunning = input.getBooleanOr("program_running", false);
+        radioNumber = input.getIntOr("radio", 0);
         input.read("items", STACKS).ifPresent(saved -> fill(items, saved));
         input.read("hand", STACKS).ifPresent(saved -> fill(hand, saved));
         input.read("upgrades", STACKS).ifPresent(saved -> fill(upgrades, saved));

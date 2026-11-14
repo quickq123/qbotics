@@ -1654,6 +1654,7 @@ selects everything), then **Ctrl+C** or **Copy selected**. With nothing selected
 | Tanks | **Two of 4,000 mB**, one fluid each, so it can carry water and lava at once |
 | Digs as | An unenchanted **iron** tool, with nothing in its hand |
 | Crafts | As a **crafting table**, from what it carries (section 7d.3a) |
+| Radio | An **Infinite antenna**, from the laptop it is built from: its own address, anywhere (section 7d.3c) |
 
 - **No fuel.** Moving and working cost nothing. The energy cell and tanks are things it
   carries, to fill machines and tanks with or bring back.
@@ -1792,7 +1793,7 @@ web.image("cam", pic)                # players see the picture, coloured from th
 | `pic.width`, `pic.height` | Its size in pixels |
 | `pic.block_at(x, y)` | What a pixel shows: a block's id, `"monster"`, `"animal"`, `"player"` or `"creature"`, or `None` for the sky (0, 0 is the top left) |
 | `pic.counts()` | How many pixels show each thing |
-| `web.image(name, pic)` | Puts it on a web panel, as `<img src="image:name">` (up to 8 on a panel; `None` takes one off) |
+| `web.image(name, pic)` | Puts it on a web panel, as `<img src="image:name">` (up to 8 on a panel; `None` takes one off). The picture's number, `pic.id`, works too, so a Qbot can send it in a message for another computer to show |
 
 The picture is taken on the server: a ray goes from the Qbot's front through each pixel and
 records what it hits (blocks, fluids, creatures) and how lit it is. Each player's game then
@@ -1802,13 +1803,39 @@ blue players). On a panel a picture is shown pixelated, two CSS pixels to a pixe
 it. Pictures are kept on the server for a while (the latest 256), not with the world: after a
 restart, take them again.
 
+### 7d.3c Its radio: reached anywhere
+
+A Qbot is built from a laptop, so it has the laptop's **Infinite antenna**. It has an external
+address of its own, kept as it moves, and is reached there from anywhere, in any dimension:
+
+```python
+import qbot, network
+print(qbot.address())                      # "100.64.0.9:1001": give this to your base
+network.send("100.64.0.12:1003", "here")   # a computer behind your base's antenna
+```
+
+| | |
+|---|---|
+| `qbot.address()` | Its radio's address, as `network.send()` takes it. Its program can print it; `network.ifconfig()` on it says the same |
+| Sending | To another antenna's address (`"100.64.0.12:1003"`), from anywhere: an Infinite antenna reaches every antenna in its dimension, and Infinite ones in others, on any frequency. That antenna's access setting still decides if it lets the Qbot in. Its messages always come from its own address, so answers find it wherever it has gone |
+| Receiving | `network.send("100.64.0.9:1001", ...)` from a computer whose network has an antenna (in range of the Qbot by that antenna's reach, or anywhere if the antenna is Infinite), or from another Qbot. Only its **owner's** computers and Qbots may send to it |
+
+On cables it is also on that network, as before, by its internal address. Its antenna doesn't
+count against the antenna limit. A Qbot's radio carries messages; `ssh` still reaches a Qbot
+through the network it is cabled to.
+
+`helpme/qbots/remote` uses it to drive a Qbot from a tablet: the Qbot obeys orders that arrive
+as messages and answers with a picture of what it sees, which the base shows on the tablet.
+
 ### 7d.4 Not yet
 
 Better tiers (diamond, with a full chest of slots), inventory filters, pipes and hoppers reaching
 into a Qbot, and the Transport Upgrade in a Qbot are planned but not built.
 
-**Recipe:** `ITI` / `ACP` / `IHI`: a crafting table on top, an iron axe and an iron pickaxe either side
-of a computer, a chest below, iron in the corners.
+**Recipe:** `ITI` / `ALP` / `IHI`: a crafting table on top, an iron axe and an iron pickaxe either side
+of a **Laptop**, a chest below, iron in the corners. The laptop's hard drives come back to you
+when it is crafted; your laptop's files aren't in the laptop item (they are yours, on any laptop),
+so nothing is lost.
 
 ---
 

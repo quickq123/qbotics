@@ -116,6 +116,11 @@ public final class RadioNetwork {
         return number;
     }
 
+    /** A new external address number, for something with an antenna built in (a Qbot's radio). */
+    public int takeAddress() {
+        return addresses().take();
+    }
+
     /** The antenna's chunk unloaded. It keeps its address but can't be reached. */
     public void unregister(AntennaBlockEntity antenna, int number) {
         antennas.remove(number, antenna);

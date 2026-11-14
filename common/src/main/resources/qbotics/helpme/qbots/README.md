@@ -14,3 +14,4 @@ To make one the Qbot's own program (its Run button starts it): `cp /helpme/qbots
 |---|---|---|
 | `tunnel.py` | Digging a two-high tunnel, coming back, and unloading into a chest behind it | An Iron Qbot (a chest behind it, if you like) |
 | `camera.py` | Taking pictures of what is in front of it, showing them on a screen, and checking what they show | A Web Panel touching the Qbot or cabled to it |
+| `remote/` | **Driving a Qbot from your tablet**: `driver.py` runs on the Qbot and obeys orders sent by radio, answering with a picture of what it sees; `controller.py` runs at your base and puts the controls and the view on the tablet (see `remote/README.md`) | An Iron Qbot, and a computer with an antenna your tablet is paired with |

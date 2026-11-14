@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -130,6 +130,7 @@ public final class QboticsGameTests {
             Map.entry("antenna_upgrades", QboticsGameTests::antennaUpgrades),
             Map.entry("iron_qbot", QboticsGameTests::ironQbot),
             Map.entry("qbot_crafting", QboticsGameTests::qbotCrafting),
+            Map.entry("qbot_remote", QboticsGameTests::qbotRemote),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4309,6 +4310,68 @@ public final class QboticsGameTests {
             helper.assertBlockPresent(Blocks.OBSIDIAN, new BlockPos(1, 1, -1));
             helper.assertTrue(!(helper.getLevel().getBlockState(helper.absolutePos(start)).getBlock() instanceof qbotics.qbot.QbotBlock),
                     "it should have left where it started");
+        });
+    }
+
+    /**
+     * A Qbot's radio (the laptop it is built from): helpme's remote/driver.py on a Qbot away from
+     * any cable obeys orders a base computer sends through its antenna, and answers with a picture.
+     * A computer that isn't its owner's is refused.
+     */
+    private static void qbotRemote(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ComputerManager manager = ComputerManager.get(level.getServer());
+        UUID owner = UUID.randomUUID();
+        BlockPos basePos = new BlockPos(0, 1, 0);
+        helper.setBlock(basePos, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity baseBlock = helper.getBlockEntity(basePos, ComputerBlockEntity.class);
+        baseBlock.setOwner(owner);
+        helper.setBlock(basePos.above(), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        helper.getBlockEntity(basePos.above(), AntennaBlockEntity.class).claim(owner);
+        networkAt(helper, basePos);
+        ServerComputer base = manager.getOrStart(baseBlock);
+        BlockPos strangerPos = new BlockPos(0, 1, 2);
+        ServerComputer stranger = startAt(helper, strangerPos);
+        helper.setBlock(strangerPos.above(), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        networkAt(helper, strangerPos);
+
+        BlockPos qbotPos = new BlockPos(2, 1, 2);
+        helper.setBlock(qbotPos, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(qbotPos, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(owner);
+        ServerComputer bot = manager.getOrStart(qbot);
+        String address = qbot.radioAddress(level.getServer());
+        try (java.io.InputStream in = QboticsGameTests.class.getResourceAsStream("/qbotics/helpme/qbots/remote/driver.py")) {
+            bot.drive().call(qbotics.engine.HostFileSystem.WRITE, "/driver.py", in.readAllBytes());
+        } catch (java.io.IOException | qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not put driver.py on the Qbot", e);
+        }
+        bot.submitLine("run /driver.py");
+        for (String line : List.of("python", "import network, time", "time.sleep(2)",
+                "print('sent', network.send('" + address + "', {'do': 'forward'}))",
+                "a = network.receive(10).data",
+                "print('answer', a['ok'], a['said'], type(a['picture']).__name__, a['where'])",
+                "network.send('" + address + "', 'spin')",
+                "print('unknown', network.receive(10).data['said'])",
+                "print('end')")) {
+            base.submitLine(line);
+        }
+        for (String line : List.of("python", "import network",
+                "try:",
+                "    network.send('" + address + "', 'forward')",
+                "except network.NetworkError as e:",
+                "    print('refused:', e)",
+                "")) {
+            stranger.submitLine(line);
+        }
+        BlockPos moved = qbotPos.north();
+        helper.succeedWhen(() -> {
+            assertScreen(helper, bot, "Ready. My radio address is " + address + "\n", "forward -> moved forward\n");
+            BlockPos at = helper.absolutePos(moved);
+            assertScreen(helper, base, "sent True\n", "answer True moved forward int " + at.getX() + ", " + at.getY() + ", " + at.getZ()
+                    + " facing north\n", "unknown I don't know the order 'spin'\n", "end\n");
+            assertScreen(helper, stranger, "refused: Can't reach " + address.replace(":1001", "")
+                    + ": a Qbot's radio lets in only its owner's");
         });
     }
 

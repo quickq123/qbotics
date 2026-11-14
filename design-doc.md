@@ -1722,6 +1722,15 @@ and work on their code.
   made, the rest used), built in the background when the server starts and again after /reload (1,552 vanilla recipes
   in 38 ms). The same answers go to the agent (find_items, item_info, recipes), the shell (recipe, item, items, with
   --json) and programs (the game module), through the game_* calls of NetworkCalls (computers and laptops).
+- **A Qbot's radio** (decided with the owner: a Qbot is built from a Laptop instead of a Computer, being worth more, and
+  has the laptop's Infinite antenna; it doesn't count against antennas_per_player, Qbots having their own limit): each
+  Qbot has an external address of its own (RadioNetwork.takeAddress, kept in its block data as it moves; port 1001).
+  It sends to antennas as a laptop does (NetworkCalls.radioFar: Infinite reach, every frequency, the far antenna's
+  access applies), always from its own address. Computers reach it through their network's antenna (by that
+  antenna's reach, the Qbot counting as Infinite), and Qbots from anywhere; only its owner's (access private).
+  ComputerManager.qbotByRadio finds the running Qbot. web.image takes a picture's number, so a picture can be sent.
+  Crafting a Qbot hands back the laptop's hard drives. helpme/qbots/remote (driver.py on the Qbot, controller.py with
+  index.html and style.css at the base) drives a Qbot from a tablet; the qbot_remote test runs driver.py by radio.
 - **Moving files by dragging** (asked for by the owner: more intuitive than mv for some): in the explorer a press waits for
   the release to open, and a move of 4 units starts a drag; the folder under it (a file's folder, or the top below the
   list) is outlined, a closed folder opens after resting on it, the list scrolls at its edges. A drop is the drive's
@@ -1838,6 +1847,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-13 | A Qbot is built from a Laptop and has its Infinite antenna: its own radio address (qbot.address()), messages to and from it anywhere, owner only, not counted as an antenna; web.image takes a picture number; helpme/qbots/remote drives a Qbot from a tablet with its camera view | Built 2026-11-13 |
 | 2026-11-13 | The editor's explorer: drag files and folders onto a folder to move them (a rename on the drive; tabs and open folders follow) | Built 2026-11-13 |
 | 2026-11-13 | A Qbot crafts: qbot.craft by name or from its 3x3 grid, the shell's craft; its recipe gains a crafting table, an iron axe and an iron pickaxe | Built 2026-11-13 |
 | 2026-11-13 | Crafting for programs: recipes in a ready-to-craft form (station, slots, options, leftovers), Recipe.from_game, game.fuels, and game.plan (the whole tree from storage, done by the server) (§17.8) | Built 2026-11-13 |
@@ -1868,7 +1878,7 @@ and work on their code.
 2. ~~Virtual thread per computer vs. Asyncify; real performance numbers.~~ Settled: ordinary threads with a large stack, no Asyncify; numbers are in §14.5.
 
 **Gameplay (confirm or decide when you reach the feature)**
-3. Antenna link rule: is "the larger of the two ranges" right, and must *both* ends be Infinite tier across dimensions (§9.1)? Do antennas fitted as upgrades to computers and Qbots count against `antennas_per_player`?
+3. Antenna link rule: is "the larger of the two ranges" right, and must *both* ends be Infinite tier across dimensions (§9.1)? Do antennas fitted as upgrades to computers and Qbots count against `antennas_per_player`? (Decided 2026-11-13 for Qbots: a Qbot's built-in radio doesn't count.)
 3a. Network addressing (§9.3):
    - Confirm the proposed ranges: external `100.64.0.0/10`, internal `192.168.1.0/24`, ports from `1000`.
    - Two antennas on one cabled network, or two networks joined by wireless bridging (§9.2): does each antenna keep its own external IP with its own port table for the same devices, or does one antenna become the network's router?

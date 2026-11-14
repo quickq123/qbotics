@@ -522,6 +522,14 @@ public final class ScreenshotRun {
             minecraft.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
         });
         then(10, minecraft -> shot(minecraft, "19c-tablet-third-person"));
+        // helpme's Qbot remote control (qbots/remote): its page on the tablet, with a camera picture.
+        then(5, minecraft -> {
+            minecraft.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+            onServer(minecraft, ScreenshotRun::showQbotRemote);
+        });
+        then(20, minecraft -> { }); // the page and picture reach the client
+        then(20, minecraft -> shot(minecraft, "19d-tablet-qbot-remote"));
+        then(5, minecraft -> minecraft.setScreen(null));
         then(5, minecraft -> onServer(minecraft, player -> player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY)));
 
         // An Iron Qbot: standing, mid-step, mid-swing, and its screen.
@@ -1056,6 +1064,38 @@ public final class ScreenshotRun {
             draw(c, "add", widget("readout", "Steam", 5, 3, 7, 1, "value", 318, "unit", "mB/t"));
             draw(c, "add", widget("lamp", "Ok", 0, 5, 3, 1, "value", 1, "color", "lime"));
         }
+    }
+
+    /** The tablet's tab as helpme's qbots/remote controller draws it: its page, a picture, and an answer. */
+    private static void showQbotRemote(ServerPlayer player) {
+        qbotics.display.Tablets tablets = qbotics.display.Tablets.get(player.level().getServer());
+        qbotics.display.Tablets.App app = tablets.of(player.getMainHandItem()).selectedApp();
+        if (app == null) {
+            return;
+        }
+        String page;
+        String css;
+        try (var html = ScreenshotRun.class.getResourceAsStream("/qbotics/helpme/qbots/remote/index.html");
+                var style = ScreenshotRun.class.getResourceAsStream("/qbotics/helpme/qbots/remote/style.css")) {
+            page = new String(html.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            css = new String(style.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        page = page.replace("<link rel=\"stylesheet\" href=\"style.css\">", "<style>" + css + "</style>");
+        tablets.setTitle(app, "Qbot");
+        var c = tablets.use(app, "web_panel");
+        draw(c, "page", page);
+        var picture = qbotics.camera.Camera.snapshot((net.minecraft.server.level.ServerLevel) player.level(), player.blockPosition().above(),
+                Direction.NORTH, 96, 64, -10);
+        draw(c, "image", "cam", picture.get("id").getAsInt());
+        com.google.gson.JsonObject state = new com.google.gson.JsonObject();
+        state.addProperty("said", "moved forward");
+        state.addProperty("where", "37, 1, 5 facing north");
+        state.addProperty("front", "air");
+        state.addProperty("items", 12);
+        draw(c, "state", state);
+        tablets.open(player, player.getMainHandItem());
     }
 
     /** A Control Panel lying flat on the ground (its top to the north), 3 x 2, with widgets. */

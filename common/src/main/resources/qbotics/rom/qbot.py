@@ -97,8 +97,16 @@ def turn_around():
 
 
 def info():
-    """Everything about it at once: tier, facing, x, y, z, energy, energy_capacity, tanks, tool."""
+    """Everything about it at once: tier, facing, x, y, z, energy, energy_capacity, tanks, tool, address."""
     return _q("qbot_info")
+
+
+def address():
+    """Its radio's address, as network.send() takes it: "100.64.0.9:1001". A Qbot is built
+    from a laptop, so it has an Infinite antenna of its own and keeps this address wherever it
+    goes; its owner's computers reach it there, and its messages come from it. Only its
+    owner's computers and Qbots may send it messages."""
+    return _q("qbot_info")["address"]
 
 
 def position():

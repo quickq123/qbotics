@@ -153,6 +153,9 @@ final class QbotCalls {
         info.addProperty("z", qbot.getBlockPos().getZ());
         info.addProperty("energy", qbot.energy());
         info.addProperty("energy_capacity", QbotBlockEntity.ENERGY_CAPACITY);
+        if (qbot.getLevel() != null && qbot.getLevel().getServer() != null) {
+            info.addProperty("address", qbot.radioAddress(qbot.getLevel().getServer()));
+        }
         JsonArray tanks = new JsonArray();
         for (FluidPort.Tank tank : qbot.fluidPort().tanks()) {
             JsonObject t = new JsonObject();

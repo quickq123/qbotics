@@ -194,7 +194,13 @@ public final class NetworkCalls {
             case "self": {
                 for (NetworkDevice device : network.devices()) {
                     if (device.getBlockPos().equals(computerPos)) {
-                        return describe(level, network, device);
+                        JsonObject me = describe(level, network, device);
+                        if (device instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                            // A Qbot's radio is its own: reached there wherever it goes.
+                            me.addProperty("external_ip", qbot.radioIp(level.getServer()));
+                            me.addProperty("port", qbotics.qbot.QbotBlockEntity.RADIO_PORT);
+                        }
+                        return me;
                     }
                 }
                 throw new CallError("This computer's block is missing.");
@@ -1459,16 +1465,24 @@ public final class NetworkCalls {
      * range rules and access (who it lets in) still apply.
      */
     private static Far laptopFar(net.minecraft.server.level.ServerPlayer player, String ip) {
-        net.minecraft.server.MinecraftServer server = player.level().getServer();
+        return radioFar(player.level().getServer(), player.level().dimension(), player.blockPosition(), player.getUUID(), ip);
+    }
+
+    /**
+     * The antenna at an external address, as an Infinite antenna that hears every frequency
+     * reaches it from here: a laptop where its player stands, or a Qbot's radio. The far
+     * antenna's range rules and access (who it lets in) still apply.
+     */
+    static Far radioFar(MinecraftServer server, ResourceKey<Level> dimension, BlockPos from, java.util.@org.jspecify.annotations.Nullable UUID caller, String ip) {
         AntennaBlockEntity far = RadioNetwork.get(server).byExternalIp(ip);
         if (far == null || !(far.getLevel() instanceof ServerLevel farLevel)) {
             throw new CallError("No antenna with the address " + ip + " can be reached. It may not exist, or its area isn't loaded.");
         }
         String problem = far.bricked() ? "that antenna is inactive: its owner has more antennas than they may have"
-                : RadioNetwork.rangeProblem(RadioNetwork.Tier.INFINITE, player.level().dimension(), player.blockPosition(),
+                : RadioNetwork.rangeProblem(RadioNetwork.Tier.INFINITE, dimension, from,
                         far.tier(), farLevel.dimension(), far.getBlockPos());
         if (problem == null) {
-            problem = RadioNetwork.accessProblem(server, far, player.getUUID());
+            problem = RadioNetwork.accessProblem(server, far, caller);
         }
         if (problem != null) {
             throw new CallError("Can't reach " + ip + ": " + problem + ".");
@@ -1593,16 +1607,42 @@ public final class NetworkCalls {
         NetworkDevice target;
         String sender;
         Matcher external = EXTERNAL.matcher(address);
+        qbotics.qbot.QbotBlockEntity fromQbot = self instanceof qbotics.qbot.QbotBlockEntity q ? q : null;
         if (external.matches()) {
             String ip = external.group(1);
-            Far far = far(level, network, ip, computerPos);
-            AntennaBlockEntity near = network.gateway();
             int port = Integer.parseInt(external.group(2));
+            MinecraftServer server = level.getServer();
+            qbotics.qbot.QbotBlockEntity toQbot = ComputerManager.get(server).qbotByRadio(server, ip);
+            if (toQbot != null) {
+                // A Qbot's own radio (an Infinite antenna), wherever it is.
+                String problem;
+                if (fromQbot != null) {
+                    problem = RadioNetwork.rangeProblem(RadioNetwork.Tier.INFINITE, level.dimension(), fromQbot.getBlockPos(),
+                            RadioNetwork.Tier.INFINITE, toQbot.getLevel().dimension(), toQbot.getBlockPos());
+                } else {
+                    AntennaBlockEntity near = network.gateway();
+                    if (near == null) {
+                        throw new CallError("Reaching an external address needs an antenna cabled to this computer.");
+                    }
+                    problem = near.bricked() ? "this network's antenna is inactive: its owner has more antennas than they may have"
+                            : RadioNetwork.rangeProblem(near.tier(), level.dimension(), near.getBlockPos(),
+                                    RadioNetwork.Tier.INFINITE, toQbot.getLevel().dimension(), toQbot.getBlockPos());
+                }
+                if (problem == null && !RadioNetwork.allowed(server, RadioNetwork.Access.PRIVATE, toQbot.owner(), ownerAt(level, computerPos))) {
+                    problem = "a Qbot's radio lets in only its owner's computers and Qbots";
+                }
+                if (problem != null) {
+                    throw new CallError("Can't reach " + ip + ": " + problem + ".");
+                }
+                return ComputerManager.get(server).deliver(toQbot.deviceId(), senderAddress(level, network, self, fromQbot), data);
+            }
+            Far far = fromQbot != null ? radioFar(server, level.dimension(), fromQbot.getBlockPos(), fromQbot.owner(), ip)
+                    : far(level, network, ip, computerPos);
             target = far.network() != null ? far.network().byHost(port - RadioNetwork.PORT_BASE) : null;
             if (target == null) {
                 throw new CallError("Nothing is on port " + port + " of " + ip + ".");
             }
-            sender = near.externalIp() + ":" + (RadioNetwork.PORT_BASE + self.hostNumber());
+            sender = senderAddress(level, network, self, fromQbot);
         } else {
             target = find(network, address, null);
             sender = self.ip();
@@ -1611,6 +1651,15 @@ public final class NetworkCalls {
             throw new CallError("Only computers receive messages; " + address + " is " + article(target) + ".");
         }
         return ComputerManager.get(level.getServer()).deliver(target.deviceId(), sender, data);
+    }
+
+    /** Where an answer to a message from this computer goes: a Qbot's own radio, else its network's antenna and its port. */
+    private static String senderAddress(ServerLevel level, CableNetwork network, NetworkDevice self, qbotics.qbot.@org.jspecify.annotations.Nullable QbotBlockEntity qbot) {
+        if (qbot != null) {
+            return qbot.radioAddress(level.getServer());
+        }
+        AntennaBlockEntity near = network.gateway();
+        return near == null ? self.ip() : near.externalIp() + ":" + (RadioNetwork.PORT_BASE + self.hostNumber());
     }
 
     // ---- looking things up -----------------------------------------------------------

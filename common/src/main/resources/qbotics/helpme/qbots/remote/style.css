@@ -1,0 +1,12 @@
+/* How the controller looks. Change a colour, run controller.py again, and see. */
+body { margin: 6px; }
+.main { display: flex; }
+.view { width: 240px; margin-right: 8px; }
+.cam { width: 240px; height: 160px; border: 1px solid #2a3a4a; background: #0c1218; }
+.said { color: #ffd27a; font-size: 12px; margin-top: 4px; }
+.info { color: #8a96a3; font-size: 11px; }
+.pad { flex: 1; }
+.row { display: flex; margin-bottom: 4px; }
+button { width: 37px; height: 34px; margin-right: 3px; font-size: 11px; padding: 0; }
+.go { background: #1f4f7a; }
+.dig { background: #6b3a1a; }

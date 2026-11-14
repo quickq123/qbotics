@@ -539,6 +539,21 @@ public final class QboticsNeoForge {
                 }
             }
         });
+        // A Qbot is built from a laptop: the hard drives in that laptop go back to the player, not into the Qbot.
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.ItemCraftedEvent event) -> {
+            if (!(event.getCrafting().getItem() instanceof net.minecraft.world.item.BlockItem block
+                    && block.getBlock() instanceof qbotics.qbot.QbotBlock) || event.getEntity().level().isClientSide()) {
+                return;
+            }
+            for (int slot = 0; slot < event.getInventory().getContainerSize(); slot++) {
+                net.minecraft.world.item.ItemStack laptop = event.getInventory().getItem(slot);
+                if (laptop.getItem() instanceof qbotics.laptop.LaptopItem) {
+                    qbotics.laptop.Laptops.disks(laptop).nonEmptyItemCopyStream()
+                            .forEach(disk -> event.getEntity().getInventory().placeItemBackInInventory(disk));
+                    laptop.remove(net.minecraft.core.component.DataComponents.CONTAINER);
+                }
+            }
+        });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
                 // What the in-game AI agent may do here (ai.enabled, ai.share_replies).

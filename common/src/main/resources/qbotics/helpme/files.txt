@@ -44,6 +44,11 @@ network/ping.py
 network/pong.py
 qbots/README.md
 qbots/camera.py
+qbots/remote/README.md
+qbots/remote/controller.py
+qbots/remote/driver.py
+qbots/remote/index.html
+qbots/remote/style.css
 qbots/tunnel.py
 redstone/README.md
 redstone/door.py

@@ -460,8 +460,9 @@ class WebPanel(_Display):
 
     def image(self, name, picture):
         """Puts a picture (a Qbot's snapshot()) on the panel as <img src="image:name">.
-        None takes it off. A panel holds up to 8 pictures."""
-        _draw(self, "image", name, None if picture is None else picture.id)
+        A picture's number (picture.id) works too, so a Qbot can send it in a message for
+        another computer to show. None takes it off. A panel holds up to 8 pictures."""
+        _draw(self, "image", name, None if picture is None else picture if isinstance(picture, int) else picture.id)
 
     def on(self, name, function=None):
         """Runs a function when a player clicks an element with data-event="name" (or

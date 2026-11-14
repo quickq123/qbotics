@@ -1,0 +1,39 @@
+<!-- The controller's page, shown on the tablet by controller.py. {{name}} is filled from
+     web.state; a button's data-event is the order it sends. The tablet's screen is
+     384 x 256 CSS pixels. -->
+<html>
+<head>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="main">
+    <div class="view">
+      <img src="image:cam" class="cam">
+      <div class="said">{{said}}</div>
+      <div class="info">{{where}}</div>
+      <div class="info">In front: {{front}} &nbsp; Carrying: {{items}}</div>
+    </div>
+    <div class="pad">
+      <div class="row">
+        <button data-event="up">Up</button>
+        <button data-event="forward" class="go">Fwd</button>
+        <button data-event="dig_up" class="dig">Dig ^</button>
+      </div>
+      <div class="row">
+        <button data-event="left" class="go">Left</button>
+        <button data-event="dig" class="dig">Dig</button>
+        <button data-event="right" class="go">Right</button>
+      </div>
+      <div class="row">
+        <button data-event="down">Down</button>
+        <button data-event="back" class="go">Back</button>
+        <button data-event="dig_down" class="dig">Dig v</button>
+      </div>
+      <div class="row">
+        <button data-event="place">Place</button>
+        <button data-event="look">Look</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
