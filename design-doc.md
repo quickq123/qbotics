@@ -1729,13 +1729,16 @@ and work on their code.
   access applies), always from its own address. Computers reach it through their network's antenna (by that
   antenna's reach, the Qbot counting as Infinite), and Qbots from anywhere; only its owner's (access private).
   ComputerManager.qbotByRadio finds the running Qbot. web.image takes a picture's number, so a picture can be sent.
-  Crafting a Qbot hands back the laptop's hard drives. helpme/qbots/remote (driver.py on the Qbot, controller.py with
-  index.html and style.css at the base) drives a Qbot from a tablet; the qbot_remote test runs driver.py by radio.
+  Crafting a Qbot hands back the laptop's hard drives. helpme/qbots/remote/base (driver.py on the Qbot, controller.py at
+  the base, sharing remote's index.html and style.css) drives a Qbot from a tablet by radio; the qbot_remote test runs
+  driver.py by radio.
 - **A tablet paired with a Qbot** (asked for by the owner): sneak and right-click a Qbot with a tablet pairs it with
   the Qbot itself (owner only), a tab keyed by the Qbot's device ID where networks' tabs are keyed by their router
   antenna's (Tablets.pair for a Qbot; NetworkCalls.tabletKey). The Qbot's program finds it with network().tablet()
   and draws there wherever it goes: tablet handles don't depend on where the computer is. helpme's
-  qbots/remote/tablet_qbot.py is the controller on the Qbot alone; the qbot_tablet test runs it and presses Fwd.
+  qbots/remote is the controller on the Qbot alone, as the folder's main project for beginners (asked for by the owner:
+  new players can drive a Qbot early): its startup.py draws the page and handles each button with events, copied to
+  the Qbot's /startup.py so Run starts it. The qbot_tablet test runs it and presses Fwd.
 - **Moving files by dragging** (asked for by the owner: more intuitive than mv for some): in the explorer a press waits for
   the release to open, and a move of 4 units starts a drag; the folder under it (a file's folder, or the top below the
   list) is outlined, a closed folder opens after resting on it, the list scrolls at its edges. A drop is the drive's
@@ -1852,7 +1855,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
-| 2026-11-13 | A tablet pairs with a Qbot (sneak and right-click it): a tab the Qbot's own program draws on with network().tablet(), anywhere; helpme qbots/remote/tablet_qbot.py | Built 2026-11-13 |
+| 2026-11-13 | A tablet pairs with a Qbot (sneak and right-click it): a tab the Qbot's own program draws on with network().tablet(), anywhere; helpme qbots/remote is now that, one startup.py on the Qbot (the radio version moved to qbots/remote/base) | Built 2026-11-13 |
 | 2026-11-13 | A Qbot is built from a Laptop and has its Infinite antenna: its own radio address (qbot.address()), messages to and from it anywhere, owner only, not counted as an antenna; web.image takes a picture number; helpme/qbots/remote drives a Qbot from a tablet with its camera view | Built 2026-11-13 |
 | 2026-11-13 | The editor's explorer: drag files and folders onto a folder to move them (a rename on the drive; tabs and open folders follow) | Built 2026-11-13 |
 | 2026-11-13 | A Qbot crafts: qbot.craft by name or from its 3x3 grid, the shell's craft; its recipe gains a crafting table, an iron axe and an iron pickaxe | Built 2026-11-13 |

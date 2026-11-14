@@ -4,8 +4,7 @@
 #
 # You need: this computer cabled to an antenna, and your tablet paired with that antenna
 # (sneak and right-click the antenna with the tablet). Then:
-#     cd /helpme/qbots/remote
-#     run controller.py
+#     run /helpme/qbots/remote/base/controller.py
 # and right-click in the air with the tablet to open it.
 #
 # How it fits together: a button press on the tablet runs send_order() (web.on), which sends
@@ -21,7 +20,7 @@ QBOT = "100.64.0.9:1001"
 tab = logistics.network().tablet()   # the only tablet paired here; or tablet("YourName")
 tab.title = "Qbot"
 web = tab.web_panel()
-web.show("index.html")               # the page: index.html, with style.css put in
+web.show("/helpme/qbots/remote/index.html")   # the same page as ../startup.py, with style.css put in
 web.state.update(said="Press a button to drive the Qbot.", where="", front="", items="", waiting=False)
 
 ORDERS = ["forward", "back", "up", "down", "left", "right", "dig", "dig_up", "dig_down", "place", "look"]

@@ -1,4 +1,4 @@
-/* How the controller looks. Change a colour, run controller.py again, and see. */
+/* How the controller looks. Change a colour, press Stop and Run on the Qbot, and see. */
 body { margin: 6px; }
 .main { display: flex; }
 .view { width: 240px; margin-right: 8px; }

@@ -1840,8 +1840,10 @@ web = tab.web_panel()         # touches and clicks there reach this Qbot's progr
 On a Qbot, `net.tablet()` and `net.tablets()` find the tablets paired with the Qbot, not those
 of a network it happens to be cabled to.
 
-`helpme/qbots/remote` drives a Qbot from a tablet both ways: `tablet_qbot.py` alone on the Qbot,
-or `driver.py` on the Qbot obeying orders sent by radio from `controller.py` at a base.
+`helpme/qbots/remote` drives a Qbot from a tablet: its `startup.py` runs on the Qbot alone,
+showing the controls and the camera view on the tablet and handling each button with `events`.
+`helpme/qbots/remote/base` does the same from a base computer: `driver.py` on the Qbot obeys
+orders sent by radio from `controller.py`.
 
 ### 7d.4 Not yet
 

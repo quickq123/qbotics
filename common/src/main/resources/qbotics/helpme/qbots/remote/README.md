@@ -1,58 +1,54 @@
 # remote: drive a Qbot from your tablet
 
-There are two ways, both showing the same page (`index.html`, `style.css`) on your tablet.
+Your tablet becomes the Qbot's controller: a picture of what the Qbot sees, and buttons to
+move, turn, dig and place. Everything runs **on the Qbot**: no base computer, no antenna,
+no cables. The Qbot's radio reaches your tablet wherever you both are.
 
-**The simplest: the Qbot alone.** `tablet_qbot.py` runs on the Qbot and draws the controller
-on the Qbot's own tab of your tablet; a button press runs right there on the Qbot. Pair the
-tablet with the Qbot by sneaking and right-clicking the Qbot with it (only its owner can), then
-put the program on the Qbot (step 1 below, with `tablet_qbot.py` in place of `driver.py`) and
-press Run. No base computer or antenna is needed: the Qbot's radio reaches the tablet anywhere.
-
-**With a base computer:** two programs that talk by radio, below. This is the way to go when
-the base does more than drive (it keeps track of what the Qbot found, or drives several Qbots).
-
-Two programs that talk by radio. One runs on the **Qbot** and obeys orders; the other runs
-on a **computer at your base** and turns your **tablet** into a controller: buttons to drive
-it, and the Qbot's camera view after every move.
-
-    tablet --(button press)--> controller.py --(radio: {"do": "forward"})--> driver.py on the Qbot
-    tablet <--(picture, words)-- controller.py <--(radio: answer + picture)--   (moves, then looks)
-
-| File | Runs on | What it does |
-|---|---|---|
-| `driver.py` | The Qbot | Waits for orders as messages (`events.on_message`), carries each out, and answers with what happened, where it is and a picture of what it sees |
-| `controller.py` | A computer at your base | Shows the controller on the tablet (`index.html`, `style.css`), sends an order for each button, and shows each answer and picture |
-| `tablet_qbot.py` | The Qbot, alone | Both in one: the controller on the Qbot's own tab, each button handled on the Qbot (`web.on`) |
+| File | What it is |
+|---|---|
+| `startup.py` | The program. A Qbot runs `/startup.py` when you press **Run** on its screen |
+| `index.html` | The page on the tablet: the picture and the buttons |
+| `style.css` | How the page looks: colours and sizes |
+| `base/` | The same controller run from a computer at your base instead, talking to the Qbot by radio (more advanced: see `base/README.md`) |
 
 ## Setting it up
 
-1. **The Qbot.** A Qbot is built from a laptop, so it has an Infinite antenna: your base
-   reaches it anywhere. From a computer cabled to the Qbot (or your laptop, right-clicking
-   the Qbot):
+You need an Iron Qbot and a Tablet.
 
-       ssh <the Qbot's name or address>
+1. **Pair the tablet with the Qbot.** Sneak and right-click the Qbot with the tablet. A tab
+   for the Qbot appears on the tablet.
+2. **Put the program on the Qbot.** Open the Qbot's terminal: right-click it with your laptop,
+   or from a computer cabled to it type `ssh <the Qbot's name or address>`. Then type:
+
        git clone helpme
-       cp /helpme/qbots/remote/driver.py /startup.py
+       cp /helpme/qbots/remote/startup.py /startup.py
        exit
 
-   Press **Run** on the Qbot's screen. It shows `Ready. My radio address is 100.64.0.9:1001`:
-   note that address.
-2. **The base.** A computer cabled to an antenna. Pair your tablet with that antenna (sneak
-   and right-click the antenna with the tablet). On the computer:
+3. **Press Run** on the Qbot's screen (right-click the Qbot). It says `On the tablet carried by ...`.
+4. **Drive.** Right-click in the air with the tablet to open it, and press the buttons. Each
+   press moves the Qbot, then the picture shows what it sees now.
 
-       git clone helpme
-       cd /helpme/qbots/remote
-       edit controller.py         (put the Qbot's address in QBOT at the top, and save)
-       run controller.py
-3. **Drive.** Right-click in the air with the tablet. Each button sends one order; the picture
-   and the words under it change when the Qbot answers.
+The words under the picture say what happened: `moved forward`, `dug 1 cobblestone`, or why
+it couldn't (`Couldn't: It can't go north: minecraft:stone is in the way.`). Dig it first!
+
+## How the program works
+
+`startup.py` is in three parts, in the order they run:
+
+1. **Set up:** find the tablet (`network().tablet()`) and show the page on it.
+2. **Orders:** a table, `ORDERS`. Each button on the page has a word (`data-event="forward"`),
+   and the table says what the Qbot does for that word (`qbot.forward()`).
+3. **Events:** `web.on(word, obey)` asks for `obey()` to run whenever that button is pressed.
+   `obey()` carries out the order and shows the new picture. `events.run()` at the end waits
+   for presses, for ever.
 
 ## Making it your own
 
-- **A new order:** in `driver.py`, write what it does and add it to `ORDERS`; in
-  `index.html`, add a button whose `data-event` is its word; in `controller.py`, add the word
-  to `ORDERS`.
-- **Only its owner can drive it:** a Qbot's radio takes messages only from its owner's
-  computers and Qbots.
-- **A bigger picture:** `qbot.snapshot(96, 64)` in `driver.py` takes up to 128 x 96; change
-  the size of `.cam` in `style.css` to match its shape.
+Edit `/startup.py` (your copy), then press **Stop** and **Run** on the Qbot's screen.
+
+- **A new order,** say "turn around": add `"around": lambda: "now facing " + qbot.turn_around(),`
+  to `ORDERS`, and a button to `index.html`: `<button data-event="around">Spin</button>`. For a
+  page of your own, copy `index.html` and `style.css` next to your `/startup.py` and change
+  `PAGE` to `"/index.html"`.
+- **A bigger picture:** `qbot.snapshot(96, 64)` can take up to 128 x 96; change the size of
+  `.cam` in `style.css` to match its shape.

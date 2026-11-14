@@ -45,11 +45,12 @@ network/pong.py
 qbots/README.md
 qbots/camera.py
 qbots/remote/README.md
-qbots/remote/controller.py
-qbots/remote/driver.py
+qbots/remote/base/README.md
+qbots/remote/base/controller.py
+qbots/remote/base/driver.py
 qbots/remote/index.html
+qbots/remote/startup.py
 qbots/remote/style.css
-qbots/remote/tablet_qbot.py
 qbots/tunnel.py
 redstone/README.md
 redstone/door.py

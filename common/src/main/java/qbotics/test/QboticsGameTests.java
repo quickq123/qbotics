@@ -4315,7 +4315,7 @@ public final class QboticsGameTests {
     }
 
     /**
-     * A Qbot's radio (the laptop it is built from): helpme's remote/driver.py on a Qbot away from
+     * A Qbot's radio (the laptop it is built from): helpme's remote/base/driver.py on a Qbot away from
      * any cable obeys orders a base computer sends through its antenna, and answers with a picture.
      * A computer that isn't its owner's is refused.
      */
@@ -4342,7 +4342,7 @@ public final class QboticsGameTests {
         qbot.onPlaced(owner);
         ServerComputer bot = manager.getOrStart(qbot);
         String address = qbot.radioAddress(level.getServer());
-        try (java.io.InputStream in = QboticsGameTests.class.getResourceAsStream("/qbotics/helpme/qbots/remote/driver.py")) {
+        try (java.io.InputStream in = QboticsGameTests.class.getResourceAsStream("/qbotics/helpme/qbots/remote/base/driver.py")) {
             bot.drive().call(qbotics.engine.HostFileSystem.WRITE, "/driver.py", in.readAllBytes());
         } catch (java.io.IOException | qbotics.engine.HostFileSystem.FsException e) {
             throw new IllegalStateException("could not put driver.py on the Qbot", e);
@@ -4377,7 +4377,7 @@ public final class QboticsGameTests {
     }
 
     /**
-     * A tablet paired with a Qbot (sneak and right-click it): helpme's remote/tablet_qbot.py on the
+     * A tablet paired with a Qbot (sneak and right-click it): helpme's remote/startup.py, as the
      * Qbot draws the controller on the Qbot's own tab, and a press of its Fwd button there drives it.
      * Someone else can't pair with it.
      */
@@ -4401,7 +4401,7 @@ public final class QboticsGameTests {
             for (String folder : List.of("/helpme", "/helpme/qbots", "/helpme/qbots/remote")) {
                 bot.drive().call(qbotics.engine.HostFileSystem.MKDIR, folder, new byte[0]);
             }
-            for (String file : List.of("index.html", "style.css", "tablet_qbot.py")) {
+            for (String file : List.of("index.html", "style.css", "startup.py")) {
                 try (java.io.InputStream in = QboticsGameTests.class.getResourceAsStream("/qbotics/helpme/qbots/remote/" + file)) {
                     bot.drive().call(qbotics.engine.HostFileSystem.WRITE, "/helpme/qbots/remote/" + file, in.readAllBytes());
                 }
@@ -4410,7 +4410,15 @@ public final class QboticsGameTests {
             throw new IllegalStateException("could not put the example on the Qbot", e);
         }
         bot.submitLine("cd /helpme/qbots/remote");
-        bot.submitLine("run tablet_qbot.py");
+        // As the README says: copied to the Qbot's /startup.py, which Run starts.
+        try {
+            bot.drive().call(qbotics.engine.HostFileSystem.WRITE, "/startup.py",
+                    bot.drive().call(qbotics.engine.HostFileSystem.READ, "/helpme/qbots/remote/startup.py", new byte[0]));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        bot.submitLine("cd /");
+        bot.submitLine("run startup.py");
         boolean[] pressed = {false};
         helper.succeedWhen(() -> {
             assertScreen(helper, bot, "On the tablet carried by");
