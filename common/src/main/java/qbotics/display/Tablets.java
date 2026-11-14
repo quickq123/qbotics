@@ -185,18 +185,8 @@ public final class Tablets extends SavedData {
 
     /** Sneak and right-click an antenna: pairs the tablet with its network, or unpairs it if it was. */
     public void pair(ServerPlayer player, ItemStack stack, AntennaBlockEntity antenna) {
-        Tablet tablet = of(stack);
-        for (Iterator<App> it = tablet.apps.iterator(); it.hasNext(); ) {
-            App app = it.next();
-            if (app.antenna.equals(antenna.deviceId())) {
-                it.remove();
-                app.content.markGone();
-                byKey.remove(app.key);
-                tablet.selected = Math.clamp(tablet.selected, 0, Math.max(0, tablet.apps.size() - 1));
-                setDirty();
-                player.sendOverlayMessage(Component.translatable("message.qbotics.tablet.unpaired", app.label()));
-                return;
-            }
+        if (unpair(player, stack, antenna.deviceId())) {
+            return;
         }
         MinecraftServer server = player.level().getServer();
         String refused = qbotics.network.RadioNetwork.accessProblem(server, antenna, player.getUUID());
@@ -209,14 +199,55 @@ public final class Tablets extends SavedData {
             player.sendOverlayMessage(Component.translatable("message.qbotics.tablet.not_router"));
             return;
         }
+        add(player, stack, antenna.deviceId(), networkLabel(antenna), "tab = network().tablet()");
+    }
+
+    /**
+     * Sneak and right-click a Qbot: pairs the tablet with it, or unpairs it if it was. The tab is
+     * the Qbot's own (its radio reaches the tablet anywhere): its program draws there with
+     * network().tablet(). Only the Qbot's owner may pair.
+     */
+    public void pair(ServerPlayer player, ItemStack stack, qbotics.qbot.QbotBlockEntity qbot) {
+        if (unpair(player, stack, qbot.deviceId())) {
+            return;
+        }
+        if (!java.util.Objects.equals(qbot.owner(), player.getUUID())) {
+            player.sendOverlayMessage(Component.translatable("message.qbotics.tablet.refused", "only this Qbot's owner may pair with it"));
+            return;
+        }
+        String label = qbot.deviceName().isEmpty() ? "Qbot " + qbot.radioIp(player.level().getServer()) : qbot.deviceName();
+        add(player, stack, qbot.deviceId(), label, "tab = network().tablet()   (in the Qbot's program)");
+    }
+
+    /** Unpairs the tablet from this network (or Qbot) if it was paired. True if it was. */
+    private boolean unpair(ServerPlayer player, ItemStack stack, UUID key) {
+        Tablet tablet = of(stack);
+        for (Iterator<App> it = tablet.apps.iterator(); it.hasNext(); ) {
+            App app = it.next();
+            if (app.antenna.equals(key)) {
+                it.remove();
+                app.content.markGone();
+                byKey.remove(app.key);
+                tablet.selected = Math.clamp(tablet.selected, 0, Math.max(0, tablet.apps.size() - 1));
+                setDirty();
+                player.sendOverlayMessage(Component.translatable("message.qbotics.tablet.unpaired", app.label()));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A new tab for a network (by its antenna's ID) or a Qbot (by its ID). */
+    private void add(ServerPlayer player, ItemStack stack, UUID key, String label, String hint) {
+        Tablet tablet = of(stack);
         if (tablet.apps.size() >= MAX_APPS) {
             player.sendOverlayMessage(Component.translatable("message.qbotics.tablet.full", MAX_APPS));
             return;
         }
-        App app = new App(tablet, antenna.deviceId(), networkLabel(antenna));
+        App app = new App(tablet, key, label);
         app.content = blank("monitor");
         JsonArray line = new JsonArray();
-        line.add("Paired with " + app.network + ".\n\nWaiting for a program on that network:\n\n  tab = network().tablet()");
+        line.add("Paired with " + app.network + ".\n\nWaiting for a program on that network:\n\n  " + hint);
         app.content.op("print", line);
         tablet.apps.add(app);
         tablet.selected = tablet.apps.size() - 1;
@@ -273,7 +304,7 @@ public final class Tablets extends SavedData {
             return matches.getFirst();
         }
         if (paired.isEmpty()) {
-            throw new IllegalArgumentException("No tablet is paired with this network. Sneak and right-click its antenna with a tablet.");
+            throw new IllegalArgumentException("No tablet is paired with this network. Sneak and right-click its antenna with a tablet (on a Qbot: the Qbot itself).");
         }
         if (matches.isEmpty()) {
             throw new IllegalArgumentException("No tablet paired with this network is called " + key + " or carried by a player of that name.");

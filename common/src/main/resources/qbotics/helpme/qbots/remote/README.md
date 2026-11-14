@@ -1,5 +1,16 @@
 # remote: drive a Qbot from your tablet
 
+There are two ways, both showing the same page (`index.html`, `style.css`) on your tablet.
+
+**The simplest: the Qbot alone.** `tablet_qbot.py` runs on the Qbot and draws the controller
+on the Qbot's own tab of your tablet; a button press runs right there on the Qbot. Pair the
+tablet with the Qbot by sneaking and right-clicking the Qbot with it (only its owner can), then
+put the program on the Qbot (step 1 below, with `tablet_qbot.py` in place of `driver.py`) and
+press Run. No base computer or antenna is needed: the Qbot's radio reaches the tablet anywhere.
+
+**With a base computer:** two programs that talk by radio, below. This is the way to go when
+the base does more than drive (it keeps track of what the Qbot found, or drives several Qbots).
+
 Two programs that talk by radio. One runs on the **Qbot** and obeys orders; the other runs
 on a **computer at your base** and turns your **tablet** into a controller: buttons to drive
 it, and the Qbot's camera view after every move.
@@ -11,6 +22,7 @@ it, and the Qbot's camera view after every move.
 |---|---|---|
 | `driver.py` | The Qbot | Waits for orders as messages (`events.on_message`), carries each out, and answers with what happened, where it is and a picture of what it sees |
 | `controller.py` | A computer at your base | Shows the controller on the tablet (`index.html`, `style.css`), sends an order for each button, and shows each answer and picture |
+| `tablet_qbot.py` | The Qbot, alone | Both in one: the controller on the Qbot's own tab, each button handled on the Qbot (`web.on`) |
 
 ## Setting it up
 

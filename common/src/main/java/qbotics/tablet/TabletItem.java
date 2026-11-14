@@ -34,17 +34,26 @@ public class TabletItem extends Item {
         return InteractionResult.SUCCESS;
     }
 
-    /** Sneak and right-click an antenna: pair with (or unpair from) its network. */
+    /** Sneak and right-click an antenna: pair with (or unpair from) its network. A Qbot: pair with the Qbot itself. */
     @Override
     public InteractionResult useOn(net.minecraft.world.item.context.UseOnContext context) {
-        if (context.getPlayer() == null || !context.getPlayer().isSecondaryUseActive()
-                || !(context.getLevel().getBlockEntity(context.getClickedPos()) instanceof qbotics.block.AntennaBlockEntity antenna)) {
+        if (context.getPlayer() == null || !context.getPlayer().isSecondaryUseActive()) {
             return InteractionResult.PASS;
         }
-        if (context.getPlayer() instanceof ServerPlayer player) {
-            Tablets.get(player.level().getServer()).pair(player, context.getItemInHand(), antenna);
+        var block = context.getLevel().getBlockEntity(context.getClickedPos());
+        if (block instanceof qbotics.block.AntennaBlockEntity antenna) {
+            if (context.getPlayer() instanceof ServerPlayer player) {
+                Tablets.get(player.level().getServer()).pair(player, context.getItemInHand(), antenna);
+            }
+            return InteractionResult.SUCCESS;
         }
-        return InteractionResult.SUCCESS;
+        if (block instanceof qbotics.qbot.QbotBlockEntity qbot) {
+            if (context.getPlayer() instanceof ServerPlayer player) {
+                Tablets.get(player.level().getServer()).pair(player, context.getItemInHand(), qbot);
+            }
+            return InteractionResult.SUCCESS;
+        }
+        return InteractionResult.PASS;
     }
 
     @Override

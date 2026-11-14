@@ -49,6 +49,7 @@ qbots/remote/controller.py
 qbots/remote/driver.py
 qbots/remote/index.html
 qbots/remote/style.css
+qbots/remote/tablet_qbot.py
 qbots/tunnel.py
 redstone/README.md
 redstone/door.py

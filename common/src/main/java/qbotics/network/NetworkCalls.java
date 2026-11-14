@@ -534,21 +534,21 @@ public final class NetworkCalls {
             }
             case "tablet_find": {
                 // ["tablet_find", key]: a tablet paired with this network, by address, name or the player carrying it.
-                AntennaBlockEntity antenna = router(network);
+                java.util.UUID tabletKey = tabletKey(level, network, computerPos);
                 qbotics.display.Tablets tablets = qbotics.display.Tablets.get(level.getServer());
                 try {
-                    return tablets.describe(tablets.find(antenna.deviceId(), string(args, 1)), antenna.deviceId());
+                    return tablets.describe(tablets.find(tabletKey, string(args, 1)), tabletKey);
                 } catch (IllegalArgumentException e) {
                     throw new CallError(e.getMessage());
                 }
             }
             case "tablets": {
-                // ["tablets"]: every tablet paired with this network.
-                AntennaBlockEntity antenna = network.gateway();
+                // ["tablets"]: every tablet paired with this network (or, on a Qbot, with the Qbot).
+                java.util.UUID tabletKey = tabletKeyOrNull(level, network, computerPos);
                 JsonArray list = new JsonArray();
-                if (antenna != null) {
+                if (tabletKey != null) {
                     qbotics.display.Tablets tablets = qbotics.display.Tablets.get(level.getServer());
-                    tablets.pairedWith(antenna.deviceId()).forEach(tablet -> list.add(tablets.describe(tablet, antenna.deviceId())));
+                    tablets.pairedWith(tabletKey).forEach(tablet -> list.add(tablets.describe(tablet, tabletKey)));
                 }
                 return list;
             }
@@ -594,9 +594,9 @@ public final class NetworkCalls {
             }
             case "display_listen": {
                 // ["display_listen", mac, session]: this computer wants the display's touches pushed to it.
-                AntennaBlockEntity gateway = network.gateway();
-                qbotics.display.Tablets.App tabletApp = gateway == null || args.get(1).isJsonNull() ? null
-                        : qbotics.display.Tablets.get(level.getServer()).app(gateway.deviceId(), args.get(1).getAsString());
+                java.util.UUID tabletKey = tabletKeyOrNull(level, network, computerPos);
+                qbotics.display.Tablets.App tabletApp = tabletKey == null || args.get(1).isJsonNull() ? null
+                        : qbotics.display.Tablets.get(level.getServer()).app(tabletKey, args.get(1).getAsString());
                 if (tabletApp != null) {
                     tabletApp.content().listeners().put(runningAt(level, computerPos).deviceId(), args.get(2).getAsInt());
                     return JsonNull.INSTANCE;
@@ -1574,13 +1574,32 @@ public final class NetworkCalls {
 
     /** This network's screen on the tablet a program named by its address. */
     private static qbotics.display.Tablets.App tabletApp(ServerLevel level, CableNetwork network, JsonArray args) {
-        AntennaBlockEntity antenna = router(network);
         String mac = string(args, 1);
-        qbotics.display.Tablets.App app = mac == null ? null : qbotics.display.Tablets.get(level.getServer()).app(antenna.deviceId(), mac);
+        qbotics.display.Tablets.App app = mac == null ? null
+                : qbotics.display.Tablets.get(level.getServer()).app(tabletKey(level, network, callPos), mac);
         if (app == null) {
             throw new CallError("That tablet is no longer paired with this network.");
         }
         return app;
+    }
+
+    /**
+     * Whose tabs a program draws on: a Qbot's own (a tablet paired with the Qbot, reached by its
+     * radio wherever it is), else its network's (a tablet paired with the network's antenna).
+     */
+    private static java.util.UUID tabletKey(ServerLevel level, CableNetwork network, BlockPos computerPos) {
+        if (level.getBlockEntity(computerPos) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+            return qbot.deviceId();
+        }
+        return router(network).deviceId();
+    }
+
+    /** The same, or null for a computer whose network has no antenna (it has no tablets). */
+    private static java.util.@org.jspecify.annotations.Nullable UUID tabletKeyOrNull(ServerLevel level, CableNetwork network, BlockPos computerPos) {
+        if (level.getBlockEntity(computerPos) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+            return qbot.deviceId();
+        }
+        return network.gateway() == null ? null : network.gateway().deviceId();
     }
 
     private static AntennaBlockEntity router(CableNetwork network) {

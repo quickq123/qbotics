@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -131,6 +131,7 @@ public final class QboticsGameTests {
             Map.entry("iron_qbot", QboticsGameTests::ironQbot),
             Map.entry("qbot_crafting", QboticsGameTests::qbotCrafting),
             Map.entry("qbot_remote", QboticsGameTests::qbotRemote),
+            Map.entry("qbot_tablet", QboticsGameTests::qbotTablet),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4372,6 +4373,84 @@ public final class QboticsGameTests {
                     + " facing north\n", "unknown I don't know the order 'spin'\n", "end\n");
             assertScreen(helper, stranger, "refused: Can't reach " + address.replace(":1001", "")
                     + ": a Qbot's radio lets in only its owner's");
+        });
+    }
+
+    /**
+     * A tablet paired with a Qbot (sneak and right-click it): helpme's remote/tablet_qbot.py on the
+     * Qbot draws the controller on the Qbot's own tab, and a press of its Fwd button there drives it.
+     * Someone else can't pair with it.
+     */
+    private static void qbotTablet(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(QboticsContent.TABLET_ITEM.get());
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+        BlockPos qbotPos = new BlockPos(1, 1, 2);
+        helper.setBlock(qbotPos, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(qbotPos, qbotics.qbot.QbotBlockEntity.class);
+        qbotics.display.Tablets tablets = qbotics.display.Tablets.get(level.getServer());
+        qbot.onPlaced(UUID.randomUUID());
+        tablets.pair(player, stack, qbot);
+        helper.assertTrue(tablets.of(stack).apps().isEmpty(), "only the Qbot's owner may pair with it");
+        qbot.setOwner(player.getUUID());
+        tablets.pair(player, stack, qbot);
+        helper.assertTrue(tablets.of(stack).apps().size() == 1, "the tablet is paired with the Qbot");
+        ServerComputer bot = ComputerManager.get(level.getServer()).getOrStart(qbot);
+        try {
+            for (String folder : List.of("/helpme", "/helpme/qbots", "/helpme/qbots/remote")) {
+                bot.drive().call(qbotics.engine.HostFileSystem.MKDIR, folder, new byte[0]);
+            }
+            for (String file : List.of("index.html", "style.css", "tablet_qbot.py")) {
+                try (java.io.InputStream in = QboticsGameTests.class.getResourceAsStream("/qbotics/helpme/qbots/remote/" + file)) {
+                    bot.drive().call(qbotics.engine.HostFileSystem.WRITE, "/helpme/qbots/remote/" + file, in.readAllBytes());
+                }
+            }
+        } catch (java.io.IOException | qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException("could not put the example on the Qbot", e);
+        }
+        bot.submitLine("cd /helpme/qbots/remote");
+        bot.submitLine("run tablet_qbot.py");
+        boolean[] pressed = {false};
+        helper.succeedWhen(() -> {
+            assertScreen(helper, bot, "On the tablet carried by");
+            qbotics.display.Tablets.App app = tablets.of(stack).selectedApp();
+            helper.assertTrue(app != null && app.label().equals("Qbot") && app.content() instanceof qbotics.display.WebScreen,
+                    "the Qbot's tab is named Qbot and shows a web page");
+            qbotics.display.WebScreen screen = (qbotics.display.WebScreen) app.content();
+            String html;
+            String state;
+            synchronized (screen) {
+                html = screen.html();
+                state = screen.stateJson();
+            }
+            if (!pressed[0]) {
+                helper.assertTrue(state.contains("Ready. Press a button"), "the page shows the Qbot's words: " + state);
+                helper.assertTrue(!screen.listeners().isEmpty(), "the Qbot's program listens for clicks (events.run has started)");
+                // Lay the page out as the tablet does, find its Fwd button, and press it.
+                qbotics.web.WebPage laid = new qbotics.web.WebPage(url -> null);
+                laid.load(qbotics.web.WebTemplate.fill(html, state), "body { margin: 8px; font-family: sans-serif; font-size: 14px; }");
+                // The tablet's screen is 3 x 2 blocks; a web page has 128 CSS pixels to a block: 384 x 256.
+                int pageW = qbotics.display.Tablets.WIDTH * 128;
+                int pageH = qbotics.display.Tablets.HEIGHT * 128;
+                laid.layout(pageW, pageH);
+                String hit = null;
+                for (int x = 0; x < pageW && hit == null; x += 3) {
+                    for (int y = 0; y < pageH && hit == null; y += 3) {
+                        String h = laid.hit(x, y);
+                        hit = h != null && h.contains("forward") ? h : null;
+                    }
+                }
+                helper.assertTrue(hit != null, "the Fwd button is on the page");
+                tablets.onWebClick(player, new qbotics.net.DisplayPayloads.WebClick(tablets.screenKey(stack), hit));
+                pressed[0] = true;
+            }
+            assertScreen(helper, bot, "forward -> moved forward\n");
+            helper.assertTrue(level.getBlockEntity(helper.absolutePos(qbotPos.north())) instanceof qbotics.qbot.QbotBlockEntity,
+                    "the Qbot moved forward");
+            synchronized (screen) {
+                helper.assertTrue(screen.stateJson().contains("moved forward"), "the tablet shows what it did");
+            }
         });
     }
 

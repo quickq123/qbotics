@@ -1572,6 +1572,7 @@ Infinite Antenna.
 | Do | Get |
 |---|---|
 | Sneak and right-click a network's antenna | Pairs the tablet with that network: a new tab. Do it again to unpair. The antenna's access setting decides who may pair (private: its owner only). Pair with the network's router, its first antenna |
+| Sneak and right-click a Qbot | Pairs the tablet with that Qbot: a tab for its own program, reached by its radio anywhere (section 7d.3c). Only its owner may |
 | Right-click in the air | The tablet's view: its tabs along the top, the selected tab's screen below. Click a tab to switch. Touch, drag and type as in a screen's close-up view |
 | Hold it | The selected tab's screen shows on the tablet in your hand, live |
 
@@ -1593,7 +1594,7 @@ web = tab.web_panel()       # ...or a Web Panel: 384 x 256 CSS pixels
 
 | Call | Gives |
 |---|---|
-| `net.tablet(key=None)` | A tablet paired with this network: by the name of the player carrying it, its item name (rename it on an anvil) or its address; with no key, the only one |
+| `net.tablet(key=None)` | A tablet paired with this network (on a Qbot: with the Qbot): by the name of the player carrying it, its item name (rename it on an anvil) or its address; with no key, the only one |
 | `net.tablets()` | Every tablet paired with this network |
 | `tab.title` | What this network's tab says; set it to name the tab |
 | `tab.holder` | The player who carried it last |
@@ -1824,8 +1825,23 @@ On cables it is also on that network, as before, by its internal address. Its an
 count against the antenna limit. A Qbot's radio carries messages; `ssh` still reaches a Qbot
 through the network it is cabled to.
 
-`helpme/qbots/remote` uses it to drive a Qbot from a tablet: the Qbot obeys orders that arrive
-as messages and answers with a picture of what it sees, which the base shows on the tablet.
+**A tablet of its own.** Sneak and right-click a Qbot with a tablet to pair the tablet with the
+Qbot itself (again to unpair; only its owner may). The tablet gets a tab that is the Qbot's,
+and the Qbot's program draws on it as any network's program does, with no antenna or base
+computer, wherever the Qbot goes:
+
+```python
+from logistics import network
+tab = network().tablet()      # on a Qbot: a tablet paired with this Qbot
+tab.title = "Miner"
+web = tab.web_panel()         # touches and clicks there reach this Qbot's program
+```
+
+On a Qbot, `net.tablet()` and `net.tablets()` find the tablets paired with the Qbot, not those
+of a network it happens to be cabled to.
+
+`helpme/qbots/remote` drives a Qbot from a tablet both ways: `tablet_qbot.py` alone on the Qbot,
+or `driver.py` on the Qbot obeying orders sent by radio from `controller.py` at a base.
 
 ### 7d.4 Not yet
 
