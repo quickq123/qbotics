@@ -14,6 +14,7 @@ Say what to do when, then call run():
     events.on_pin(net.pin("button"), "rising", lambda e: print("pressed"))
     events.on_change(net.bus("chest"), lambda change: print(change["item"], change["now"]))
     events.on_message(lambda msg: print("from", msg.sender, ":", msg.data))
+    events.on_chat(net.chat_interface(), lambda e: print(e.player, "said", e.message))
     events.after(60, events.stop)       # stop after a minute
 
     events.run()                        # until events.stop() or Ctrl+C
@@ -32,6 +33,7 @@ _pins = []        # (mac, what, function)
 _watches = []     # (Watch, function)
 _messages = []    # functions
 _displays = []    # (mac, widget number, web event name or None, "press", "change", "touch" or "web", function)
+_chats = []       # (mac, function): chat heard by a chat interface
 _stopping = False
 _waiting = None   # the request for the next event, while one is outstanding
 # How often watched containers are looked at while running, in milliseconds.
@@ -127,6 +129,17 @@ def on_message(function=None):
     return function
 
 
+def on_chat(chat, function=None):
+    """Runs a function for each message a player says in chat, as a chat interface hears
+    it. The function gets an Event: .player (who said it), .message, .uuid (the player's)
+    and .name (the interface's). Commands players type are not chat and don't come here.
+    chat is a chat interface from net.chat_interface(), or its name or address."""
+    if function is None:
+        return lambda f: (on_chat(chat, f), f)[1]
+    _chats.append((_mac(chat), function))
+    return function
+
+
 def _on_display(mac, widget, what, function):
     # Called by display's on_press, on_change and on_touch.
     _displays.append((mac, widget, what, function))
@@ -154,6 +167,7 @@ def clear():
     del _watches[:]
     del _messages[:]
     del _displays[:]
+    del _chats[:]
 
 
 def _next_event(wait_ms):
@@ -184,6 +198,10 @@ def _dispatch(info):
         for mac, widget, what, function in _displays:
             if info["mac"] == mac and (what == "touch" or (what == "web" and widget in (None, info["event"], info["id"]))):
                 function(Event(info))
+    elif kind == "chat":
+        for mac, function in _chats:
+            if info["mac"] == mac:
+                function(Event(info))
     elif kind == "message":
         from network import Message
         message = Message(info["sender"], json.loads(info["data"]))
@@ -196,10 +214,10 @@ def run():
     are due, and the functions given to on_pin, on_change and on_message as things happen.
     It sleeps in between, so a waiting program costs the game nothing."""
     global _stopping, _waiting
-    if not (_timers or _pins or _watches or _messages or _displays):
+    if not (_timers or _pins or _watches or _messages or _displays or _chats):
         raise NetworkError("There is nothing to wait for. Set up something first: events.every(), "
-                           "events.on_pin(), events.on_change(), events.on_message(), or a display's on_press, "
-                           "on_change or on_touch.")
+                           "events.on_pin(), events.on_change(), events.on_message(), events.on_chat(), or a "
+                           "display's on_press, on_change or on_touch.")
     _stopping = False
     _waiting = None
     session = _call("events_start", bool(_messages))
@@ -211,6 +229,10 @@ def run():
     for mac, widget, what, function in _displays:
         if mac not in signed:
             _call("display_listen", mac, session)
+            signed.append(mac)
+    for mac, function in _chats:
+        if mac not in signed:
+            _call("chat_listen", mac, session)
             signed.append(mac)
     next_look = time.ticks_ms()
     try:
@@ -237,7 +259,7 @@ def run():
                         function(change)
                         if _stopping:
                             return
-            if not (_timers or _pins or _watches or _messages or _displays):
+            if not (_timers or _pins or _watches or _messages or _displays or _chats):
                 return   # nothing is left to wait for
             # Sleep until the next timer, the next look, or an event the game pushes.
             wait = 1000

@@ -1212,6 +1212,30 @@ Decided by the project owner: two buses can be linked so that each end's face of
 - **Tunnel light** (decided by the project owner): two pixels at the middle of each edge of a bus's front plate, the sides facing out from its axis (the face itself is against the target). Off with no tunnel, amber while the other end can't be reached, green when connected. The server checks loaded tunnel ends once a second and tells players' games when one changes; the colour is a tint (sources 6-11 of the cable's tint list, after the six ring colours).
 - Not yet: tunnels between Qbots and buses.
 
+### 11.0.7 Game interfaces: the player, the chat and commands (built 2026-11-14)
+
+Asked for by the project owner: interfaces to the vanilla game itself. Three full blocks (GameInterfaceBlock, one block
+entity type, GameInterfaceBlockEntity, whose kind comes from its block); programs reach them through GameInterfaceCalls.
+
+- **Player Interface** (`player_interface`; eight cables around an Ender Chest): a bus on the player who placed it, in
+  any dimension, while they are online. PlayerItemPort numbers slots as the game does (0-35 inventory, 36-39 armour feet
+  to head, 40 off hand); it is a source and destination for `move`, counted and watched like an Interface
+  (NetworkCalls.ownItems). A move naming no slot uses 0-35 only, so armour goes on or off only by slot; armour slots take
+  what can be worn there, one at a time, and Curse of Binding holds. `info()` gives health, food, level, place, held item.
+- **Chat Interface** (`chat_interface`; eight cables around a Book and Quill): hears every player's chat (NeoForge
+  ServerChatEvent, handed to listeners on the server thread as `chat` events: `events.on_chat`), writes `[name] text` to
+  everyone or one player (256 characters, 5 messages a second per interface), and runs commands as its owner with the
+  owner's own permissions (their command source, output captured for the program; operators are informed as for any of
+  the player's commands). Saying and listening work while the owner is offline; commands need them online.
+- **Command Interface** (`command_interface`): a command block on the network: commands at the block, at the command
+  block's permission level (GAMEMASTER), output captured. No recipe, no drop, unbreakable in survival; a GameMasterBlockItem,
+  so only an operator in creative places it, found in the Operator Utilities tab. Honours `commandBlocksWork`.
+- **Who may use them:** a Player or Chat Interface only for its owner's computers (the calling computer's owner,
+  NetworkCalls.callerOwner); one with no owner works for no one. A Command Interface a player placed: only their computers,
+  and only while they are still an operator. One with no owner (a command or a structure placed it): any computer on its
+  network, as a command block answers any redstone.
+- Commands from either return a CommandResult: `.ok`, `.result` (the comparator number), `.output` (lines).
+
 ### 11.1 Public peripheral API (separate small jar)
 
 ```java
@@ -1858,6 +1882,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-14 | Game interfaces (asked for by the project owner): a Player Interface (Ender Chest recipe) that is a bus on its owner's inventory, armour and off hand; a Chat Interface that hears chat as events, writes to it and runs commands as its owner; a Command Interface with no recipe (operators in creative, or commands) that runs commands as a command block. Owner-only, as in §11.0.7 | Built 2026-11-14 |
 | 2026-11-13 | Tablets: Delete twice unpairs the tab showing; a Qbot's tab follows its drive, so it survives the Qbot being broken and placed again | Built 2026-11-13 |
 | 2026-11-13 | A tablet pairs with a Qbot (sneak and right-click it): a tab the Qbot's own program draws on with network().tablet(), anywhere; helpme qbots/remote is now that, one startup.py on the Qbot (the radio version moved to qbots/remote/base) | Built 2026-11-13 |
 | 2026-11-13 | A Qbot is built from a Laptop and has its Infinite antenna: its own radio address (qbot.address()), messages to and from it anywhere, owner only, not counted as an antenna; web.image takes a picture number; helpme/qbots/remote drives a Qbot from a tablet with its camera view | Built 2026-11-13 |

@@ -66,7 +66,7 @@ public final class ScreenshotRun {
 
     /** The sections of the script, in the order they run. */
     public static final java.util.List<String> SECTIONS = java.util.List.of(
-            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "agent", "night", "stage", "items");
+            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "agent", "night", "stage", "items", "interfaces");
     /** The sections asked for (-Pshots=a,b), or every section. */
     private static final java.util.Set<String> WANTED = wanted();
     /** Whether the section being planned is wanted: steps of other sections are left out. */
@@ -654,6 +654,17 @@ public final class ScreenshotRun {
         view("15-test-stage", new Vec3(7.0, 7.5, 21.5), new Vec3(7.0, 0.5, 11.5));
         view("16-test-stage-main-row", new Vec3(7.0, 3.2, 13.6), new Vec3(7.0, 0.6, 9.6));
         view("16b-test-stage-back-row", new Vec3(8.5, 3.4, 16.5), new Vec3(8.5, 0.4, 12.0));
+
+        // The game interfaces: player, chat and command, set down on their own past the stage.
+        section("interfaces");
+        then(20, minecraft -> onServer(minecraft, player -> {
+            net.minecraft.server.level.ServerLevel level = player.level();
+            level.setBlock(base.offset(0, 0, 30), QboticsContent.PLAYER_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            level.setBlock(base.offset(2, 0, 30), QboticsContent.CHAT_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            level.setBlock(base.offset(4, 0, 30), QboticsContent.COMMAND_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        }));
+        view("20-game-interfaces", new Vec3(2.5, 1.6, 33.2), new Vec3(2.5, 0.5, 30.5));
+        view("20b-game-interfaces-above", new Vec3(2.5, 3.6, 32.4), new Vec3(2.5, 0.6, 30.5));
 
         // The items, as the hotbar and the hand draw them.
         section("items");

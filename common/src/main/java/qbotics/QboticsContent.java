@@ -38,6 +38,11 @@ public final class QboticsContent {
     public static Supplier<qbotics.block.StoreBlock> FLUID_INTERFACE_BLOCK;
     public static Supplier<qbotics.block.StoreBlock> ENERGY_INTERFACE_BLOCK;
     public static Supplier<qbotics.block.StoreBlock> EXPERIENCE_INTERFACE_BLOCK;
+    /** The game interfaces: a player's inventory, the chat, and commands (that last one spawned in only). */
+    public static Supplier<qbotics.block.GameInterfaceBlock> PLAYER_INTERFACE_BLOCK;
+    public static Supplier<qbotics.block.GameInterfaceBlock> CHAT_INTERFACE_BLOCK;
+    public static Supplier<qbotics.block.GameInterfaceBlock> COMMAND_INTERFACE_BLOCK;
+    public static Supplier<BlockEntityType<qbotics.block.GameInterfaceBlockEntity>> GAME_INTERFACE_BLOCK_ENTITY;
     public static Supplier<BlockEntityType<qbotics.block.ExperienceInterfaceBlockEntity>> EXPERIENCE_INTERFACE_BLOCK_ENTITY;
     /** On an Experience Interface item: the experience it carries, in points. */
     public static Supplier<DataComponentType<Long>> XP_POINTS;

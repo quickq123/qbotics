@@ -303,8 +303,8 @@ public final class NetworkCalls {
                 if (device.medium() == Medium.ENERGY) {
                     throw new CallError("Energy has no contents to list. Ask how much is stored instead.");
                 }
-                if (device instanceof InterfaceBlockEntity input) {
-                    return contents(input);
+                if (ownItems(device) instanceof ItemPort own) {
+                    return contents(own);
                 }
                 if (device instanceof CablePort port && port.gives()) {
                     // With no face named, a bus reads the whole container, not only what one face shows.
@@ -340,8 +340,8 @@ public final class NetworkCalls {
                 }
                 NameMatch<Item> match = wanted == null ? null : item(wanted);
                 List<ItemStack> stacks;
-                if (device instanceof InterfaceBlockEntity store) {
-                    stacks = store.contents();
+                if (ownItems(device) instanceof ItemPort own) {
+                    stacks = own.contents();
                 } else if (device instanceof CablePort port && port.medium() == Medium.ITEM && port.gives()) {
                     stacks = (string(args, 3) == null ? wholeTarget(level, port) : target(level, port, string(args, 3))).contents();
                 } else {
@@ -629,6 +629,8 @@ public final class NetworkCalls {
                 return Watches.poll(level, network, computerPos, args);
             case "watch_close":
                 return Watches.close(args);
+            case "player_info", "chat_say", "chat_tell", "chat_command", "chat_listen", "command_run":
+                return GameInterfaceCalls.call(method, level, network, computerPos, args);
             case "look", "pin", "pin_set", "place", "pour", "break":
                 return WorldPlateCalls.call(method, level, network, args);
             case "screen_cost": {
@@ -868,8 +870,8 @@ public final class NetworkCalls {
         if (onScreen(end)) {
             return openScreen(level, screenBus(end.device())).port();
         }
-        if (end.device() instanceof InterfaceBlockEntity store) {
-            return store;
+        if (ownItems(end.device()) instanceof ItemPort own) {
+            return own;
         }
         if (end.device() instanceof CablePort plate && plate.medium() == Medium.ITEM && plate.gives()) {
             // With no face named, a source is the whole container, as contents() shows it.
@@ -883,8 +885,8 @@ public final class NetworkCalls {
         if (onScreen(end)) {
             return openScreen(level, screenBus(end.device())).port();
         }
-        if (end.device() instanceof InterfaceBlockEntity store) {
-            return store;
+        if (ownItems(end.device()) instanceof ItemPort own) {
+            return own;
         }
         if (end.device() instanceof CablePort plate && plate.medium() == Medium.ITEM && plate.takes()) {
             // A slot number with no face counts slots across the whole container.
@@ -1378,7 +1380,7 @@ public final class NetworkCalls {
 
     /** The owner of the computer that made a call, or null if nobody owns it. */
     /** The running computer whose block is at a position: the one making the call. */
-    private static qbotics.computer.ServerComputer runningAt(ServerLevel level, BlockPos computerPos) {
+    static qbotics.computer.ServerComputer runningAt(ServerLevel level, BlockPos computerPos) {
         if (callAs != null) {
             return callAs;
         }
@@ -1388,6 +1390,25 @@ public final class NetworkCalls {
             throw new CallError("This computer isn't running.");
         }
         return computer;
+    }
+
+    /** The owner of the computer whose call is being answered (a Qbot's, a Server's), or null. Server thread only. */
+    static java.util.@org.jspecify.annotations.Nullable UUID callerOwner() {
+        return callLevel == null || callPos == null ? null : ownerAt(callLevel, callPos);
+    }
+
+    /**
+     * The items a device holds itself, rather than a container it points at: an Interface's
+     * slots, or a Player Interface's player. Null for a device that holds none.
+     */
+    static @org.jspecify.annotations.Nullable ItemPort ownItems(NetworkDevice device) {
+        if (device instanceof InterfaceBlockEntity store) {
+            return store;
+        }
+        if (device instanceof qbotics.block.GameInterfaceBlockEntity game && game.kind() == Kind.PLAYER) {
+            return GameInterfaceCalls.playerItems(game);
+        }
+        return null;
     }
 
     private static java.util.UUID ownerAt(ServerLevel level, BlockPos computerPos) {
@@ -1885,6 +1906,13 @@ public final class NetworkCalls {
             JsonArray drives = new JsonArray();
             bay.mounted().keySet().forEach(drives::add);
             info.add("drives", drives);
+        } else if (device instanceof qbotics.block.GameInterfaceBlockEntity game) {
+            // Whose it is; a Player Interface also says whether they are online, and its slots.
+            info.addProperty("player", game.ownerName(level.getServer()));
+            info.addProperty("online", game.onlineOwner(level.getServer()) != null);
+            if (game.kind() == Kind.PLAYER) {
+                info.addProperty("slots", PlayerItemPort.SLOTS);
+            }
         } else if (device instanceof InterfaceBlockEntity) {
             info.addProperty("slots", InterfaceBlockEntity.SLOTS);
         } else if (device instanceof FluidInterfaceBlockEntity) {

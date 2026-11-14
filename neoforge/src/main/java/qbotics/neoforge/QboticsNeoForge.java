@@ -178,6 +178,23 @@ public final class QboticsNeoForge {
             BLOCK_ENTITY_TYPES.register("experience_interface",
                     () -> new BlockEntityType<>(qbotics.block.ExperienceInterfaceBlockEntity::new, EXPERIENCE_INTERFACE.get()));
     private static final DeferredItem<BlockItem> FLUID_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(FLUID_INTERFACE);
+    // The game interfaces. The Command Interface is a command block's power, so it is made like
+    // one: no recipe, no drop, unbreakable in survival, and placed only by an operator in creative.
+    private static final DeferredBlock<qbotics.block.GameInterfaceBlock> PLAYER_INTERFACE = BLOCKS.registerBlock("player_interface",
+            qbotics.block.GameInterfaceBlock::player, properties -> properties.mapColor(MapColor.COLOR_PURPLE).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredBlock<qbotics.block.GameInterfaceBlock> CHAT_INTERFACE = BLOCKS.registerBlock("chat_interface",
+            qbotics.block.GameInterfaceBlock::chat, properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredBlock<qbotics.block.GameInterfaceBlock> COMMAND_INTERFACE = BLOCKS.registerBlock("command_interface",
+            qbotics.block.GameInterfaceBlock::command, properties -> properties.mapColor(MapColor.COLOR_ORANGE)
+                    .requiresCorrectToolForDrops().strength(-1.0f, 3600000.0f).noLootTable().sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> PLAYER_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(PLAYER_INTERFACE);
+    private static final DeferredItem<BlockItem> CHAT_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(CHAT_INTERFACE);
+    private static final DeferredItem<net.minecraft.world.item.GameMasterBlockItem> COMMAND_INTERFACE_ITEM = ITEMS.registerItem("command_interface",
+            properties -> new net.minecraft.world.item.GameMasterBlockItem(COMMAND_INTERFACE.get(), properties),
+            () -> new net.minecraft.world.item.Item.Properties().useBlockDescriptionPrefix().rarity(net.minecraft.world.item.Rarity.EPIC));
+    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.GameInterfaceBlockEntity>> GAME_INTERFACE_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("game_interface", () -> new BlockEntityType<>(qbotics.block.GameInterfaceBlockEntity::new,
+                    PLAYER_INTERFACE.get(), CHAT_INTERFACE.get(), COMMAND_INTERFACE.get()));
     private static final DeferredItem<BlockItem> ENERGY_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(ENERGY_INTERFACE);
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.FluidInterfaceBlockEntity>> FLUID_INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("fluid_interface",
@@ -266,6 +283,8 @@ public final class QboticsNeoForge {
                         output.accept(FLUID_INTERFACE_ITEM.get());
                         output.accept(ENERGY_INTERFACE_ITEM.get());
                         output.accept(EXPERIENCE_INTERFACE_ITEM.get());
+                        output.accept(PLAYER_INTERFACE_ITEM.get());
+                        output.accept(CHAT_INTERFACE_ITEM.get());
                         output.accept(BUS_ITEM.get());
                         output.accept(FLUID_BUS_ITEM.get());
                         output.accept(ENERGY_BUS_ITEM.get());
@@ -370,6 +389,10 @@ public final class QboticsNeoForge {
         QboticsContent.FLUID_INTERFACE_BLOCK = FLUID_INTERFACE;
         QboticsContent.ENERGY_INTERFACE_BLOCK = ENERGY_INTERFACE;
         QboticsContent.EXPERIENCE_INTERFACE_BLOCK = EXPERIENCE_INTERFACE;
+        QboticsContent.PLAYER_INTERFACE_BLOCK = PLAYER_INTERFACE;
+        QboticsContent.CHAT_INTERFACE_BLOCK = CHAT_INTERFACE;
+        QboticsContent.COMMAND_INTERFACE_BLOCK = COMMAND_INTERFACE;
+        QboticsContent.GAME_INTERFACE_BLOCK_ENTITY = GAME_INTERFACE_BLOCK_ENTITY;
         QboticsContent.EXPERIENCE_INTERFACE_BLOCK_ENTITY = EXPERIENCE_INTERFACE_BLOCK_ENTITY;
         QboticsContent.XP_POINTS = XP_POINTS;
         QboticsContent.FLUID_INTERFACE_BLOCK_ENTITY = FLUID_INTERFACE_BLOCK_ENTITY;
@@ -526,6 +549,18 @@ public final class QboticsNeoForge {
             ComputerManager.shutDown(event.getServer());
             qbotics.upgrade.ChunkLoaders.clear();
             qbotics.network.Tunnels.clear();
+        });
+        // What players say in chat reaches the programs listening to a Chat Interface (on the next tick, on the server thread).
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.ServerChatEvent event) -> {
+            ServerPlayer player = event.getPlayer();
+            String text = event.getRawText();
+            player.level().getServer().execute(() -> qbotics.network.GameInterfaceCalls.heard(player.level().getServer(), player, text));
+        });
+        // The Command Interface sits with the command block, for operators only.
+        modBus.addListener((net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent event) -> {
+            if (event.getTabKey() == net.minecraft.world.item.CreativeModeTabs.OP_BLOCKS && event.hasPermissions()) {
+                event.accept(COMMAND_INTERFACE_ITEM.get());
+            }
         });
         // A laptop crafted from a computer carries that computer's drive, to copy its files in when first opened.
         NeoForge.EVENT_BUS.addListener((PlayerEvent.ItemCraftedEvent event) -> {

@@ -22,7 +22,12 @@ public interface NetworkDevice {
         /** Displays (design doc §10): a Text Monitor's character grid, a Control Panel's widgets. */
         MONITOR("monitor"), PANEL("panel"), WEB("web_panel"),
         /** Lets its network's computers reach the real internet (design doc §9.4). */
-        UPLINK("uplink");
+        UPLINK("uplink"),
+        /**
+         * Game interfaces: a player's own inventory (as a bus on them), the server's chat, and
+         * commands at a command block's level (that one has no recipe).
+         */
+        PLAYER("player_interface"), CHAT("chat_interface"), COMMAND("command_interface");
 
         /** The word Python programs and messages use. */
         public final String word;

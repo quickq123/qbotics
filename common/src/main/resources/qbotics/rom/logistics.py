@@ -786,6 +786,118 @@ class ExperienceInterface(Device, _Gives, _Takes, _Watches):
         return self.refresh()._info["lock"]
 
 
+class PlayerInterface(Device, _Gives, _Takes, _Watches):
+    """A bus on the player who placed it: their inventory, armour and off hand, wherever
+    they are, while they are online. Only their own computers can use it. A source and a
+    destination for move(), numbered as the game numbers a player's slots:
+
+        0-8 the hotbar, 9-35 the rest, 36 feet, 37 legs, 38 chest, 39 head, 40 the off hand
+
+    A move with no slot uses slots 0-35, so armour is put on or taken off only by naming
+    its slot: move(store, me.destination(slot=PlayerInterface.HEAD), "iron_helmet")."""
+
+    FEET, LEGS, CHEST, HEAD, OFFHAND = 36, 37, 38, 39, 40
+    HOTBAR = range(0, 9)
+
+    def contents(self):
+        """What the player carries: a list of {"slot": 0, "item": "minecraft:torch", "count": 12}."""
+        return _call("contents", self.mac, None)
+
+    def count(self, item=None, slot=None):
+        """How many of an item the player carries, armour and off hand included (or of
+        everything, with no item). slot= narrows it to one slot."""
+        item, _, slot = _aim(item, None, slot)
+        return _call("count", self.mac, item, None, slot)
+
+    def info(self):
+        """The player now: {"player": "Steve", "online": True, "health": 20.0, "max_health":
+        20.0, "food": 20, "saturation": 5.0, "level": 7, "dimension": "minecraft:overworld",
+        "x": 12.5, "y": 64.0, "z": -3.5, "selected": 0, "game_mode": "survival",
+        "held": "minecraft:iron_pickaxe"}. Offline, only "player" and "online"."""
+        return _call("player_info", self.mac)
+
+    def armor(self):
+        """What the player wears: {"head": "minecraft:iron_helmet", "chest": None, ...}."""
+        held = {entry["slot"]: entry["item"] for entry in self.contents()}
+        return {"head": held.get(39), "chest": held.get(38), "legs": held.get(37), "feet": held.get(36)}
+
+    @property
+    def player(self):
+        """The name of the player it reaches."""
+        return self.refresh()._info["player"]
+
+    @property
+    def online(self):
+        """True while that player is on the server."""
+        return self.refresh()._info["online"]
+
+    @property
+    def slots(self):
+        """How many slots it has: 41."""
+        return self._info["slots"]
+
+
+class CommandResult:
+    """What a command did: .ok (True if it worked), .result (the number it gave, as a
+    command block's comparator would read it) and .output (the lines it said). It is true
+    when ok, and prints as its output."""
+
+    def __init__(self, answer):
+        self.ok = answer["ok"]
+        self.result = answer["result"]
+        self.output = answer["output"]
+
+    def __bool__(self):
+        return self.ok
+
+    def __str__(self):
+        return "\n".join(self.output)
+
+    def __repr__(self):
+        return "<CommandResult %s %r>" % ("ok" if self.ok else "failed", self.output)
+
+
+class ChatInterface(Device):
+    """The server's chat. It hears what players say (events.on_chat, or chat.on_chat),
+    writes to chat, and runs commands as the player who placed it, with their permissions.
+    Only their own computers can use it; commands need them online."""
+
+    def say(self, text):
+        """Writes a line to everyone's chat, as "[name] text" (the interface's name, or
+        Chat Interface). At most 256 characters, and 5 messages a second."""
+        _call("chat_say", self.mac, str(text))
+
+    def tell(self, player, text):
+        """Writes a line to one player's chat only."""
+        _call("chat_tell", self.mac, str(player), str(text))
+
+    def command(self, command):
+        """Runs a command as the owner, as if they had typed it ("/" is optional), and
+        returns a CommandResult. What it says comes back to the program, not to their chat."""
+        return CommandResult(_call("chat_command", self.mac, str(command)))
+
+    def on_chat(self, function=None):
+        """Runs a function for each chat message while events.run() is going. The same as
+        events.on_chat(chat, function)."""
+        import events
+        return events.on_chat(self, function)
+
+    @property
+    def player(self):
+        """The name of the player it acts for."""
+        return self.refresh()._info["player"]
+
+
+class CommandInterface(Device):
+    """A command block on the network. It has no recipe: an operator in creative places
+    it, or a command does. Commands run at the block, at a command block's permission level."""
+
+    def run(self, command):
+        """Runs a command ("/" is optional) and returns a CommandResult:
+        print(cmd.run("time query daytime"))."""
+        return CommandResult(_call("command_run", self.mac, str(command)))
+
+
 class _WorldPlate(Device):
     # A plate that acts on the world in front of it rather than on a container.
 
@@ -960,7 +1072,8 @@ class Programmer(Device):
 _KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay, "programmer": Programmer,
           "pin": Pin, "placer": Placer, "breaker": Breaker,
           "fluid_interface": FluidInterface, "fluid_bus": FluidBus,
-          "energy_interface": EnergyInterface, "energy_bus": EnergyBus, "experience_interface": ExperienceInterface}
+          "energy_interface": EnergyInterface, "energy_bus": EnergyBus, "experience_interface": ExperienceInterface,
+          "player_interface": PlayerInterface, "chat_interface": ChatInterface, "command_interface": CommandInterface}
 
 
 def _wrap(info):
@@ -1031,6 +1144,18 @@ class Network:
     def experience_interface(self, key=None):
         """An experience interface by name or address; with no argument, the network's only one."""
         return self._find(key, "experience_interface")
+
+    def player_interface(self, key=None):
+        """A player interface by name or address; with no argument, the network's only one."""
+        return self._find(key, "player_interface")
+
+    def chat_interface(self, key=None):
+        """A chat interface by name or address; with no argument, the network's only one."""
+        return self._find(key, "chat_interface")
+
+    def command_interface(self, key=None):
+        """A command interface by name or address; with no argument, the network's only one."""
+        return self._find(key, "command_interface")
 
     def monitor(self, key=None):
         """A text monitor by name or address; with no argument, the network's only one.

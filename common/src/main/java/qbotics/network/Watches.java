@@ -175,13 +175,13 @@ final class Watches {
     }
 
     private static List<ItemStack> itemsOf(ServerLevel level, NetworkDevice device, @Nullable String face) {
-        if (device instanceof InterfaceBlockEntity store) {
-            return store.contents();
+        if (NetworkCalls.ownItems(device) instanceof ItemPort own) {
+            return own.contents();
         }
         if (device instanceof CablePort port && port.gives()) {
             return (face == null ? NetworkCalls.wholeTarget(level, port) : NetworkCalls.target(level, port, face)).contents();
         }
-        throw new CallError("Only an interface or a bus can be watched for items; this is " + NetworkCalls.article(device) + ".");
+        throw new CallError("Only an interface, a player interface or a bus can be watched for items; this is " + NetworkCalls.article(device) + ".");
     }
 
     private static List<ItemStack> copies(List<ItemStack> stacks) {

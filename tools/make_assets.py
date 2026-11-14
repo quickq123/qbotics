@@ -252,6 +252,9 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.placer": "Placer",
     "item.qbotics.breaker": "Breaker",
     "block.qbotics.experience_interface": "Experience Interface",
+    "block.qbotics.player_interface": "Player Interface",
+    "block.qbotics.chat_interface": "Chat Interface",
+    "block.qbotics.command_interface": "Command Interface",
     "screen.qbotics.xp.holds": "Holds %s points: enough to take a new player to level %s",
     "screen.qbotics.xp.you": "You are level %s",
     "screen.qbotics.xp.locked": "This is locked: you can't store or take here",
@@ -304,7 +307,9 @@ write_json("assets/qbotics/lang/en_us.json", {
     "message.qbotics.tablet.refused": "Can't pair: %s",
     "message.qbotics.tablet.not_router": "That antenna isn't its network's router: pair with the network's first antenna.",
     "message.qbotics.tablet.full": "A tablet can be paired with %s networks at most. Unpair one first.",
-    "screen.qbotics.tablet.unpaired": "Not paired with any network. Sneak and right-click a network's antenna with the tablet.",
+    "screen.qbotics.tablet.unpaired": "Not paired with anything. Sneak and right-click a network's antenna, or a Qbot, with the tablet.",
+    "screen.qbotics.tablet.delete_hint": "Delete: unpair this tab",
+    "screen.qbotics.tablet.delete_confirm": "Press Delete again to unpair %s",
     "item.qbotics.laptop.tip": "Right-click: your laptop. Sneak + right-click: its drives. On a computer or Qbot of yours: connect to it.",
     "message.qbotics.laptop.not_yours": "That isn't yours to connect to. ssh in instead, if its owner allows.",
     "item.qbotics.laptop.disks": "Hard drives: %s",
@@ -807,6 +812,7 @@ write_json("data/qbotics/loot_table/blocks/cable.json", drops_itself("qbotics:ca
 write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
     "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
+               "qbotics:player_interface", "qbotics:chat_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
                "qbotics:text_monitor", "qbotics:control_panel", "qbotics:web_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
@@ -814,6 +820,7 @@ write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
 write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
     "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
+               "qbotics:player_interface", "qbotics:chat_interface", "qbotics:command_interface",
                "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
                "qbotics:text_monitor", "qbotics:control_panel", "qbotics:web_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
@@ -984,6 +991,119 @@ for store in ("fluid_interface", "energy_interface", "experience_interface"):
     write_json("data/qbotics/loot_table/blocks/%s.json" % store,
                drops_itself("qbotics:%s" % store, copy_components=["minecraft:custom_name", "qbotics:xp_points"]
                             if store == "experience_interface" else ["minecraft:custom_name"]))
+
+
+
+# ---- the game interfaces: a player's inventory, the chat, and commands ----
+ENDER_TEAL = (40, 140, 120)
+ENDER_DARK = (12, 52, 48)
+ENDER_EYE = (120, 230, 170)
+CHAT_WHITE = (250, 250, 250)
+COMMAND_ORANGE = (196, 120, 72)
+COMMAND_DARK = (120, 70, 44)
+COMMAND_LIGHT = (232, 170, 120)
+
+
+def player_interface_side():
+    """An ender chest's dark lid and lock, framed in iron: it reaches its player anywhere."""
+    px = case_base()
+    for y in range(3, 13):
+        for x in range(2, 14):
+            px[y][x] = EDGE if x in (2, 13) or y in (3, 12) else (ENDER_TEAL if y == 7 else ENDER_DARK)
+    for y in range(6, 10):
+        for x in range(7, 9):
+            px[y][x] = ENDER_EYE if y in (7, 8) else CASE_LIGHT
+    return px
+
+
+def player_interface_top():
+    """An eye of ender, looking up."""
+    px = case_base()
+    for y in range(4, 12):
+        for x in range(4, 12):
+            ring = abs(x - 7.5) + abs(y - 7.5)
+            if ring <= 4.5:
+                px[y][x] = ENDER_EYE if ring > 2.5 else (ENDER_DARK if ring > 1 else SCREEN)
+    return px
+
+
+def chat_interface_side():
+    """A speech bubble with three dots, on a dark screen."""
+    px = case_base()
+    for y in range(3, 13):
+        for x in range(2, 14):
+            px[y][x] = EDGE if x in (2, 13) or y in (3, 12) else SCREEN
+    for y in range(5, 9):
+        for x in range(4, 12):
+            px[y][x] = CHAT_WHITE
+    px[9][5] = CHAT_WHITE
+    px[9][6] = CHAT_WHITE
+    px[10][5] = CHAT_WHITE
+    for x in (5, 7, 9):
+        px[7][x + 1] = SCREEN
+    return px
+
+
+def chat_interface_top():
+    """Lines of text, as chat scrolls."""
+    px = case_base()
+    for y in range(3, 13):
+        for x in range(3, 13):
+            px[y][x] = EDGE if x in (3, 12) or y in (3, 12) else SCREEN
+    for row, length in ((5, 6), (7, 4), (9, 7)):
+        for x in range(4, 4 + length):
+            px[row][x] = CHAT_WHITE if x > 4 else ENDER_EYE
+    return px
+
+
+def command_interface_side():
+    """A command block's copper colours, with a prompt (>_) on a dark screen."""
+    px = [[COMMAND_ORANGE for _ in range(16)] for _ in range(16)]
+    for i in range(16):
+        px[0][i] = px[i][0] = COMMAND_LIGHT
+        px[15][i] = px[i][15] = COMMAND_DARK
+    for y in range(3, 13):
+        for x in range(3, 13):
+            px[y][x] = COMMAND_DARK if x in (3, 12) or y in (3, 12) else SCREEN
+    for i in range(3):
+        px[5 + i][5 + i] = CHAT_WHITE
+        px[9 - i][5 + i] = CHAT_WHITE
+    for x in range(8, 11):
+        px[10][x] = CHAT_WHITE
+    return px
+
+
+def command_interface_top():
+    px = [[COMMAND_ORANGE for _ in range(16)] for _ in range(16)]
+    for i in range(16):
+        px[0][i] = px[i][0] = COMMAND_LIGHT
+        px[15][i] = px[i][15] = COMMAND_DARK
+    for y in range(4, 12):
+        for x in range(4, 12):
+            px[y][x] = COMMAND_DARK if x in (4, 11) or y in (4, 11) else COMMAND_LIGHT
+    return px
+
+
+for name, side, top in (("player_interface", player_interface_side, player_interface_top),
+                        ("chat_interface", chat_interface_side, chat_interface_top),
+                        ("command_interface", command_interface_side, command_interface_top)):
+    write_png("assets/qbotics/textures/block/%s_side.png" % name, side())
+    write_png("assets/qbotics/textures/block/%s_top.png" % name, top())
+    write_json("assets/qbotics/models/block/%s.json" % name, {
+        "parent": "minecraft:block/cube_column",
+        "textures": {"end": "qbotics:block/%s_top" % name, "side": "qbotics:block/%s_side" % name},
+    })
+    write_json("assets/qbotics/blockstates/%s.json" % name, {"variants": {"": {"model": "qbotics:block/%s" % name}}})
+    write_json("assets/qbotics/items/%s.json" % name, {"model": {"type": "minecraft:model", "model": "qbotics:block/%s" % name}})
+# The Command Interface drops nothing and has no recipe: it is spawned in, like a command block.
+for name in ("player_interface", "chat_interface"):
+    write_json("data/qbotics/loot_table/blocks/%s.json" % name, drops_itself("qbotics:%s" % name, copy_components=["minecraft:custom_name"]))
+# The Player Interface needs an Ender Chest: it reaches its player wherever they are.
+write_json("data/qbotics/recipe/player_interface.json", shaped(
+    ["CCC", "CEC", "CCC"], {"C": "qbotics:cable", "E": "minecraft:ender_chest"}, "qbotics:player_interface"))
+# The Chat Interface is written with a book and quill.
+write_json("data/qbotics/recipe/chat_interface.json", shaped(
+    ["CCC", "CWC", "CCC"], {"C": "qbotics:cable", "W": "minecraft:writable_book"}, "qbotics:chat_interface"))
 
 write_json("assets/qbotics/models/block/interface.json", {
     "parent": "minecraft:block/cube_column",

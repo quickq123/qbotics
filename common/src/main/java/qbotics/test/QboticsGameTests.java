@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -132,6 +132,7 @@ public final class QboticsGameTests {
             Map.entry("qbot_crafting", QboticsGameTests::qbotCrafting),
             Map.entry("qbot_remote", QboticsGameTests::qbotRemote),
             Map.entry("qbot_tablet", QboticsGameTests::qbotTablet),
+            Map.entry("game_interfaces", QboticsGameTests::gameInterfaces),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -3637,6 +3638,10 @@ public final class QboticsGameTests {
             }
             helper.assertTrue(json[0].isDone(), "waiting for the JSON");
             String output = ((ServerComputer.ExecResult) json[0].join()).output().strip();
+            if (output.startsWith("The computer is busy")) {
+                json[0] = null; // the last command hadn't quite finished (a slow tick): ask again
+                helper.fail("the computer was still busy");
+            }
             com.google.gson.JsonArray parsed;
             try {
                 parsed = com.google.gson.JsonParser.parseString(output).getAsJsonArray();
@@ -4462,6 +4467,104 @@ public final class QboticsGameTests {
             // Delete pressed twice on the tablet: the tab showing is unpaired.
             tablets.unpairTab(player, stack.get(QboticsContent.TABLET_ID.get()), 0);
             helper.assertTrue(tablets.of(stack).apps().isEmpty() && screen.isGone(), "Delete unpairs the tab showing");
+        });
+    }
+
+    /**
+     * The game interfaces. A Player Interface is a bus on its owner: items move out of their
+     * inventory and armour goes on by slot. A Chat Interface writes to chat, runs commands as
+     * its owner (with only their permissions) and hears chat as events. A Command Interface
+     * runs commands as a command block. Another player's computer is refused.
+     */
+    private static void gameInterfaces(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        String name = player.getName().getString();
+        // Touching blocks make one network: computer, player, chat and command interfaces in a row, a store behind.
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.getBlockEntity(new BlockPos(0, 1, 0), ComputerBlockEntity.class).claim(player.getUUID());
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.PLAYER_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 1, 0), QboticsContent.CHAT_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(3, 1, 0), QboticsContent.COMMAND_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(0, 1, 1), QboticsContent.INTERFACE_BLOCK.get());
+        qbotics.block.GameInterfaceBlockEntity reach = helper.getBlockEntity(new BlockPos(1, 1, 0), qbotics.block.GameInterfaceBlockEntity.class);
+        qbotics.block.GameInterfaceBlockEntity chat = helper.getBlockEntity(new BlockPos(2, 1, 0), qbotics.block.GameInterfaceBlockEntity.class);
+        reach.setOwnerForTest(player.getUUID(), name);
+        chat.setOwnerForTest(player.getUUID(), name);
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(0, 1, 1), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        player.getInventory().setItem(0, new ItemStack(net.minecraft.world.item.Items.COBBLESTONE, 10));
+        player.getInventory().setItem(5, new ItemStack(net.minecraft.world.item.Items.IRON_HELMET));
+        String script = String.join("\n",
+                "from logistics import network, move, PlayerInterface",
+                "net = network()",
+                "me = net.player_interface()",
+                "store = net.interface()",
+                "print('player', me.player, me.online, me.slots)",
+                "print('cobble', me.count('cobblestone'))",
+                "print('moved', move(me, store, 'cobblestone', 4))",
+                "print('helmet on', move(me.source(slot=5), me.destination(slot=PlayerInterface.HEAD), 'iron_helmet'))",
+                "print('wearing', me.armor()['head'])",
+                "print('cobble on head', move(store, me.destination(slot=PlayerInterface.HEAD), 'cobblestone', 1))",
+                "print('health', me.info()['health'])",
+                "chat = net.chat_interface()",
+                "chat.say('hello from the test')",
+                "print('list', chat.command('list').ok)",
+                "print('time as player', chat.command('time set 1000').ok)",
+                "cmd = net.command_interface()",
+                "r = cmd.run('/setblock ~ ~2 ~ minecraft:gold_block')",
+                "print('setblock', r.ok, r.result)",
+                "print('bad', cmd.run('notacommand').ok)",
+                "");
+        String listen = String.join("\n",
+                "import events",
+                "from logistics import network",
+                "chat = network().chat_interface()",
+                "@chat.on_chat",
+                "def heard(e):",
+                "    print('heard', e.player, e.message)",
+                "    events.stop()",
+                "print('listening')",
+                "events.run()",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/t.py", script.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/listen.py", listen.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run t.py");
+        computer.submitLine("run listen.py");
+        boolean[] said = {false};
+        boolean[] stranger = {false};
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "player " + name + " True 41", "cobble 10", "moved 4", "helmet on 1",
+                    "wearing minecraft:iron_helmet", "cobble on head 0", "health 20.0", "list True", "time as player False",
+                    "setblock True 1", "bad False");
+            helper.assertTrue(store.contents().stream().mapToInt(ItemStack::getCount).sum() == 4
+                    && player.getInventory().getItem(0).getCount() == 6, "four cobblestone went from the player to the store");
+            helper.assertTrue(player.getInventory().getItem(39).is(net.minecraft.world.item.Items.IRON_HELMET)
+                    && player.getInventory().getItem(5).isEmpty(), "the helmet was put on");
+            helper.assertTrue(level.getBlockState(helper.absolutePos(new BlockPos(3, 3, 0))).is(Blocks.GOLD_BLOCK),
+                    "the command interface ran setblock at itself");
+            assertScreen(helper, computer, "listening");
+            if (!said[0]) {
+                helper.assertTrue(!chat.listeners().isEmpty(), "the program listens to the chat interface");
+                qbotics.network.GameInterfaceCalls.heard(level.getServer(), player, "hi bot");
+                said[0] = true;
+            }
+            assertScreen(helper, computer, "heard " + name + " hi bot");
+            if (!stranger[0]) {
+                // Someone else's player interface on this network is no use to this computer.
+                reach.setOwnerForTest(UUID.randomUUID(), "someone");
+                computer.submitLine("python");
+                computer.submitLine("from logistics import network");
+                computer.submitLine("network().player_interface().count()");
+                stranger[0] = true;
+            }
+            assertScreen(helper, computer, "player interface belongs to someone;");
         });
     }
 

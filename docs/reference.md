@@ -292,6 +292,9 @@ With an antenna on the network, each device can also be reached from other netwo
 | `energy_bus` | An Energy Serial Bus: the same for energy |
 | `usb` | A Universal Serial Bus (USB): item, fluid and energy bus in one plate (section 6.3) |
 | `experience_interface` | Experience storage, with no limit |
+| `player_interface` | A bus on the player who placed it: their inventory, armour and off hand (section 6.11) |
+| `chat_interface` | The server's chat: hears it, writes to it, runs commands as its owner (section 6.11) |
+| `command_interface` | A command block on the network. No recipe: spawned in only (section 6.11) |
 | `pin` | A Logic Pin: a redstone line in or out, and an eye on a block |
 | `placer`, `breaker` | Plates that place blocks and fluid, or break them |
 | `drive_bay` | Holds hard drives; every computer on its network sees them under `/net` |
@@ -410,6 +413,7 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `net.energy_interface(key)`, `net.energy_bus(key)` | The same for energy |
 | `net.usb(key)` | A Universal Serial Bus. `net.bus()`, `net.fluid_bus()` and `net.energy_bus()` find a USB by name too, working as that kind of bus; with no key they pick a USB only when there is no plain bus of that kind |
 | `net.experience_interface(key)` | The experience store |
+| `net.player_interface(key)`, `net.chat_interface(key)`, `net.command_interface(key)` | The game interfaces (section 6.11) |
 | `net.interfaces()`, `net.buses()`, `net.usbs()` | Every interface, Item Serial Bus or USB |
 
 ### 6.2 Every device
@@ -992,6 +996,135 @@ than washing them away.
 **Recipes:** four cables around an observer (Logic Pin), a dispenser (Placer) or a diamond
 pickaxe (Breaker).
 
+### 6.11 Game interfaces: the player, the chat and commands
+
+Three blocks put a part of the game itself on the network. Each is a full block that joins a
+network like an interface does.
+
+| Block | Kind | Recipe |
+|---|---|---|
+| Player Interface | `player_interface` | Eight cables around an **Ender Chest** |
+| Chat Interface | `chat_interface` | Eight cables around a **Book and Quill** |
+| Command Interface | `command_interface` | None. It is spawned in, like a command block (below) |
+
+Right-click one to see whose it is and whether they are online.
+
+**Whose it is.** The player who places a Player or Chat Interface is its owner. It works only
+for that player's own computers (and Qbots and Servers): another player's computer on the same
+network is refused. A Player or Chat Interface placed by a machine or a command has no owner,
+and works for no one.
+
+#### The Player Interface: a bus on you
+
+It works the inventory of the player who placed it, as a bus works a chest: wherever that
+player is, in any dimension, while they are online. It is a source and a destination for
+`move`, and it can be counted and watched.
+
+```python
+from logistics import network, move, PlayerInterface
+net = network()
+me = net.player_interface()
+store = net.interface("store")
+
+move(me, store, "cobblestone")                             # empty my cobblestone into the store
+move(store, me, "torch", 64)                               # and bring me torches
+move(store, me.destination(slot=PlayerInterface.HEAD), "iron_helmet")   # put a helmet on
+print(me.armor())        # {'head': 'minecraft:iron_helmet', 'chest': None, 'legs': None, 'feet': None}
+```
+
+Its slots are numbered as the game numbers a player's:
+
+| Slots | What |
+|---|---|
+| 0 to 8 | The hotbar |
+| 9 to 35 | The rest of the inventory |
+| 36, 37, 38, 39 | Feet, legs, chest, head (`PlayerInterface.FEET`, `.LEGS`, `.CHEST`, `.HEAD`) |
+| 40 | The off hand (`PlayerInterface.OFFHAND`) |
+
+- A `move` that names no slot uses slots 0 to 35 only, so nothing is put on or taken off the
+  player's body unless a program names that slot.
+- An armour slot takes only what can be worn there, one at a time. Curse of Binding keeps a
+  piece on, as it does in the inventory screen.
+- `count()` and `contents()` see all 41 slots, armour and off hand included.
+
+| Attribute or call | Gives |
+|---|---|
+| `me.contents()`, `me.count(item, slot=None)` | What the player carries, as for an interface |
+| `me.armor()` | What they wear: `{"head": ..., "chest": ..., "legs": ..., "feet": ...}`, each an item name or `None` |
+| `me.info()` | The player now: `player`, `online`, `health`, `max_health`, `food`, `saturation`, `level`, `dimension`, `x`, `y`, `z`, `selected` (hotbar slot), `game_mode`, `held` |
+| `me.player`, `me.online` | Their name, and whether they are on the server |
+| `me.slots` | 41 |
+
+When the player is offline, moves and counts fail with an error saying so; `info()` gives only
+`player` and `online`.
+
+#### The Chat Interface
+
+It hears what players say in chat, writes to chat, and runs commands as its owner.
+
+```python
+import events
+from logistics import network
+chat = network().chat_interface()
+
+@chat.on_chat
+def heard(e):
+    if e.message == "!time":
+        chat.say(str(chat.command("time query daytime")))
+
+events.run()
+```
+
+| Call | Does |
+|---|---|
+| `chat.say(text)` | Writes a line to everyone's chat, as `[name] text`: the interface's name, or `Chat Interface` |
+| `chat.tell(player, text)` | The same, to one player only |
+| `chat.command(command)` | Runs a command as the owner, as if they had typed it (a leading `/` is optional), and returns a command result (below). It has the owner's permissions and no more, and needs them online |
+| `chat.on_chat(function)`, `events.on_chat(chat, function)` | Runs the function for each chat message while `events.run()` is going. It gets an event with `.player`, `.message`, `.uuid` (the player's) and `.name` (the interface's) |
+| `chat.player` | The name of the player it acts for |
+
+- It hears every player's chat on the server. Commands players type are not chat, and are not
+  heard.
+- A message is at most 256 characters, and one interface writes at most 5 messages a second.
+  More is an error.
+- A command's output comes back to the program, not to the player's chat. The server log and
+  operators see the command, as they see any the player types.
+- Saying, telling and listening work while the owner is offline; commands need them online.
+
+#### The Command Interface
+
+A command block on the network: it runs commands at the block, with a command block's
+permissions.
+
+```python
+cmd = network().command_interface()
+print(cmd.run("time query daytime"))           # The time is 1000
+cmd.run("setblock ~ ~2 ~ minecraft:gold_block")    # ~ is the block itself
+```
+
+| Call | Does |
+|---|---|
+| `cmd.run(command)` | Runs a command (a leading `/` is optional) and returns a command result |
+
+**Getting one.** It has no recipe, and breaking it drops nothing; it can't be broken in survival.
+An operator in creative finds it in the **Operator Utilities** tab beside the command block, or
+types `/give @s qbotics:command_interface`. As with a command block, only an operator in
+creative can place it.
+
+- One a player placed works only for that player's computers, and only while they are still an
+  operator.
+- One placed by a command or a structure (no owner) works for any computer on its network, as
+  a command block works for any redstone.
+- When the world turns command blocks off (the `commandBlocksWork` game rule), it runs nothing.
+
+**A command result** (from `chat.command()` and `cmd.run()`):
+
+| Attribute | Gives |
+|---|---|
+| `.ok` | `True` if the command worked. The result itself is true or false the same way |
+| `.result` | The number it gave, as a comparator reads from a command block |
+| `.output` | The lines it said, as a list. `print(result)` prints them |
+
 ---
 
 ## 7. The `network` module
@@ -1192,6 +1325,7 @@ events.run()                                        # until events.stop() or Ctr
 | `events.on_pin(pin, what, function)` | Runs the function when a Logic Pin sees `"rising"`, `"falling"`, `"change"` or `"block"` (section 6.10). The function gets an event with `.name`, `.event`, `.level` and `.block` |
 | `events.on_change(device, function, what=None)` | Runs the function for each change to what a device holds (section 6.4b). `device` can also be a watch |
 | `events.on_message(function)` | Runs the function for each message from another computer: it gets `.sender` and `.data`. While `run()` is going, messages come here rather than to `network.receive()` |
+| `events.on_chat(chat, function)` | Runs the function for each message a player says in chat, as a Chat Interface hears it (section 6.11). It gets `.player` and `.message` |
 | `events.on_touch(display, function)` | Runs the function when a player touches a monitor or panel (section 7c). Widgets have their own `on_press` and `on_change` |
 | `events.run()` | Handles everything above until `events.stop()` or Ctrl+C |
 | `events.stop()` | Makes `run()` return once the function running now has finished |
