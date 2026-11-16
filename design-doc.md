@@ -1212,6 +1212,20 @@ Decided by the project owner: two buses can be linked so that each end's face of
 - **Tunnel light** (decided by the project owner): two pixels at the middle of each edge of a bus's front plate, the sides facing out from its axis (the face itself is against the target). Off with no tunnel, amber while the other end can't be reached, green when connected. The server checks loaded tunnel ends once a second and tells players' games when one changes; the colour is a tint (sources 6-11 of the cable's tint list, after the six ring colours).
 - Not yet: tunnels between Qbots and buses.
 
+### 17.9 Lessons: advancements for learning the system (built 2026-11-16)
+
+Asked for by the project owner: a structure for a player learning the system, from print("hello world") to an
+auto-crafting storage system, as achievements. Twenty vanilla advancements (data/qbotics/advancement/lessons, written
+by make_assets.py from one table), in their own tab, each with a README in helpme/lessons. One trigger,
+qbotics:lesson, with a step name; hooks where the game already sees each step, so no lesson inspects code: program
+output (hello world), events reaching a listening program (ServerComputer.pushEvent: pins, panels, web pages,
+tablets), each call that worked (LessonHooks.afterCall: find, send to an external address, pin_set, display_open on
+a monitor, sensor breaks, places and uses, Qbot moves and digs, anything reached behind another antenna), each move
+of items (LessonHooks.beforeMove/afterMove: a list of destinations or a filter, a storage of four, a furnace's
+product slot going down, a screen slot nothing may be put in, crafting fed from a storage of eight), and running
+unattended a game day (startup, services). The owner of the computer gets it, while online; steps are told once a
+game. Reference §7l.
+
 ### 17.8b The AI helper's scratchpad (built 2026-11-16)
 
 Asked for by the project owner: the in-game AI helper should use the blocks in the world to inform its answers, with
@@ -2007,6 +2021,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-16 | Lessons (asked for by the project owner): 20 advancements from hello world to a self-running factory, met by what programs do (one qbotics:lesson trigger, hooks on output, events, calls, moves and uptime), each with a README in helpme/lessons. §17.9 | Built 2026-11-16 |
 | 2026-11-16 | The AI helper's scratchpad (asked for by the project owner): a python tool, look-only by default (enforced in the engine: only reading calls, no file writes) and so needing no permission; changing runs asked for. Its guide knows the newer blocks. §17.8b | Built 2026-11-16 |
 | 2026-11-16 | Sign writing and raw block data on the Block Sensor; leads refused; sensors across the radio counted against the Transport rate; a mod test run against real modpack mods. §11.0.14 | Built 2026-11-16 |
 | 2026-11-16 | Environment and sensor data (asked for by the project owner): an env module with time, day, moon, weather, biome, light and position, watchable; the Block Sensor reads biome, light, signs and lecterns; the Entity Sensor reads armour and item frames, and moves items into and out of entity inventories (minecarts, packs, armor stands). §11.0.13 | Built 2026-11-16 |

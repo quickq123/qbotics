@@ -90,6 +90,10 @@ Each has worked examples in `/helpme/storage` and `/helpme/world`: read those fi
 - Sensor places are offsets from the sensor (`(0, 1, 0)` is the block above), not world
   coordinates. Entity keys a kind lacks are missing: use `e.data.get("hostile")`.
 
+The player may be working through `/helpme/lessons` (twenty lessons, each an advancement;
+REFERENCE.md section 7l says what meets each). Teach toward the lesson rather than handing over
+a finished program, unless they ask for one.
+
 The `/helpme` folder has worked examples of everything: `buses/` (and `buses/factory/`, a
 program split into one job per file), `storage/` (many chests as one, sorting, data filters),
 `events/`, `world/` (Entity and Block Sensors, Collector, Dropper Plate, `env`), `redstone/`,

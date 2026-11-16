@@ -783,10 +783,14 @@ public final class ServerComputer {
     private void lessonFor(JsonObject event) {
         String type = event.has("type") ? event.get("type").getAsString() : "";
         qbotics.lesson.Lessons.award(lessonOwnerNow(), "events");
+        if (event.has("tablet")) {
+            qbotics.lesson.Lessons.award(lessonOwnerNow(), "tablet"); // a tablet's screen, whatever kind
+            return;
+        }
         switch (type) {
             case "pin" -> qbotics.lesson.Lessons.award(lessonOwnerNow(), "pin_in");
             case "panel" -> qbotics.lesson.Lessons.award(lessonOwnerNow(), "panel");
-            case "web" -> qbotics.lesson.Lessons.award(lessonOwnerNow(), event.has("tablet") ? "tablet" : "web");
+            case "web" -> qbotics.lesson.Lessons.award(lessonOwnerNow(), "web");
             default -> {
             }
         }

@@ -19,6 +19,7 @@ Contents
    - [7b. The `events` module](#7b-the-events-module-running-code-when-things-happen)
    - [7c. Displays: Text Monitors and Control Panels](#7c-displays-text-monitors-and-control-panels)
    - [7d. Qbots: computers that move](#7d-qbots-computers-that-move)
+   - [7l. Lessons: advancements for learning](#7l-lessons-advancements-for-learning)
 8. [The Network Probe](#8-the-network-probe)
 9. [Limits](#9-limits)
 10. [Errors](#10-errors)
@@ -2607,6 +2608,7 @@ folder with a README saying what its examples do and which blocks they need:
 
 | Folder | Examples |
 |---|---|
+| `lessons` | Twenty lessons, each earning an advancement (section 7l) |
 | `basics` | Python, files, the network (start here) |
 | `buses` | Seven steps with Serial Buses (count, move, filters, a furnace, watching, sorting, crafting), then `factory`: one program, one job per file, started together under `events` |
 | `storage` | Many chests as one (`net.storage`), sorting with bus filters and matching, and data filters and `Filter` |
@@ -2963,6 +2965,52 @@ A recipe is a dict in the form the game loaded it from:
 mod's own, such as a crushing wheel's), so its other keys depend on the type. An ingredient
 written `"#c:ingots/iron"` is a tag: any item carrying it. Very long recipes come as just
 `{"id", "type", "too_long": true}`.
+
+## 7l. Lessons: advancements for learning
+
+Twenty lessons take a player from `print("hello world")` to a base that runs itself. Each is
+an **advancement**, in its own tab of the advancements screen (L): **Qbotics Lessons**, which
+opens when the player first holds a computer or a laptop. Each lesson has a README in
+`/helpme/lessons` (`git clone helpme`, then `read /helpme/lessons/README.md`).
+
+A lesson is met by what a program **does**, not how it is written: any program doing the job
+counts, a helpme example too.
+
+| # | Lesson | Met when a program... |
+|---|---|---|
+| 1 | Hello, World | prints "hello world" (any capitals and punctuation) |
+| 2 | Who's There? | finds a device on its network (`net.bus("inbox")`) |
+| 3 | Moving Day | moves at least one item with `move()` |
+| 4 | A Place for Everything | moves items to a list of destinations, through `only=`/`without=`, or into a bus with a filter |
+| 5 | Waiting, Not Looping | sees a change through a watch, or gets an event (a pin, a panel, a page, a message) while listening |
+| 6 | Redstone, Programmed | sends a signal from a Logic Pin, **and** gets a pin's event through `events.on_pin` |
+| 7 | Hot Stuff | takes what a furnace (or smoker, blast furnace) smelted |
+| 8 | Made to Order | takes a crafting table's result through its screen |
+| 9 | Tools of the Trade | takes the product of another block's screen: stonecutter, smithing table, grindstone, loom, anvil, or a modded one |
+| 10 | Many Chests as One | moves items into or out of a storage (`net.storage`) of four or more containers |
+| 11 | On Screen | opens a Text Monitor to draw on |
+| 12 | Push the Button | gets a Control Panel widget's event |
+| 13 | Web Developer | gets a Web Panel page's event |
+| 14 | In the Palm of Your Hand | gets an event from its screen on a Tablet |
+| 15 | Always On | started from `/startup.sh` or `/startup.py`, runs for a game day (24,000 ticks) without ending |
+| 16 | Over the Air | sends a message to an external address (`100.64.0.2:1003`) that arrives, **and** works a device behind another antenna |
+| 17 | At Your Service | runs as a Server's service for a game day |
+| 18 | Down on the Farm | breaks a crop with a Block Sensor (its drops are `#c:crops`) **and** places a crop with one; **or** uses an item on an animal with an Entity Sensor |
+| 19 | Robot Worker | on a Qbot, moves it **and** digs |
+| 20 | The Factory | all of: crafts at a crafting table fed from a storage of eight or more; sorts (as lesson 4); listens to a display (lessons 11 to 14); runs unattended (lesson 15 or 17) |
+
+- **Whose:** the player who placed the computer, Qbot or Server; a laptop's player. A
+  computer nobody placed earns nothing.
+- **Only while they are in the game.** Something done while its owner is away counts the next
+  time it happens.
+- The parts of lessons 6, 16, 18 and 20 can be done at different times, by different programs.
+- For modpacks: the advancements are `qbotics:lessons/01_hello` to `qbotics:lessons/20_factory`,
+  so quest mods (FTB Quests' advancement task) can hang quests and rewards on them. A data pack
+  can add its own, met by the trigger `qbotics:lesson` with `{"lesson": "<step>"}`; the steps
+  are `hello`, `network`, `move`, `sorting`, `events`, `pin_out`, `pin_in`, `smelting`, `craft`,
+  `workstation`, `storage`, `monitor`, `panel`, `web`, `tablet`, `always_on`, `radio_message`,
+  `radio_device`, `service`, `harvest`, `replant`, `rancher`, `qbot_move`, `qbot_dig` and
+  `factory_craft`.
 
 ## 8. The Network Probe
 
