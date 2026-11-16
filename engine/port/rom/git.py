@@ -119,6 +119,12 @@ def _main(args):
             print("Cloning " + rest[0] + " ...")
             r = clone(rest[0], rest[1] if len(rest) > 1 else None)
             print("%d files from %s, branch %s, at %s." % (r["files"], r["repo"], r["branch"], r["commit"]))
+            where = rest[1] if len(rest) > 1 else _name(rest[0].split("/tree/")[0])
+            try:
+                _os.stat(where + "/README.md")
+                print("Start with:  read " + where + "/README.md")
+            except OSError:
+                pass
         elif op == "pull":
             r = pull(folder, force)
             if r["already"]:

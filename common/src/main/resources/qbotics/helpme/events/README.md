@@ -20,7 +20,7 @@ hand over:
     events.on_change(chest, sort)          # when the chest changes, call sort
     events.on_pin(lever, "rising", open)   # when the lever goes on, call open
     events.every(60, report)               # every minute, call report
-    events.run()                           # now wait, and call them as things happen
+    events.run()                           # then wait, calling them as needed
 
 `events.run()` sleeps until something happens, calls the right function, and sleeps again.
 A waiting program costs the game nothing.
@@ -60,7 +60,8 @@ wrap it in a `lambda` that adds your values:
 In a loop, add `name=name`, or every lambda sees the loop's *last* value:
 
     for name in ["north", "south"]:
-        events.on_pin(net.pin(name), "rising", lambda e, name=name: open_door(name))
+        pin = net.pin(name)
+        events.on_pin(pin, "rising", lambda e, name=name: open_door(name))
 
 ## Rules worth knowing
 

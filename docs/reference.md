@@ -67,6 +67,7 @@ The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (sectio
 | `cd <folder>` | Changes the current folder (`cd` alone goes to `/`) |
 | `pwd` | Shows the current folder |
 | `cat <file>` | Prints a file |
+| `read <file>` | Shows a markdown file (a README) laid out for the screen: headings underlined, `**`, backticks and links' brackets dropped, paragraphs wrapped, tables lined up in columns (or row by row if too wide). Typed at the terminal it stops after each screenful: Enter for more, `q` or Ctrl+C to stop. From a script or over ssh it prints it all |
 | `mkdir <folder>` | Makes a folder |
 | `rm [-r] <path>` | Deletes a file; `-r` deletes a folder and everything in it |
 | `mv <from> <to>` | Renames or moves; moving onto a folder puts it inside |

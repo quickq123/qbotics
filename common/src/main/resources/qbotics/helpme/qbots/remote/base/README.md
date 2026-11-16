@@ -5,8 +5,8 @@ The Qbot obeys orders; a computer at your base shows the controller on your tabl
 the orders. Use this when the base should do more than drive: keep a log of what the Qbot
 found, or drive several Qbots from one tablet.
 
-    tablet --(button press)--> controller.py --(radio: {"do": "forward"})--> driver.py on the Qbot
-    tablet <--(picture, words)-- controller.py <--(radio: answer + picture)--   (moves, then looks)
+    tablet --(button)--> controller.py --(radio: {"do": "forward"})--> driver
+    tablet <--(picture)-- controller.py <--(radio: answer + picture)-- driver
 
 | File | Runs on | What it does |
 |---|---|---|
@@ -28,7 +28,8 @@ found, or drive several Qbots from one tablet.
    and right-click the antenna with the tablet). On the computer:
 
        git clone helpme
-       edit /helpme/qbots/remote/base/controller.py   (put the Qbot's address in QBOT at the top, and save)
+       edit /helpme/qbots/remote/base/controller.py
+          (put the Qbot's address in QBOT at the top, and save)
        run /helpme/qbots/remote/base/controller.py
 3. **Drive.** Right-click in the air with the tablet.
 

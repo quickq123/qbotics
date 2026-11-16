@@ -21,7 +21,7 @@ there), then tells `events` when to do it again: when a chest changes, or on a t
 right function whenever something happens.
 
     main.py ── sorter.start()   ── events.on_change(inbox, ...)
-            ├─ smelter.start()  ── events.on_change(furnace, ...), events.on_change(ores, ...)
+            ├─ smelter.start()  ── on_change(furnace, ...), on_change(ores)
             ├─ report.start()   ── events.every(60, ...)
             └─ events.run()        waits, and calls them as things happen
 

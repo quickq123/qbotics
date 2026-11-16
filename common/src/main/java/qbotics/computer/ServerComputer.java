@@ -880,6 +880,8 @@ public final class ServerComputer {
     private volatile boolean atShellPrompt;
     /** The command running at the shell now ("run sorter.py", "python"), or null at the prompt; "program" for a Qbot's own. */
     private volatile String runningCommand;
+    /** True while a command typed at the terminal runs (not one from a script, an ssh command or a program): read pages then. */
+    private boolean typedAtTerminal;
     /** What the AI helper last stopped here, to start again. */
     private volatile String stoppedForAgent;
     /** During an ssh session from this computer: the computer it is logged in to. */
@@ -1023,10 +1025,12 @@ public final class ServerComputer {
                 case Line line -> {
                     terminal.write(line.text() + "\n");
                     runningCommand = line.text().strip();
+                    typedAtTerminal = true;
                     try {
                         command(computer, line.text());
                     } finally {
                         runningCommand = null;
+                        typedAtTerminal = false;
                     }
                 }
                 case Exec exec -> runExec(computer, exec);
@@ -1263,6 +1267,7 @@ public final class ServerComputer {
 
     private static final String HELP = String.join("\n",
             "Files:   ls [folder]   cd <folder>   pwd   cat <file>",
+            "         read <file.md>     a README (markdown) laid out to read, a screen at a time",
             "         mkdir [-p] <folder>   rm [-r] <path>   mv <from> <to>   cp <from> <to>",
             "Python:  run <file.py>      run a program (python <file.py> also works)",
             "Scripts: run <file.sh>      run a file of commands, one a line (sh <file> too); echo <text>; sleep <seconds>",
@@ -1287,7 +1292,7 @@ public final class ServerComputer {
 
     /** The shell's commands, longest first, for spotting one typed without its space. */
     private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "recipe", "craft", "items", "pip", "ifconfig", "python", "mkdir", "clear", "help",
-            "service", "sleep", "echo", "edit", "item", "pwd", "cat", "run", "ssh", "git", "sh", "ls", "cd", "rm", "mv", "cp", "py");
+            "service", "sleep", "echo", "edit", "item", "read", "pwd", "cat", "run", "ssh", "git", "sh", "ls", "cd", "rm", "mv", "cp", "py");
 
     /**
      * A hint for a line that isn't a command: the space a command lost ("run9_world.py" is
@@ -1328,6 +1333,7 @@ public final class ServerComputer {
                         terminal.write("... (" + (data.length - MAX_CAT_BYTES) + " more bytes)\n");
                     }
                 }
+                case "read" -> read(path(args, 0, name));
                 case "mkdir" -> {
                     if (args.remove("-p")) {
                         // Every folder on the way, and no complaint if it is already there (for scripts run twice).
@@ -1590,6 +1596,32 @@ public final class ServerComputer {
             throw new FsException(exists(folder) ? HostFileSystem.ENOTDIR : HostFileSystem.ENOENT);
         }
         cwd = folder;
+    }
+
+    /**
+     * read: a markdown file laid out for this screen (MarkdownText). Typed at the terminal, a
+     * long one stops after each screenful until Enter (q or Ctrl+C stops); from a script or over
+     * ssh it is printed whole.
+     */
+    private void read(String file) throws FsException, InterruptedException {
+        byte[] data = drive.call(HostFileSystem.READ, file, new byte[0]);
+        String text = new String(data, 0, Math.min(data.length, MAX_CAT_BYTES), StandardCharsets.UTF_8);
+        List<String> lines = MarkdownText.render(text, Terminal.COLS - 1);
+        boolean paging = typedAtTerminal && scriptDepth == 0 && sshRemote == null;
+        int page = Terminal.ROWS - 1;
+        for (int i = 0; i < lines.size(); i++) {
+            if (paging && i > 0 && i % page == 0) {
+                terminal.write("-- more: Enter, or q to stop (" + (i * 100 / lines.size()) + "%) -- ");
+                String answer = readInputLine();
+                if (answer == null || answer.strip().toLowerCase(java.util.Locale.ROOT).startsWith("q")) {
+                    return;
+                }
+            }
+            terminal.write(lines.get(i) + "\n");
+        }
+        if (data.length > MAX_CAT_BYTES) {
+            terminal.write("... (" + (data.length - MAX_CAT_BYTES) + " more bytes)\n");
+        }
     }
 
     private void list(String folder) throws FsException {

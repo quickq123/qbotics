@@ -9,8 +9,11 @@ Each folder is one topic, with a README of its own saying what each example does
 blocks it needs. Go to a folder and run an example:
 
     cd /helpme/basics
-    cat README.md
+    read README.md
     run hello.py
+
+`read` lays a README out for this screen, a screenful at a time (Enter for more, q to stop).
+`cat` shows the file as it is written, marks and all.
 
 Open a file in the editor with `edit <file>`. Ctrl+C stops a running program.
 

@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -87,6 +87,7 @@ public final class QboticsGameTests {
             Map.entry("helpme_factory", QboticsGameTests::helpmeFactory),
             Map.entry("helpme_events", QboticsGameTests::helpmeEvents),
             Map.entry("helpme_storage_world", QboticsGameTests::helpmeStorageWorld),
+            Map.entry("read_markdown", QboticsGameTests::readMarkdown),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
             Map.entry("server_model", QboticsGameTests::serverModel),
@@ -3915,7 +3916,7 @@ public final class QboticsGameTests {
             }
             String screen = screen(computer);
             helper.assertTrue(!screen.contains("Traceback"), "no errors: " + screen);
-            assertScreen(helper, computer, "chest_ores takes", "chest_food takes", "chest_overflow takes anything", "Sorted 67 items", "Tidied 0 items",
+            assertScreen(helper, computer, "Start with:  read helpme/README.md", "chest_ores takes", "chest_food takes", "chest_overflow takes anything", "Sorted 67 items", "Tidied 0 items",
                     "Mending books: 1", "Worn tools: 1", "Put away 0 items, leaving the junk",
                     "The storage is 5 chests", "It holds 67 items", "Cobblestone: 30 in chest_overflow", "Put away 0 items from the inbox",
                     "in minecraft:", "Weather: ", "Watching. Ctrl+C stops it.");
@@ -3924,6 +3925,51 @@ public final class QboticsGameTests {
             stopped[0] = true;
             computer.interrupt();
             helper.fail("stopping the env example");
+        });
+    }
+
+    /**
+     * read: markdown laid out for the screen (a heading underlined, markers dropped, a table in
+     * columns); typed, a long file stops after each screenful until Enter, and q stops it; from
+     * a script it is printed whole.
+     */
+    private static void readMarkdown(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        StringBuilder md = new StringBuilder("# Guide\n\nSome **bold** and `code` and a [link](https://x.y).\n\n"
+                + "| File | What |\n|---|---|\n| `a.py` | Does a |\n| `b.py` | Does b \\| or c |\n\n");
+        for (int n = 1; n <= 30; n++) {
+            md.append("- point ").append(n).append('\n');
+        }
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/guide.md", md.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/show.sh", "read /guide.md\necho script done\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("read /guide.md");
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            String screen = screen(computer);
+            if (step[0] == 0) {
+                assertScreen(helper, computer, "GUIDE\n=====", "Some bold and code and a link (https://x.y).", "File  What\n----  ------------",
+                        "a.py  Does a", "b.py  Does b | or c", "-- more: Enter, or q to stop");
+                helper.assertTrue(!screen.contains("- point 9\n"), "it stops after a screenful: " + screen);
+                computer.submitLine("");
+                step[0] = 1;
+                helper.fail("paging");
+            }
+            if (step[0] == 1) {
+                assertScreen(helper, computer, "- point 9\n");
+                computer.submitLine("q");
+                computer.submitLine("sh /show.sh");
+                step[0] = 2;
+                helper.fail("stopping");
+            }
+            assertScreen(helper, computer, "script done");
+            String last = screen.substring(screen.lastIndexOf("sh /show.sh"));
+            helper.assertTrue(last.contains("- point 30") && !last.contains("-- more"), "a script reads it whole: " + last);
+            String paged = screen.substring(0, screen.lastIndexOf("sh /show.sh"));
+            helper.assertTrue(!paged.contains("- point 30"), "q stopped the typed one: " + paged);
         });
     }
 
