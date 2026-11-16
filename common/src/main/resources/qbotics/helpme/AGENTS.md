@@ -66,6 +66,8 @@ events.run()                       # wait for events until Ctrl+C
 
 ## What else is in the world (look it up by its section)
 
+Each has worked examples in `/helpme/storage` and `/helpme/world`: read those first.
+
 | Want | Use | Section |
 |---|---|---|
 | Many chests as one: count, list, take, put (kinds go where they already are) | `net.storage("chest*")` | 6.4c |
@@ -82,7 +84,13 @@ events.run()                       # wait for events until Ctrl+C
 - `net.bus(name)` raises `NetworkError` if no device has that name: check `devices --json`.
 - An error inside an events handler stops `events.run()` and every other handler.
 - Long `time.sleep()` inside a handler holds up all other events: use `events.after()`.
+- A Block Sensor watch passes a change if the block passes the filter before **or** after:
+  `watch("wheat age=7")` also reports the ripe wheat you just broke. Check `change["block"]`
+  and `change["state"]` in the handler.
+- Sensor places are offsets from the sensor (`(0, 1, 0)` is the block above), not world
+  coordinates. Entity keys a kind lacks are missing: use `e.data.get("hostile")`.
 
 The `/helpme` folder has worked examples of everything: `buses/` (and `buses/factory/`, a
-program split into one job per file), `events/`, `redstone/`, `displays/`, `qbots/`,
-`network/`.
+program split into one job per file), `storage/` (many chests as one, sorting, data filters),
+`events/`, `world/` (Entity and Block Sensors, Collector, Dropper Plate, `env`), `redstone/`,
+`displays/`, `qbots/`, `network/`.

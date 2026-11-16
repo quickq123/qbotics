@@ -41,4 +41,6 @@ in one file, each job (sorting, smelting, a stock report) in a file of its own, 
 - A `source()` or `destination()` only describes one end. Nothing happens until `move`.
 - Filters: `"coal"` is one item, `"*_log"` a pattern, `"#c:ingots"` a tag, `"@create"` a whole
   mod, `"coal | charcoal"` either. The reference (section 4) lists them all.
+- **Many chests?** `/helpme/storage` uses a row of them as one (`net.storage("chest*")`), and
+  sorts into them with filters kept on the buses.
 - For a storage screen with item pictures and a search box, see `/helpme/displays/web_storage`.

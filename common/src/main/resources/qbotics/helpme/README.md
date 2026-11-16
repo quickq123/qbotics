@@ -18,7 +18,9 @@ Open a file in the editor with `edit <file>`. Ctrl+C stops a running program.
 |---|---|
 | `basics` | **Start here.** Python on a computer, files, and what is on the network |
 | `buses` | Counting, moving, sorting, smelting and crafting with Serial Buses, step by step; then `factory`, a whole program with one job per file |
+| `storage` | **Many chests as one:** counting across them, putting each kind away where it belongs, sorting with bus filters, and filters on enchantments and potions |
 | `events` | **How to wait for things:** timers, chests, levers, messages, all at once, with `events` |
+| `world` | **Farms and creatures:** the Entity Sensor (animals, monsters, villagers), the Block Sensor (a wheat farm), the Collector, the Dropper Plate, and `env` (time, weather, biome) |
 | `redstone` | Redstone in and out with Logic Pins, and reacting to events |
 | `displays` | Screens: a Text Monitor, a Control Panel, and Web Panels (HTML, CSS, JavaScript) |
 | `qbots` | Robots: a Qbot that digs a tunnel, its camera, and driving one from your tablet |

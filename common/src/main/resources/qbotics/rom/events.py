@@ -111,10 +111,10 @@ def on_change(device, function=None, what=None):
     """Runs a function for each change to what a device holds: a chest behind a bus, an
     interface, a tank, an energy store. what= narrows it to some items or fluids. The
     function gets the change, as a watch gives it: {"slot": 3, "item": ..., "was": 5,
-    "now": 12}. device can also be a Watch from device.watch()."""
+    "now": 12}. device can also be a watch: one from device.watch(), or env.watch()."""
     if function is None:
         return lambda f: (on_change(device, f, what), f)[1]
-    watch = device if isinstance(device, Watch) else device.watch(what)
+    watch = device if isinstance(device, Watch) or hasattr(device, "changes") else device.watch(what)
     _watches.append((watch, function))
     return function
 

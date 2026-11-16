@@ -92,3 +92,6 @@ More events elsewhere in helpme:
 | `/helpme/displays/panel` | Buttons and switches on a Control Panel (`on_press`, `on_change`) |
 | `/helpme/buses/6_sort.py` | Sorting whatever arrives (`on_change`) |
 | `/helpme/buses/factory` | A bigger program: one job per file, each adding its own handlers, one `events.run()` for all |
+| `/helpme/world/4_wheat_farm.py` | Harvesting wheat as each one ripens (`on_change` on a Block Sensor) |
+| `/helpme/world/5_collector.py` | Emptying a Collector when it picks something up |
+| `/helpme/world/7_day_night.py` | Night falling, the weather changing (`on_change` with `env.watch()`) |

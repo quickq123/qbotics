@@ -1769,7 +1769,7 @@ events.run()                                        # until events.stop() or Ctr
 | `events.every(seconds, function)` | Runs the function every so many seconds, starting that many seconds from now. Returns a timer; `timer.cancel()` stops it |
 | `events.after(seconds, function)` | Runs the function once, so many seconds from now. Returns a timer |
 | `events.on_pin(pin, what, function)` | Runs the function when a Logic Pin sees `"rising"`, `"falling"`, `"change"` or `"block"` (section 6.10). The function gets an event with `.name`, `.event`, `.level` and `.block` |
-| `events.on_change(device, function, what=None)` | Runs the function for each change to what a device holds (section 6.4b). `device` can also be a watch |
+| `events.on_change(device, function, what=None)` | Runs the function for each change to what a device holds (section 6.4b). `device` can also be a watch (a device's, or `env.watch()`) |
 | `events.on_message(function)` | Runs the function for each message from another computer: it gets `.sender` and `.data`. While `run()` is going, messages come here rather than to `network.receive()` |
 | `events.on_chat(chat, function)` | Runs the function for each message a player says in chat, as a Chat Interface hears it (section 6.11). It gets `.player` and `.message` |
 | `events.on_touch(display, function)` | Runs the function when a player touches a monitor or panel (section 7c). Widgets have their own `on_press` and `on_change` |
@@ -2608,7 +2608,9 @@ folder with a README saying what its examples do and which blocks they need:
 |---|---|
 | `basics` | Python, files, the network (start here) |
 | `buses` | Seven steps with Serial Buses (count, move, filters, a furnace, watching, sorting, crafting), then `factory`: one program, one job per file, started together under `events` |
+| `storage` | Many chests as one (`net.storage`), sorting with bus filters and matching, and data filters and `Filter` |
 | `events` | Timers, handlers, passing your own values, keeping handlers quick (most need no blocks) |
+| `world` | The Entity Sensor (animals, a guard, a trader), a self-tending wheat farm with a Block Sensor and a sign, emptying a Collector, the Dropper Plate, and `env` (day and night, weather) |
 | `redstone` | Logic Pins and events |
 | `displays` | A Text Monitor, a Control Panel, a Web Panel storage browser (item pictures, search) and a Web Panel dashboard (JavaScript, canvas) |
 | `qbots` | A tunnel digger and the camera |
@@ -2858,7 +2860,8 @@ for change in env.watch("dark"):                 # sleeps until it gets dark (or
 gives each change as `{"what": "phase", "was": "sunset", "now": "night", "env": {...}}`. With no
 `what`, it watches the day's phase, darkness, weather, what falls here, biome and dimension; give
 one key or a list to watch others (`"day"`, `"moon"`, `"sky"`). Like other watches it has
-`changes()`, `wait(timeout)`, and works in a `for` loop. A Qbot or a laptop that moves into
+`changes()`, `wait(timeout)`, and works in a `for` loop. Hand one to `events.on_change(env.watch(), f)` to
+run alongside other events. A Qbot or a laptop that moves into
 another biome, or through a portal, sees that as a change.
 
 ## 7k. Items and recipes: the `game` module

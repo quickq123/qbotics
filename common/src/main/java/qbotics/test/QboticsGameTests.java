@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -86,6 +86,7 @@ public final class QboticsGameTests {
             Map.entry("helpme_storage", QboticsGameTests::helpmeStorage),
             Map.entry("helpme_factory", QboticsGameTests::helpmeFactory),
             Map.entry("helpme_events", QboticsGameTests::helpmeEvents),
+            Map.entry("helpme_storage_world", QboticsGameTests::helpmeStorageWorld),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
             Map.entry("server_model", QboticsGameTests::serverModel),
@@ -3867,6 +3868,62 @@ public final class QboticsGameTests {
                     "4. door north", "4. door south", "4. door east", "5. counted", "Done.",
                     "slow handler: done", "quick handler: part two");
             helper.assertTrue(!screen(computer).contains("Traceback"), "no errors: " + screen(computer));
+        });
+    }
+
+    /**
+     * The helpme storage examples run as a player would, against six named buses on barrels:
+     * sorting with bus filters, data filters and Filter objects, many chests as one; then the
+     * world folder's env example, which needs no blocks, until Ctrl+C.
+     */
+    private static void helpmeStorageWorld(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        java.util.Map<BlockPos, String> names = new java.util.HashMap<>();
+        String[][] rows = {{"inbox", "chest_ores", "chest_food"}, {"chest_overflow", "chest_books", "chest_repair"}};
+        for (int y = 1; y <= 2; y++) {
+            for (int x = 1; x <= 3; x++) {
+                setPort(helper, new BlockPos(x, y, 0), Kind.BUS, Direction.SOUTH);
+                helper.setBlock(new BlockPos(x, y, 1), Blocks.BARREL);
+                names.put(helper.absolutePos(new BlockPos(x, y, 0)), rows[y - 1][x - 1]);
+            }
+        }
+        var inbox = helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.BarrelBlockEntity.class);
+        var enchantments = helper.getLevel().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT);
+        inbox.setItem(0, new ItemStack(Items.IRON_INGOT, 10));
+        inbox.setItem(1, new ItemStack(Items.BREAD, 5));
+        inbox.setItem(2, net.minecraft.world.item.enchantment.EnchantmentHelper.createBook(new net.minecraft.world.item.enchantment.EnchantmentInstance(
+                enchantments.getOrThrow(net.minecraft.world.item.enchantment.Enchantments.MENDING), 1)));
+        ItemStack worn = new ItemStack(Items.IRON_PICKAXE);
+        worn.setDamageValue(30);
+        inbox.setItem(3, worn);
+        inbox.setItem(4, new ItemStack(Items.DIRT, 20));
+        inbox.setItem(5, new ItemStack(Items.COBBLESTONE, 30));
+        for (NetworkDevice device : networkAt(helper, new BlockPos(1, 1, 0)).devices()) {
+            if (names.containsKey(device.getBlockPos())) {
+                device.setDeviceName(names.get(device.getBlockPos()));
+            }
+        }
+        for (String line : List.of("git clone helpme", "cd /helpme/storage", "run 2_sorting.py", "run 3_filters.py", "run 1_many_chests.py",
+                "cd /helpme/world", "run 7_day_night.py")) {
+            computer.submitLine(line);
+        }
+        boolean[] stopped = {false};
+        helper.succeedWhen(() -> {
+            if (stopped[0]) {
+                helper.assertTrue(computer.running() == null, "Ctrl+C stopped it");
+                return;
+            }
+            String screen = screen(computer);
+            helper.assertTrue(!screen.contains("Traceback"), "no errors: " + screen);
+            assertScreen(helper, computer, "chest_ores takes", "chest_food takes", "chest_overflow takes anything", "Sorted 67 items", "Tidied 0 items",
+                    "Mending books: 1", "Worn tools: 1", "Put away 0 items, leaving the junk",
+                    "The storage is 5 chests", "It holds 67 items", "Cobblestone: 30 in chest_overflow", "Put away 0 items from the inbox",
+                    "in minecraft:", "Weather: ", "Watching. Ctrl+C stops it.");
+            helper.assertTrue(countIn(helper, new BlockPos(2, 1, 1), Items.IRON_INGOT) == 10 && countIn(helper, new BlockPos(3, 1, 1), Items.BREAD) == 5,
+                    "the iron and the bread went to their chests");
+            stopped[0] = true;
+            computer.interrupt();
+            helper.fail("stopping the env example");
         });
     }
 

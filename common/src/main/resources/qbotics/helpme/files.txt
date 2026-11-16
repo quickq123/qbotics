@@ -56,3 +56,15 @@ redstone/README.md
 redstone/door.py
 server/README.md
 server/heartbeat.py
+storage/1_many_chests.py
+storage/2_sorting.py
+storage/3_filters.py
+storage/README.md
+world/1_animals.py
+world/2_guard.py
+world/3_trader.py
+world/4_wheat_farm.py
+world/5_collector.py
+world/6_dropper.py
+world/7_day_night.py
+world/README.md
