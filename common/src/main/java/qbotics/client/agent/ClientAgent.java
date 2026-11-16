@@ -584,6 +584,12 @@ public final class ClientAgent {
                 + "writing, files) is refused, so use it freely to find out how things stand before answering. With change \"true\" "
                 + "it may change things, and the player may have to allow it. Stopped after " + qbotics.agent.AgentTools.RUN_SECONDS + " seconds.",
                 Map.of("computer", computer, "code", "The Python to run", "change", "\"true\" only if it must change things"), "code"));
+        tools.add(tool("stop_program", "Stops the program running on a computer (as Ctrl+C), so you can run your tests there: a computer "
+                + "running a program (an events.run() loop, say) is busy until then. The computers tool says what each runs. The player "
+                + "is asked first. Start it again with start_program when done.", Map.of("computer", computer)));
+        tools.add(tool("start_program", "Starts a program running on a computer, in the background, as if typed: by default the one "
+                + "stop_program stopped there. Use it to put back what you stopped. The player is asked first.",
+                Map.of("computer", computer, "command", "What to start, e.g. \"run sorter.py\"; leave out for what you stopped")));
         tools.add(tool("check_code", "Checks Python for mistakes without running it: a file on a computer, or code given directly.",
                 Map.of("computer", computer, "path", "A file to check", "code", "Or the code itself")));
         tools.add(tool("find_items", "Finds items in this game, every mod's included: by word (\"copper\"), pattern (\"*_ingot\"), "
@@ -680,6 +686,21 @@ public final class ClientAgent {
                     return "The player said no: it wasn't run. Try it look-only (leave out change), or show them the code.";
                 }
                 say("(" + (change ? "running" : "looking with") + " Python" + on + ")", ChatFormatting.DARK_GRAY);
+                return serverTool(name, args);
+            }
+            case "stop_program": {
+                if (!settings.auto && !approve("stop the program running" + (on.isEmpty() ? " on your computer" : on) + " to test there", null)) {
+                    return "The player said no: it is still running. Use another computer, or try look-only elsewhere.";
+                }
+                say("(stopping the program" + on + ")", ChatFormatting.DARK_GRAY);
+                return serverTool(name, args);
+            }
+            case "start_program": {
+                String command = parsed.has("command") ? parsed.get("command").getAsString() : "";
+                if (!settings.auto && !approve("start " + (command.isEmpty() ? "the program it stopped" : "\"" + command + "\"") + on, null)) {
+                    return "The player said no: nothing was started.";
+                }
+                say("(starting " + (command.isEmpty() ? "the program again" : command) + on + ")", ChatFormatting.DARK_GRAY);
                 return serverTool(name, args);
             }
             case "run": {
@@ -779,6 +800,8 @@ public final class ClientAgent {
                 + "- Your python tool is a scratchpad on the player's computer: look-only, it can read anything their devices can "
                 + "(item counts and contents, storage groups, what an Entity Sensor or Block Sensor sees, env for time and weather) and "
                 + "changes nothing, so the player isn't asked. Use it to check facts and to try code before you answer.\n"
+                + "- A computer running a program (computers shows running_program) can't run your code. Ask to stop it with "
+                + "stop_program, do your tests, and always put it back with start_program afterwards.\n"
                 + "- When unsure how something in the mod works, use search_manual.\n"
                 + "- For items, tags and crafting, look them up in this game with find_items, item_info and recipes: it has other "
                 + "mods, and its recipes may differ from plain Minecraft's. Use the exact item names they give in code.\n"

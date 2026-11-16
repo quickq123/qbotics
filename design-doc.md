@@ -1222,6 +1222,10 @@ counts, contents, storage, sensors' lists and reads, env, watches, recipes) and 
 write, so a look-only run needs no permission; with change "true" it may change things and the player is asked, as for
 write_file and run. The helper's guide (helpme/AGENTS.md, in its system prompt) gained a map of the newer blocks and
 modules, and its prompt tells it to check facts with the scratchpad before answering.
+- Busy computers (asked for next): `computers` shows each one's running_program (ServerComputer records the command at
+  its shell); `stop_program` stops it as Ctrl+C (twice if need be, leaving the Python prompt), remembering it;
+  `start_program` starts it again in the background (by default what was stopped; a Qbot's program via its Run path).
+  Both are asked of the player, and the prompt tells the helper to always put back what it stopped.
 
 ### 11.0.14 Sign writing, raw block data, and testing against real mods (built 2026-11-16)
 

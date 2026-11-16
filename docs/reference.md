@@ -2769,13 +2769,18 @@ remembers the conversation until `/ai clear`; `/ai stop` stops it mid-way.
 | List a computer's devices, read its files, check code for mistakes, search this manual | Freely |
 | See what you are looking at, or a picture of your view | When asked |
 | **Try Python, look-only**, on one of your computers: read item counts, chests and storage, what Entity and Block Sensors see, `env` | Freely: in this look-only scratchpad anything that would change something (moving items, using or attacking, breaking, placing, writing signs or files, the internet) is refused, and your files are untouched |
+| **Stop the program running on a computer** so it can test there, and **start it again** afterwards | It asks first, each time. It sees which computers are running what, and stops a program as Ctrl+C does |
 | **Write a file**, **run a command** (`run test.py`), or **run Python that may change things** | It asks first: **[Allow]** or **[Deny]** in chat; point at the question to see the file or code. A command it runs shows in the computer's terminal; both are stopped after 30 seconds |
 
 **Its scratchpad.** So that its answers come from your world, not guesses, the helper can try
 code on your computer before it answers: "how much iron is in my storage?" is answered by
 counting it, "is the wheat ripe?" by asking your Block Sensor. Look-only runs don't ask you,
-because they can't change anything: the computer itself refuses every call that would. A
-computer busy running a program can't be used for it until the program stops.
+because they can't change anything: the computer itself refuses every call that would.
+
+**Busy computers.** A computer running a program (an `events.run()` loop, say) can't run the
+helper's code at the same time. The helper can ask to stop it ("[AI] wants to stop the program
+running on farmpc to test there"), do its tests, and ask to start it again: by default the same
+command it stopped (a Qbot's own program starts as its Run button starts it).
 
 In the computer's editor, the **Chat** panel (section 1.4b) asks it with the open file, cursor
 and selection sent along. `/ai auto on` lets it write and run without asking; `/ai auto off` puts the question back.

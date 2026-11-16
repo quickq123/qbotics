@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -146,6 +146,7 @@ public final class QboticsGameTests {
             Map.entry("block_sensor_data", QboticsGameTests::blockSensorData),
             Map.entry("remote_sensors", QboticsGameTests::remoteSensors),
             Map.entry("agent_scratchpad", QboticsGameTests::agentScratchpad),
+            Map.entry("agent_stop_start", QboticsGameTests::agentStopStart),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -5201,6 +5202,68 @@ public final class QboticsGameTests {
             } catch (qbotics.engine.HostFileSystem.FsException e) {
                 helper.fail("the allowed run should have written /y.txt");
             }
+        });
+    }
+
+    /**
+     * The AI helper and a computer busy with a looping program: computers says what it runs, the
+     * scratchpad says it is busy, stop_program stops it, a look-only run then works, and
+     * start_program puts the program back running.
+     */
+    private static void agentStopStart(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        helper.setBlock(new BlockPos(0, 1, 0), QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity block = helper.getBlockEntity(new BlockPos(0, 1, 0), ComputerBlockEntity.class);
+        block.onPlaced(player.getUUID());
+        String name = "busypc" + Integer.toHexString(player.getUUID().hashCode() & 0xfff);
+        block.setDeviceName(name);
+        ServerComputer computer = ComputerManager.get(helper.getLevel().getServer()).getOrStart(block);
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/loop.py",
+                    "import time\nprint('looping')\nwhile True:\n    time.sleep(0.2)\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /loop.py");
+        String on = "{\"computer\": \"" + name + "\"}";
+        com.google.gson.JsonObject look = new com.google.gson.JsonObject();
+        look.addProperty("computer", name);
+        look.addProperty("code", "print('free to test')");
+        java.util.Map<String, java.util.concurrent.CompletableFuture<String>> got = new java.util.LinkedHashMap<>();
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            if (step[0] == 0) {
+                helper.assertTrue(screen(computer).contains("looping"), "the program is running");
+                got.put("computers", qbotics.agent.AgentTools.call(player, "computers", ""));
+                got.put("busy", qbotics.agent.AgentTools.call(player, "python", look.toString()));
+                step[0] = 1;
+                helper.fail("asked");
+            }
+            if (step[0] == 1) {
+                helper.assertTrue(got.get("busy").isDone(), "waiting");
+                got.put("stop", qbotics.agent.AgentTools.call(player, "stop_program", on));
+                step[0] = 2;
+                helper.fail("stopping");
+            }
+            if (step[0] == 2) {
+                helper.assertTrue(got.get("stop").isDone(), "waiting for it to stop");
+                got.put("test", qbotics.agent.AgentTools.call(player, "python", look.toString()));
+                step[0] = 3;
+                helper.fail("testing");
+            }
+            if (step[0] == 3) {
+                helper.assertTrue(got.get("test").isDone(), "waiting for the test");
+                got.put("start", qbotics.agent.AgentTools.call(player, "start_program", on));
+                step[0] = 4;
+                helper.fail("starting");
+            }
+            helper.assertTrue(got.get("start").isDone() && "run /loop.py".equals(computer.running()), "the program runs again: " + computer.running());
+            String computers = got.get("computers").join();
+            helper.assertTrue(computers.contains("\"running_program\":\"run /loop.py\""), "computers says what it runs: " + computers);
+            helper.assertTrue(got.get("busy").join().startsWith("Busy: it is running \"run /loop.py\""), "busy: " + got.get("busy").join());
+            helper.assertTrue(got.get("stop").join().equals("Stopped \"run /loop.py\"."), "stopped: " + got.get("stop").join());
+            helper.assertTrue(got.get("test").join().contains("free to test"), "then the test runs: " + got.get("test").join());
+            helper.assertTrue(got.get("start").join().startsWith("Started \"run /loop.py\""), "started: " + got.get("start").join());
         });
     }
 

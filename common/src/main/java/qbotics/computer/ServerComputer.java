@@ -533,6 +533,73 @@ public final class ServerComputer {
         }
     }
 
+    /** The command running at its shell now, or null if it is at the prompt (or in an ssh session). */
+    public @org.jspecify.annotations.Nullable String running() {
+        return atShellPrompt ? null : runningCommand;
+    }
+
+    /**
+     * The AI helper stops what is running, as Ctrl+C would (and a second Ctrl+C, and leaving the
+     * Python prompt, if need be), so it can try things; it remembers the command, to start again.
+     * Answers with the command stopped, or why nothing was.
+     */
+    public CompletableFuture<String> stopForAgent() {
+        CompletableFuture<String> done = new CompletableFuture<>();
+        if (sshRemote != null) {
+            done.complete("It is in an ssh session to another computer; type exit in its terminal first.");
+            return done;
+        }
+        String was = runningCommand;
+        if (atShellPrompt || was == null) {
+            done.complete("Nothing is running on it: it is at its prompt.");
+            return done;
+        }
+        stoppedForAgent = was;
+        interrupt();
+        if (was.equals("python") || was.equals("py")) {
+            jobs.offer(new Line("exit()")); // the Python prompt: Ctrl+C only clears the line
+        }
+        long started = System.nanoTime();
+        java.util.concurrent.ScheduledFuture<?>[] check = new java.util.concurrent.ScheduledFuture<?>[1];
+        boolean[] again = {false};
+        check[0] = EXEC_TIMER.scheduleAtFixedRate(() -> {
+            long waited = (System.nanoTime() - started) / 1_000_000;
+            if (atShellPrompt) {
+                done.complete("Stopped \"" + was + "\".");
+                check[0].cancel(false);
+            } else if (waited > 3000 && !again[0]) {
+                again[0] = true;
+                interrupt(); // a second Ctrl+C stops it for certain
+            } else if (waited > 10000) {
+                done.complete("Asked \"" + was + "\" to stop, but it hasn't yet.");
+                check[0].cancel(false);
+            }
+        }, 100, 100, java.util.concurrent.TimeUnit.MILLISECONDS);
+        return done;
+    }
+
+    /**
+     * The AI helper starts a command running in the background, as if typed at the prompt (by
+     * default what it stopped): it keeps running after the helper is done. A Qbot's own program
+     * starts as its Run button starts it.
+     */
+    public String startForAgent(@org.jspecify.annotations.Nullable String command) {
+        String wanted = command == null || command.isBlank() ? stoppedForAgent : command.strip();
+        if (wanted == null) {
+            return "Say what to start, e.g. \"run sorter.py\": nothing was stopped here to start again.";
+        }
+        if (!atShellPrompt || sshRemote != null) {
+            return "It is busy: something is running (" + runningCommand + "). Stop it first.";
+        }
+        if (wanted.equals("program")) {
+            jobs.offer(new RunFile(STARTUP_FILE, true));
+        } else {
+            jobs.offer(new Line(wanted));
+        }
+        stoppedForAgent = null;
+        return "Started \"" + wanted + "\"; it keeps running.";
+    }
+
     /**
      * The AI helper's scratchpad: runs Python on this computer without touching its files and
      * answers with what it printed. Look-only, it can only read (LookOnly); either way it is
@@ -811,6 +878,10 @@ public final class ServerComputer {
 
     /** True while this computer sits at its shell prompt, waiting for a command. */
     private volatile boolean atShellPrompt;
+    /** The command running at the shell now ("run sorter.py", "python"), or null at the prompt; "program" for a Qbot's own. */
+    private volatile String runningCommand;
+    /** What the AI helper last stopped here, to start again. */
+    private volatile String stoppedForAgent;
     /** During an ssh session from this computer: the computer it is logged in to. */
     private volatile ServerComputer sshRemote;
     /** Set when a session begins or ends, so players watching get the whole new screen. */
@@ -951,15 +1022,25 @@ public final class ServerComputer {
             switch (job) {
                 case Line line -> {
                     terminal.write(line.text() + "\n");
-                    command(computer, line.text());
+                    runningCommand = line.text().strip();
+                    try {
+                        command(computer, line.text());
+                    } finally {
+                        runningCommand = null;
+                    }
                 }
                 case Exec exec -> runExec(computer, exec);
                 case RunFile file -> {
                     terminal.write("run " + file.path() + "\n");
-                    if (file.program()) {
-                        runProgramNow(computer);
-                    } else {
-                        runFile(computer, file.path());
+                    runningCommand = file.program() ? "program" : "run " + file.path();
+                    try {
+                        if (file.program()) {
+                            runProgramNow(computer);
+                        } else {
+                            runFile(computer, file.path());
+                        }
+                    } finally {
+                        runningCommand = null;
                     }
                 }
                 case Interrupt ignored -> terminal.write("^C\n");

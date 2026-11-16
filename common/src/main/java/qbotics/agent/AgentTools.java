@@ -66,6 +66,8 @@ public final class AgentTools {
                 case "list_files", "read_file", "write_file" -> files(player, tool, args);
                 case "run" -> run(player, args);
                 case "python" -> python(player, args);
+                case "stop_program" -> computer(player, args).computer().stopForAgent();
+                case "start_program" -> CompletableFuture.completedFuture(computer(player, args).computer().startForAgent(text(args, "command")));
                 case "find_items", "item_info", "recipes" -> knowledge(player, tool, args);
                 case "plan" -> plan(player, args);
                 default -> CompletableFuture.completedFuture("There is no tool called " + tool + ".");
@@ -135,6 +137,11 @@ public final class AgentTools {
             one.addProperty("kind", target.laptop() ? "laptop" : "computer");
             one.addProperty("running", target.computer() != null);
             one.addProperty("opened_last", target.deviceId().equals(last));
+            // What it is running now: a busy computer can't run the helper's tests until that stops.
+            String busyWith = target.computer() == null ? null : target.computer().running();
+            if (busyWith != null) {
+                one.addProperty("running_program", busyWith);
+            }
             list.add(one);
         }
         return list.toString();
@@ -313,6 +320,11 @@ public final class AgentTools {
             throw new Problem("Give the Python to run, e.g. \"from logistics import network\\nprint(network().devices())\".");
         }
         boolean change = text(args, "change").equalsIgnoreCase("true");
+        String busyWith = target.computer().running();
+        if (busyWith != null) {
+            return CompletableFuture.completedFuture("Busy: it is running \"" + busyWith + "\". Ask the player to let you stop it "
+                    + "(stop_program), try your code, then start it again (start_program); or use another of their computers.");
+        }
         return target.computer().scratchForAgent(code, !change, RUN_SECONDS).thenApply(result ->
                 (result.status() == 0 ? "ran" : "failed") + (change ? "" : " (look-only)") + "\n" + result.output())
                 .completeOnTimeout("The code didn't finish in time.", RUN_SECONDS + 15, TimeUnit.SECONDS);
