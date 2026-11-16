@@ -27,6 +27,19 @@ error: it just moves fewer, or 0.
     print("Moved", move(inbox, store, "cobblestone", 16), "cobblestone")
     print("Moved", move(inbox, store), "of everything else")
 
+## Watch it run, line by line
+
+A program runs too fast to see. The editor can slow it down to one line at a time:
+
+1. `edit start.py`, and look at the code.
+2. Press **F8**. The program starts and stops at its first line, marked in **amber**.
+3. Press **F8** again: that one line runs, and the mark moves to the next. Watch the terminal
+   below as each line does its part: nothing happens until the `move` line, then the `print`s.
+4. **Ctrl+Z** runs the rest at full speed. **Ctrl+C** stops it.
+
+Do this whenever a program surprises you: step until the line where it does something you
+didn't expect. That line is where to look. F8 works on any program, in every lesson.
+
 ## Your turn
 
 Move one thing back from the store to the inbox, then count what is where:
@@ -35,6 +48,13 @@ Move one thing back from the store to the inbox, then count what is where:
     print("inbox:", inbox.count(), "store:", store.count())
     for stack in store.contents():
         print(stack["count"], stack["item"])
+
+## New Python here
+
+- A function can take several **values** in its brackets, in order: `move(source, destination, WHAT)`.
+- `None` means "nothing" or "not given". `move(a, b, None)` moves every kind of item.
+- **Numbers** are written plainly, `16`, with no quotes. A function can give one back:
+  `moved = move(...)` keeps the number it gives.
 
 ## Hints
 

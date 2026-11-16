@@ -80,6 +80,8 @@ final class IdeSession {
     final UUID deviceId;
     /** True for a drive with no computer behind it (a Programmer's): files only, no terminal, nothing runs. */
     boolean editOnly;
+    /** The devices on this computer's network, as last asked (every few seconds while the editor is open). */
+    volatile java.util.List<qbotics.ide.Completer.Device> devices = java.util.List.of();
     /** What the title bar calls it: "Computer", or "Programmer". */
     String title = "Computer";
     /** A laptop: it has no settings page (it isn't a block with a name or a login rule). */
@@ -172,6 +174,9 @@ final class IdeSession {
     int chatScroll;
     final CodeView chatInput = new CodeView(new TextBuffer(""), Language.PLAIN, false);
     final CodeView scratch = new CodeView(new TextBuffer("print(\"hello world\")"), Language.PYTHON, false);
+    {
+        scratch.devices = () -> devices; // the scratchpad suggests device names too
+    }
     String scratchOutput = "";
     boolean scratchOk = true;
     boolean scratchRunning;

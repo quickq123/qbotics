@@ -39,6 +39,13 @@ everything into its own chest:
     net.bus("chest_3").set_filter(matching=True)    # what you start it with
     move(net.bus("inbox"), store)       # chest_4, with no filter: the rest
 
+## New Python here
+
+- `store.contents()[:10]` is the first ten items of a list (a **slice**). `[0]` is the first one,
+  `[-1]` the last.
+- `len(x)` is how many items a list (or letters a text) has.
+- `entry["count"]` reads one value from a dictionary by its name (its **key**).
+
 ## Hints
 
 - A new chest joins as soon as its bus gets a matching name: `bus.rename("chest_5")`.

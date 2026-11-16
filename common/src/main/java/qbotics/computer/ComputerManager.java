@@ -532,6 +532,20 @@ public final class ComputerManager {
     public void onFileRequest(ServerPlayer player, IdePayloads.FileRequest request) {
         ServerComputer computer = viewedComputer(player, request.deviceId());
         UUID playerId = player.getUUID();
+        if (request.op() == IdePayloads.FileRequest.DEVICES) {
+            // On the server thread: what is on the computer's cables now. A laptop has none.
+            Viewing at = computer == null ? null : places.get(request.deviceId());
+            String listed = "[]";
+            if (at != null) {
+                com.google.gson.JsonObject reply = com.google.gson.JsonParser.parseString(qbotics.network.NetworkCalls.handle(
+                        player.level().getServer(), at.dimension(), at.pos(), "[\"devices\"]")).getAsJsonObject();
+                if (reply.has("r")) {
+                    listed = reply.get("r").toString();
+                }
+            }
+            reply(playerId, request, 0, listed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return;
+        }
         if (request.op() == IdePayloads.FileRequest.CHECK) {
             // Only for someone with this editor open; the drive isn't touched.
             if (computer == null && viewedDrive(player, request.deviceId()) == null) {
@@ -683,10 +697,10 @@ public final class ComputerManager {
     }
 
     /** F8 in the editor the player has open. */
-    public void onStep(ServerPlayer player, UUID deviceId) {
+    public void onStep(ServerPlayer player, UUID deviceId, String openFile) {
         ServerComputer computer = viewedComputer(player, deviceId);
         if (computer != null) {
-            computer.step();
+            computer.step(openFile == null || openFile.isEmpty() ? null : openFile);
         }
     }
 

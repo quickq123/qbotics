@@ -44,6 +44,13 @@ Add a text field that searches the store: `<input name="search" value="{{search}
 event named `search` with `event.value`, the text typed. Count only what matches:
 `store.count("*" + event.value + "*")`, and put the result in the state.
 
+## New Python here
+
+- `web.state.update(total=..., search=...)` hands over several named values at once.
+- HTML is not Python: it is the page's own language, of **tags** like `<p>text</p>`. `{{total}}`
+  is filled in from the program's state.
+- A file can be read from anywhere by its whole path: `/lessons/13_web/index.html`.
+
 ## Hints
 
 - `{{#items}} ... {{/items}}` repeats for each item of a list in the state: a table of stock.

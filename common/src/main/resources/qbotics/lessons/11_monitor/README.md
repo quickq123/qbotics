@@ -41,6 +41,13 @@ Show what a chest holds, and keep it up to date (lesson 5). Write it in this fol
     events.on_change(chest, show)
     events.run()
 
+## New Python here
+
+- `"%5d %s" % (count, name)` fills a text with values: `%d` a number (`%5d`: five wide), `%s`
+  anything. Good for lining things up in columns.
+- `for row, stack in enumerate(things):` gives each item with its number, 0, 1, 2...
+- `"minecraft:iron_ingot".split(":")` cuts text at each `:` into a list; `[-1]` takes the last part.
+
 ## Hints
 
 - Colours: `"white"`, `"red"`, `"green"`, `"blue"`, `"yellow"`, ..., as text and background.

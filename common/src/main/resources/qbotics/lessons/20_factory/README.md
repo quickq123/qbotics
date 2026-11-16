@@ -51,6 +51,13 @@ Build it: an inbox sorted into eight or more chests, something crafted from them
 stock, a screen that shows the stock, all started from `/startup.sh` (or as services), and left
 running for a game day. When it is done, your base runs itself.
 
+## New Python here
+
+- Your own files are modules too: `sorter.py` beside `main.py` is `import sorter`, and its function
+  is `sorter.start()`.
+- `//` divides and drops the remainder: `(short + 3) // 4` is how many runs of 4 make `short`.
+- `min(a, b)` is the smaller of two values; `max` the bigger.
+
 ## Then what?
 
 - Plan whole crafting trees with `game.plan("piston", 8, have=store)` (manual 7k).

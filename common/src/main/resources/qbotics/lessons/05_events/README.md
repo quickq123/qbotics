@@ -46,6 +46,15 @@ The heart of it:
 
 Drop something in the inbox and watch it go.
 
+## New Python here
+
+- `def sort(change=None):` makes your own **function**: the lines indented under it run each time
+  it is called. `change=None` means it takes one value, and works without one too.
+- Lines that start further in (4 spaces) belong to the line above them: the body of a `def`,
+  `for` or `if`. That is how Python knows where a block ends.
+- `events.on_change(inbox, sort)` hands over the function itself (no brackets), so events can call
+  it later, again and again.
+
 ## Hints
 
 - Hand over the function (`sort`), don't call it (`sort()`).

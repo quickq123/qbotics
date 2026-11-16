@@ -47,6 +47,13 @@ your cables:
     print(mine.bus("ore_chest").count(), "items at the mine")
     move(mine.bus("ore_chest"), net.bus("store"), "#c:raw_materials", 64)
 
+## New Python here
+
+- Messages carry Python values: a number, a text, a list or a dictionary (`{"ore": 128}`).
+- `message.data`, `message.sender`: the parts of a message, reached with dots.
+- `print(network.receive(5).data)` does three things at once, inside out: wait up to 5 seconds for
+  a message, take its data, print it.
+
 ## Hints
 
 - An antenna carries a limited number of items a second; a move asks for what fits.

@@ -32,6 +32,17 @@ itself, and keeps going while nobody looks.
 Leave it running for a game day: one sunrise to the next. The advancement comes up when it
 has run that long without stopping.
 
+## New Python here
+
+- A program that should never stop is a loop (or `events.run()`). It ends only with an error, Ctrl+C,
+  or the computer switching off.
+- `try:` ... `except Exception as e:` catches any error, so a program can print it and carry on:
+
+      try:
+          sort()
+      except Exception as e:
+          print("sorting failed:", e)
+
 ## Hints
 
 - **Errors stop a program.** One unlucky error in a handler stops `events.run()` and every

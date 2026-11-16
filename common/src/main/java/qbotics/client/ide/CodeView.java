@@ -63,6 +63,8 @@ final class CodeView {
 
     // The autocomplete list, when it is showing.
     private Completer.Result completion;
+    /** The devices on the computer's network, for their names in net.bus("..."): set by the editor. */
+    java.util.function.Supplier<List<Completer.Device>> devices = List::of;
     private int completionIndex;
     private int completionTop;
     /** True once the player has moved through the list; only then does Enter pick from it. */
@@ -369,7 +371,13 @@ final class CodeView {
         for (String item : items) {
             longest = Math.max(longest, item.length());
         }
-        int width = longest * Ui.CELL_W + 12;
+        List<String> notes = completion.notes();
+        int longestNote = 0;
+        for (String note : notes) {
+            longestNote = Math.max(longestNote, note.length());
+        }
+        int noteX = (longest + 2) * Ui.CELL_W;
+        int width = longest * Ui.CELL_W + 12 + (longestNote > 0 ? (longestNote + 2) * Ui.CELL_W : 0);
         int height = rows * Ui.CELL_H + 4;
         int x = textLeft + (completion.start() - scrollColumn) * Ui.CELL_W - 5;
         int lineY = area.y() + (buffer.cursorLine() - scrollLine) * Ui.CELL_H;
@@ -388,6 +396,9 @@ final class CodeView {
             int typed = Math.min(completion.prefix().length(), item.length());
             ui.mono(item, 0, typed, x + 5, rowY, Ui.SYN_KEYWORD);
             ui.mono(item, typed, item.length(), x + 5 + typed * Ui.CELL_W, rowY, Ui.TEXT);
+            if (index < notes.size()) {
+                ui.mono(notes.get(index), x + 5 + noteX, rowY, Ui.SYN_COMMENT); // "bus -> chest", dimmed
+            }
         }
     }
 
@@ -510,7 +521,7 @@ final class CodeView {
     // ---- autocomplete ------------------------------------------------------------
 
     private void updateCompletion(boolean asked) {
-        completion = language == Language.PYTHON ? Completer.complete(buffer, asked) : null;
+        completion = language == Language.PYTHON ? Completer.complete(buffer, asked, devices.get()) : null;
         completionIndex = 0;
         completionTop = 0;
         completionNavigated = false;
@@ -584,6 +595,14 @@ final class CodeView {
     }
 
     // ---- keyboard ----------------------------------------------------------------
+
+    /** For the screenshot run: types text at the end of the file, as a player would, key by key. */
+    void typeAtEndForShots(String text) {
+        buffer.moveDocumentEnd(false);
+        for (int i = 0; i < text.length(); i++) {
+            charTyped(text.charAt(i));
+        }
+    }
 
     void charTyped(int codepoint) {
         hoverHidden = true;

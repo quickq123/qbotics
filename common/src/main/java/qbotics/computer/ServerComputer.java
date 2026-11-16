@@ -110,13 +110,24 @@ public final class ServerComputer {
      * Pressed while it runs, it stops at the next line. Ctrl+Z then carries on as normal.
      */
     public void step() {
+        step(null);
+    }
+
+    /**
+     * F8 from the editor, with the file it has open: steps what runs; with nothing running,
+     * runs that file held at its first line, so a program can be followed from its start.
+     */
+    public void step(@org.jspecify.annotations.Nullable String openFile) {
         ServerComputer remote = sshRemote;
         if (remote != null) {
-            remote.step();
+            remote.step(openFile);
             return;
         }
         Computer current = vm;
         if (!running || current == null) {
+            if (openFile != null && openFile.endsWith(".py") && atShellPrompt) {
+                jobs.offer(new RunFile(openFile, false, true));
+            }
             return;
         }
         current.stepping = true;
@@ -226,12 +237,18 @@ public final class ServerComputer {
     private record Line(String text) implements Job {
     }
 
-    /** A file to run; program marks a Qbot's Run button (its startup.py, with its state kept). */
-    private record RunFile(String path, boolean program) implements Job {
+    /**
+     * A file to run; program marks a Qbot's Run button (its startup.py, with its state kept);
+     * stepping holds it at its first line, for F8 pressed with nothing running.
+     */
+    private record RunFile(String path, boolean program, boolean stepping) implements Job {
         RunFile(String path) {
-            this(path, false);
+            this(path, false, false);
         }
 
+        RunFile(String path, boolean program) {
+            this(path, program, false);
+        }
     }
 
     /**
@@ -1120,6 +1137,12 @@ public final class ServerComputer {
                 case RunFile file -> {
                     terminal.write("run " + file.path() + "\n");
                     runningCommand = file.program() ? "program" : "run " + file.path();
+                    if (file.stepping()) {
+                        // F8 with nothing running: it stops at the first line of the file, and each F8 runs one more.
+                        terminal.write("[stepping: F8 runs the next line, Ctrl+Z runs the rest, Ctrl+C stops]\n");
+                        computer.stepping = true;
+                        computer.paused = false;
+                    }
                     try {
                         if (file.program()) {
                             runProgramNow(computer);
@@ -1361,7 +1384,8 @@ public final class ServerComputer {
             "         python             the Python prompt; exit() comes back here",
             "Editor:  edit <file>        open a file in the editor",
             "         settings           this computer's name, remote login and antenna",
-            "Network: devices            list the blocks cabled to this computer",
+            "Network: devices            list the blocks cabled to this computer, and what each points at",
+            "         name <address> <name>   name a device so programs can find it (name 192.168.1.4 inbox)",
             "         pip install -r requirements.txt   install libraries from a hard drive (pip help)",
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
             "         ssh <address>      use another computer's terminal from here; exit returns",
@@ -1379,7 +1403,7 @@ public final class ServerComputer {
 
     /** The shell's commands, longest first, for spotting one typed without its space. */
     private static final List<String> COMMANDS = List.of("settings", "shutdown", "devices", "recipe", "craft", "items", "pip", "ifconfig", "python", "mkdir", "clear", "help",
-            "service", "sleep", "echo", "edit", "item", "read", "pwd", "cat", "run", "ssh", "git", "sh", "ls", "cd", "rm", "mv", "cp", "py");
+            "service", "sleep", "echo", "edit", "item", "name", "read", "pwd", "cat", "run", "ssh", "git", "sh", "ls", "cd", "rm", "mv", "cp", "py");
 
     /**
      * A hint for a line that isn't a command: the space a command lost ("run9_world.py" is
@@ -1523,6 +1547,17 @@ public final class ServerComputer {
                     boolean json = args.remove("--json");
                     ok = runPython(computer, "import logistics\nlogistics._print_devices(" + (args.isEmpty() ? "None" : pyString(args.getFirst()))
                             + (json ? ", True" : "") + ")");
+                }
+                case "name" -> {
+                    // name <address> <name>: names a device, without leaving the computer (or in a script).
+                    if (args.isEmpty() || args.size() > 2) {
+                        terminal.write("name <address> <name>   names a device, as the Network Probe does.\n"
+                                + "The address is from devices: name 192.168.1.4 inbox\n");
+                        ok = false;
+                    } else {
+                        ok = runPython(computer, "import logistics\nlogistics._name_device(" + pyString(args.get(0))
+                                + (args.size() > 1 ? ", " + pyString(args.get(1)) : "") + ")");
+                    }
                 }
                 case "python", "py" -> {
                     if (args.isEmpty()) {

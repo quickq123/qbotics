@@ -34,6 +34,12 @@ Dig a tunnel two blocks high (`qbot.dig(qbot.Side.TOP)` digs above) and come bac
 what it carries into a chest behind its start with `inventory.drop(Side.FRONT)`
 (`from qbot import inventory, Side`).
 
+## New Python here
+
+- `import qbot` brings in a whole module; its functions are then `qbot.dig()`, `qbot.forward()`.
+- A function can give back a dictionary: `got = qbot.dig()` is `{"minecraft:stone": 1}`.
+- `for name, count in got.items():` goes through a dictionary's names and values together.
+
 ## Hints
 
 - `qbot.inspect()` says what is in front before digging; `inventory.list()` what it carries.

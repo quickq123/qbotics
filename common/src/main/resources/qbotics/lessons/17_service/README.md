@@ -31,6 +31,12 @@ Run your own programs as services: the sorter from lesson 5, and the screen you 
 Leave them running for a game day. Then switch the Server off and on: they start again by
 themselves.
 
+## New Python here
+
+- A service's `print`s go to its **log** (`service log sorter`), not to a screen: print what it
+  does, so you can see later.
+- A program can't be typed to as a service: anything it needs goes in variables at the top.
+
 ## Hints
 
 - Services share the Server's drive, so they can share files: one writes, another reads.

@@ -50,7 +50,7 @@ public record TerminalInputPayload(UUID deviceId, byte action, String line) impl
             case CLOSE -> manager.closeTerminal(player);
             case RUN_FILE -> manager.onRunFile(player, deviceId, line);
             case PAUSE -> manager.onPause(player, deviceId);
-            case STEP -> manager.onStep(player, deviceId);
+            case STEP -> manager.onStep(player, deviceId, line); // line: the file the editor has open
             default -> {
             }
         }

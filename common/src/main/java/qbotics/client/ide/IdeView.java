@@ -148,6 +148,30 @@ final class IdeView {
     /** Twenty times a second; only the cursor's blinking depends on it. */
     void tick() {
         blink++;
+        // Every five seconds (and at once on opening): the devices on the network, for suggestions.
+        if (blink % 100 == 1 && !session.editOnly && !session.laptop) {
+            askDevices();
+        }
+    }
+
+    /** Asks what is on this computer's network now, for the names the editor suggests in net.bus("..."). */
+    private void askDevices() {
+        backend.file(FileRequest.DEVICES, "", new byte[0], (errno, data) -> {
+            if (errno != 0) {
+                return;
+            }
+            java.util.List<qbotics.ide.Completer.Device> found = new java.util.ArrayList<>();
+            try {
+                for (com.google.gson.JsonElement element : com.google.gson.JsonParser.parseString(new String(data, StandardCharsets.UTF_8)).getAsJsonArray()) {
+                    com.google.gson.JsonObject d = element.getAsJsonObject();
+                    found.add(new qbotics.ide.Completer.Device(d.get("name").getAsString(), d.get("ip").getAsString(), d.get("kind").getAsString(),
+                            d.has("target") ? d.get("target").getAsString() : ""));
+                }
+            } catch (RuntimeException e) {
+                return; // not a list: keep what was known
+            }
+            session.devices = java.util.List.copyOf(found);
+        });
     }
 
     /** The screen is going away. */
@@ -788,6 +812,7 @@ final class IdeView {
             if (errno == HostFileSystem.ENOENT) {
                 // "edit new.py" in the terminal: start an empty file; saving creates it.
                 tab.view = new CodeView(new TextBuffer(""), Language.forFile(Paths.name(tab.path)), true);
+                tab.view.devices = () -> session.devices;
                 tab.view.compiler = backend;
                 tab.view.path = tab.path;
             } else if (errno == HostFileSystem.EFBIG) {
@@ -796,6 +821,7 @@ final class IdeView {
                 tab.problem = describe(errno, path);
             } else {
                 tab.view = new CodeView(new TextBuffer(new String(data, StandardCharsets.UTF_8)), Language.forFile(Paths.name(tab.path)), true);
+                tab.view.devices = () -> session.devices;
                 tab.view.compiler = backend;
                 tab.view.path = tab.path;
             }
@@ -1914,7 +1940,15 @@ final class IdeView {
             return true;
         }
         if (key == InputConstants.KEY_F8 && !session.editOnly) {
-            backend.terminalInput(TerminalInputPayload.STEP, ""); // run to the next line and hold there
+            // Run to the next line and hold there; with nothing running, start the open file held at its first line.
+            Tab tab = session.active();
+            String open = tab != null && tab.view != null && tab.view.language == Language.PYTHON ? tab.path : "";
+            Runnable step = () -> backend.terminalInput(TerminalInputPayload.STEP, open);
+            if (tab != null && tab.view != null && !open.isEmpty() && tab.view.buffer.isDirty()) {
+                save(tab, step);
+            } else {
+                step.run();
+            }
             return true;
         }
         if (control && key == InputConstants.KEY_W && session.active() != null) {

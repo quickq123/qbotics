@@ -36,6 +36,14 @@ Give the buses their filters once, then sort with a plain list:
     chests = [net.bus("ores"), net.bus("food"), net.bus("store")]
     move(net.bus("inbox"), chests)
 
+## New Python here
+
+- A **list** is several values in square brackets: `["#c:ores", "#c:ingots"]`. Lists can hold
+  anything, even other lists.
+- `for name, takes in RULES:` runs the lines under it once for each item of the list, with
+  `name` and `takes` set to that item's two parts.
+- `chests.append(x)` adds `x` to the end of the list `chests`.
+
 ## Hints
 
 - `without=` keeps things out: `store.destination(without=["dirt", "*_seeds"])`.

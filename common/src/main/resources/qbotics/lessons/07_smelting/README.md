@@ -35,6 +35,13 @@ Wait for the iron to be smelted (8 take about 80 seconds) and bring it back:
         if got:
             print("Smelted", got)
 
+## New Python here
+
+- `for change in furnace.watch():` is a loop that never ends by itself: it waits for each change,
+  for ever. `break` inside a loop leaves it.
+- `if got:` is true when `got` is anything but 0, empty or `None`, so it means "if something moved".
+- `Face.TOP` is a **name** for a value, kept in a module so programs don't have to remember words.
+
 ## Hints
 
 - One coal smelts eight items; a lava bucket a hundred.

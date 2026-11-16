@@ -38,6 +38,12 @@ A stonecutter's choices are buttons, numbered across its grid from 0, top row fi
 Make stone bricks: try `press(n)` for each choice until slot 1 holds `minecraft:stone_bricks`,
 and keep that number. Then cut a whole stack.
 
+## New Python here
+
+- `range(40)` counts 0, 1, 2 ... 39: `for n in range(40):` tries each number.
+- `break` leaves a loop early, once what you were looking for is found.
+- A **dictionary** keeps values under names: `entry["slot"]`, `entry["item"]`.
+
 ## The anvil
 
 An anvil asks for levels, as it would from a player. Pay them from an **Experience Interface**:

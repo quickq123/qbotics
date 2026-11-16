@@ -40,6 +40,11 @@ Open the tablet and press **Count again**.
 Put a Control Panel on the tablet instead (`tab.panel()`, 12 by 8 cells) with a button that
 runs your sorter from lesson 4, so you can sort the base's inbox from anywhere.
 
+## New Python here
+
+- Setting a value on an object changes it: `tab.title = "Store"` renames the tab.
+- One object can give you others: `tab.web_panel()` is the tablet's screen, as a Web Panel.
+
 ## Hints
 
 - `net.tablet("Steve")` finds a tablet by the player carrying it, when several are paired.

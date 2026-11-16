@@ -76,7 +76,8 @@ The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (sectio
 | `edit <file>` | Opens a file in the editor (a new file is created when saved) |
 | `run <file.py>` | Runs a program. `python <file.py>` does the same |
 | `python` | The Python prompt. `exit()` returns to the terminal |
-| `devices` | Lists the devices on this computer's network (also `ifconfig`). `devices --json`: every detail, as JSON, for programs and AI tools |
+| `devices` | Lists the devices on this computer's network (also `ifconfig`): address, kind, name ("(no name)" for none), and what each plate points at (`chest`, `furnace`, `nothing`). `devices --json`: every detail, as JSON, for programs and AI tools |
+| `name <address> <name>` | Names a device on this network, as the Network Probe does: `name 192.168.1.4 inbox`. The address is an IP or hardware address from `devices`, or the device's name now (to rename it). `name <address>` alone says its name. In a script, a name that can't be given stops it |
 | `recipe <item>` | The recipes that make an item, from every mod, as this world has them (section 7k). `--uses`: those it is used in; `--json`; `--limit n` |
 | `item <item>` | An item's names, mod, tags, stack size, fuel and food values (`--json`) |
 | `items <word>` | Finds items: a word, a `*pattern*`, a `#tag` or an `@mod` (`--json`) |
@@ -143,7 +144,7 @@ run /factory/report.py
 | F8 | Steps the running program to the next line of your code and holds it there (section 1.3b) |
 | Ctrl+S | Saves |
 | Ctrl+F, Ctrl+H | Find; find and replace. F3 and Shift+F3 step through matches |
-| Ctrl+Space | Suggests completions |
+| Ctrl+Space | Suggests completions. Inside the text a finder is given, `net.bus("`, `net.pin('`, `net.storage("` and the like, the suggestions are the names of the devices of that kind on this computer's network, each with what it points at, and the address of any without a name yet. They come as soon as the quote is typed |
 | Ctrl+/ | Comments or uncomments the selected lines |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
 | Ctrl+W | Closes the tab |
@@ -196,6 +197,8 @@ still moving, a `time.sleep`), the marked line is the one that called it.
 
 - **Ctrl+Z** pauses the program there; the editor opens that file at that line, and the terminal
   says `[paused at line N of /file.py]`. Ctrl+Z again carries on.
+- **F8 with nothing running** starts the file open in the editor, held at its first line,
+  before it has done anything (`[stepping: ...]` in the terminal); then each F8 runs one line.
 - **F8** steps: the program runs to the next line of your code and holds there. A loop's lines
   come round again each turn, and stepping goes into your own functions. F8 while it runs
   stops it at the next line. Ctrl+Z carries on at full speed.

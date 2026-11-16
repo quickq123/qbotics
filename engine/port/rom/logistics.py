@@ -1972,9 +1972,40 @@ def _print_devices(address=None, as_json=False):
                 print("%-22s %-14s %-9s %s" % ("%s:%d" % (d["external_ip"], d["port"]), d["ip"], d["kind"], d["name"]))
             return
         me = _call("self")
-        print("%-14s %-18s %-9s %s" % ("IP address", "Hardware address", "Kind", "Name"))
+        print("%-14s %-9s %-18s %s" % ("IP address", "Kind", "Name", "Points at"))
+        unnamed = None
         for d in _call("devices"):
-            note = "  (this computer)" if d["mac"] == me["mac"] else ""
-            print("%-14s %-18s %-9s %s%s" % (d["ip"], d["mac"], d["kind"], d["name"], note))
+            if d["mac"] == me["mac"]:
+                points = "(this computer)"
+            else:
+                points = d.get("target", "")
+                points = points[len("minecraft:"):] if points.startswith("minecraft:") else points
+                points = "nothing" if points == "air" else points
+            if not d["name"] and d["mac"] != me["mac"] and unnamed is None:
+                unnamed = d["ip"]
+            print("%-14s %-9s %-18s %s" % (d["ip"], d["kind"], d["name"] or "(no name)", points))
+        if unnamed:
+            print("Name one so programs can find it:  name %s inbox" % unnamed)
     except NetworkError as e:
         print(e)
+
+
+def _name_device(address, name=None):
+    # The shell's "name" command: name <address> <name> names a device on this network (an
+    # IP address, a hardware address or its name now); name <address> alone says its name.
+    try:
+        device = network().device(address)
+    except NetworkError as e:
+        raise SystemExit(str(e))
+    if name is None:
+        print(device.ip, device.kind, device.name or "(no name)")
+        return
+    was = device.name
+    try:
+        device.rename(name)
+    except NetworkError as e:
+        raise SystemExit(str(e))
+    if was:
+        print("Renamed %s %s from %s to %s" % (device.kind, device.ip, was, device.name))
+    else:
+        print("Named %s %s: %s" % (device.kind, device.ip, device.name))

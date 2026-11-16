@@ -45,6 +45,14 @@ Add a switch that turns the lamp on and off, and a slider for how bright:
     def switched(event):
         lamp.write(level.value if event.value else 0)
 
+## New Python here
+
+- `@hello.on_press` above a `def` is a **decorator**: a short way to hand the function over, the same
+  as writing `hello.on_press(said)` after it.
+- `global pressed` lets a function change a variable made outside it. Without it, `pressed += 1`
+  would make a new one inside.
+- `x += 1` is short for `x = x + 1`.
+
 ## Hints
 
 - `at=(column, row)` places a widget, `span=(width, height)` sizes it.

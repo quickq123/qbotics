@@ -44,6 +44,13 @@ Put the sensor under the middle of a 9 x 9 field: farmland one block above it, w
 Make the farm look after itself: harvest each wheat the moment it ripens, with
 `events.on_change(farm, ripened, what="wheat age=7")`, and run it from startup (lesson 15).
 
+## New Python here
+
+- `(dx, dy, dz)` in round brackets is a **tuple**: a list that can't change, here a position.
+- `d.get("age")` reads a dictionary's value like `d["age"]`, but gives `None` instead of an error
+  when it isn't there.
+- `cow.can_breed`: a value belonging to an object (an **attribute**), read with a dot, no brackets.
+
 ## Hints
 
 - A watch passes a change if the block passes **before or after**, so breaking ripe wheat is a

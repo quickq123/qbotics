@@ -44,6 +44,8 @@ public final class IdePayloads {
          * without running it. The answer is "" if it compiles, otherwise "line\tmessage".
          */
         public static final byte CHECK = 8;
+        /** The devices on the computer's network, as the devices call gives them (JSON), for the editor's suggestions. */
+        public static final byte DEVICES = 9;
 
         public static final Type<FileRequest> TYPE = new Type<>(Qbotics.id("ide_file_request"));
         public static final StreamCodec<ByteBuf, FileRequest> STREAM_CODEC = StreamCodec.composite(

@@ -38,6 +38,15 @@ A `Recipe` writes a crafting job down once, so it can be crafted again and again
     with net.bus("crafter").open_screen() as screen:
         print(torches.craft(5, screen))                 # five runs: 20 torches
 
+## New Python here
+
+- `with ... as screen:` opens something for the lines under it, and always closes it after, even if
+  something goes wrong.
+- An **object** carries values and functions of its own: `torches.ingredient(...)` and
+  `torches.max_runs()` belong to the recipe `torches`.
+- `Recipe(sources=store, destination=store)` names its values (**keyword arguments**), so their
+  order doesn't matter.
+
 ## Hints
 
 - `Recipe.from_game(game.recipes("torch")[0], sources=store, destination=store)` builds one from

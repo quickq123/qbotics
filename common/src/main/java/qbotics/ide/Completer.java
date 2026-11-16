@@ -20,8 +20,74 @@ public final class Completer {
      * @param start  the column where the word being completed begins
      * @param prefix what has been typed of it so far
      * @param items  suggestions, best first; never empty
+     * @param notes  a few words shown dimmed beside each item ("bus -> chest"), or empty for none
      */
-    public record Result(int start, String prefix, List<String> items) {
+    public record Result(int start, String prefix, List<String> items, List<String> notes) {
+        public Result(int start, String prefix, List<String> items) {
+            this(start, prefix, items, List.of());
+        }
+    }
+
+    /**
+     * A device on the computer's network, for suggesting names in net.bus("...") and the like.
+     *
+     * @param name   its name, or "" for none
+     * @param ip     its address on the network
+     * @param kind   "bus", "pin", "fluid_interface", ...
+     * @param target the block a plate points at ("minecraft:chest"), or ""
+     */
+    public record Device(String name, String ip, String kind, String target) {
+    }
+
+    /** A finder's name and the string being typed as its first value: net.bus("in|. */
+    private static final java.util.regex.Pattern FINDER_STRING =
+            java.util.regex.Pattern.compile("\\.([a-z_]+)\\(\\s*([\"'])([^\"']*)$");
+    /** Finders that take any device holding items, or any device at all. */
+    private static final Set<String> ITEM_HOLDERS = Set.of("bus", "usb", "interface", "collector", "player_interface");
+
+    /**
+     * Inside the string a device finder is given (net.bus("..."), net.storage("..."), net.pin("...")):
+     * the names of the devices of that kind on the computer's network, and the addresses of those
+     * without a name. Null when the cursor isn't in such a string, or nothing fits.
+     */
+    static Result deviceNames(String before, List<Device> devices) {
+        java.util.regex.Matcher m = FINDER_STRING.matcher(before);
+        if (!m.find() || devices.isEmpty()) {
+            return null;
+        }
+        String finder = m.group(1);
+        String typed = m.group(3);
+        boolean any = finder.equals("device");
+        boolean holders = finder.equals("storage");
+        boolean known = any || holders || devices.stream().anyMatch(d -> d.kind().equals(finder))
+                || List.of("bus", "fluid_bus", "energy_bus", "usb", "interface", "fluid_interface", "energy_interface",
+                "experience_interface", "pin", "placer", "breaker", "dropper", "monitor", "panel", "web_panel", "drive_bay",
+                "programmer", "uplink", "antenna", "player_interface", "chat_interface", "command_interface", "entity_sensor",
+                "collector", "block_sensor").contains(finder);
+        if (!known) {
+            return null;
+        }
+        List<String> items = new ArrayList<>();
+        List<String> notes = new ArrayList<>();
+        String lower = typed.toLowerCase(Locale.ROOT);
+        for (Device device : devices) {
+            boolean fits = any ? !device.kind().equals("computer") : holders ? ITEM_HOLDERS.contains(device.kind()) : device.kind().equals(finder);
+            if (!fits) {
+                continue;
+            }
+            String word = device.name().isEmpty() ? device.ip() : device.name();
+            if (!word.toLowerCase(Locale.ROOT).startsWith(lower) || word.equals(typed)) {
+                continue;
+            }
+            String points = device.target().isEmpty() ? "" : " -> " + shortName(device.target());
+            items.add(word);
+            notes.add(device.kind() + points + (device.name().isEmpty() ? ", no name yet" : ""));
+        }
+        return items.isEmpty() ? null : new Result(before.length() - typed.length(), typed, items, notes);
+    }
+
+    private static String shortName(String id) {
+        return id.startsWith("minecraft:") ? id.substring("minecraft:".length()) : id;
     }
 
     private static final List<String> KEYWORDS = List.of(
@@ -62,11 +128,20 @@ public final class Completer {
      *              letters have been typed (or a dot), so they don't pop up constantly
      */
     public static Result complete(TextBuffer buffer, boolean asked) {
+        return complete(buffer, asked, List.of());
+    }
+
+    /** The same, with the devices on the computer's network, for their names inside net.bus("..."). */
+    public static Result complete(TextBuffer buffer, boolean asked, List<Device> devices) {
         if (buffer.hasSelection()) {
             return null;
         }
         String text = buffer.line(buffer.cursorLine());
         int column = buffer.cursorColumn();
+        Result names = deviceNames(text.substring(0, column), devices);
+        if (names != null) {
+            return names;
+        }
         int start = column;
         while (start > 0 && isNameChar(text.charAt(start - 1))) {
             start--;

@@ -845,6 +845,30 @@ public final class ScreenshotRun {
             }
         });
         then(20, minecraft -> shot(minecraft, "ide-dropped-file"));
+        // Suggestions of the network's devices inside net.bus(" ... "): named ones, and an unnamed one by address.
+        then(2, minecraft -> onServer(minecraft, player -> {
+            qbotics.computer.ServerComputer laptop = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player);
+            try {
+                laptop.drive().call(qbotics.engine.HostFileSystem.WRITE, "/devices.py",
+                        "from logistics import network, move\n\nnet = network()\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                throw new IllegalStateException(e);
+            }
+            laptop.submitLine("edit devices.py");
+        }));
+        then(60, minecraft -> { }); // (a step's wait comes after it): the file opens
+        then(10, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.devicesForShots(java.util.List.of(
+                        new qbotics.ide.Completer.Device("", "192.168.1.2", "computer", ""),
+                        new qbotics.ide.Completer.Device("inbox", "192.168.1.3", "bus", "minecraft:chest"),
+                        new qbotics.ide.Completer.Device("store", "192.168.1.4", "bus", "minecraft:barrel"),
+                        new qbotics.ide.Completer.Device("", "192.168.1.5", "bus", "minecraft:furnace"),
+                        new qbotics.ide.Completer.Device("lamp", "192.168.1.6", "pin", "minecraft:redstone_lamp")));
+                ide.typeForShots("inbox = net.bus(\"");
+            }
+        });
+        then(5, minecraft -> shot(minecraft, "ide-device-names"));
         then(2, minecraft -> {
             if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
                 ide.setZoomForShots(0); // back to the size the window chooses

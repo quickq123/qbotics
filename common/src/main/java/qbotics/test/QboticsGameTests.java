@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -93,6 +93,8 @@ public final class QboticsGameTests {
             Map.entry("lessons_unattended", QboticsGameTests::lessonsUnattended),
             Map.entry("lessons_clone", QboticsGameTests::lessonsClone),
             Map.entry("error_hints", QboticsGameTests::errorHints),
+            Map.entry("device_names", QboticsGameTests::deviceNames),
+            Map.entry("step_from_start", QboticsGameTests::stepFromStart),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
             Map.entry("server_model", QboticsGameTests::serverModel),
@@ -4190,6 +4192,93 @@ public final class QboticsGameTests {
                     "Hint: That asks for an item past the end of a list",
                     "Hint: There is no module `logistic`",
                     "Hint: That file or folder isn't there");
+        });
+    }
+
+    /**
+     * Naming without leaving the computer: devices shows what each plate points at and the
+     * ones with no name; name gives one a name, renames it, and refuses an address that isn't
+     * there. And the editor suggests the network's devices inside net.bus("...").
+     */
+    private static void deviceNames(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        setPort(helper, new BlockPos(1, 1, 0), Kind.BUS, Direction.EAST);
+        helper.setBlock(new BlockPos(2, 1, 0), Blocks.CHEST);
+        CablePort bus = helper.getBlockEntity(new BlockPos(1, 1, 0), PortBlockEntity.class).port(Direction.EAST);
+        networkAt(helper, new BlockPos(1, 1, 0)).devices(); // the network forms, and gives out addresses
+        String ip = bus.ip();
+        for (String line : List.of("devices", "name " + ip + " inbox", "name inbox store", "name " + ip, "name 192.168.9.9 x", "echo done")) {
+            computer.submitLine(line);
+        }
+        // The editor's suggestions, from what the network has (the same list the editor asks for).
+        List<qbotics.ide.Completer.Device> devices = List.of(new qbotics.ide.Completer.Device("", "192.168.1.2", "computer", ""),
+                new qbotics.ide.Completer.Device("inbox", "192.168.1.3", "bus", "minecraft:chest"),
+                new qbotics.ide.Completer.Device("", "192.168.1.4", "bus", "minecraft:furnace"),
+                new qbotics.ide.Completer.Device("lamp", "192.168.1.5", "pin", "minecraft:redstone_lamp"));
+        qbotics.ide.TextBuffer typed = new qbotics.ide.TextBuffer("inbox = net.bus(\"");
+        typed.moveDocumentEnd(false);
+        var buses = qbotics.ide.Completer.complete(typed, false, devices);
+        helper.assertTrue(buses != null && buses.items().equals(List.of("inbox", "192.168.1.4"))
+                && buses.notes().equals(List.of("bus -> chest", "bus -> furnace, no name yet")), "bus names: " + buses);
+        qbotics.ide.TextBuffer pin = new qbotics.ide.TextBuffer("lamp = net.pin('la");
+        pin.moveDocumentEnd(false);
+        var pins = qbotics.ide.Completer.complete(pin, false, devices);
+        helper.assertTrue(pins != null && pins.items().equals(List.of("lamp")) && pins.prefix().equals("la"), "pin names: " + pins);
+        qbotics.ide.TextBuffer text = new qbotics.ide.TextBuffer("print(\"in");
+        text.moveDocumentEnd(false);
+        helper.assertTrue(qbotics.ide.Completer.complete(text, false, devices) == null, "no device names in other strings");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "done");
+            assertScreen(helper, computer, "Points at", "(no name)", "chest", "Name one so programs can find it:  name " + ip + " inbox",
+                    "Named bus " + ip + ": inbox", "Renamed bus " + ip + " from inbox to store", ip + " bus store");
+            helper.assertTrue("store".equals(bus.deviceName()), "the bus is named: " + bus.deviceName());
+            helper.assertTrue(screen(computer).contains("192.168.9.9"), "a missing address is refused, with what was asked: " + screen(computer));
+        });
+    }
+
+    /**
+     * F8 with nothing running: the editor's open file starts, held at its first line before it
+     * prints anything; each F8 then runs one more line.
+     */
+    private static void stepFromStart(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/steps.py",
+                    "print('first')\nprint('second')\nprint('third')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        ServerComputer watched = computer;
+        helper.onEachTick(() -> watched.setWatched(true));
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            ServerComputer.Trace now = computer.trace();
+            String screen = screen(computer);
+            switch (step[0]) {
+                case 0 -> {
+                    if (screen.contains("/ $")) {
+                        computer.step("/steps.py"); // F8, nothing running
+                        step[0] = 1;
+                    }
+                    helper.fail("starting");
+                }
+                case 1 -> {
+                    helper.assertTrue(now.paused() && now.line() == 1 && now.file().equals("/steps.py"), "held at line 1: " + now + "\n" + screen);
+                    helper.assertTrue(screen.contains("[stepping: F8 runs the next line") && !screen.contains("first\n"),
+                            "nothing printed yet: " + screen);
+                    computer.step(); // F8: line 1 runs
+                    step[0] = 2;
+                    helper.fail("stepping");
+                }
+                case 2 -> {
+                    helper.assertTrue(now.paused() && now.line() == 2 && screen.contains("first\n") && !screen.contains("second\n"),
+                            "one line ran: " + now + "\n" + screen);
+                    computer.togglePause(); // Ctrl+Z: the rest at full speed
+                    step[0] = 3;
+                    helper.fail("carrying on");
+                }
+                default -> assertScreen(helper, computer, "second\n", "third\n");
+            }
         });
     }
 

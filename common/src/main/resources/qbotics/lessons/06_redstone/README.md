@@ -39,6 +39,18 @@ Make the lever switch the lamp, through your program:
     events.on_pin(switch, "change", flipped)    # or "rising", "falling"
     events.run()
 
+## New Python here
+
+- `True` and `False` are Python's yes and no.
+- `if`, `elif` and `else` choose what to do:
+
+      if event.level > 0:
+          print("on")
+      else:
+          print("off")
+
+- `>`, `<`, `==` (equals: two `=`), `!=` (not equals) compare values, giving `True` or `False`.
+
 ## Hints
 
 - `pin.read()` gives the level now. A new pin reads; `write()` makes it an output.

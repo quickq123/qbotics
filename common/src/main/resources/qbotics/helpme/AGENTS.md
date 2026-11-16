@@ -27,6 +27,7 @@ on the computer as if typed, prints its output and ends with status 0 when it wo
 
 | Command | What you get |
 |---|---|
+| `name <address> <name>` | Names a device (an unnamed bus, say) so programs can find it: `name 192.168.1.4 inbox`. Ask the player first: names are theirs |
 | `devices --json` | Every device on the computer's network: `ip`, `mac`, `kind` (bus, interface, pin, antenna, ...), `name`, and more. Use the `name` (or `ip`) in code: `net.bus("chest")` |
 | `run test.py` | Runs a program; its output and any traceback come back. Stopped after 120 seconds |
 | `ls`, `cat file`, `mkdir`, `rm`, `mv`, `cp` | Files, as usual |

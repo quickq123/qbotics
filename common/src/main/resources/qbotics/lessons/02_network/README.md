@@ -33,6 +33,15 @@ How it finds the bus, in four lines:
     print("Found", inbox.name, "at", inbox.ip)
     print("It holds", inbox.count(), "items")
 
+## New Python here
+
+- `from logistics import network` brings in something from a **module** (a file of ready-made
+  code) so this program can use it. The game's modules are `logistics`, `events`, `network`...
+- `network()` **calls** a function: the brackets make it run, and it gives back a value.
+- A **dot** reaches inside something: `net.bus("inbox")` is the `bus` that belongs to `net`.
+- `try:` ... `except NetworkError:` tries something, and if that kind of error happens, runs the
+  lines under `except` instead of stopping.
+
 ## Hints
 
 - `net.bus("inbox")` raises `NetworkError` if nothing has that name. `devices` shows the names.

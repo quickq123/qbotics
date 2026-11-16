@@ -300,7 +300,9 @@ public final class Computer {
     private boolean exec(String source, boolean repl) {
         byte[] bytes = source.getBytes(StandardCharsets.UTF_8);
         int ptr = copyIn(source);
-        setBudget.apply(sliceBudget);
+        // Stepping from the start (F8 with nothing running): end the first slice at once, so the
+        // engine runs its traced loop before the program's first line, not after a whole slice.
+        setBudget.apply(stepping ? 1 : sliceBudget);
         slicesUsed = 0;
         boolean finished = false;
         acquireCpu();

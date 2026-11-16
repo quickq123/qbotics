@@ -98,6 +98,19 @@ public class IdeScreen extends Screen implements IdeView.Host {
         this.minecraft.keyboardHandler.setClipboard(text);
     }
 
+    /** For the screenshot run: devices the editor knows of, as if from the computer's network. */
+    public void devicesForShots(java.util.List<qbotics.ide.Completer.Device> devices) {
+        session().devices = java.util.List.copyOf(devices);
+    }
+
+    /** For the screenshot run: types at the end of the open file (its suggestions show as for a player). */
+    public void typeForShots(String text) {
+        IdeSession.Tab tab = session().active();
+        if (tab != null && tab.view != null) {
+            tab.view.typeAtEndForShots(text);
+        }
+    }
+
     /** For the screenshot run: the Chat panel, sending a message to the AI or the game's chat. */
     public void chatForShots(boolean toAi, String text) {
         view.chatForShots(toAi, text);
