@@ -578,6 +578,12 @@ public final class ClientAgent {
         tools.add(tool("run", "Runs a shell command on a computer as if typed (\"run test.py\", \"ls\", \"devices\"); gives its output and "
                 + "whether it worked. Stopped after " + qbotics.agent.AgentTools.RUN_SECONDS + " seconds. The player may have to allow it.",
                 Map.of("computer", computer, "command", "The command"), "command"));
+        tools.add(tool("python", "Your scratchpad: runs Python on a computer and gives what it printed, without touching its files. "
+                + "Look-only by default: it can read anything (devices, counts, contents, storage, sensors' entities and blocks, env, "
+                + "watches, recipes) but anything that would change something (moving items, using, attacking, breaking, placing, "
+                + "writing, files) is refused, so use it freely to find out how things stand before answering. With change \"true\" "
+                + "it may change things, and the player may have to allow it. Stopped after " + qbotics.agent.AgentTools.RUN_SECONDS + " seconds.",
+                Map.of("computer", computer, "code", "The Python to run", "change", "\"true\" only if it must change things"), "code"));
         tools.add(tool("check_code", "Checks Python for mistakes without running it: a file on a computer, or code given directly.",
                 Map.of("computer", computer, "path", "A file to check", "code", "Or the code itself")));
         tools.add(tool("find_items", "Finds items in this game, every mod's included: by word (\"copper\"), pattern (\"*_ingot\"), "
@@ -665,6 +671,15 @@ public final class ClientAgent {
                     return "The player said no: the file wasn't written. Show them the code instead, or ask what they want.";
                 }
                 say("(writing " + path + on + ")", ChatFormatting.DARK_GRAY);
+                return serverTool(name, args);
+            }
+            case "python": {
+                String code = parsed.has("code") ? parsed.get("code").getAsString() : "";
+                boolean change = parsed.has("change") && parsed.get("change").getAsString().equalsIgnoreCase("true");
+                if (change && !settings.auto && !approve("run Python that may change things" + on + " (" + code.lines().count() + " lines)", code)) {
+                    return "The player said no: it wasn't run. Try it look-only (leave out change), or show them the code.";
+                }
+                say("(" + (change ? "running" : "looking with") + " Python" + on + ")", ChatFormatting.DARK_GRAY);
                 return serverTool(name, args);
             }
             case "run": {
@@ -761,6 +776,9 @@ public final class ClientAgent {
                 + "is safe to try, run it with run. Programs that never end are stopped after " + qbotics.agent.AgentTools.RUN_SECONDS
                 + " seconds; that is fine for a test.\n"
                 + "- The player may have to allow writes and runs. If they say no, explain or show the code instead.\n"
+                + "- Your python tool is a scratchpad on the player's computer: look-only, it can read anything their devices can "
+                + "(item counts and contents, storage groups, what an Entity Sensor or Block Sensor sees, env for time and weather) and "
+                + "changes nothing, so the player isn't asked. Use it to check facts and to try code before you answer.\n"
                 + "- When unsure how something in the mod works, use search_manual.\n"
                 + "- For items, tags and crafting, look them up in this game with find_items, item_info and recipes: it has other "
                 + "mods, and its recipes may differ from plain Minecraft's. Use the exact item names they give in code.\n"

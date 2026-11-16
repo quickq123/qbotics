@@ -1212,6 +1212,17 @@ Decided by the project owner: two buses can be linked so that each end's face of
 - **Tunnel light** (decided by the project owner): two pixels at the middle of each edge of a bus's front plate, the sides facing out from its axis (the face itself is against the target). Off with no tunnel, amber while the other end can't be reached, green when connected. The server checks loaded tunnel ends once a second and tells players' games when one changes; the colour is a tint (sources 6-11 of the cable's tint list, after the six ring colours).
 - Not yet: tunnels between Qbots and buses.
 
+### 17.8b The AI helper's scratchpad (built 2026-11-16)
+
+Asked for by the project owner: the in-game AI helper should use the blocks in the world to inform its answers, with
+a shell scratchpad of its own to test and find things out. A `python` tool runs a snippet on one of the player's
+computers as the editor's scratchpad does (ServerComputer.scratchForAgent), without touching its files, stopped after
+30 seconds. Look-only by default: the engine (Computer.lookOnly, LookOnly) answers only world calls that read (devices,
+counts, contents, storage, sensors' lists and reads, env, watches, recipes) and refuses every other call and every file
+write, so a look-only run needs no permission; with change "true" it may change things and the player is asked, as for
+write_file and run. The helper's guide (helpme/AGENTS.md, in its system prompt) gained a map of the newer blocks and
+modules, and its prompt tells it to check facts with the scratchpad before answering.
+
 ### 11.0.14 Sign writing, raw block data, and testing against real mods (built 2026-11-16)
 
 - Block Sensor: `write_sign` (front or back, colour, glow; waxed signs refused, claims respected) and
@@ -1992,6 +2003,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-16 | The AI helper's scratchpad (asked for by the project owner): a python tool, look-only by default (enforced in the engine: only reading calls, no file writes) and so needing no permission; changing runs asked for. Its guide knows the newer blocks. §17.8b | Built 2026-11-16 |
 | 2026-11-16 | Sign writing and raw block data on the Block Sensor; leads refused; sensors across the radio counted against the Transport rate; a mod test run against real modpack mods. §11.0.14 | Built 2026-11-16 |
 | 2026-11-16 | Environment and sensor data (asked for by the project owner): an env module with time, day, moon, weather, biome, light and position, watchable; the Block Sensor reads biome, light, signs and lecterns; the Entity Sensor reads armour and item frames, and moves items into and out of entity inventories (minecarts, packs, armor stands). §11.0.13 | Built 2026-11-16 |
 | 2026-11-16 | Block Sensor (asked for by the project owner): a box up to 11 x 11 x 11 near it, starting as the block above; reads its blocks, watches changes as the game makes them (no scanning), and breaks, places and uses items there as its owner. Block filters gained state words (`wheat age=7`). §11.0.12 | Built 2026-11-16 |

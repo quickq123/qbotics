@@ -13,7 +13,8 @@ tools that open the drive as a project find them.
   `heapq`, `binascii`.
 - The game's own modules: `game` (items and recipes as this world has them, every mod's), `logistics` (devices, moving items, fluids, energy), `events`
   (waiting for things), `network` (messages between computers), `display` (screens), `qbot`
-  (robots), `requests` (HTTPS through an Uplink), `git`.
+  (robots), `env` (time, weather, biome, light and position where the computer is), `requests`
+  (HTTPS through an Uplink), `git`.
 - Each computer has its own files, about 1 MB. Paths start at `/`. `import` looks in the
   program's own folder, then the current folder, then `/lib`.
 - Programs are limited in memory, CPU time and calls into the game per tick. A loop that
@@ -62,6 +63,19 @@ events.run()                       # wait for events until Ctrl+C
   gives the result; or `Slot(0)`, `Slot(1)`, `Slot(2)` (section 5).
 - `events` handlers: `every`/`after` call with nothing, `on_change` with the change, `on_pin`
   and display handlers with an event. Pass extra values with a lambda (section 7b).
+
+## What else is in the world (look it up by its section)
+
+| Want | Use | Section |
+|---|---|---|
+| Many chests as one: count, list, take, put (kinds go where they already are) | `net.storage("chest*")` | 6.4c |
+| A bus that only takes some things (sorting) | `bus.set_filter(...)`, `matching=True`/`"exact"` | 6.3a |
+| Filters on an item's data, and filters built from filters | `"enchanted_book enchant=mending"`, `"wheat age=7"`, `Filter(only=, without=)` | 4 |
+| Creatures, players, dropped items near a block: read, use items on, attack, trade, minecart chests | `net.entity_sensor()`, `entity.use/attack/trade`, `move(cart, store)` | 6.12 |
+| Pick up what lies around into 27 slots (experience too) | `net.collector()` | 6.13 |
+| Blocks near a block: read, watch changes (crops ripening), break, place, use, signs | `net.block_sensor()`, `watch("wheat age=7")` | 6.14 |
+| Throw or fire items (a dispenser), or experience orbs | `net.dropper().drop(...)`, `drop_xp(levels=30)` | 6.10 |
+| Time, day or night, weather, biome where this computer is | `import env`, `env.now()`, `env.watch("dark")` | 7k2 |
 
 ## Mistakes worth knowing
 

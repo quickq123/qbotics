@@ -234,7 +234,24 @@ public final class ServerComputer {
 
     }
 
-    private record Scratch(UUID player, int runId, String code) implements Job {
+    /**
+     * A scratchpad run: the editor's (its result to that player) or the AI helper's (its
+     * result to done, look-only unless it may change things, stopped after timeoutSeconds).
+     */
+    private record Scratch(UUID player, int runId, String code, boolean lookOnly, @org.jspecify.annotations.Nullable CompletableFuture<ExecResult> done,
+            int timeoutSeconds) implements Job {
+        Scratch(UUID player, int runId, String code) {
+            this(player, runId, code, false, null, 0);
+        }
+    }
+
+    /** Where a scratchpad run's outcome goes: the editor's player, or the AI helper. */
+    private void scratchAnswer(Scratch scratch, boolean ok, String output) {
+        if (scratch.done() != null) {
+            scratch.done().complete(new ExecResult(ok ? 0 : 1, output));
+        } else {
+            listener.scratchResult(deviceId, scratch.player(), scratch.runId(), ok, output);
+        }
     }
 
     private record Interrupt() implements Job {
@@ -514,6 +531,19 @@ public final class ServerComputer {
         if (!jobs.offer(new Scratch(player, runId, code))) {
             listener.scratchResult(deviceId, player, runId, false, "The computer is too busy. Try again in a moment.\n");
         }
+    }
+
+    /**
+     * The AI helper's scratchpad: runs Python on this computer without touching its files and
+     * answers with what it printed. Look-only, it can only read (LookOnly); either way it is
+     * stopped after timeoutSeconds. A computer running a program answers "busy" at once.
+     */
+    public CompletableFuture<ExecResult> scratchForAgent(String code, boolean lookOnly, int timeoutSeconds) {
+        CompletableFuture<ExecResult> done = new CompletableFuture<>();
+        if (!atShellPrompt || sshRemote != null || !jobs.offer(new Scratch(new UUID(0, 0), 0, code, lookOnly, done, Math.max(1, timeoutSeconds)))) {
+            done.complete(busy());
+        }
+        return done;
     }
 
     /** Ctrl+C: stop the running program, or cancel what is being typed. */
@@ -894,7 +924,7 @@ public final class ServerComputer {
                         remote.submitLine(line.text());
                     }
                     case Interrupt ignored -> remote.interrupt();
-                    case Scratch scratch -> listener.scratchResult(deviceId, scratch.player(), scratch.runId(), false,
+                    case Scratch scratch -> scratchAnswer(scratch, false,
                             "The scratchpad runs on this computer, which is in an ssh session. Type exit in the terminal first.\n");
                     case RunFile ignored -> {
                         // The editor's files are this computer's; the session is the other one's. Nothing to run there.
@@ -1004,7 +1034,7 @@ public final class ServerComputer {
                         terminal.write("\n");
                         return null;
                     }
-                    case Scratch scratch -> listener.scratchResult(deviceId, scratch.player(), scratch.runId(), false,
+                    case Scratch scratch -> scratchAnswer(scratch, false,
                             "The program in the terminal is waiting for you to type something there.\n");
                     case RunFile ignored -> terminal.write("\n(a program is already running and waiting for input)\n");
                     case Exec exec -> exec.done().complete(busy());
@@ -1125,16 +1155,27 @@ public final class ServerComputer {
                 output.append(text, 0, Math.min(text.length(), MAX_SCRATCH_OUTPUT - output.length()));
             }
         };
+        java.util.concurrent.ScheduledFuture<?> stopper = scratch.timeoutSeconds() <= 0 ? null : EXEC_TIMER.schedule(() -> {
+            synchronized (output) {
+                output.append("\n[stopped after ").append(scratch.timeoutSeconds()).append(" seconds]\n");
+            }
+            interrupt();
+        }, scratch.timeoutSeconds(), java.util.concurrent.TimeUnit.SECONDS);
+        computer.lookOnly = scratch.lookOnly();
         try {
             runGuarded(computer, () -> ok[0] = computer.exec(scratch.code()));
         } catch (Restart restart) {
-            listener.scratchResult(deviceId, scratch.player(), scratch.runId(), false, output + "\nStopped: the program ignored Ctrl+C.\n");
+            scratchAnswer(scratch, false, output + "\nStopped: the program ignored Ctrl+C.\n");
             throw restart;
         } finally {
+            computer.lookOnly = false;
+            if (stopper != null) {
+                stopper.cancel(false);
+            }
             computer.outputSink = terminal::write;
             computer.lineReader = this::readInputLine;
         }
-        listener.scratchResult(deviceId, scratch.player(), scratch.runId(), ok[0], output.toString());
+        scratchAnswer(scratch, ok[0], output.toString());
     }
 
     // ---- shell commands ------------------------------------------------------------

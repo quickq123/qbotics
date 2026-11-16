@@ -65,6 +65,7 @@ public final class AgentTools {
                 case "devices" -> CompletableFuture.completedFuture(devices(player, args));
                 case "list_files", "read_file", "write_file" -> files(player, tool, args);
                 case "run" -> run(player, args);
+                case "python" -> python(player, args);
                 case "find_items", "item_info", "recipes" -> knowledge(player, tool, args);
                 case "plan" -> plan(player, args);
                 default -> CompletableFuture.completedFuture("There is no tool called " + tool + ".");
@@ -298,6 +299,23 @@ public final class AgentTools {
                 return e.getMessage();
             }
         }, WORKER);
+    }
+
+    /**
+     * The helper's scratchpad: a Python snippet run on a computer without touching its files.
+     * Look-only unless "change" is "true" (which the player is asked to allow first, in their game):
+     * then it only reads, so the helper can find out how things stand by trying.
+     */
+    private static CompletableFuture<String> python(ServerPlayer player, JsonObject args) {
+        SshGateway.Target target = computer(player, args);
+        String code = text(args, "code");
+        if (code.isBlank()) {
+            throw new Problem("Give the Python to run, e.g. \"from logistics import network\\nprint(network().devices())\".");
+        }
+        boolean change = text(args, "change").equalsIgnoreCase("true");
+        return target.computer().scratchForAgent(code, !change, RUN_SECONDS).thenApply(result ->
+                (result.status() == 0 ? "ran" : "failed") + (change ? "" : " (look-only)") + "\n" + result.output())
+                .completeOnTimeout("The code didn't finish in time.", RUN_SECONDS + 15, TimeUnit.SECONDS);
     }
 
     private static CompletableFuture<String> run(ServerPlayer player, JsonObject args) {

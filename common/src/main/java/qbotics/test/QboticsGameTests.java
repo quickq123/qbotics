@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -145,6 +145,7 @@ public final class QboticsGameTests {
             Map.entry("entity_inventories", QboticsGameTests::entityInventories),
             Map.entry("block_sensor_data", QboticsGameTests::blockSensorData),
             Map.entry("remote_sensors", QboticsGameTests::remoteSensors),
+            Map.entry("agent_scratchpad", QboticsGameTests::agentScratchpad),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -5126,6 +5127,80 @@ public final class QboticsGameTests {
             assertScreen(helper, computer, "milked minecraft:cow True 1\n", "broke {'minecraft:cobblestone': 1} 1\n",
                     "seen [('minecraft:stone', 'minecraft:air')]\n", "A lead would tie the Cow to the sensor's stand-in");
             helper.assertTrue(store.countItem(Items.LEAD) == 1, "the refused lead should go back");
+        });
+    }
+
+    /**
+     * The AI helper's scratchpad (the python tool): look-only, it reads a bus's chest and env,
+     * while a move and a file write are refused and no file appears; allowed to change things,
+     * it writes. Either way the computer's own files are only touched when allowed.
+     */
+    private static void agentScratchpad(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        helper.setBlock(new BlockPos(0, 1, 0), QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity block = helper.getBlockEntity(new BlockPos(0, 1, 0), ComputerBlockEntity.class);
+        block.onPlaced(player.getUUID());
+        String name = "scratchpc" + Integer.toHexString(player.getUUID().hashCode() & 0xfff);
+        block.setDeviceName(name);
+        ServerComputer computer = ComputerManager.get(helper.getLevel().getServer()).getOrStart(block);
+        setPort(helper, new BlockPos(1, 1, 0), Kind.BUS, Direction.SOUTH);
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.CHEST);
+        helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class).setItem(0, new ItemStack(Items.COAL, 7));
+        qbotics.block.ProbeItem.rename(helper.getLevel(), null,
+                new qbotics.net.ProbePayloads.Rename(helper.absolutePos(new BlockPos(1, 1, 0)), Direction.SOUTH.get3DDataValue(), "chest"));
+        String look = String.join("\n",
+                "from logistics import network, move",
+                "import env",
+                "c = network().bus('chest')",
+                "print('coal', c.count('coal'))",
+                "print('env', env.now()['dimension'])",
+                "try:",
+                "    move(c, c, 'coal', 1)",
+                "except Exception as e:",
+                "    print('refused', 'look-only' in str(e))",
+                "try:",
+                "    open('/x.txt', 'w').write('no')",
+                "except OSError:",
+                "    print('nofile')");
+        com.google.gson.JsonObject first = new com.google.gson.JsonObject();
+        first.addProperty("computer", name);
+        first.addProperty("code", look);
+        com.google.gson.JsonObject second = new com.google.gson.JsonObject();
+        second.addProperty("computer", name);
+        second.addProperty("code", "open('/y.txt', 'w').write('yes')\nprint('wrote')");
+        second.addProperty("change", "true");
+        java.util.List<java.util.concurrent.CompletableFuture<String>> got = new java.util.ArrayList<>();
+        helper.succeedWhen(() -> {
+            if (got.isEmpty()) {
+                helper.assertTrue(screen(computer).contains("$"), "booting");
+                got.add(qbotics.agent.AgentTools.call(player, "python", first.toString()));
+                helper.fail("asked");
+            }
+            if (got.size() == 1) {
+                helper.assertTrue(got.get(0).isDone(), "waiting for the look-only run");
+                got.add(qbotics.agent.AgentTools.call(player, "python", second.toString()));
+                helper.fail("asked again");
+            }
+            helper.assertTrue(got.get(1).isDone(), "waiting for the run that may change things");
+            String looked = got.get(0).join();
+            String changed = got.get(1).join();
+            helper.assertTrue(looked.startsWith("ran (look-only)") && looked.contains("coal 7") && looked.contains("env minecraft:overworld")
+                    && looked.contains("refused True") && looked.contains("nofile"), "look-only reads, and changes nothing: " + looked);
+            helper.assertTrue(changed.startsWith("ran\n") && changed.contains("wrote"), "allowed, it changes things: " + changed);
+            boolean leftNothing;
+            try {
+                computer.drive().call(qbotics.engine.HostFileSystem.STAT, "/x.txt", new byte[0]);
+                leftNothing = false;
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                leftNothing = true;
+            }
+            helper.assertTrue(leftNothing, "the look-only run left no file");
+            try {
+                helper.assertTrue(new String(computer.drive().call(qbotics.engine.HostFileSystem.READ, "/y.txt", new byte[0])).equals("yes"),
+                        "the allowed run wrote its file");
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                helper.fail("the allowed run should have written /y.txt");
+            }
         });
     }
 
