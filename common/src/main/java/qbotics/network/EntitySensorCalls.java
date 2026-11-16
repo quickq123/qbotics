@@ -202,11 +202,11 @@ final class EntitySensorCalls {
     }
 
     /** One item taken from sources: what it is and where it came from (to go back to). */
-    private record Taken(ItemStack stack, ItemPort from) {
+    record Taken(ItemStack stack, ItemPort from) {
     }
 
     /** Takes one item that a name or filter (or anything, with none) passes, from the first source that has one. */
-    private static @Nullable Taken takeOne(ServerLevel level, CableNetwork network, JsonElement written, @Nullable String wanted) {
+    static @Nullable Taken takeOne(ServerLevel level, CableNetwork network, JsonElement written, @Nullable String wanted) {
         NameMatch<Item> match = wanted == null ? null : NetworkCalls.item(wanted);
         for (End end : NetworkCalls.asMedium(NetworkCalls.ends(network, written, "source"), Medium.ITEM)) {
             if (end.device().medium() != Medium.ITEM) {
@@ -226,7 +226,7 @@ final class EntitySensorCalls {
     }
 
     /** The item destinations named at args[index], or none. */
-    private static List<ItemPort> destinations(ServerLevel level, CableNetwork network, JsonArray args, int index) {
+    static List<ItemPort> destinations(ServerLevel level, CableNetwork network, JsonArray args, int index) {
         List<ItemPort> out = new ArrayList<>();
         if (index >= args.size() || args.get(index).isJsonNull()) {
             return out;
@@ -240,7 +240,7 @@ final class EntitySensorCalls {
     }
 
     /** Puts things away: into the first places that take them, and what none takes onto the ground at the entity. */
-    private static void putAway(ServerLevel level, List<ItemStack> things, List<ItemPort> into, Vec3 at, JsonObject gave) {
+    static void putAway(ServerLevel level, List<ItemStack> things, List<ItemPort> into, Vec3 at, JsonObject gave) {
         for (ItemStack thing : things) {
             if (thing.isEmpty()) {
                 continue;
@@ -261,7 +261,7 @@ final class EntitySensorCalls {
     }
 
     /** Everything the stand-in holds now (in hand and in its pockets), taken from it. */
-    private static List<ItemStack> emptyHands(ServerPlayer player) {
+    static List<ItemStack> emptyHands(ServerPlayer player) {
         List<ItemStack> held = new ArrayList<>();
         held.add(player.getMainHandItem());
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);

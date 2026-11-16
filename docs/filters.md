@@ -96,6 +96,22 @@ Mending ones; `"#c:tools damaged | #c:armors damaged"` is gear to repair.
 Where only a kind of item is known, not a stack (the Interface slot's picture, say), these
 words are passed over.
 
+## 2b2. Words about a block's state
+
+Where a filter names blocks (a Block Sensor's `blocks()` and `watch()`, section 6.14 of the
+reference), a word `name=value` tests the block's state, as the F3 screen shows it:
+
+| Written | Passes |
+|---|---|
+| `"wheat age=7"` | Ripe wheat |
+| `"#minecraft:crops age=7"` | Any crop at age 7 (carrots and potatoes ripen at 7 too; beetroot at 3) |
+| `"furnace lit=true"` | A furnace that is burning |
+| `"*_door open=false"` | Any shut door |
+| `"farmland moisture=0"` | Dry farmland |
+
+A block without that property doesn't pass. They combine like every other word:
+`"wheat -age=7"` is wheat that isn't ripe.
+
 ## 2c. The game's own item syntax
 
 For anything the words above don't cover, a word with `[...]` in it is read by the game

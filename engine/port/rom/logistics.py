@@ -1505,6 +1505,76 @@ class Collector(Device, _Area, _Gives, _Takes, _Watches):
         return self._info["slots"]
 
 
+class BlockSensor(Device, _Watches):
+    """A Block Sensor: reads the blocks in a small box near it, tells a program what changes
+    there, and breaks, places and uses items there as its owner. The box starts as the one
+    block above it; grow it on its screen or with set_area(), up to 11 blocks along each
+    side, within 11 of the sensor. Places are offsets from the sensor, (dx, dy, dz).
+
+        farm = net.block_sensor()
+        farm.set_area(x=(-4, 4), y=(1, 1), z=(-4, 4))     # a 9 x 9 field on its level, above it
+        for change in farm.watch("wheat age=7"):          # sleeps until wheat ripens
+            farm.break_block(change["pos"], to=store)
+            farm.place(change["pos"], "wheat_seeds", store)
+
+    Watching costs nothing while nothing changes: the game itself tells the sensor of each
+    change in its box."""
+
+    @property
+    def area(self):
+        """Its box: {"x": (low, high), "y": (low, high), "z": (low, high)}, offsets from it."""
+        b = self.refresh()._info["box"]
+        return {"x": (b[0], b[3]), "y": (b[1], b[4]), "z": (b[2], b[5])}
+
+    def set_area(self, x=None, y=None, z=None):
+        """Sets its box along any of x, y and z: a pair (low, high) of offsets from the sensor,
+        or one number for one layer. Each side at most 11 long, within 11 of the sensor."""
+        b = list(self.refresh()._info["box"])
+        for axis, given in ((0, x), (1, y), (2, z)):
+            if given is not None:
+                low, high = given if isinstance(given, (list, tuple)) else (given, given)
+                b[axis], b[axis + 3] = low, high
+        self._info["box"] = _call("bsensor_box", self.mac, b)
+
+    def blocks(self, what=None):
+        """The blocks in its box: a list of {"pos": [dx, dy, dz], "block", "state", "air",
+        "fluid"}. what is a name or filter, with state words: "wheat age=7", "#minecraft:crops",
+        "air". With none, every block that isn't air."""
+        return _call("bsensor_blocks", self.mac, what)
+
+    def block(self, pos):
+        """One block in its box, at an offset (dx, dy, dz)."""
+        return _call("bsensor_block", self.mac, list(pos))
+
+    def break_block(self, pos, to=None):
+        """Breaks the block at an offset as its owner would with the right netherite tool,
+        taking as long as that does (crops give way at once). The drops go to to (one
+        destination or a list), all or nothing; with none, they fall where the block was.
+        Returns what it got: {name: count}."""
+        ends = None if to is None else _ends(to, Destination)
+        while True:
+            reply = _call("bsensor_break", self.mac, list(pos), ends)
+            if "wait" not in reply:
+                return reply["got"]
+            time.sleep(reply["wait"] / 20)
+
+    def place(self, pos, item=None, sources=None):
+        """Places one item (a name or filter) from sources at an offset, as its owner would:
+        a block, or seeds onto farmland. Returns True if it went there; if not, it goes back."""
+        if sources is None:
+            raise NetworkError("place() needs sources= to say where the item comes from.")
+        return _call("bsensor_place", self.mac, list(pos), _ends(sources, Source), item)["placed"]
+
+    def use(self, pos, item=None, sources=None, destination=None):
+        """Right-clicks the block at an offset as its owner, holding one item from sources (or
+        an empty hand): bone meal grows what is there, a hoe tills dirt, a bucket fills or
+        empties, a lever flips. What comes of it goes to destination, or back to the sources.
+        Returns True if it did something."""
+        reply = _call("bsensor_use", self.mac, list(pos), None if sources is None else _ends(sources, Source), item,
+                      None if destination is None else _ends(destination, Destination))
+        return reply["used"]
+
+
 class EntitySensor(Device, _Area):
     """An Entity Sensor: sees the creatures, players, dropped items and experience orbs in a
     box around it (radius blocks out to each side, height up and down, each 1 to 20), and acts
@@ -1605,7 +1675,7 @@ _KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay,
           "fluid_interface": FluidInterface, "fluid_bus": FluidBus,
           "energy_interface": EnergyInterface, "energy_bus": EnergyBus, "experience_interface": ExperienceInterface,
           "player_interface": PlayerInterface, "chat_interface": ChatInterface, "command_interface": CommandInterface,
-          "entity_sensor": EntitySensor, "collector": Collector}
+          "entity_sensor": EntitySensor, "collector": Collector, "block_sensor": BlockSensor}
 
 
 def _wrap(info):
@@ -1696,6 +1766,10 @@ class Network:
     def collector(self, key=None):
         """A Collector by name or address; with no argument, the network's only one."""
         return self._find(key, "collector")
+
+    def block_sensor(self, key=None):
+        """A Block Sensor by name or address; with no argument, the network's only one."""
+        return self._find(key, "block_sensor")
 
     def monitor(self, key=None):
         """A text monitor by name or address; with no argument, the network's only one.

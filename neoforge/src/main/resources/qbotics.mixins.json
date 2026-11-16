@@ -3,6 +3,9 @@
   "minVersion": "0.8",
   "package": "qbotics.neoforge.mixin",
   "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ServerLevelBlockChangeMixin"
+  ],
   "client": [
     "ButtonClickMixin"
   ],

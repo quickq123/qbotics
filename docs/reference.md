@@ -300,6 +300,7 @@ With an antenna on the network, each device can also be reached from other netwo
 | `dropper` | A plate that throws items out as a dropper, or fires them as a dispenser (section 6.10) |
 | `entity_sensor` | Sees the creatures, players and dropped things around it, and acts on them as its owner (section 6.12) |
 | `collector` | A chest's worth of slots that picks up the dropped items around it, and experience into an Experience Interface (section 6.13) |
+| `block_sensor` | Reads, watches and works the blocks in a small box near it: harvests, plants, uses items (section 6.14) |
 | `drive_bay` | Holds hard drives; every computer on its network sees them under `/net` |
 | `programmer` | Puts programs from its hard drive onto the computer in front of it |
 | `monitor`, `panel` | A Text Monitor or a Control Panel: a screen, of one block or several (section 7c) |
@@ -434,6 +435,7 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `net.player_interface(key)`, `net.chat_interface(key)`, `net.command_interface(key)` | The game interfaces (section 6.11) |
 | `net.entity_sensor(key)` | An Entity Sensor (section 6.12) |
 | `net.collector(key)` | A Collector (section 6.13) |
+| `net.block_sensor(key)` | A Block Sensor (section 6.14) |
 | `net.interfaces()`, `net.buses()`, `net.usbs()` | Every interface, Item Serial Bus or USB |
 | `net.storage(names)` | Many chests as one: every interface and item bus the names find (section 6.4c) |
 
@@ -1449,6 +1451,73 @@ drops.set_area(radius=12, height=4)
 | `collector.radius`, `collector.height`, `collector.set_area(radius=None, height=None)` | Its area, each 1 to 20 |
 | `collector.slots` | 27 |
 | `collector.source(...)`, `collector.destination(...)`, `collector.watch(...)` | Sections 6.4 and 6.4b |
+
+### 6.14 Block Sensor: farms and other blocks near it
+
+A full block on the network that reads the **blocks** in a small box near it, tells a program
+what changes there, and **breaks, places and uses items** there as its owner. Where the Entity
+Sensor works creatures and things lying about, this works the blocks themselves: harvesting and
+replanting a field, bone-mealing grass and gathering what grows.
+
+**Recipe:** eight cables around an observer.
+
+**Its box** starts as the **one block above it**; grow it to what you need. Each side is at most
+**11 blocks** long (11 x 11 x 11 at the most), and the box stays within 11 blocks of the sensor,
+so it can sit above, beside or below it: a sensor under the middle of a 9 x 9 field covers just
+the field's layer.
+
+**Right-click it** for its screen: each face (top, bottom, north, south, west, east) with - and +
+to move it, shown as its offset from the sensor (Top +1 is the block above), and **Show area**,
+which outlines the box until pressed again. Only its owner (or an operator) can change it.
+
+**Places** are offsets from the sensor, `(dx, dy, dz)`: `(0, 1, 0)` is the block above it. A
+program written this way keeps working if the farm is rebuilt elsewhere.
+
+```python
+farm = net.block_sensor()
+store = net.storage("chest*")
+farm.set_area(x=(-4, 4), y=2, z=(-4, 4))           # a 9 x 9 field, two above the sensor
+
+for spot in farm.blocks("wheat age=7"):            # what is ripe now
+    farm.break_block(spot["pos"], to=store)
+    farm.place(spot["pos"], "wheat_seeds", store)
+
+for change in farm.watch("wheat age=7"):           # then, as each ripens
+    farm.break_block(change["pos"], to=store)
+    farm.place(change["pos"], "wheat_seeds", store)
+```
+
+| Call or attribute | Does |
+|---|---|
+| `sensor.blocks(what=None)` | The blocks in its box: `[{"pos": [dx, dy, dz], "block", "state", "air", "fluid"}]`. `what` is a name or filter, with state words: `"wheat age=7"`, `"#minecraft:crops"`, `"air"`. With none, every block that isn't air |
+| `sensor.block(pos)` | One block |
+| `sensor.watch(what=None)` | Changes in its box, as they happen (below) |
+| `sensor.break_block(pos, to=None)` | Breaks a block as its owner would with the right netherite tool, taking as long as that does (crops at once). Drops go to `to`, all or nothing; with no `to`, they fall where the block was, for a Collector to pick up. Returns `{name: count}` |
+| `sensor.place(pos, item=None, sources=...)` | Places one item from `sources` there, as its owner would: a block, or seeds onto farmland. Returns `True` if it went there; if not, it goes back |
+| `sensor.use(pos, item=None, sources=None, destination=None)` | Right-clicks the block there as its owner, holding one item from `sources` (or an empty hand): bone meal grows it, a hoe tills dirt, a bucket fills or empties, a lever flips. What comes of it goes to `destination`, or back to the sources. Returns `True` if it did something |
+| `sensor.area`, `sensor.set_area(x=None, y=None, z=None)` | Its box, as `{"x": (low, high), ...}` offsets. Give each axis a pair, or one number for one layer |
+
+**Watching.** `watch()` is a watch like a chest's (section 6.4b): `for change in farm.watch():`
+sleeps until something in the box changes. Each change is
+
+```python
+{"pos": [1, 1, -1], "block": "minecraft:wheat", "state": {"age": "7"},
+ "was": "minecraft:wheat", "was_state": {"age": "6"}}
+```
+
+- **It costs nothing while nothing changes.** The game itself tells the sensor of each change in
+  its box (crops growing, a player breaking a block, a program's own work); nothing is read again
+  and again. So a 11 x 11 x 11 box costs no more to watch than one block.
+- A filter passes a change if it passes the block before or after: `watch("wheat")` sees wheat
+  grow and wheat broken.
+- A place that changes several times between looks is one change, from its first state to its
+  last; one that changed and changed back isn't a change.
+- At most 4,096 places are kept between looks; past that, the list ends with `{"overflow": True}`:
+  read `blocks()` afresh.
+
+**Acting for the owner.** Breaking, placing and using are done by the player who placed the
+sensor, so they can't touch what that player couldn't (a land claim, say). A sensor nobody
+placed only reads and watches.
 
 ## 7. The `network` module
 

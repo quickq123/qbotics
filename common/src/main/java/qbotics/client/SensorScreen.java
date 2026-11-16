@@ -41,6 +41,13 @@ public class SensorScreen extends Screen {
         SHOWN.add(pos.immutable());
     }
 
+    /** Shows a block's area, or stops showing it. */
+    public static void toggle(BlockPos pos) {
+        if (!SHOWN.remove(pos)) {
+            SHOWN.add(pos.immutable());
+        }
+    }
+
     /** True while a sensor's area is to be outlined. */
     public static boolean shown(BlockPos pos) {
         return SHOWN.contains(pos);

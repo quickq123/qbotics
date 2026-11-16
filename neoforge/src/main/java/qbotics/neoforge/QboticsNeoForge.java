@@ -202,6 +202,12 @@ public final class QboticsNeoForge {
     private static final DeferredItem<BlockItem> COLLECTOR_ITEM = ITEMS.registerSimpleBlockItem(COLLECTOR);
     static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.CollectorBlockEntity>> COLLECTOR_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("collector", () -> new BlockEntityType<>(qbotics.block.CollectorBlockEntity::new, COLLECTOR.get()));
+    // The Block Sensor: reads, watches and works the blocks in a small box near it.
+    private static final DeferredBlock<qbotics.block.BlockSensorBlock> BLOCK_SENSOR = BLOCKS.registerBlock("block_sensor",
+            qbotics.block.BlockSensorBlock::new, properties -> properties.mapColor(MapColor.COLOR_GREEN).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> BLOCK_SENSOR_ITEM = ITEMS.registerSimpleBlockItem(BLOCK_SENSOR);
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.BlockSensorBlockEntity>> BLOCK_SENSOR_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("block_sensor", () -> new BlockEntityType<>(qbotics.block.BlockSensorBlockEntity::new, BLOCK_SENSOR.get()));
     private static final DeferredItem<BlockItem> CHAT_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(CHAT_INTERFACE);
     private static final DeferredItem<net.minecraft.world.item.GameMasterBlockItem> COMMAND_INTERFACE_ITEM = ITEMS.registerItem("command_interface",
             properties -> new net.minecraft.world.item.GameMasterBlockItem(COMMAND_INTERFACE.get(), properties),
@@ -301,6 +307,7 @@ public final class QboticsNeoForge {
                         output.accept(CHAT_INTERFACE_ITEM.get());
                         output.accept(ENTITY_SENSOR_ITEM.get());
                         output.accept(COLLECTOR_ITEM.get());
+                        output.accept(BLOCK_SENSOR_ITEM.get());
                         output.accept(BUS_ITEM.get());
                         output.accept(FLUID_BUS_ITEM.get());
                         output.accept(ENERGY_BUS_ITEM.get());
@@ -412,6 +419,8 @@ public final class QboticsNeoForge {
         QboticsContent.ENTITY_SENSOR_BLOCK_ENTITY = ENTITY_SENSOR_BLOCK_ENTITY;
         QboticsContent.COLLECTOR_BLOCK = COLLECTOR;
         QboticsContent.COLLECTOR_BLOCK_ENTITY = COLLECTOR_BLOCK_ENTITY;
+        QboticsContent.BLOCK_SENSOR_BLOCK = BLOCK_SENSOR;
+        QboticsContent.BLOCK_SENSOR_BLOCK_ENTITY = BLOCK_SENSOR_BLOCK_ENTITY;
         QboticsContent.CHAT_INTERFACE_BLOCK = CHAT_INTERFACE;
         QboticsContent.COMMAND_INTERFACE_BLOCK = COMMAND_INTERFACE;
         QboticsContent.GAME_INTERFACE_BLOCK_ENTITY = GAME_INTERFACE_BLOCK_ENTITY;
@@ -848,6 +857,12 @@ public final class QboticsNeoForge {
                 .playToServer(qbotics.net.DisplayPayloads.Touch.TYPE, qbotics.net.DisplayPayloads.Touch.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         qbotics.display.Displays.onCloseUpTouch(player, payload);
+                    }
+                })
+                .playToClient(qbotics.net.BoxPayloads.Info.TYPE, qbotics.net.BoxPayloads.Info.STREAM_CODEC)
+                .playToServer(qbotics.net.BoxPayloads.Action.TYPE, qbotics.net.BoxPayloads.Action.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.block.BlockSensorBlockEntity.onAction(player, payload);
                     }
                 })
                 .playToClient(qbotics.net.SensorPayloads.Info.TYPE, qbotics.net.SensorPayloads.Info.STREAM_CODEC)

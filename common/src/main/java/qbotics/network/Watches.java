@@ -34,7 +34,7 @@ import qbotics.network.NetworkCalls.CallError;
  * <p>Watches belong to the computer that opened them and are closed when it isn't looking:
  * after a minute unused, or when there are too many. Used on the server thread only.
  */
-final class Watches {
+public final class Watches {
     /** A watch not looked at for this long (in game ticks) is closed. */
     private static final long IDLE_TICKS = 20 * 60;
     /** The most watches one computer may have open. */
@@ -52,6 +52,10 @@ final class Watches {
         List<ItemStack> items = List.of();
         List<FluidPort.Tank> tanks = List.of();
         long amount;
+        /** On a Block Sensor: the sensor, and what changed in its box since the last look (each place's first and latest state). */
+        qbotics.block.@Nullable BlockSensorBlockEntity blocks;
+        final java.util.LinkedHashMap<BlockPos, net.minecraft.world.level.block.state.BlockState[]> pending = new java.util.LinkedHashMap<>();
+        boolean overflowed;
 
         Watch(BlockPos computer, String mac, @Nullable String face, @Nullable String what) {
             this.computer = computer;
@@ -85,7 +89,15 @@ final class Watches {
         // The address as the program gave it: behind another antenna it says which.
         Watch watch = new Watch(computer.immutable(), args.get(1).getAsString(), NetworkCalls.string(args, 2), NetworkCalls.string(args, 3));
         watch.lastUsed = now;
-        read(NetworkCalls.levelOf(device, level), device, watch, new JsonArray()); // what is there now is where it starts from
+        if (device instanceof qbotics.block.BlockSensorBlockEntity sensor) {
+            if (watch.what != null) {
+                NetworkCalls.block(watch.what); // says now if the filter can't be read
+            }
+            watch.blocks = sensor; // changes come to it as they happen
+            sensor.watched(true);
+        } else {
+            read(NetworkCalls.levelOf(device, level), device, watch, new JsonArray()); // what is there now is where it starts from
+        }
         String token = UUID.randomUUID().toString();
         OPEN.put(token, watch);
         return new JsonPrimitive(token);
@@ -106,8 +118,64 @@ final class Watches {
             throw new CallError("The device this watch was on is no longer on the network.");
         }
         JsonArray changes = new JsonArray();
+        if (watch.blocks != null) {
+            drain(watch, changes);
+            return changes;
+        }
         read(NetworkCalls.levelOf(device, level), device, watch, changes);
         return changes;
+    }
+
+    /** The most changes one Block Sensor watch keeps between looks; past that, it says so. */
+    private static final int MOST_PENDING = 4096;
+
+    /** A block in a watched Block Sensor's box changed (the game's own change, via the sensor). */
+    public static void blockChanged(qbotics.block.BlockSensorBlockEntity sensor, BlockPos pos,
+            net.minecraft.world.level.block.state.BlockState was, net.minecraft.world.level.block.state.BlockState now) {
+        boolean anyone = false;
+        for (Watch watch : OPEN.values()) {
+            if (watch.blocks != sensor) {
+                continue;
+            }
+            anyone = true;
+            net.minecraft.world.level.block.state.BlockState[] seen = watch.pending.get(pos);
+            if (seen != null) {
+                seen[1] = now; // the first state stays: a look sees where it began and where it ended
+            } else if (watch.pending.size() < MOST_PENDING) {
+                watch.pending.put(pos.immutable(), new net.minecraft.world.level.block.state.BlockState[] {was, now});
+            } else {
+                watch.overflowed = true;
+            }
+        }
+        if (!anyone) {
+            sensor.watched(false); // its watches have all ended
+        }
+    }
+
+    /** What a Block Sensor's watch has gathered, as changes; a place that changed and changed back is left out. */
+    private static void drain(Watch watch, JsonArray changes) {
+        NameMatch<net.minecraft.world.level.block.Block> match = watch.what == null ? null : NetworkCalls.block(watch.what);
+        for (var entry : watch.pending.entrySet()) {
+            net.minecraft.world.level.block.state.BlockState was = entry.getValue()[0];
+            net.minecraft.world.level.block.state.BlockState now = entry.getValue()[1];
+            if (was == now || (match != null && !match.testState(was) && !match.testState(now))) {
+                continue;
+            }
+            JsonObject change = new JsonObject();
+            change.add("pos", BlockSensorCalls.offset(watch.blocks, entry.getKey()));
+            change.addProperty("block", BlockSensorCalls.blockId(now));
+            change.add("state", BlockSensorCalls.stateJson(now));
+            change.addProperty("was", BlockSensorCalls.blockId(was));
+            change.add("was_state", BlockSensorCalls.stateJson(was));
+            changes.add(change);
+        }
+        watch.pending.clear();
+        if (watch.overflowed) {
+            JsonObject note = new JsonObject();
+            note.addProperty("overflow", true); // more changed than a watch keeps: read blocks() afresh
+            changes.add(note);
+            watch.overflowed = false;
+        }
     }
 
     /** ["watch_close", token] */

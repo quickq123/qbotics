@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "qbotics:block/block_sensor_top",
+    "side": "qbotics:block/block_sensor_side"
+  }
+}

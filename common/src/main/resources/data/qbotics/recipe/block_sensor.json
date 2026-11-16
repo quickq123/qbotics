@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "C": "qbotics:cable",
+    "O": "minecraft:observer"
+  },
+  "pattern": [
+    "CCC",
+    "COC",
+    "CCC"
+  ],
+  "result": {
+    "id": "qbotics:block_sensor"
+  }
+}

@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -140,6 +140,7 @@ public final class QboticsGameTests {
             Map.entry("entity_sensor", QboticsGameTests::entitySensor),
             Map.entry("qbot_attack", QboticsGameTests::qbotAttack),
             Map.entry("collector", QboticsGameTests::collector),
+            Map.entry("block_sensor", QboticsGameTests::blockSensor),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4882,6 +4883,54 @@ public final class QboticsGameTests {
             qbotics.block.ExperienceInterfaceBlockEntity bank = helper.getBlockEntity(new BlockPos(-1, 2, 1), qbotics.block.ExperienceInterfaceBlockEntity.class);
             helper.assertTrue(bank.points() >= 7, "the orb should go into the Experience Interface: " + bank.points());
         });
+    }
+
+    /**
+     * The Block Sensor works a small wheat field: its box starts as the block above it and is
+     * grown by a program; it finds the ripe wheat by its state, harvests it into storage,
+     * replants it and bone-meals the young one; a watch hears exactly those two places change,
+     * from the game's own block changes; a box too big is refused.
+     */
+    private static void blockSensor(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(-1, 1, 0));
+        helper.setBlock(new BlockPos(-1, 2, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(-1, 1, 1), QboticsContent.BLOCK_SENSOR_BLOCK.get());
+        helper.getBlockEntity(new BlockPos(-1, 1, 1), qbotics.block.BlockSensorBlockEntity.class).onPlaced(UUID.randomUUID());
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(-1, 2, 0), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Items.WHEAT_SEEDS, 4));
+        store.setItem(1, new ItemStack(Items.BONE_MEAL, 4));
+        BlockState farmland = Blocks.FARMLAND.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.MOISTURE, 7);
+        helper.setBlock(new BlockPos(0, 1, 0), farmland);
+        helper.setBlock(new BlockPos(1, 1, 0), farmland);
+        helper.setBlock(new BlockPos(0, 2, 0), Blocks.WHEAT.defaultBlockState().setValue(net.minecraft.world.level.block.CropBlock.AGE, 7));
+        helper.setBlock(new BlockPos(1, 2, 0), Blocks.WHEAT.defaultBlockState());
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "net = network()",
+                "s = net.block_sensor()",
+                "store = net.interface()",
+                "print('start', s.area['y'], s.area['x'])",
+                "s.set_area(x=(1, 3), y=(0, 1), z=(-1, 1))",
+                "print('area', s.area['x'], s.area['y'], s.area['z'])",
+                "w = s.watch('wheat')",
+                "ripe = s.blocks('wheat age=7')",
+                "print('ripe', len(ripe), ripe[0]['pos'])",
+                "got = s.break_block(ripe[0]['pos'], to=store)",
+                "print('got', got.get('minecraft:wheat', 0) >= 1, store.count('wheat') >= 1)",
+                "print('planted', s.place(ripe[0]['pos'], 'wheat_seeds', store))",
+                "print('meal', s.use((2, 1, -1), 'bone_meal', store))",
+                "print('changes', sorted([tuple(c['pos']) for c in w.changes()]))",
+                "print('young', s.block((1, 1, -1))['state']['age'])",
+                "s.set_area(x=(1, 30))")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer, "start (1, 1) (0, 0)\n", "area (1, 3) (0, 1) (-1, 1)\n",
+                "ripe 1 [1, 1, -1]\n", "got True True\n", "planted True\n", "meal True\n",
+                "changes [(1, 1, -1), (2, 1, -1)]\n", "young 0\n", "That box can't be had: it is at most 11 blocks along each side."));
     }
 
     private static void gameInterfaces(GameTestHelper helper) {

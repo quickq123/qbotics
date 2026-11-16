@@ -31,7 +31,8 @@ import qbotics.Qbotics;
  * effect=strength, damaged, undamaged, enchanted, named; and the game's own item predicate
  * syntax for anything else, a word with [...] in it: potion[potion_contents={potion:"minecraft:strong_strength"}].
  * Those are only known for a real stack ({@link #testStack}); asked about a kind of item
- * alone ({@link #test}), they are passed over, as in "could this kind pass?".
+ * alone ({@link #test}), they are passed over, as in "could this kind pass?". Blocks have
+ * words about their state in the same way: "wheat age=7", "furnace lit=true" ({@link #testState}).
  *
  * @param <T> items or fluids
  */
@@ -50,7 +51,7 @@ public final class NameMatch<T> implements Predicate<T> {
     private record Word(Predicate<Subject> test, boolean data) {
     }
 
-    private record Subject(Object thing, @Nullable ItemStack stack) {
+    private record Subject(Object thing, @Nullable ItemStack stack, net.minecraft.world.level.block.state.@Nullable BlockState state) {
     }
 
     private final Registry<T> registry;
@@ -157,9 +158,22 @@ public final class NameMatch<T> implements Predicate<T> {
         return registry.key().identifier().getPath().equals("item");
     }
 
-    /** A word about one stack's data; null if it isn't one. */
+    private boolean blocks() {
+        return registry.key().identifier().getPath().equals("block");
+    }
+
+    /** A word about one stack's data, or a block's state; null if it isn't one. */
     private @Nullable Word dataWord(String word) {
         String lower = word.toLowerCase(Locale.ROOT);
+        if (blocks() && lower.indexOf('=') > 0) {
+            // A block's state: "age=7", "lit=true", "facing=north". A block without that property doesn't pass.
+            String property = lower.substring(0, lower.indexOf('='));
+            String value = lower.substring(lower.indexOf('=') + 1);
+            if (value.isEmpty()) {
+                throw new BadFilter("Give a value after =, as in age=7.");
+            }
+            return new Word(subject -> subject.state() != null && stateHas(subject.state(), property, value), true);
+        }
         Predicate<ItemStack> test = null;
         if (word.indexOf('[') > 0 || word.startsWith("[")) {
             test = gamePredicate(word);
@@ -304,7 +318,7 @@ public final class NameMatch<T> implements Predicate<T> {
      */
     @Override
     public boolean test(T thing) {
-        Subject subject = new Subject(thing, null);
+        Subject subject = new Subject(thing, null, null);
         for (List<Word> all : alternatives) {
             if (all.stream().allMatch(word -> word.data() || word.test().test(subject))) {
                 return true;
@@ -315,13 +329,38 @@ public final class NameMatch<T> implements Predicate<T> {
 
     /** Whether one item stack passes, its data and all. */
     public boolean testStack(ItemStack stack) {
-        Subject subject = new Subject(stack.getItem(), stack);
+        Subject subject = new Subject(stack.getItem(), stack, null);
         for (List<Word> all : alternatives) {
             if (all.stream().allMatch(word -> word.test().test(subject))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Whether one block, as it stands (its state and all), passes. */
+    public boolean testState(net.minecraft.world.level.block.state.BlockState state) {
+        Subject subject = new Subject(state.getBlock(), null, state);
+        for (List<Word> all : alternatives) {
+            if (all.stream().allMatch(word -> word.test().test(subject))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean stateHas(net.minecraft.world.level.block.state.BlockState state, String name, String value) {
+        for (net.minecraft.world.level.block.state.properties.Property<?> property : state.getProperties()) {
+            if (property.getName().equals(name)) {
+                return valueName(state, property).equals(value);
+            }
+        }
+        return false;
+    }
+
+    private static <V extends Comparable<V>> String valueName(net.minecraft.world.level.block.state.BlockState state,
+            net.minecraft.world.level.block.state.properties.Property<V> property) {
+        return property.getName(state.getValue(property));
     }
 
     /** True if some word is about a stack's data, so only {@link #testStack} gives the whole answer. */

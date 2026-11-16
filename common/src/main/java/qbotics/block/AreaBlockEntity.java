@@ -21,7 +21,7 @@ import qbotics.net.SensorPayloads;
  * {@code radius} blocks out on every side and {@code height} up and down, each 1 to
  * {@link #MOST}. Its screen sets them and has Show area, which outlines the box in the world.
  */
-public abstract class AreaBlockEntity extends DeviceBlockEntity {
+public abstract class AreaBlockEntity extends DeviceBlockEntity implements HasArea {
     public static final int MOST = 20;
     public static final int DEFAULT = 8;
     /** How far a player may be to change it from its screen. */
@@ -53,6 +53,7 @@ public abstract class AreaBlockEntity extends DeviceBlockEntity {
     }
 
     /** The box it works: whole blocks, from radius (and height) out on each side of its own. */
+    @Override
     public AABB area() {
         return new AABB(getBlockPos()).inflate(radius, height, radius);
     }

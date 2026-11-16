@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "qbotics:block/block_sensor"
+    }
+  }
+}

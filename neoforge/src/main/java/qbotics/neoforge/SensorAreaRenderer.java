@@ -12,14 +12,14 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
-import qbotics.block.AreaBlockEntity;
+import qbotics.block.HasArea;
 import qbotics.client.SensorScreen;
 
 /**
  * Outlines the box an Entity Sensor or a Collector works while its screen's Show area is on: the twelve edges
  * of its area, in cyan, with a fainter mark at each block along the top edges to count by.
  */
-final class SensorAreaRenderer<T extends AreaBlockEntity> implements BlockEntityRenderer<T, SensorAreaRenderer.State> {
+final class SensorAreaRenderer<T extends net.minecraft.world.level.block.entity.BlockEntity & HasArea> implements BlockEntityRenderer<T, SensorAreaRenderer.State> {
     private static final int EDGE = 0xFF40E0FF;
     private static final int TICK = 0x8040E0FF;
 
@@ -28,8 +28,13 @@ final class SensorAreaRenderer<T extends AreaBlockEntity> implements BlockEntity
 
     static final class State extends BlockEntityRenderState {
         boolean shown;
-        int radius;
-        int height;
+        /** The box, from the block's corner. */
+        float x0;
+        float y0;
+        float z0;
+        float x1;
+        float y1;
+        float z1;
     }
 
     @Override
@@ -42,8 +47,14 @@ final class SensorAreaRenderer<T extends AreaBlockEntity> implements BlockEntity
             ModelFeatureRenderer.@Nullable CrumblingOverlay breakProgress) {
         BlockEntityRenderer.super.extractRenderState(sensor, state, partialTicks, cameraPosition, breakProgress);
         state.shown = SensorScreen.shown(sensor.getBlockPos());
-        state.radius = sensor.radius();
-        state.height = sensor.height();
+        AABB box = sensor.area();
+        net.minecraft.core.BlockPos at = sensor.getBlockPos();
+        state.x0 = (float) (box.minX - at.getX());
+        state.y0 = (float) (box.minY - at.getY());
+        state.z0 = (float) (box.minZ - at.getZ());
+        state.x1 = (float) (box.maxX - at.getX());
+        state.y1 = (float) (box.maxY - at.getY());
+        state.z1 = (float) (box.maxZ - at.getZ());
     }
 
     @Override
@@ -51,13 +62,13 @@ final class SensorAreaRenderer<T extends AreaBlockEntity> implements BlockEntity
         if (!state.shown) {
             return;
         }
-        // The pose is at the sensor block's corner: the box runs from radius (height) out on each side.
-        float x0 = -state.radius;
-        float x1 = state.radius + 1;
-        float y0 = -state.height;
-        float y1 = state.height + 1;
-        float z0 = -state.radius;
-        float z1 = state.radius + 1;
+        // The pose is at the block's corner; the box is given from there.
+        float x0 = state.x0;
+        float x1 = state.x1;
+        float y0 = state.y0;
+        float y1 = state.y1;
+        float z0 = state.z0;
+        float z1 = state.z1;
         collector.submitCustomGeometry(poseStack, RenderTypes.lines(), (pose, buffer) -> {
             float[][] corners = {{x0, y0, z0}, {x1, y0, z0}, {x1, y0, z1}, {x0, y0, z1}, {x0, y1, z0}, {x1, y1, z0}, {x1, y1, z1}, {x0, y1, z1}};
             int[][] edges = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};

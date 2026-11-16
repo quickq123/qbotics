@@ -1212,6 +1212,18 @@ Decided by the project owner: two buses can be linked so that each end's face of
 - **Tunnel light** (decided by the project owner): two pixels at the middle of each edge of a bus's front plate, the sides facing out from its axis (the face itself is against the target). Off with no tunnel, amber while the other end can't be reached, green when connected. The server checks loaded tunnel ends once a second and tells players' games when one changes; the colour is a tint (sources 6-11 of the cable's tint list, after the six ring colours).
 - Not yet: tunnels between Qbots and buses.
 
+### 11.0.12 Block Sensor (built 2026-11-16)
+
+Asked for by the project owner, for "dumb" block work such as an automated wheat farm, after weighing cost: a block that
+reads, watches and works the blocks in a small box (BlockSensorBlockEntity, BlockSensorCalls). The box is six offsets
+from the sensor, up to 11 per side and within 11 of it, starting as the one block above it (the owner's idea: the player
+grows it to what they need); its screen moves each face. Watching is event-driven, not scanning: a mixin on
+ServerLevel.updatePOIOnBlockStateChange (every real block change; the game's own POI hook) hands changes to sensors
+that a program is watching (a set checked only when non-empty), which coalesce them per place for the watch. Reading
+the whole box is on demand (blocks()). Acting as the owner's stand-in: break (WorldPlates.toolFor/breakTicks, drops to
+destinations all-or-nothing or into the world), place (useItemOn at the spot), use (useItemOn, then useItem). Block
+filters gained state words (`age=7`). Recipe: eight cables around an observer.
+
 ### 11.0.11 Collector (built 2026-11-16)
 
 Asked for by the project owner: a block with a chest's worth of slots that collects what lies in an area like the
@@ -1955,6 +1967,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-16 | Block Sensor (asked for by the project owner): a box up to 11 x 11 x 11 near it, starting as the block above; reads its blocks, watches changes as the game makes them (no scanning), and breaks, places and uses items there as its owner. Block filters gained state words (`wheat age=7`). §11.0.12 | Built 2026-11-16 |
 | 2026-11-16 | Collector (asked for by the project owner): 27 slots filled from the dropped items in an area like the Entity Sensor's, experience into an Experience Interface on its network; an item store to programs and pipes. qbot.snapshot() waits out its one-a-second limit in game time. §11.0.11 | Built 2026-11-16 |
 | 2026-11-16 | Entity Sensor (asked for by the project owner): a box of up to 41 x 41 x 41 around it, a screen with Show area; lists and reads entities, and as its owner uses items on them, attacks with weapons from storage at full strength, trades with villagers, and picks up drops and experience. §11.0.10 | Built 2026-11-16 |
 | 2026-11-16 | Dropper Plate (asked for by the project owner): a world plate shaped as a bus turned round, four cables around a dropper; `drop()` throws items out as a dropper, or with `dispense` set fires them through the game's own dispenser behaviours, giving back what a behaviour hands back. §11.0.9 | Built 2026-11-16 |

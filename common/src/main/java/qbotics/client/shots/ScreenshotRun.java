@@ -672,13 +672,29 @@ public final class ScreenshotRun {
             }
             // A Collector beside it.
             level.setBlock(base.offset(4, 0, 41), QboticsContent.COLLECTOR_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            // A Block Sensor under a 9 x 9 field of wheat, its box the field's layer.
+            for (int x = -4; x <= 4; x++) {
+                for (int z = -4; z <= 4; z++) {
+                    level.setBlock(base.offset(20 + x, -1, 44 + z), net.minecraft.world.level.block.Blocks.FARMLAND.defaultBlockState(), Block.UPDATE_ALL);
+                    level.setBlock(base.offset(20 + x, 0, 44 + z), net.minecraft.world.level.block.Blocks.WHEAT.defaultBlockState()
+                            .setValue(net.minecraft.world.level.block.CropBlock.AGE, (x + z + 8) % 8), Block.UPDATE_ALL);
+                }
+            }
+            level.setBlock(base.offset(20, -2, 44), QboticsContent.BLOCK_SENSOR_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            if (level.getBlockEntity(base.offset(20, -2, 44)) instanceof qbotics.block.BlockSensorBlockEntity farm) {
+                farm.setBox(new int[] {-4, 2, -4, 4, 2, 4});
+            }
         }));
-        then(10, minecraft -> qbotics.client.SensorScreen.showForShot(base.offset(2, 0, 40)));
+        then(10, minecraft -> {
+            qbotics.client.SensorScreen.showForShot(base.offset(2, 0, 40));
+            qbotics.client.SensorScreen.showForShot(base.offset(20, -2, 44));
+        });
         view("20-game-interfaces", new Vec3(2.5, 1.6, 33.2), new Vec3(2.5, 0.5, 30.5));
         view("20b-game-interfaces-above", new Vec3(2.5, 3.6, 32.4), new Vec3(2.5, 0.6, 30.5));
         view("20c-dropper-plate", new Vec3(9.6, 1.4, 32.6), new Vec3(8.0, 0.5, 30.5));
         view("20d-entity-sensor-area", new Vec3(2.5, 6.5, 52.0), new Vec3(2.5, 0.5, 40.5));
         view("20e-collector", new Vec3(5.6, 1.6, 43.4), new Vec3(4.5, 0.5, 41.5));
+        view("20f-block-sensor-field", new Vec3(20.5, 6.0, 53.5), new Vec3(20.5, 0.0, 44.5));
 
         // The items, as the hotbar and the hand draw them.
         section("items");

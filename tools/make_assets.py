@@ -257,6 +257,15 @@ write_json("assets/qbotics/lang/en_us.json", {
     "block.qbotics.chat_interface": "Chat Interface",
     "block.qbotics.entity_sensor": "Entity Sensor",
     "block.qbotics.collector": "Collector",
+    "block.qbotics.block_sensor": "Block Sensor",
+    "screen.qbotics.box.size": "%s x %s blocks, %s tall",
+    "screen.qbotics.box.up": "Top: %s",
+    "screen.qbotics.box.down": "Bottom: %s",
+    "screen.qbotics.box.north": "North: %s",
+    "screen.qbotics.box.south": "South: %s",
+    "screen.qbotics.box.west": "West: %s",
+    "screen.qbotics.box.east": "East: %s",
+    "screen.qbotics.box.hint": "Each face's offset from the sensor, in blocks",
     "screen.qbotics.sensor.show_area": "Show area",
     "screen.qbotics.sensor.hide_area": "Hide area",
     "screen.qbotics.sensor.size": "Sees %s x %s blocks, %s tall",
@@ -824,7 +833,7 @@ write_json("data/minecraft/tags/block/mineable/pickaxe.json", {
     "replace": False,
     "values": ["qbotics:computer", "qbotics:cable", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:player_interface", "qbotics:chat_interface", "qbotics:entity_sensor", "qbotics:collector",
-               "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
+               "qbotics:block_sensor", "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
                "qbotics:text_monitor", "qbotics:control_panel", "qbotics:web_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
 # What a cable reaches out to.
@@ -832,7 +841,7 @@ write_json("data/qbotics/tags/block/cable_connectable.json", {
     "replace": False,
     "values": ["qbotics:cable", "qbotics:computer", "qbotics:interface", "qbotics:fluid_interface", "qbotics:energy_interface", "qbotics:experience_interface",
                "qbotics:player_interface", "qbotics:chat_interface", "qbotics:command_interface", "qbotics:entity_sensor",
-               "qbotics:collector", "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
+               "qbotics:collector", "qbotics:block_sensor", "qbotics:antenna_short", "qbotics:antenna_long", "qbotics:antenna_infinite", "qbotics:drive_bay", "qbotics:programmer",
                "qbotics:text_monitor", "qbotics:control_panel", "qbotics:web_panel", "qbotics:iron_qbot", "qbotics:uplink", "qbotics:server"],
 })
 # ---- the editor's fonts (client/ide/GameUi.java) ----------------------------------------------
@@ -1144,6 +1153,39 @@ def collector_top():
     return px
 
 
+SENSOR_GREEN = (110, 210, 90)
+SENSOR_GREEN_DARK = (40, 90, 36)
+
+
+def block_sensor_side():
+    """A grid of plots with one marked, on a dark screen: it watches each block in its box."""
+    px = case_base()
+    for y in range(3, 13):
+        for x in range(2, 14):
+            px[y][x] = EDGE if x in (2, 13) or y in (3, 12) else SCREEN
+    for y in range(4, 12):
+        for x in range(3, 13):
+            if (x - 3) % 3 == 2 or (y - 4) % 3 == 2:
+                px[y][x] = SENSOR_GREEN_DARK
+    for y in range(7, 9):
+        for x in range(6, 8):
+            px[y][x] = SENSOR_GREEN
+    return px
+
+
+def block_sensor_top():
+    """An observer's face, in green: it notices what changes."""
+    px = case_base()
+    for y in range(3, 13):
+        for x in range(3, 13):
+            px[y][x] = EDGE if x in (3, 12) or y in (3, 12) else SCREEN
+    for x in range(5, 11):
+        px[7][x] = SENSOR_GREEN
+        px[8][x] = SENSOR_GREEN_DARK
+    px[6][6] = px[6][9] = SENSOR_GREEN
+    return px
+
+
 def command_interface_side():
     """A command block's copper colours, with a prompt (>_) on a dark screen."""
     px = [[COMMAND_ORANGE for _ in range(16)] for _ in range(16)]
@@ -1176,7 +1218,8 @@ for name, side, top in (("player_interface", player_interface_side, player_inter
                         ("chat_interface", chat_interface_side, chat_interface_top),
                         ("command_interface", command_interface_side, command_interface_top),
                         ("entity_sensor", entity_sensor_side, entity_sensor_top),
-                        ("collector", collector_side, collector_top)):
+                        ("collector", collector_side, collector_top),
+                        ("block_sensor", block_sensor_side, block_sensor_top)):
     write_png("assets/qbotics/textures/block/%s_side.png" % name, side())
     write_png("assets/qbotics/textures/block/%s_top.png" % name, top())
     write_json("assets/qbotics/models/block/%s.json" % name, {
@@ -1186,7 +1229,7 @@ for name, side, top in (("player_interface", player_interface_side, player_inter
     write_json("assets/qbotics/blockstates/%s.json" % name, {"variants": {"": {"model": "qbotics:block/%s" % name}}})
     write_json("assets/qbotics/items/%s.json" % name, {"model": {"type": "minecraft:model", "model": "qbotics:block/%s" % name}})
 # The Command Interface drops nothing and has no recipe: it is spawned in, like a command block.
-for name in ("player_interface", "chat_interface", "entity_sensor", "collector"):
+for name in ("player_interface", "chat_interface", "entity_sensor", "collector", "block_sensor"):
     write_json("data/qbotics/loot_table/blocks/%s.json" % name, drops_itself("qbotics:%s" % name, copy_components=["minecraft:custom_name"]))
 # The Player Interface needs an Ender Chest: it reaches its player wherever they are.
 write_json("data/qbotics/recipe/player_interface.json", shaped(
@@ -1197,6 +1240,9 @@ write_json("data/qbotics/recipe/entity_sensor.json", shaped(
 # The Collector: a hopper to gather, over a chest to keep, in a frame of cables.
 write_json("data/qbotics/recipe/collector.json", shaped(
     ["CCC", "CHC", "CTC"], {"C": "qbotics:cable", "H": "minecraft:hopper", "T": "minecraft:chest"}, "qbotics:collector"))
+# The Block Sensor notices block changes, as an observer does: eight cables around one.
+write_json("data/qbotics/recipe/block_sensor.json", shaped(
+    ["CCC", "COC", "CCC"], {"C": "qbotics:cable", "O": "minecraft:observer"}, "qbotics:block_sensor"))
 # The Chat Interface is written with a book and quill.
 write_json("data/qbotics/recipe/chat_interface.json", shaped(
     ["CCC", "CWC", "CCC"], {"C": "qbotics:cable", "W": "minecraft:writable_book"}, "qbotics:chat_interface"))

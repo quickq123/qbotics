@@ -743,6 +743,8 @@ public final class NetworkCalls {
                 }
                 return describe(level, network, device);
             }
+            case "bsensor_box", "bsensor_blocks", "bsensor_block", "bsensor_break", "bsensor_place", "bsensor_use":
+                return BlockSensorCalls.call(method, level, network, args);
             case "sensor_entities", "sensor_entity", "sensor_use", "sensor_attack", "sensor_offers", "sensor_trade", "sensor_collect":
                 return EntitySensorCalls.call(method, level, network, args);
             case "player_info", "chat_say", "chat_tell", "chat_command", "chat_listen", "command_run":
@@ -2181,6 +2183,11 @@ public final class NetworkCalls {
 
     /** The item for an ID such as "minecraft:coal"; "coal" alone means the same. */
     /** The item, or the filter of items, for what a program wrote: "minecraft:coal", "coal", "#minecraft:logs", "@create". */
+    /** A name or filter of a block: "wheat", "#minecraft:crops", "wheat age=7". */
+    static NameMatch<net.minecraft.world.level.block.Block> block(String text) {
+        return match(BuiltInRegistries.BLOCK, text, "block", "minecraft:wheat");
+    }
+
     /** A name or filter of a kind of entity: "cow", "#minecraft:undead", "@minecraft -player". */
     static NameMatch<net.minecraft.world.entity.EntityType<?>> entityType(String text) {
         return match(BuiltInRegistries.ENTITY_TYPE, text, "entity", "minecraft:cow");
@@ -2288,6 +2295,12 @@ public final class NetworkCalls {
             JsonArray drives = new JsonArray();
             bay.mounted().keySet().forEach(drives::add);
             info.add("drives", drives);
+        } else if (device instanceof qbotics.block.BlockSensorBlockEntity sensor) {
+            JsonArray box = new JsonArray();
+            for (int value : sensor.box()) {
+                box.add(value);
+            }
+            info.add("box", box);
         } else if (device instanceof qbotics.block.AreaBlockEntity area) {
             info.addProperty("radius", area.radius());
             info.addProperty("height", area.height());

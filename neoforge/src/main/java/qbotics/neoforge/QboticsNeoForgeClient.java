@@ -60,6 +60,8 @@ public final class QboticsNeoForgeClient {
                 event.registerBlockEntityRenderer(QboticsNeoForge.ENTITY_SENSOR_BLOCK_ENTITY.get(), SensorAreaRenderer::new));
         modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
                 event.registerBlockEntityRenderer(QboticsNeoForge.COLLECTOR_BLOCK_ENTITY.get(), SensorAreaRenderer::new));
+        modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
+                event.registerBlockEntityRenderer(QboticsNeoForge.BLOCK_SENSOR_BLOCK_ENTITY.get(), SensorAreaRenderer::new));
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) -> {
             event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new);
             event.register(QboticsNeoForge.FLUID_INTERFACE_MENU.get(), qbotics.client.FluidInterfaceScreen::new);
@@ -106,6 +108,7 @@ public final class QboticsNeoForgeClient {
             event.register(qbotics.net.ProbePayloads.Info.TYPE, (payload, context) -> qbotics.client.ProbeScreen.show(payload));
             event.register(qbotics.net.XpPayloads.Info.TYPE, (payload, context) -> qbotics.client.XpScreen.show(payload));
             event.register(qbotics.net.SensorPayloads.Info.TYPE, (payload, context) -> qbotics.client.SensorScreen.show(payload));
+            event.register(qbotics.net.BoxPayloads.Info.TYPE, (payload, context) -> qbotics.client.BoxScreen.show(payload));
             event.register(qbotics.net.GitPayloads.OpenToken.TYPE, (payload, context) -> qbotics.client.GitTokenScreen.show(payload));
         });
     }
