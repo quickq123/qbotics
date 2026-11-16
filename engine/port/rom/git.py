@@ -52,13 +52,21 @@ def _name(url):
     return name[:-4] if name.endswith(".git") else name
 
 
+# The repositories that come with the mod. They always go to the top of the drive (/helpme,
+# /lessons) unless a folder is given, wherever they are cloned from.
+_BUNDLED = ("helpme", "lessons")
+
+
+def _folder(url):
+    name = _name(url.split("/tree/")[0])
+    return "/" + name if name.lower() in _BUNDLED and "github" not in url else name
+
+
 def clone(url, folder=None):
     """Copies a GitHub repository into a folder (by default one named after it). Returns
-    {"files", "branch", "commit", "repo"}. A branch: https://github.com/me/repo/tree/dev."""
-    if folder is None:
-        url_path = url.split("/tree/")[0]
-        folder = _name(url_path)
-    return _call("clone", folder, url)
+    {"files", "branch", "commit", "repo"}. A branch: https://github.com/me/repo/tree/dev.
+    git clone lessons and git clone helpme need no internet: they come with the mod."""
+    return _call("clone", folder if folder is not None else _folder(url), url)
 
 
 def pull(folder=None, force=False):
@@ -119,10 +127,10 @@ def _main(args):
             print("Cloning " + rest[0] + " ...")
             r = clone(rest[0], rest[1] if len(rest) > 1 else None)
             print("%d files from %s, branch %s, at %s." % (r["files"], r["repo"], r["branch"], r["commit"]))
-            where = rest[1] if len(rest) > 1 else _name(rest[0].split("/tree/")[0])
+            where = rest[1] if len(rest) > 1 else _folder(rest[0])
             try:
                 _os.stat(where + "/README.md")
-                print("Start with:  read " + where + "/README.md")
+                print("Start with:  cd " + where + "    then:  read README.md")
             except OSError:
                 pass
         elif op == "pull":

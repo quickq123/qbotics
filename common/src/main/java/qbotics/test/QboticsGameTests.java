@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -91,6 +91,8 @@ public final class QboticsGameTests {
             Map.entry("lessons", QboticsGameTests::lessons),
             Map.entry("lessons_world", QboticsGameTests::lessonsWorld),
             Map.entry("lessons_unattended", QboticsGameTests::lessonsUnattended),
+            Map.entry("lessons_clone", QboticsGameTests::lessonsClone),
+            Map.entry("error_hints", QboticsGameTests::errorHints),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
             Map.entry("server_model", QboticsGameTests::serverModel),
@@ -3919,7 +3921,7 @@ public final class QboticsGameTests {
             }
             String screen = screen(computer);
             helper.assertTrue(!screen.contains("Traceback"), "no errors: " + screen);
-            assertScreen(helper, computer, "Start with:  read helpme/README.md", "chest_ores takes", "chest_food takes", "chest_overflow takes anything", "Sorted 67 items", "Tidied 0 items",
+            assertScreen(helper, computer, "Start with:  cd /helpme    then:  read README.md", "chest_ores takes", "chest_food takes", "chest_overflow takes anything", "Sorted 67 items", "Tidied 0 items",
                     "Mending books: 1", "Worn tools: 1", "Put away 0 items, leaving the junk",
                     "The storage is 5 chests", "It holds 67 items", "Cobblestone: 30 in chest_overflow", "Put away 0 items from the inbox",
                     "in minecraft:", "Weather: ", "Watching. Ctrl+C stops it.");
@@ -4120,6 +4122,74 @@ public final class QboticsGameTests {
             helper.assertTrue(lessonDone(helper, player, "17_service"), "a service ran a 'day'");
             qbotics.lesson.Lessons.dayTicks = 24_000;
             server.interrupt();
+        });
+    }
+
+    /**
+     * The lessons as a new player meets them: a new computer suggests git clone lessons; cloned
+     * from inside another folder, they still go to /lessons; lesson 1's start.py earns its
+     * advancement as it is, and lesson 2's says what to do when nothing has the name yet.
+     */
+    private static void lessonsClone(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        helper.setBlock(new BlockPos(0, 1, 0), QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity block = helper.getBlockEntity(new BlockPos(0, 1, 0), ComputerBlockEntity.class);
+        block.onPlaced(player.getUUID());
+        ServerComputer computer = ComputerManager.get(helper.getLevel().getServer()).getOrStart(block);
+        for (String line : List.of("mkdir /somewhere", "cd /somewhere", "git clone lessons", "cd /lessons/01_hello", "run start.py",
+                "cd /lessons/02_network", "run start.py", "ls /lessons")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "New here? Type  git clone lessons", "files from qbotics/lessons, branch bundled",
+                    "Start with:  cd /lessons    then:  read README.md", "hello world", "Nothing here is named inbox yet.", "20_factory");
+            helper.assertTrue(!screen(computer).contains("Traceback"), "the starters run as they are: " + screen(computer));
+            helper.assertTrue(lessonDone(helper, player, "01_hello"), "lesson 1's start.py earns it");
+        });
+    }
+
+    /** Hints in plain words under the common Python mistakes, with the line they happened on. */
+    private static void errorHints(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        java.util.Map<String, String> mistakes = new java.util.LinkedHashMap<>();
+        mistakes.put("/name.py", "x = 1\nmvoe(x)\n");
+        mistakes.put("/module.py", "net = network()\n");
+        mistakes.put("/capital.py", "on = true\n");
+        mistakes.put("/syntax.py", "x = 1\nif x == 1\n    print(x)\n");
+        mistakes.put("/indent.py", "x = 1\n    print(x)\n");
+        mistakes.put("/handler.py", "def sort():\n    pass\nsort(1)\n");
+        mistakes.put("/join.py", "n = 3\nprint('moved ' + n)\n");
+        mistakes.put("/none.py", "x = None\nx.count()\n");
+        mistakes.put("/key.py", "d = {}\nd['pos']\n");
+        mistakes.put("/index.py", "a = []\na[0]\n");
+        mistakes.put("/import.py", "import logistic\n");
+        mistakes.put("/file.py", "open('/nothing.txt')\n");
+        try {
+            for (var file : mistakes.entrySet()) {
+                computer.drive().call(qbotics.engine.HostFileSystem.WRITE, file.getKey(), file.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        for (String file : mistakes.keySet()) {
+            computer.submitLine("run " + file);
+        }
+        computer.submitLine("echo all ran");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "all ran");
+            assertScreen(helper, computer,
+                    "Hint: Python doesn't know `mvoe` on line 2",
+                    "Hint: `network` comes from a module. Put this line at the top of the program:\n      from logistics import network\n",
+                    "Hint: Python writes it True, with a capital letter.",
+                    "Hint: Python couldn't read line 2",
+                    "starts further in than Python expects",
+                    "Hint: A function was given 1 values but takes 0",
+                    "Hint: Text and numbers can't be joined with +",
+                    "is None (nothing)",
+                    "Hint: There is no \"pos\" in that dictionary",
+                    "Hint: That asks for an item past the end of a list",
+                    "Hint: There is no module `logistic`",
+                    "Hint: That file or folder isn't there");
         });
     }
 

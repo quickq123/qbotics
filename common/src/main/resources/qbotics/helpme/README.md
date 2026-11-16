@@ -1,6 +1,8 @@
 # helpme: examples to learn Qbotics from
 
 You got these with `git clone helpme`. They are yours: read them, run them, change them.
+New to programming? Start with the lessons instead: `git clone lessons` (twenty of them, from
+your first program to a base that runs itself, each earning an advancement).
 When the mod brings new examples, `git pull` (in this folder) fetches them. If you changed
 files, it asks first: `git status` shows what you changed, and `git pull --force` puts the
 originals back.
@@ -19,7 +21,6 @@ Open a file in the editor with `edit <file>`. Ctrl+C stops a running program.
 
 | Folder | What is in it |
 |---|---|
-| `lessons` | **Twenty lessons**, from `print("hello world")` to a base that runs itself; each one earns an advancement (press L) |
 | `basics` | **Start here.** Python on a computer, files, and what is on the network |
 | `buses` | Counting, moving, sorting, smelting and crafting with Serial Buses, step by step; then `factory`, a whole program with one job per file |
 | `storage` | **Many chests as one:** counting across them, putting each kind away where it belongs, sorting with bus filters, and filters on enchantments and potions |

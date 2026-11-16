@@ -1841,7 +1841,7 @@ write_json("data/qbotics/recipe/antenna_infinite.json", shaped(
 # The lessons (design doc §17.9): advancements, from print("hello world") to a factory that
 # runs itself, met by the qbotics:lesson trigger when a player's program does each step (see
 # qbotics.lesson.Lessons and qbotics.network.LessonHooks for the steps). Each has a README in
-# helpme/lessons/<id>/. Columns: id, parent, icon, title, description, criteria (criterion:
+# lessons/<id>/ (git clone lessons). Columns: id, parent, icon, title, description, criteria (criterion:
 # step), requirements (None: all of them), frame.
 LESSONS = [
     ("01_hello", "root", "qbotics:computer", "Hello, World",
@@ -1893,7 +1893,7 @@ LESSONS = [
 
 LESSON_LANG = {
     "advancements.qbotics.lessons.root.title": "Qbotics Lessons",
-    "advancements.qbotics.lessons.root.description": "Programs that run your base, one lesson at a time. Type git clone helpme, then read /helpme/lessons/README.md",
+    "advancements.qbotics.lessons.root.description": "Programs that run your base, one lesson at a time. On a computer, type git clone lessons to begin",
 }
 write_json("data/qbotics/advancement/lessons/root.json", {
     "criteria": {
@@ -1913,7 +1913,7 @@ write_json("data/qbotics/advancement/lessons/root.json", {
 for lesson_id, parent, icon, title, description, criteria, requirements, frame in LESSONS:
     key = "advancements.qbotics.lessons.%s" % lesson_id
     LESSON_LANG[key + ".title"] = title
-    LESSON_LANG[key + ".description"] = "%s. Lesson: /helpme/lessons/%s" % (description, lesson_id)
+    LESSON_LANG[key + ".description"] = "%s. The lesson: cd /lessons/%s" % (description, lesson_id)
     write_json("data/qbotics/advancement/lessons/%s.json" % lesson_id, {
         "parent": "qbotics:lessons/%s" % parent,
         "criteria": {name: {"trigger": "qbotics:lesson", "conditions": {"lesson": step}} for name, step in criteria.items()},

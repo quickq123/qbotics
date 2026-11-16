@@ -799,6 +799,16 @@ public final class ServerComputer {
     /** What a program prints: to the terminal, and looked at for the "hello world" lesson. */
     private void programOutput(String text) {
         terminal.write(text);
+        String hint = errorHints.accept(text);
+        if (hint != null) {
+            // Under a traceback: what it usually means, in words, for players new to Python.
+            // Each line of the hint wrapped to the screen, under "Hint: " (a line of code on its own, to copy).
+            String[] parts = hint.split("\n");
+            for (int i = 0; i < parts.length; i++) {
+                String first = i == 0 ? "Hint: " : "      ";
+                terminal.write(String.join("\n", MarkdownText.wrap(parts[i], Terminal.COLS - 1, first, "      ")) + "\n");
+            }
+        }
         if (lessonOwnerNow() == null) {
             return;
         }
@@ -866,7 +876,7 @@ public final class ServerComputer {
                         terminal.clear();
                         if (!qbot) {
                             terminal.write("Qbotics computer. Type help for a list of commands.\n"
-                                    + (exists("/helpme") ? "" : "New here? Type  git clone helpme  for examples to learn from.\n"));
+                                    + (exists("/lessons") ? "" : "New here? Type  git clone lessons  to learn, one step at a time.\n"));
                         }
                         if (qbot) {
                             // A Qbot runs its program when told to (Run, a Programmer), or again after a reload.
@@ -942,6 +952,8 @@ public final class ServerComputer {
     public volatile java.util.@org.jspecify.annotations.Nullable UUID lessonOwner;
     /** The end of what programs have printed, letters only, for the "hello world" lesson. */
     private final StringBuilder printed = new StringBuilder();
+    /** Watches what programs print for tracebacks, to add a hint in words under each. */
+    private final ErrorHints.Watcher errorHints = new ErrorHints.Watcher();
     /** The tick a program began running unattended (from startup, or as a service), or -1. */
     private volatile int unattendedSince = -1;
     /** For a service: the Server it runs on, whose owner its lessons count for. */
@@ -1358,7 +1370,8 @@ public final class ServerComputer {
             "         item <item>        an item's names, tags, stack size, fuel and food values",
             "         items <word>       find items: a word, *pattern*, #tag or @mod",
             "Qbot:    craft <item> [count]   craft from what a Qbot carries (craft alone: its 3x3 grid)",
-            "Learn:   git clone helpme   examples of everything, by topic, to read and run (no internet needed)",
+            "Learn:   git clone lessons  twenty lessons, from your first program to a factory (no internet needed)",
+            "         git clone helpme   examples of everything, by topic, to read and run",
             "Server:  service start <file.py> [name]   run a program in the background (service help)",
             "Other:   clear   help       Ctrl+C stops a running program",
             "         shutdown           switch this computer off; it stays off until opened again",

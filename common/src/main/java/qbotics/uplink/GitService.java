@@ -157,55 +157,68 @@ public final class GitService {
         return text.isEmpty() ? JsonNull.INSTANCE : JsonParser.parseString(text);
     }
 
-    // ---- helpme: the examples that come with the mod ------------------------------------------------
+    // ---- the repositories that come with the mod: helpme (examples) and lessons -------------------
 
-    /** What {@code git clone helpme} copies: the examples in the mod (qbotics/helpme, listed in files.txt). */
-    static final String HELPME = "helpme";
-    private static @Nullable Map<String, byte[]> helpme;
-    private static @Nullable String helpmeCommit;
+    /** What {@code git clone helpme} and {@code git clone lessons} copy: qbotics/<name> in the mod, listed in its files.txt. */
+    static final java.util.List<String> BUNDLED = java.util.List.of("helpme", "lessons");
 
-    private static synchronized Map<String, byte[]> helpmeFiles() throws IOException {
-        if (helpme == null) {
-            Map<String, byte[]> files = new TreeMap<>();
-            try (java.io.InputStream list = GitService.class.getResourceAsStream("/qbotics/helpme/files.txt")) {
-                if (list == null) {
-                    throw new IOException("the examples are missing from the mod");
+    /** One bundled repository's files, and its "commit": a fingerprint of them all. */
+    private record Bundle(Map<String, byte[]> files, String commit) {
+    }
+
+    private static final Map<String, Bundle> BUNDLES = new java.util.HashMap<>();
+
+    private static synchronized Bundle bundle(String name) throws IOException {
+        Bundle known = BUNDLES.get(name);
+        if (known != null) {
+            return known;
+        }
+        Map<String, byte[]> files = new TreeMap<>();
+        try (java.io.InputStream list = GitService.class.getResourceAsStream("/qbotics/" + name + "/files.txt")) {
+            if (list == null) {
+                throw new IOException("the " + name + " files are missing from the mod");
+            }
+            for (String path : new String(list.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+                path = path.strip();
+                if (path.isEmpty()) {
+                    continue;
                 }
-                for (String path : new String(list.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
-                    path = path.strip();
-                    if (path.isEmpty()) {
-                        continue;
-                    }
-                    try (java.io.InputStream in = GitService.class.getResourceAsStream("/qbotics/helpme/" + path)) {
-                        if (in != null) {
-                            files.put(path, in.readAllBytes());
-                        }
+                try (java.io.InputStream in = GitService.class.getResourceAsStream("/qbotics/" + name + "/" + path)) {
+                    if (in != null) {
+                        files.put(path, in.readAllBytes());
                     }
                 }
             }
-            // Its "commit": a fingerprint of every file, so a pull knows when the mod brought new ones.
-            StringBuilder all = new StringBuilder();
-            files.forEach((path, content) -> all.append(path).append('\0').append(fingerprint(content)).append('\n'));
-            helpmeCommit = fingerprint(all.toString().getBytes(StandardCharsets.UTF_8));
-            helpme = files;
         }
-        return helpme;
+        // A fingerprint of every file, so a pull knows when the mod brought new ones.
+        StringBuilder all = new StringBuilder();
+        files.forEach((path, content) -> all.append(path).append('\0').append(fingerprint(content)).append('\n'));
+        Bundle made = new Bundle(files, fingerprint(all.toString().getBytes(StandardCharsets.UTF_8)));
+        BUNDLES.put(name, made);
+        return made;
     }
 
-    private static boolean isHelpme(@Nullable String url) {
+    /** The bundled repository a clone names ("helpme", "qbotics/lessons"), or null for any other. */
+    private static @Nullable String bundled(@Nullable String url) {
         if (url == null) {
-            return false;
+            return null;
         }
         String name = url.strip().toLowerCase(java.util.Locale.ROOT);
-        return name.equals(HELPME) || name.equals("qbotics/" + HELPME);
+        name = name.startsWith("qbotics/") ? name.substring("qbotics/".length()) : name;
+        return BUNDLED.contains(name) ? name : null;
     }
 
-    private static boolean isHelpme(JsonObject meta) {
-        return meta.has("owner") && meta.get("owner").getAsString().equals("qbotics") && meta.get("repo").getAsString().equals(HELPME);
+    /** The bundled repository a cloned folder came from, or null. */
+    private static @Nullable String bundled(JsonObject meta) {
+        if (!meta.has("owner") || !meta.get("owner").getAsString().equals("qbotics")) {
+            return null;
+        }
+        String repo = meta.get("repo").getAsString();
+        return BUNDLED.contains(repo) ? repo : null;
     }
 
     /**
-     * The calls done here without the Uplink: cloning and pulling helpme, and status (which only
+     * The calls done here without the Uplink: cloning and pulling helpme and lessons, and status (which only
      * reads the drive). Returns true if this one was. On the server thread; the files are small.
      */
     private static boolean local(HostFileSystem drive, String call, CompletableFuture<String> answer) {
@@ -219,21 +232,23 @@ public final class GitService {
             switch (op) {
                 case "status" -> result = status(drive, dir);
                 case "clone" -> {
-                    if (!isHelpme(extra)) {
+                    String name = bundled(extra);
+                    if (name == null) {
                         return false;
                     }
-                    result = cloneHelpme(drive, dir);
+                    result = cloneBundled(drive, dir, name);
                 }
                 case "pull", "push" -> {
                     JsonObject meta = readMeta(drive, dir); // not cloned: says so, before asking for the Uplink
-                    if (!isHelpme(meta)) {
+                    String name = bundled(meta);
+                    if (name == null) {
                         return false;
                     }
                     if (op.equals("push")) {
-                        throw new GitError("The helpme examples come with the mod and can't be pushed. Copy what you made into a "
+                        throw new GitError("The " + name + " files come with the mod and can't be pushed. Copy what you made into a "
                                 + "repository of your own (git clone https://github.com/...) and push that.");
                     }
-                    result = pullHelpme(drive, dir, meta, force);
+                    result = pullBundled(drive, dir, meta, force, name);
                 }
                 default -> {
                     return false;
@@ -255,25 +270,28 @@ public final class GitService {
         return true;
     }
 
-    private static JsonElement cloneHelpme(HostFileSystem drive, String dir) throws GitError, IOException, HostFileSystem.FsException {
+    private static JsonElement cloneBundled(HostFileSystem drive, String dir, String name) throws GitError, IOException, HostFileSystem.FsException {
         if (exists(drive, dir) && !new String(drive.call(HostFileSystem.LIST, dir, new byte[0]), StandardCharsets.UTF_8).isBlank()) {
-            throw new GitError(dir + " is already there and not empty. To get the newest examples: cd " + dir + " and git pull");
+            throw new GitError(dir + " is already there and not empty. To get the newest files: cd " + dir + " and git pull");
         }
-        Map<String, byte[]> files = helpmeFiles();
+        Bundle bundle = bundle(name);
+        Map<String, byte[]> files = bundle.files();
         mkdirs(drive, dir);
         writeAll(drive, dir, files);
-        writeMeta(drive, dir, new Repo("qbotics", HELPME, null), "bundled", helpmeCommit, files);
+        writeMeta(drive, dir, new Repo("qbotics", name, null), "bundled", bundle.commit(), files);
         JsonObject out = new JsonObject();
         out.addProperty("files", files.size());
         out.addProperty("branch", "bundled");
-        out.addProperty("commit", helpmeCommit.substring(0, 7));
-        out.addProperty("repo", "qbotics/" + HELPME);
+        out.addProperty("commit", bundle.commit().substring(0, 7));
+        out.addProperty("repo", "qbotics/" + name);
         return out;
     }
 
-    private static JsonElement pullHelpme(HostFileSystem drive, String dir, JsonObject meta, boolean force)
+    private static JsonElement pullBundled(HostFileSystem drive, String dir, JsonObject meta, boolean force, String name)
             throws GitError, IOException, HostFileSystem.FsException {
-        Map<String, byte[]> files = helpmeFiles();
+        Bundle bundle = bundle(name);
+        Map<String, byte[]> files = bundle.files();
+        String helpmeCommit = bundle.commit();
         JsonObject changed = changes(drive, dir, meta);
         if (any(changed) && !force) {
             throw new GitError("You have changes that pulling would overwrite (git status shows them). Copy them elsewhere, "
@@ -292,7 +310,7 @@ public final class GitService {
             }
         }
         writeAll(drive, dir, files);
-        writeMeta(drive, dir, new Repo("qbotics", HELPME, null), "bundled", helpmeCommit, files);
+        writeMeta(drive, dir, new Repo("qbotics", name, null), "bundled", helpmeCommit, files);
         out.addProperty("files", files.size());
         out.addProperty("already", false);
         return out;

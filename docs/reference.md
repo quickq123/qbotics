@@ -2602,13 +2602,17 @@ Long-range Antenna, over an integrated circuit.
 
 ## 7h. git: GitHub repositories on a computer
 
+**Lessons that come with the mod.** `git clone lessons` copies twenty lessons into `/lessons`
+(section 7l), and a new computer suggests it until `/lessons` is there. Both bundled
+repositories always go to the top of the drive, wherever they are cloned from, and `git clone`
+ends with where to start: `Start with:  cd /lessons    then:  read README.md`.
+
 **Examples that come with the mod.** `git clone helpme` copies a set of examples onto the
 computer's drive, in `/helpme`: no Uplink or internet needed. They are sorted by topic, each
 folder with a README saying what its examples do and which blocks they need:
 
 | Folder | Examples |
 |---|---|
-| `lessons` | Twenty lessons, each earning an advancement (section 7l) |
 | `basics` | Python, files, the network (start here) |
 | `buses` | Seven steps with Serial Buses (count, move, filters, a furnace, watching, sorting, crafting), then `factory`: one program, one job per file, started together under `events` |
 | `storage` | Many chests as one (`net.storage`), sorting with bus filters and matching, and data filters and `Filter` |
@@ -2971,7 +2975,8 @@ written `"#c:ingots/iron"` is a tag: any item carrying it. Very long recipes com
 Twenty lessons take a player from `print("hello world")` to a base that runs itself. Each is
 an **advancement**, in its own tab of the advancements screen (L): **Qbotics Lessons**, which
 opens when the player first holds a computer or a laptop. Each lesson has a README in
-`/helpme/lessons` (`git clone helpme`, then `read /helpme/lessons/README.md`).
+`/lessons`: `git clone lessons` (no internet needed), then `cd /lessons` and `read README.md`.
+Lessons 1 to 5 each come with a `start.py` that runs as it is, to change.
 
 A lesson is met by what a program **does**, not how it is written: any program doing the job
 counts, a helpme example too.
@@ -3291,6 +3296,23 @@ except NetworkError as problem:
 ```
 
 A move that moves nothing is not an error: `move` returns 0. Ask for `need=` when it should be one.
+
+**Hints.** Under a Python error the terminal adds a line in plain words saying what it usually
+means and what to look at, for players new to programming:
+
+```
+Traceback (most recent call last):
+  File "/lessons/03_first_move/start.py", line 9, in <module>
+NameError: name 'mvoe' isn't defined
+Hint: Python doesn't know `mvoe` on line 9. Check the spelling (capitals count), and that it
+      is made (mvoe = ...) or imported above that line. Text needs quotes: "mvoe".
+```
+
+There is one for the common mistakes: unknown names (and the module a game name comes from,
+`move` from `logistics`), unreadable lines, indentation, a handler taking the wrong number of
+values, joining text and numbers, a missing attribute or `None`, missing keys and list items,
+unknown modules, missing files, and running out of memory. The game's own errors
+(`NetworkError`) already say what is wrong, so have none.
 
 ---
 

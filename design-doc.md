@@ -1216,7 +1216,8 @@ Decided by the project owner: two buses can be linked so that each end's face of
 
 Asked for by the project owner: a structure for a player learning the system, from print("hello world") to an
 auto-crafting storage system, as achievements. Twenty vanilla advancements (data/qbotics/advancement/lessons, written
-by make_assets.py from one table), in their own tab, each with a README in helpme/lessons. One trigger,
+by make_assets.py from one table), in their own tab, each with a README in the bundled lessons repository (git clone lessons, its own folder /lessons
+so a new programmer needn't follow nested paths; helpme stays the examples). One trigger,
 qbotics:lesson, with a step name; hooks where the game already sees each step, so no lesson inspects code: program
 output (hello world), events reaching a listening program (ServerComputer.pushEvent: pins, panels, web pages,
 tablets), each call that worked (LessonHooks.afterCall: find, send to an external address, pin_set, display_open on
