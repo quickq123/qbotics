@@ -57,6 +57,7 @@ final class EntitySensorCalls {
         return switch (method) {
             case "sensor_entities" -> list(level, sensor, args);
             case "sensor_entity" -> describe(sensor, find(level, sensor, args, 2));
+            case "sensor_contents" -> contents(level, sensor, args);
             case "sensor_use" -> use(level, network, sensor, args);
             case "sensor_attack" -> attack(level, network, sensor, args);
             case "sensor_offers" -> offers(level, find(level, sensor, args, 2));
@@ -154,6 +155,26 @@ final class EntitySensorCalls {
         if (entity instanceof net.minecraft.world.entity.Mob mob) {
             info.addProperty("leashed", mob.isLeashed());
         }
+        if (entity instanceof LivingEntity living) {
+            // What it wears: the armour a zombie picked up, or what an armor stand shows.
+            JsonObject armor = new JsonObject();
+            for (net.minecraft.world.entity.EquipmentSlot slot : new net.minecraft.world.entity.EquipmentSlot[] {
+                    net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST,
+                    net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) {
+                ItemStack worn = living.getItemBySlot(slot);
+                armor.add(slot.getName(), worn.isEmpty() ? JsonNull.INSTANCE : new com.google.gson.JsonPrimitive(NetworkCalls.itemId(worn.getItem())));
+            }
+            info.add("armor", armor);
+            ItemStack off = living.getOffhandItem();
+            info.add("offhand", off.isEmpty() ? JsonNull.INSTANCE : new com.google.gson.JsonPrimitive(NetworkCalls.itemId(off.getItem())));
+        }
+        if (entity instanceof net.minecraft.world.entity.decoration.ItemFrame frame) {
+            ItemStack shown = frame.getItem();
+            info.add("framed", shown.isEmpty() ? JsonNull.INSTANCE : new com.google.gson.JsonPrimitive(NetworkCalls.itemId(shown.getItem())));
+            info.addProperty("rotation", frame.getRotation());
+        }
+        ItemPort items = entity instanceof net.minecraft.world.entity.player.Player ? null : Qbotics.platform().entityItems(entity);
+        info.addProperty("slots", items == null ? 0 : items.contents().size());
         if (entity instanceof net.minecraft.world.entity.AgeableMob ageable) {
             info.addProperty("age", ageable.getAge());
         }
@@ -186,6 +207,54 @@ final class EntitySensorCalls {
             info.addProperty("value", qbotics.block.Experience.orbPoints(orb));
         }
         return info;
+    }
+
+    // ---- an entity's inventory ---------------------------------------------------------------
+
+    /**
+     * The items of the entity an end of a move names ({"mac": sensor, "entity": uuid}): in the
+     * sensor's area, alive, and not a player. A move can take from it and put into it, slot by
+     * slot, as from a chest behind a bus.
+     */
+    static ItemPort inventory(ServerLevel level, End end) {
+        if (!(end.device() instanceof EntitySensorBlockEntity sensor)) {
+            throw new CallError("An entity is reached through the Entity Sensor that sees it.");
+        }
+        JsonArray args = new JsonArray();
+        args.add("");
+        args.add("");
+        args.add(end.written().get("entity").getAsString());
+        Entity entity = find(level, sensor, args, 2);
+        if (entity instanceof net.minecraft.world.entity.player.Player) {
+            throw new CallError("A player's inventory is reached with a Player Interface, not a sensor.");
+        }
+        ItemPort items = Qbotics.platform().entityItems(entity);
+        if (items == null) {
+            throw new CallError("The " + name(entity) + " has no inventory to reach.");
+        }
+        return items;
+    }
+
+    /** ["sensor_contents", mac, uuid, details]: what an entity holds, slot by slot. */
+    private static JsonArray contents(ServerLevel level, EntitySensorBlockEntity sensor, JsonArray args) {
+        JsonObject written = new JsonObject();
+        written.addProperty("entity", NetworkCalls.string(args, 2));
+        ItemPort items = inventory(level, new End(sensor, null, -1, written, null));
+        boolean details = args.size() > 3 && !args.get(3).isJsonNull() && args.get(3).getAsBoolean();
+        JsonArray list = new JsonArray();
+        List<ItemStack> stacks = items.contents();
+        for (int slot = 0; slot < stacks.size(); slot++) {
+            ItemStack stack = stacks.get(slot);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            JsonObject entry = details ? stackJson(stack, level) : new JsonObject();
+            entry.addProperty("slot", slot);
+            entry.addProperty("item", NetworkCalls.itemId(stack.getItem()));
+            entry.addProperty("count", stack.getCount());
+            list.add(entry);
+        }
+        return list;
     }
 
     // ---- acting as the owner -------------------------------------------------------------

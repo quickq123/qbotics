@@ -51,6 +51,13 @@ public interface QboticsPlatform {
      */
     void chargeAttack(net.minecraft.server.level.ServerPlayer standIn, int ticks);
 
+    /**
+     * An entity's items, as hoppers and pipes reach them: a minecart's or boat's chest, a horse's
+     * or llama's packs; for other creatures (and armor stands) their hands and armour. Null for
+     * players (the Player Interface is for those) and for entities with none.
+     */
+    qbotics.network.@org.jspecify.annotations.Nullable ItemPort entityItems(net.minecraft.world.entity.Entity entity);
+
     /** True if protection (a land claim, spawn protection) lets this player break the block at a position. */
     boolean mayBreak(ServerLevel level, net.minecraft.server.level.ServerPlayer player, BlockPos pos);
 

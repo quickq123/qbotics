@@ -673,6 +673,18 @@ public final class QboticsNeoForge {
             }
 
             @Override
+            public ItemPort entityItems(net.minecraft.world.entity.Entity entity) {
+                if (entity instanceof net.minecraft.world.entity.player.Player) {
+                    return null;
+                }
+                ResourceHandler<ItemResource> handler = entity.getCapability(Capabilities.Item.ENTITY_AUTOMATION, null);
+                if (handler == null) {
+                    handler = entity.getCapability(Capabilities.Item.ENTITY);
+                }
+                return handler == null ? null : new HandlerItemPort(handler);
+            }
+
+            @Override
             public void chargeAttack(net.minecraft.server.level.ServerPlayer standIn, int ticks) {
                 if (standIn instanceof StandIn player) {
                     player.charge(ticks);

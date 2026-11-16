@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -141,6 +141,9 @@ public final class QboticsGameTests {
             Map.entry("qbot_attack", QboticsGameTests::qbotAttack),
             Map.entry("collector", QboticsGameTests::collector),
             Map.entry("block_sensor", QboticsGameTests::blockSensor),
+            Map.entry("environment", QboticsGameTests::environment),
+            Map.entry("entity_inventories", QboticsGameTests::entityInventories),
+            Map.entry("block_sensor_data", QboticsGameTests::blockSensorData),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4931,6 +4934,131 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> assertScreen(helper, computer, "start (1, 1) (0, 0)\n", "area (1, 3) (0, 1) (-1, 1)\n",
                 "ripe 1 [1, 1, -1]\n", "got True True\n", "planted True\n", "meal True\n",
                 "changes [(1, 1, -1), (2, 1, -1)]\n", "young 0\n", "That box can't be had: it is at most 11 blocks along each side."));
+    }
+
+    /**
+     * The env module: a computer reads the time, day, moon, weather, biome and light where it
+     * is, and its own place; a watch hears the weather turn to rain; a Qbot's place is where it
+     * stands; a laptop's is its player's.
+     */
+    private static void environment(GameTestHelper helper) {
+        BlockPos at = new BlockPos(0, 1, 0);
+        ServerComputer computer = startAt(helper, at);
+        BlockPos where = helper.absolutePos(at);
+        helper.getLevel().getServer().setWeatherParameters(6000, 0, false, false);
+        for (String line : List.of(
+                "python",
+                "import env",
+                "r = env.now()",
+                "print('env', r['dimension'], r['has_time'], r['phase'] in ('sunrise', 'day', 'sunset', 'night'), 0 <= r['time'] < 24000,"
+                        + " r['day'] >= 0, 0 <= r['moon'] <= 7, r['biome'].startswith('minecraft:'), sorted(r['light']))",
+                "print('pos', env.position() == (" + where.getX() + ", " + where.getY() + ", " + where.getZ() + "), r['weather'], r['here'])",
+                "w = env.watch('weather', every=0.25)",
+                "print('watching')",
+                "ch = w.wait(20)",
+                "print('changed', ch[0]['what'], ch[0]['was'], ch[0]['now'])")) {
+            computer.submitLine(line);
+        }
+        // The Qbot's place, and the laptop's.
+        BlockPos qbotAt = new BlockPos(2, 1, 2);
+        helper.setBlock(qbotAt, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(qbotAt, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        ServerComputer bot = ComputerManager.get(helper.getLevel().getServer()).getOrStart(qbot);
+        BlockPos qbotWhere = helper.absolutePos(qbotAt);
+        for (String line : List.of("python", "import env",
+                "print('qbot', env.position() == (" + qbotWhere.getX() + ", " + qbotWhere.getY() + ", " + qbotWhere.getZ() + "))")) {
+            bot.submitLine(line);
+        }
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        String laptop = qbotics.network.NetworkCalls.handleLaptop(player, "[\"env\"]");
+        BlockPos feet = player.blockPosition();
+        helper.assertTrue(laptop.contains("\"pos\":[" + feet.getX() + "," + feet.getY() + "," + feet.getZ() + "]"), "a laptop is where its player is: " + laptop);
+        helper.runAfterDelay(60, () -> helper.getLevel().getServer().setWeatherParameters(0, 6000, true, false));
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "env minecraft:overworld True True True True True True ['block', 'now', 'sky']\n",
+                    "pos True clear", "changed weather clear rain\n");
+            assertScreen(helper, bot, "qbot True\n");
+            helper.getLevel().getServer().setWeatherParameters(6000, 0, false, false);
+        });
+    }
+
+    /**
+     * An Entity Sensor reaches entity inventories: it counts and lists a chest minecart's
+     * contents and moves items out of it, puts a helmet on an armor stand by its head slot, and
+     * reads an item frame.
+     */
+    private static void entityInventories(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(-1, 1, 0));
+        helper.setBlock(new BlockPos(-1, 2, 0), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(-1, 1, 1), QboticsContent.ENTITY_SENSOR_BLOCK.get());
+        helper.getBlockEntity(new BlockPos(-1, 1, 1), qbotics.block.EntitySensorBlockEntity.class).onPlaced(UUID.randomUUID());
+        helper.getBlockEntity(new BlockPos(-1, 1, 1), qbotics.block.EntitySensorBlockEntity.class).setArea(4, 2);
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(-1, 2, 0), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Items.IRON_HELMET));
+        var cart = helper.spawn(net.minecraft.world.entity.EntityType.CHEST_MINECART, new BlockPos(0, 1, 0));
+        ((net.minecraft.world.Container) cart).setItem(3, new ItemStack(Items.COAL, 10));
+        var stand = helper.spawn(net.minecraft.world.entity.EntityType.ARMOR_STAND, new BlockPos(2, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 2), Blocks.STONE);
+        BlockPos frameAt = helper.absolutePos(new BlockPos(1, 2, 2));
+        var frame = new net.minecraft.world.entity.decoration.ItemFrame(helper.getLevel(), frameAt, Direction.UP);
+        frame.setItem(new ItemStack(Items.DIAMOND));
+        helper.getLevel().addFreshEntity(frame);
+        for (String line : List.of(
+                "python",
+                "from logistics import network, move",
+                "net = network()",
+                "s = net.entity_sensor()",
+                "store = net.interface()",
+                "cart = s.entities('chest_minecart')[0]",
+                "print('cart', cart.slots, cart.count('coal'), [(c['slot'], c['item']) for c in cart.contents()])",
+                "print('moved', move(cart, store, 'coal', 6), store.count('coal'), cart.count('coal'))",
+                "stand = s.entities('armor_stand')[0]",
+                "print('worn', move(store, stand.destination(slot=5), 'iron_helmet'), stand.refresh().armor['head'], store.count('iron_helmet'))",
+                "f = s.entities('item_frame')[0]",
+                "print('frame', f.framed, f.rotation, f.slots)",
+                "print('none', len(s.entities('player')))")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "cart 27 10 [(3, 'minecraft:coal')]\n", "moved 6 6 4\n", "worn 1 minecraft:iron_helmet 0\n",
+                    "frame minecraft:diamond 0 ");
+            helper.assertTrue(stand.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(Items.IRON_HELMET), "the stand wears the helmet");
+        });
+    }
+
+    /** A Block Sensor reads a sign's lines, a lectern's book, and each block's biome and light. */
+    private static void blockSensorData(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(-1, 1, 0));
+        helper.setBlock(new BlockPos(-1, 1, 1), QboticsContent.BLOCK_SENSOR_BLOCK.get());
+        helper.setBlock(new BlockPos(0, 1, 1), Blocks.OAK_SIGN);
+        var sign = helper.getBlockEntity(new BlockPos(0, 1, 1), net.minecraft.world.level.block.entity.SignBlockEntity.class);
+        sign.setText(sign.getFrontText().setMessage(0, net.minecraft.network.chat.Component.literal("Wheat"))
+                .setMessage(1, net.minecraft.network.chat.Component.literal("farm")).setHasGlowingText(true), true);
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.LECTERN);
+        ItemStack book = new ItemStack(Items.WRITTEN_BOOK);
+        book.set(net.minecraft.core.component.DataComponents.WRITTEN_BOOK_CONTENT, new net.minecraft.world.item.component.WrittenBookContent(
+                net.minecraft.server.network.Filterable.passThrough("Orders"), "Steve", 0,
+                List.of(net.minecraft.server.network.Filterable.passThrough(net.minecraft.network.chat.Component.literal("harvest at noon")),
+                        net.minecraft.server.network.Filterable.passThrough(net.minecraft.network.chat.Component.literal("page two"))), true));
+        helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.LecternBlockEntity.class).setBook(book);
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "s = network().block_sensor()",
+                "s.set_area(x=(1, 2), y=0, z=0)",
+                "g = s.block((1, 0, 0))",
+                "print('sign', g['sign']['front']['lines'][:2], g['sign']['front']['glowing'], g['sign']['waxed'])",
+                "b = s.block((2, 0, 0))['book']",
+                "print('book', b['title'], b['author'], b['pages'], b['page'])",
+                "print('here', g['biome'].startswith('minecraft:'), sorted(g['light']))")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer, "sign ['Wheat', 'farm'] True False\n",
+                "book Orders Steve ['harvest at noon', 'page two'] 0\n", "here True ['block', 'now', 'sky']\n"));
     }
 
     private static void gameInterfaces(GameTestHelper helper) {

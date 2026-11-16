@@ -1380,8 +1380,11 @@ entity that has died or left the area raises `NetworkError`.
 | `tame`, `owner` | Tameable animals: tamed, and the owner's UUID |
 | `leashed` | On a lead |
 | `trading`, `profession`, `level` | Villagers (and `trading` for wandering traders): trading with a player now, their job and level |
-| `item`, `count` | A dropped item |
+| `item`, `count()` | A dropped item: what it is, and how many lie in the stack |
 | `value` | An experience orb's points |
+| `armor`, `offhand` | Creatures and armor stands: `{"head", "chest", "legs", "feet"}` (item names or `None`), and the off-hand item |
+| `framed`, `rotation` | An item frame: the item in it (or `None`), and its turn, 0 to 7 |
+| `slots` | How many slots its inventory has; 0 for none (below) |
 
 | Call | Does |
 |---|---|
@@ -1390,6 +1393,32 @@ entity that has died or left the area raises `NetworkError`.
 | `entity.offers()` | A villager's or wandering trader's offers: `[{"index", "buy": {"item", "count"}, "buy_b", "sell": {...}, "uses", "max_uses", "out_of_stock"}]`. A sold item with data (an enchanted book) also has `"words"` and an exact `"filter"` (section 4) |
 | `entity.trade(offer, sources, destination=None, times=1)` | Makes an offer (its index or its dict), up to `times` times (at most 64 a call): the price is taken from `sources`, checked before anything moves; what it sells goes to `destination`, or back to the sources. Stops when the offer runs out or the price can't be paid. Returns how many trades were made |
 | `entity.collect(to)` | Picks up a dropped item or an experience orb |
+
+**Inventories.** An entity with items is a source and a destination for `move()`, as a chest
+behind a bus is, slot by slot, while it is in the sensor's area:
+
+| Entity | Its slots |
+|---|---|
+| Minecart with a chest or hopper, boat with a chest (and modded ones that offer their items to pipes) | The chest's |
+| Horse, donkey, mule, llama | Its inventory: saddle and armour slots, then its packs |
+| Any other creature, and armor stands | 0 main hand, 1 off hand, 2 feet, 3 legs, 4 chest, 5 head |
+| Players | Never: a Player Interface is for those |
+
+```python
+cart = sensor.nearest("chest_minecart")
+move(cart, store)                                          # unload it
+stand = sensor.nearest("armor_stand")
+move(store, stand.destination(slot=5), "iron_helmet")      # a helmet on its head
+```
+
+| Call | Does |
+|---|---|
+| `entity.contents(details=False)` | What it holds: `[{"slot", "item", "count"}]` |
+| `entity.count(item=None, slot=None)` | How many of an item it holds (a dropped item: how many lie in the stack) |
+| `entity.source(only=None, without=None, slot=None)`, `entity.destination(...)` | It as one end of a move; the entity itself works too: `move(cart, store)` |
+
+An item frame shows one item without an inventory: put one in with `frame.use("diamond", store)`,
+turn it with `frame.use()`, and knock it out with `frame.attack()`.
 
 **Attacking.**
 
@@ -1489,13 +1518,22 @@ for change in farm.watch("wheat age=7"):           # then, as each ripens
 
 | Call or attribute | Does |
 |---|---|
-| `sensor.blocks(what=None)` | The blocks in its box: `[{"pos": [dx, dy, dz], "block", "state", "air", "fluid"}]`. `what` is a name or filter, with state words: `"wheat age=7"`, `"#minecraft:crops"`, `"air"`. With none, every block that isn't air |
+| `sensor.blocks(what=None)` | The blocks in its box: `[{"pos": [dx, dy, dz], "block", "state", "air", "fluid", "biome", "light"}]`, with `"sign"` and `"book"` where there is one (below). `what` is a name or filter, with state words: `"wheat age=7"`, `"#minecraft:crops"`, `"air"`. With none, every block that isn't air |
 | `sensor.block(pos)` | One block |
 | `sensor.watch(what=None)` | Changes in its box, as they happen (below) |
 | `sensor.break_block(pos, to=None)` | Breaks a block as its owner would with the right netherite tool, taking as long as that does (crops at once). Drops go to `to`, all or nothing; with no `to`, they fall where the block was, for a Collector to pick up. Returns `{name: count}` |
 | `sensor.place(pos, item=None, sources=...)` | Places one item from `sources` there, as its owner would: a block, or seeds onto farmland. Returns `True` if it went there; if not, it goes back |
 | `sensor.use(pos, item=None, sources=None, destination=None)` | Right-clicks the block there as its owner, holding one item from `sources` (or an empty hand): bone meal grows it, a hoe tills dirt, a bucket fills or empties, a lever flips. What comes of it goes to `destination`, or back to the sources. Returns `True` if it did something |
 | `sensor.area`, `sensor.set_area(x=None, y=None, z=None)` | Its box, as `{"x": (low, high), ...}` offsets. Give each axis a pair, or one number for one layer |
+
+**What each block says**, besides its name and state:
+
+| Key | Gives |
+|---|---|
+| `biome` | `"minecraft:plains"` |
+| `light` | `{"block": 0-15, "sky": 0-15, "now": 0-15}`: from torches and the like, from the sky, and both as they stand now (what crops and monster spawning go by) |
+| `sign` | A sign's (or hanging sign's) `{"front": {"lines": [4 lines], "color", "glowing"}, "back": {...}, "waxed"}` |
+| `book` | A lectern's book: `{"title", "author", "pages": [text of each], "page": the page it is open at, from 0, "item"}`. A book and quill has no title or author |
 
 **Watching.** `watch()` is a watch like a chest's (section 6.4b): `for change in farm.watch():`
 sleeps until something in the box changes. Each change is
@@ -2749,6 +2787,51 @@ its answer appear in everyone's chat, so a teacher and students can all work wit
 **Choosing a model.** Small local models (7 to 14 billion parameters) can do this, better with
 "tools" support listed by their server; one with vision for `look`. Larger ones are better at
 writing whole programs.
+
+## 7k2. Where a computer is: the `env` module
+
+Every computer can read what the world is like where it is: the time and day, the moon, the
+weather, the biome, the light, and its own place. **Where** is where the computer is: a placed
+computer's block, a Qbot where it stands now, and a laptop the player carrying it.
+
+```python
+import env
+r = env.now()
+print(r["clock"], r["phase"], "day", r["day"], r["weather"], r["biome"])
+
+for change in env.watch("dark"):                 # sleeps until it gets dark (or light)
+    if change["now"]:
+        chat.say("Night: monsters can spawn outside.")
+```
+
+| Call | Gives |
+|---|---|
+| `env.now()` | Everything below, as a dict |
+| `env.position()` | `(x, y, z)`: where this computer is (a laptop: its player) |
+| `env.is_day()`, `env.is_dark()` | From sunrise to sunset; dark enough for monsters to spawn in the open |
+| `env.watch(what=None, every=1.0)` | Changes, as they come (below) |
+
+| Key | Gives |
+|---|---|
+| `pos`, `dimension` | `[x, y, z]`, and `"minecraft:overworld"` |
+| `has_time` | `False` where time stands still (the Nether, the End): then `time`, `clock`, `phase`, `day` and `moon` are `None` |
+| `time`, `clock` | Ticks into the day, 0 to 23,999 (0 is just after sunrise), and as a clock: `"14:30"` |
+| `phase` | `"sunrise"` (23,000 on), `"day"` (to 12,000), `"sunset"` (to 13,000), `"night"` (to 23,000) |
+| `day` | Days since the world began |
+| `moon`, `moon_name` | 0 to 7 (0 full, 4 new), and `"full_moon"`, `"waning_gibbous"`, ... |
+| `dark` | `True` when it is dark enough outside for monsters to spawn in the open: at night, and in a thunderstorm |
+| `weather` | `"clear"`, `"rain"` or `"thunder"`, for the whole world |
+| `here` | What falls here: `"rain"`, `"snow"` or `"none"` (clear weather, a desert, a roof overhead) |
+| `sky` | `True` if the sky is open above |
+| `biome` | `"minecraft:plains"` |
+| `light` | `{"block", "sky", "now"}`, 0 to 15, at the computer |
+
+**Watching.** `env.watch()` looks again every second (one small call; nothing is scanned) and
+gives each change as `{"what": "phase", "was": "sunset", "now": "night", "env": {...}}`. With no
+`what`, it watches the day's phase, darkness, weather, what falls here, biome and dimension; give
+one key or a list to watch others (`"day"`, `"moon"`, `"sky"`). Like other watches it has
+`changes()`, `wait(timeout)`, and works in a `for` loop. A Qbot or a laptop that moves into
+another biome, or through a portal, sees that as a change.
 
 ## 7k. Items and recipes: the `game` module
 

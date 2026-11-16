@@ -726,6 +726,9 @@ public final class NetworkCalls {
                 return Watches.poll(level, network, computerPos, args);
             case "watch_close":
                 return Watches.close(args);
+            case "env":
+                // ["env"]: the time, weather, biome and light where this computer is (a Qbot: where it stands now).
+                return Environment.read(level, computerPos);
             case "area": {
                 // ["area", mac, radius or null, height or null]: an Entity Sensor's or a Collector's box; sets what is given.
                 if (!(byMac(network, args, 1) instanceof qbotics.block.AreaBlockEntity device)) {
@@ -745,7 +748,7 @@ public final class NetworkCalls {
             }
             case "bsensor_box", "bsensor_blocks", "bsensor_block", "bsensor_break", "bsensor_place", "bsensor_use":
                 return BlockSensorCalls.call(method, level, network, args);
-            case "sensor_entities", "sensor_entity", "sensor_use", "sensor_attack", "sensor_offers", "sensor_trade", "sensor_collect":
+            case "sensor_entities", "sensor_entity", "sensor_contents", "sensor_use", "sensor_attack", "sensor_offers", "sensor_trade", "sensor_collect":
                 return EntitySensorCalls.call(method, level, network, args);
             case "player_info", "chat_say", "chat_tell", "chat_command", "chat_listen", "command_run":
                 return GameInterfaceCalls.call(method, level, network, computerPos, args);
@@ -801,6 +804,9 @@ public final class NetworkCalls {
         String label() {
             if (group != null) {
                 return "the storage";
+            }
+            if (written.has("entity")) {
+                return "the entity";
             }
             return device.deviceName().isEmpty() ? device.ip() : device.deviceName();
         }
@@ -1209,6 +1215,9 @@ public final class NetworkCalls {
         if (end.group() != null) {
             return storage(level, end.group());
         }
+        if (end.written().has("entity")) {
+            return EntitySensorCalls.inventory(levelOf(end.device(), level), end);
+        }
         level = levelOf(end.device(), level);
         if (onScreen(end)) {
             return openScreen(level, screenBus(end.device())).port();
@@ -1226,6 +1235,9 @@ public final class NetworkCalls {
     static ItemPort itemDestination(ServerLevel level, End end) {
         if (end.group() != null) {
             return storage(level, end.group());
+        }
+        if (end.written().has("entity")) {
+            return EntitySensorCalls.inventory(levelOf(end.device(), level), end);
         }
         level = levelOf(end.device(), level);
         if (onScreen(end)) {
@@ -1928,6 +1940,9 @@ public final class NetworkCalls {
     private static JsonElement runLaptop(net.minecraft.server.level.ServerPlayer player, JsonArray args) {
         String method = args.get(0).getAsString();
         switch (method) {
+            case "env":
+                // A laptop is where its player is.
+                return Environment.read(player.level(), player.blockPosition());
             case "ssh_open":
             case "ssh_reach": {
                 String address = args.get(1).getAsString();

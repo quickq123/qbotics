@@ -124,7 +124,60 @@ final class BlockSensorCalls {
         info.addProperty("air", state.isAir());
         info.add("fluid", state.getFluidState().isEmpty() ? JsonNull.INSTANCE
                 : new com.google.gson.JsonPrimitive(BuiltInRegistries.FLUID.getKey(state.getFluidState().getType()).toString()));
+        info.addProperty("biome", level.getBiome(pos).unwrapKey().map(key -> key.identifier().toString()).orElse("unknown"));
+        JsonObject light = new JsonObject();
+        light.addProperty("block", level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, pos));
+        light.addProperty("sky", level.getBrightness(net.minecraft.world.level.LightLayer.SKY, pos));
+        light.addProperty("now", level.getMaxLocalRawBrightness(pos));
+        info.add("light", light);
+        var entity = level.getBlockEntity(pos);
+        if (entity instanceof net.minecraft.world.level.block.entity.SignBlockEntity sign) {
+            JsonObject text = new JsonObject();
+            text.add("front", signSide(sign.getFrontText()));
+            text.add("back", signSide(sign.getBackText()));
+            text.addProperty("waxed", sign.isWaxed());
+            info.add("sign", text);
+        }
+        if (entity instanceof net.minecraft.world.level.block.entity.LecternBlockEntity lectern && lectern.hasBook()) {
+            info.add("book", book(lectern.getBook(), lectern.getPage()));
+        }
         return info;
+    }
+
+    /** One side of a sign: its four lines, its colour, and whether it glows. */
+    private static JsonObject signSide(net.minecraft.world.level.block.entity.SignText side) {
+        JsonObject out = new JsonObject();
+        JsonArray lines = new JsonArray();
+        for (int line = 0; line < 4; line++) {
+            lines.add(side.getMessage(line, false).getString());
+        }
+        out.add("lines", lines);
+        out.addProperty("color", side.getColor().getName());
+        out.addProperty("glowing", side.hasGlowingText());
+        return out;
+    }
+
+    /** A book on a lectern: title, author, its pages as text, and the page it is open at (from 0). */
+    private static JsonObject book(ItemStack stack, int page) {
+        JsonObject out = new JsonObject();
+        JsonArray pages = new JsonArray();
+        net.minecraft.world.item.component.WrittenBookContent written = stack.get(net.minecraft.core.component.DataComponents.WRITTEN_BOOK_CONTENT);
+        net.minecraft.world.item.component.WritableBookContent writable = stack.get(net.minecraft.core.component.DataComponents.WRITABLE_BOOK_CONTENT);
+        if (written != null) {
+            out.addProperty("title", written.title().raw());
+            out.addProperty("author", written.author());
+            written.pages().forEach(text -> pages.add(text.raw().getString()));
+        } else {
+            out.add("title", JsonNull.INSTANCE);
+            out.add("author", JsonNull.INSTANCE);
+            if (writable != null) {
+                writable.pages().forEach(text -> pages.add(text.raw()));
+            }
+        }
+        out.add("pages", pages);
+        out.addProperty("page", page);
+        out.addProperty("item", NetworkCalls.itemId(stack.getItem()));
+        return out;
     }
 
     /** ["bsensor_blocks", mac, name or filter or null]: every block in the box that isn't air (or that the filter passes). */

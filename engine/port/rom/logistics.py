@@ -292,6 +292,8 @@ def _ends(given, make):
             end = make(end)
         if isinstance(end, Storage):
             end = _StorageEnd(end)
+        if isinstance(end, Entity):
+            end = _EntityEnd(end)
         specs.append(end._spec())
     return specs
 
@@ -1378,7 +1380,9 @@ class Entity:
         cow.baby        False                    cow.can_breed (adult, ready), cow.in_love
         cow.pos         [x, y, z]                cow.offset (from the sensor), cow.distance
         sheep.sheared, sheep.color   villager.profession, villager.level   wolf.tame, wolf.owner
-        item.item, item.count (a dropped item)   orb.value (an experience orb)
+        item.item, item.count() (a dropped item) orb.value (an experience orb)
+        frame.framed, frame.rotation (an item frame)   stand.armor {"head", "chest", "legs", "feet"}
+        e.slots: how many slots its inventory has (0 for none): see contents() and source()
         e.hostile, e.held, e.player, e.leashed, e.age
 
     Keys a kind doesn't have are missing: a cow has no "sheared". refresh() reads it again."""
@@ -1454,6 +1458,32 @@ class Entity:
         """Picks it up, if it is a dropped item (into item destinations) or an experience orb
         (into an Experience Interface among them). Returns {"items": n, "points": p}."""
         return _call("sensor_collect", self._sensor.mac, self.uuid, _ends(to, Destination), None)
+
+    # Its inventory, for an entity that has one (data["slots"] > 0): a minecart's or boat's
+    # chest, a donkey's or llama's packs; a creature's or armor stand's hands and armour, as
+    # slots 0 main hand, 1 off hand, 2 feet, 3 legs, 4 chest, 5 head. Never a player's.
+
+    def contents(self, details=False):
+        """What it holds: [{"slot", "item", "count"}], as a chest's contents()."""
+        return _call("sensor_contents", self._sensor.mac, self.uuid, bool(details))
+
+    def count(self, item=None, slot=None):
+        """How many of an item (a name or filter) it holds; of everything, with none. A dropped
+        item holds the stack lying there: item.count() is how many."""
+        if not self.data.get("slots") and "count" in self.data:
+            named = None if item is None else (item if ":" in item else "minecraft:" + item)
+            return self.data["count"] if named is None or named == self.data.get("item") else 0
+        if isinstance(slot, Slot):
+            slot = slot.index
+        return _call("available", [_EntityEnd(self, slot=slot)._spec()], item)
+
+    def source(self, only=None, without=None, slot=None):
+        """Its inventory as somewhere to draw from, for move(): move(cart, store)."""
+        return _EntityEnd(self, only, without, slot)
+
+    def destination(self, only=None, without=None, slot=None):
+        """Its inventory as somewhere to put things, for move(): move(store, stand.destination(slot=5), "iron_helmet")."""
+        return _EntityEnd(self, only, without, slot)
 
     def __repr__(self):
         named = ' "%s"' % self.data["custom_name"] if self.data.get("custom_name") else ""
@@ -1573,6 +1603,25 @@ class BlockSensor(Device, _Watches):
         reply = _call("bsensor_use", self.mac, list(pos), None if sources is None else _ends(sources, Source), item,
                       None if destination is None else _ends(destination, Destination))
         return reply["used"]
+
+
+class _EntityEnd(Source):
+    # An entity's inventory as one end of a move, reached through the sensor that sees it.
+    def __init__(self, entity, only=None, without=None, slot=None):
+        self.entity = entity
+        self.device = entity._sensor
+        self.only = _list(only)
+        self.without = _list(without)
+        self.face = None
+        self.slot = slot.index if isinstance(slot, Slot) else slot
+
+    def _spec(self):
+        spec = Source._spec(self)
+        spec["entity"] = self.entity.uuid
+        return spec
+
+    def __repr__(self):
+        return "<inventory of %s>" % self.entity.type
 
 
 class EntitySensor(Device, _Area):
