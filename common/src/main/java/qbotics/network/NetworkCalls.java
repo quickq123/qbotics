@@ -112,6 +112,28 @@ public final class NetworkCalls {
 
     // ---- devices behind another antenna (the Transport Upgrade) ----------------------------
 
+    /**
+     * For a call that carries items through antennas other than by move() (a sensor across the
+     * radio): refuses when the antennas have carried all they may this second.
+     */
+    static void transportCheck(ServerLevel level) {
+        if (!LINKS.isEmpty() && qbotics.upgrade.TransportRate.room(LINKS, Medium.ITEM, level.getServer().getTickCount()) <= 0) {
+            throw new CallError("The antennas have carried all the items they may this second; try again in a moment.");
+        }
+    }
+
+    /** What such a call carried, counted against the antennas' Transport rate. */
+    static void transportSpend(ServerLevel level, long items) {
+        if (!LINKS.isEmpty() && items > 0) {
+            qbotics.upgrade.TransportRate.spend(LINKS, Medium.ITEM, items, level.getServer().getTickCount());
+        }
+    }
+
+    /** How many items such a call may still carry this second (unlimited when no antenna is crossed). */
+    static long transportRoom(ServerLevel level) {
+        return LINKS.isEmpty() ? Long.MAX_VALUE : qbotics.upgrade.TransportRate.room(LINKS, Medium.ITEM, level.getServer().getTickCount());
+    }
+
     /** The computer the call being answered came from. Server thread only, while a call is answered. */
     private static ServerLevel callLevel;
     private static BlockPos callPos;
@@ -746,7 +768,7 @@ public final class NetworkCalls {
                 }
                 return describe(level, network, device);
             }
-            case "bsensor_box", "bsensor_blocks", "bsensor_block", "bsensor_break", "bsensor_place", "bsensor_use":
+            case "bsensor_box", "bsensor_blocks", "bsensor_block", "bsensor_break", "bsensor_place", "bsensor_use", "bsensor_sign":
                 return BlockSensorCalls.call(method, level, network, args);
             case "sensor_entities", "sensor_entity", "sensor_contents", "sensor_use", "sensor_attack", "sensor_offers", "sensor_trade", "sensor_collect":
                 return EntitySensorCalls.call(method, level, network, args);

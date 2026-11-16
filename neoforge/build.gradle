@@ -69,6 +69,16 @@ neoForge {
             systemProperty 'qbotics.gameTests', 'true'
         }
 
+        // The same, against real mods from the modpack (modtest-mods.txt): only the tests in
+        // qbotics.test.QboticsModTests. Run: gradlew :neoforge:runModTests   Log: runs/modtests/logs
+        modTests {
+            type = "gameTestServer"
+            gameDirectory = project.file('runs/modtests')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'qbotics.gameTests', 'true'
+            systemProperty 'qbotics.modTests', 'true'
+        }
+
         // Loads the mod without starting a world, then exits. With qbotics.selfTest set, the
         // mod runs a Python script on the engine as it loads: a quick check that the engine
         // works inside the real NeoForge runtime. Also the place for data generators later.
@@ -158,4 +168,19 @@ def syncPlaytestMods = tasks.register('syncPlaytestMods', Sync) {
 }
 tasks.matching { it.name == 'runPlaytest' }.configureEach {
     dependsOn syncPlaytestMods
+}
+
+// The mod test run's mods, from the same modpack folder, as listed in modtest-mods.txt.
+def modTestModList = file('modtest-mods.txt')
+def syncModTestMods = tasks.register('syncModTestMods', Sync) {
+    description = 'Copies the mods named in modtest-mods.txt into the mod test game folder.'
+    def patterns = modTestModList.readLines().collect { it.trim() }.findAll { it && !it.startsWith('#') }
+    from(playtestModsFrom) {
+        include patterns
+    }
+    into file('runs/modtests/mods')
+    inputs.file modTestModList
+}
+tasks.matching { it.name == 'runModTests' }.configureEach {
+    dependsOn syncModTestMods
 }

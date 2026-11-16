@@ -310,6 +310,11 @@ final class EntitySensorCalls {
 
     /** Puts things away: into the first places that take them, and what none takes onto the ground at the entity. */
     static void putAway(ServerLevel level, List<ItemStack> things, List<ItemPort> into, Vec3 at, JsonObject gave) {
+        long carried = 0;
+        for (ItemStack thing : things) {
+            carried += thing.getCount();
+        }
+        NetworkCalls.transportSpend(level, carried); // across antennas, it counts against their Transport rate
         for (ItemStack thing : things) {
             if (thing.isEmpty()) {
                 continue;
@@ -347,6 +352,7 @@ final class EntitySensorCalls {
      * wool) goes to the results, or back to the sources; an item that wasn't used goes back.
      */
     private static JsonObject use(ServerLevel level, CableNetwork network, EntitySensorBlockEntity sensor, JsonArray args) {
+        NetworkCalls.transportCheck(level);
         Entity entity = find(level, sensor, args, 2);
         ServerPlayer player = standIn(level, sensor, entity);
         String wanted = NetworkCalls.string(args, 4);
@@ -356,6 +362,10 @@ final class EntitySensorCalls {
             taken = takeOne(level, network, args.get(3), wanted);
             if (taken == null) {
                 throw new CallError("The sources hold no " + (wanted == null ? "items" : wanted) + " to use on the " + name(entity) + ".");
+            }
+            if (taken.stack().is(net.minecraft.world.item.Items.LEAD)) {
+                taken.from().insert(taken.stack(), 1, false);
+                throw new CallError("A lead would tie the " + name(entity) + " to the sensor's stand-in, which can't lead it anywhere; it went back.");
             }
         } else if (wanted != null) {
             throw new CallError("Say where the " + wanted + " comes from: use(\"" + wanted + "\", sources).");
@@ -389,6 +399,7 @@ final class EntitySensorCalls {
      * the sensor's last: the answer is {"wait": ticks} until then. The weapon goes back afterwards.
      */
     private static JsonObject attack(ServerLevel level, CableNetwork network, EntitySensorBlockEntity sensor, JsonArray args) {
+        NetworkCalls.transportCheck(level);
         Entity entity = find(level, sensor, args, 2);
         ServerPlayer player = standIn(level, sensor, entity);
         boolean withWeapon = args.size() > 3 && !args.get(3).isJsonNull();
@@ -509,6 +520,7 @@ final class EntitySensorCalls {
         if (trader.isTrading()) {
             throw new CallError("The " + name(entity) + " is trading with a player right now.");
         }
+        NetworkCalls.transportCheck(level);
         ServerPlayer player = standIn(level, sensor, entity);
         Integer times = NetworkCalls.wholeNumber(args, 6, "times");
         int wanted = Math.clamp(times == null ? 1 : times, 0, MOST_TRADES);
@@ -527,6 +539,10 @@ final class EntitySensorCalls {
         String stopped = null;
         JsonObject gave = new JsonObject();
         while (made < wanted) {
+            if (NetworkCalls.transportRoom(level) <= 0) {
+                stopped = "antennas full this second";
+                break;
+            }
             if (offer.isOutOfStock()) {
                 stopped = "out of stock";
                 break;
@@ -585,13 +601,14 @@ final class EntitySensorCalls {
         }
         int gathered = 0;
         long points = 0;
+        long room = Math.min(MOST_COLLECTED, NetworkCalls.transportRoom(level)); // across antennas, their Transport rate
         for (Entity entity : targets) {
-            if (entity instanceof ItemEntity dropped && gathered < MOST_COLLECTED) {
+            if (entity instanceof ItemEntity dropped && gathered < room) {
                 ItemStack stack = dropped.getItem().copy();
                 if (match != null && !match.testStack(stack)) {
                     continue;
                 }
-                int left = Math.min(stack.getCount(), MOST_COLLECTED - gathered);
+                int left = (int) Math.min(stack.getCount(), room - gathered);
                 int start = left;
                 for (ItemPort port : items) {
                     if (left <= 0) {
@@ -621,6 +638,7 @@ final class EntitySensorCalls {
                 }
             }
         }
+        NetworkCalls.transportSpend(level, gathered);
         JsonObject answer = new JsonObject();
         answer.addProperty("items", gathered);
         answer.addProperty("points", points);

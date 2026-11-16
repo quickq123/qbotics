@@ -925,17 +925,24 @@ public final class QboticsNeoForge {
                 });
     }
 
-    /** Only in the game test run (see build.gradle): registers the tests in qbotics.test.QboticsGameTests. */
+    /**
+     * Only in the game test runs (see build.gradle): registers the tests in
+     * qbotics.test.QboticsGameTests, or, in the mod test run (qbotics.modTests), those in
+     * qbotics.test.QboticsModTests, which need real mods beside Qbotics.
+     */
     private static void registerGameTests(IEventBus modBus) {
+        boolean modded = Boolean.getBoolean("qbotics.modTests");
+        java.util.Map<String, Consumer<GameTestHelper>> tests = modded ? qbotics.test.QboticsModTests.ALL : QboticsGameTests.ALL;
+        java.util.Map<String, Integer> limits = modded ? qbotics.test.QboticsModTests.TICK_LIMITS : QboticsGameTests.TICK_LIMITS;
         DeferredRegister<Consumer<GameTestHelper>> functions = DeferredRegister.create(Registries.TEST_FUNCTION, Qbotics.MOD_ID);
-        QboticsGameTests.ALL.forEach((name, body) -> functions.register(name, () -> body));
+        tests.forEach((name, body) -> functions.register(name, () -> body));
         functions.register(modBus);
         modBus.addListener((RegisterGameTestsEvent event) -> {
             Holder<TestEnvironmentDefinition<?>> environment = event.registerEnvironment(Qbotics.id("default"));
-            for (String name : QboticsGameTests.ALL.keySet()) {
+            for (String name : tests.keySet()) {
                 event.registerTest(Qbotics.id(name), new FunctionGameTestInstance(
                         ResourceKey.create(Registries.TEST_FUNCTION, Qbotics.id(name)),
-                        new TestData<>(environment, Qbotics.id("empty"), QboticsGameTests.TICK_LIMITS.getOrDefault(name, 1200), 0, true)));
+                        new TestData<>(environment, Qbotics.id("empty"), limits.getOrDefault(name, 1200), 0, true)));
             }
         });
     }

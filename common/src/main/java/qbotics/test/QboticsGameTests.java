@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -144,6 +144,7 @@ public final class QboticsGameTests {
             Map.entry("environment", QboticsGameTests::environment),
             Map.entry("entity_inventories", QboticsGameTests::entityInventories),
             Map.entry("block_sensor_data", QboticsGameTests::blockSensorData),
+            Map.entry("remote_sensors", QboticsGameTests::remoteSensors),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -165,7 +166,7 @@ public final class QboticsGameTests {
         return String.join("\n", all);
     }
 
-    private static void assertScreen(GameTestHelper helper, ServerComputer computer, String... expected) {
+    static void assertScreen(GameTestHelper helper, ServerComputer computer, String... expected) {
         String screen = screen(computer);
         for (String text : expected) {
             helper.assertTrue(screen.contains(text), "screen should contain '" + text + "' but was:\n" + screen);
@@ -473,7 +474,7 @@ public final class QboticsGameTests {
 
     // ---- cable networks and the item blocks (design doc §9.3, §11.0) -----------------
 
-    private static ServerComputer startAt(GameTestHelper helper, BlockPos pos) {
+    static ServerComputer startAt(GameTestHelper helper, BlockPos pos) {
         helper.setBlock(pos, QboticsContent.COMPUTER_BLOCK.get());
         return ComputerManager.get(helper.getLevel().getServer()).getOrStart(helper.getBlockEntity(pos, ComputerBlockEntity.class));
     }
@@ -5045,20 +5046,87 @@ public final class QboticsGameTests {
                 List.of(net.minecraft.server.network.Filterable.passThrough(net.minecraft.network.chat.Component.literal("harvest at noon")),
                         net.minecraft.server.network.Filterable.passThrough(net.minecraft.network.chat.Component.literal("page two"))), true));
         helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.LecternBlockEntity.class).setBook(book);
+        helper.getBlockEntity(new BlockPos(-1, 1, 1), qbotics.block.BlockSensorBlockEntity.class).onPlaced(UUID.randomUUID());
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.SPAWNER);
+        helper.getBlockEntity(new BlockPos(2, 1, 1), net.minecraft.world.level.block.entity.SpawnerBlockEntity.class)
+                .setEntityId(net.minecraft.world.entity.EntityType.ZOMBIE, helper.getLevel().getRandom());
+        helper.setBlock(new BlockPos(0, 1, 2), Blocks.OAK_SIGN);
+        helper.getBlockEntity(new BlockPos(0, 1, 2), net.minecraft.world.level.block.entity.SignBlockEntity.class).setWaxed(true);
         for (String line : List.of(
                 "python",
                 "from logistics import network",
                 "s = network().block_sensor()",
-                "s.set_area(x=(1, 2), y=0, z=0)",
+                "s.set_area(x=(1, 3), y=0, z=(0, 1))",
                 "g = s.block((1, 0, 0))",
                 "print('sign', g['sign']['front']['lines'][:2], g['sign']['front']['glowing'], g['sign']['waxed'])",
                 "b = s.block((2, 0, 0))['book']",
                 "print('book', b['title'], b['author'], b['pages'], b['page'])",
-                "print('here', g['biome'].startswith('minecraft:'), sorted(g['light']))")) {
+                "print('here', g['biome'].startswith('minecraft:'), sorted(g['light']))",
+                "w = s.write_sign((1, 0, 0), ['Ripe: 12', 'Stored: 340'], color='green', glowing=True)",
+                "print('wrote', w['sign']['front']['lines'], w['sign']['front']['color'])",
+                "d = s.block((3, 0, 0), details=True)['data']",
+                "print('spawner', d['SpawnData']['entity']['id'], s.block((1, 0, 0), details=True)['data'] is not None, s.block((2, 0, 0)).get('data'))",
+                "s.write_sign((1, 0, 1), ['no'])")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> assertScreen(helper, computer, "sign ['Wheat', 'farm'] True False\n",
-                "book Orders Steve ['harvest at noon', 'page two'] 0\n", "here True ['block', 'now', 'sky']\n"));
+                "book Orders Steve ['harvest at noon', 'page two'] 0\n", "here True ['block', 'now', 'sky']\n",
+                "wrote ['Ripe: 12', 'Stored: 340', '', ''] green\n", "spawner minecraft:zombie True None\n", "That sign is waxed: it can't be changed."));
+    }
+
+    /**
+     * Sensors on another network, reached over the radio (both antennas with a Transport
+     * Upgrade): an Entity Sensor milks a cow with a bucket from home, refusing a lead; a Block
+     * Sensor breaks a block, its drop carried home, while a watch through the radio sees it go.
+     */
+    private static void remoteSensors(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(0, 2, 0), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Items.BUCKET));
+        store.setItem(1, new ItemStack(Items.LEAD));
+        // The far network: an Entity Sensor under its antenna, and a Block Sensor beside it.
+        helper.setBlock(new BlockPos(2, 1, 2), QboticsContent.ENTITY_SENSOR_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 2, 2), QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 1, 2), QboticsContent.BLOCK_SENSOR_BLOCK.get());
+        helper.setBlock(new BlockPos(1, 2, 2), Blocks.STONE);
+        var sensor = helper.getBlockEntity(new BlockPos(2, 1, 2), qbotics.block.EntitySensorBlockEntity.class);
+        sensor.onPlaced(UUID.randomUUID());
+        sensor.setArea(2, 1);
+        helper.getBlockEntity(new BlockPos(1, 1, 2), qbotics.block.BlockSensorBlockEntity.class).onPlaced(UUID.randomUUID());
+        helper.spawn(net.minecraft.world.entity.EntityType.COW, new BlockPos(1, 1, 1)).setNoAi(true);
+        AntennaBlockEntity near = helper.getBlockEntity(new BlockPos(0, 2, 0), AntennaBlockEntity.class);
+        AntennaBlockEntity far = helper.getBlockEntity(new BlockPos(2, 2, 2), AntennaBlockEntity.class);
+        networkAt(helper, new BlockPos(0, 1, 0));
+        networkAt(helper, new BlockPos(2, 1, 2));
+        net.minecraft.world.item.Item transport = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("transport_upgrade"));
+        near.upgrades().setItem(0, new ItemStack(transport));
+        far.upgrades().setItem(0, new ItemStack(transport));
+        String ip = far.externalIp();
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "net = network()",
+                "far = net.remote('" + ip + "')",
+                "home = net.interface()",
+                "cow = far.entity_sensor().nearest('cow')",
+                "print('milked', cow.type, cow.use('bucket', home), home.count('milk_bucket'))",
+                "b = far.block_sensor()",
+                "w = b.watch()",
+                "print('broke', b.break_block((0, 1, 0), to=home), home.count('cobblestone'))",
+                "print('seen', [(c['was'], c['block']) for c in w.changes()])",
+                "cow.use('lead', home)")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "milked minecraft:cow True 1\n", "broke {'minecraft:cobblestone': 1} 1\n",
+                    "seen [('minecraft:stone', 'minecraft:air')]\n", "A lead would tie the Cow to the sensor's stand-in");
+            helper.assertTrue(store.countItem(Items.LEAD) == 1, "the refused lead should go back");
+        });
     }
 
     private static void gameInterfaces(GameTestHelper helper) {

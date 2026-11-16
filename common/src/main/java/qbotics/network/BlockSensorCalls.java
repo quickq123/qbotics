@@ -45,7 +45,15 @@ final class BlockSensorCalls {
         return switch (method) {
             case "bsensor_box" -> box(sensor, args);
             case "bsensor_blocks" -> blocks(level, sensor, args);
-            case "bsensor_block" -> describe(level, sensor, at(sensor, args, 2));
+            case "bsensor_block" -> {
+                BlockPos pos = at(sensor, args, 2);
+                JsonObject info = describe(level, sensor, pos);
+                if (args.size() > 3 && !args.get(3).isJsonNull() && args.get(3).getAsBoolean()) {
+                    addData(level, pos, info);
+                }
+                yield info;
+            }
+            case "bsensor_sign" -> writeSign(level, sensor, args);
             case "bsensor_break" -> breakBlock(level, network, sensor, args);
             case "bsensor_place" -> place(level, network, sensor, args);
             case "bsensor_use" -> use(level, network, sensor, args);
@@ -144,6 +152,79 @@ final class BlockSensorCalls {
         return info;
     }
 
+    /** The most of a block's own data one read returns, as JSON text. */
+    private static final int MOST_DATA = 32 * 1024;
+
+    /**
+     * A block's own saved data (a spawner's mob, a beehive's bees, a modded machine's), in the
+     * game's raw form, as "data"; null for a block without any. Read-only.
+     */
+    private static void addData(ServerLevel level, BlockPos pos, JsonObject info) {
+        var entity = level.getBlockEntity(pos);
+        if (entity == null) {
+            info.add("data", JsonNull.INSTANCE);
+            return;
+        }
+        net.minecraft.nbt.CompoundTag tag = entity.saveWithoutMetadata(level.registryAccess());
+        JsonElement json = new com.mojang.serialization.Dynamic<>(net.minecraft.nbt.NbtOps.INSTANCE, tag)
+                .convert(com.mojang.serialization.JsonOps.INSTANCE).getValue();
+        String text = json.toString();
+        if (text.length() > MOST_DATA) {
+            info.add("data", JsonNull.INSTANCE);
+            info.addProperty("data_too_large", text.length());
+        } else {
+            info.add("data", json);
+        }
+    }
+
+    /** The most letters on one line of a sign that a program writes. */
+    private static final int MOST_LINE = 80;
+
+    /**
+     * ["bsensor_sign", mac, pos, [up to 4 lines], back, colour or null, glowing or null]: writes a
+     * sign (its front, or its back) as the owner would. A waxed sign is refused: wax is how a
+     * player locks one.
+     */
+    private static JsonObject writeSign(ServerLevel level, BlockSensorBlockEntity sensor, JsonArray args) {
+        BlockPos pos = at(sensor, args, 2);
+        if (!(level.getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.SignBlockEntity sign)) {
+            throw new CallError("There is no sign there, but " + blockId(level.getBlockState(pos)) + ".");
+        }
+        if (sign.isWaxed()) {
+            throw new CallError("That sign is waxed: it can't be changed.");
+        }
+        ServerPlayer player = standIn(level, sensor);
+        if (!Qbotics.platform().mayBreak(level, player, pos)) {
+            throw new CallError("The sensor's owner may not change blocks there.");
+        }
+        if (args.size() <= 3 || !args.get(3).isJsonArray() || args.get(3).getAsJsonArray().size() > 4) {
+            throw new CallError("A sign has four lines: give a list of up to four.");
+        }
+        boolean front = !(args.size() > 4 && !args.get(4).isJsonNull() && args.get(4).getAsBoolean());
+        net.minecraft.world.level.block.entity.SignText text = sign.getText(front);
+        JsonArray lines = args.get(3).getAsJsonArray();
+        for (int line = 0; line < 4; line++) {
+            String words = line < lines.size() && !lines.get(line).isJsonNull() ? lines.get(line).getAsString() : "";
+            if (words.length() > MOST_LINE) {
+                words = words.substring(0, MOST_LINE);
+            }
+            text = text.setMessage(line, net.minecraft.network.chat.Component.literal(words));
+        }
+        String colour = NetworkCalls.string(args, 5);
+        if (colour != null) {
+            net.minecraft.world.item.DyeColor dye = net.minecraft.world.item.DyeColor.byName(colour, null);
+            if (dye == null) {
+                throw new CallError("'" + colour + "' isn't a dye colour: black, white, red, green, blue, yellow, ...");
+            }
+            text = text.setColor(dye);
+        }
+        if (args.size() > 6 && !args.get(6).isJsonNull()) {
+            text = text.setHasGlowingText(args.get(6).getAsBoolean());
+        }
+        sign.setText(text, front);
+        return describe(level, sensor, pos);
+    }
+
     /** One side of a sign: its four lines, its colour, and whether it glows. */
     private static JsonObject signSide(net.minecraft.world.level.block.entity.SignText side) {
         JsonObject out = new JsonObject();
@@ -220,6 +301,7 @@ final class BlockSensorCalls {
      * fall where the block was (for a Collector, say).
      */
     private static JsonObject breakBlock(ServerLevel level, CableNetwork network, BlockSensorBlockEntity sensor, JsonArray args) {
+        NetworkCalls.transportCheck(level);
         BlockPos pos = at(sensor, args, 2);
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) {
@@ -315,6 +397,7 @@ final class BlockSensorCalls {
      * lever flips. What comes of it goes to the destinations, or back to the sources.
      */
     private static JsonObject use(ServerLevel level, CableNetwork network, BlockSensorBlockEntity sensor, JsonArray args) {
+        NetworkCalls.transportCheck(level);
         BlockPos pos = at(sensor, args, 2);
         boolean withItem = args.size() > 3 && !args.get(3).isJsonNull();
         String wanted = NetworkCalls.string(args, 4);

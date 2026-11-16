@@ -1420,6 +1420,15 @@ move(store, stand.destination(slot=5), "iron_helmet")      # a helmet on its hea
 An item frame shows one item without an inventory: put one in with `frame.use("diamond", store)`,
 turn it with `frame.use()`, and knock it out with `frame.attack()`.
 
+`use("lead")` is refused: it would tie the creature to the sensor's stand-in, which can't lead it
+anywhere. The lead goes back.
+
+**Across the radio.** Both sensors work on another network as any device does
+(`net.remote("100.64.0.2").entity_sensor()`, section 7.3b). Items they carry across the antennas
+(drops, trades, what `use` gives, what `collect` picks up) count against the antennas' Transport
+rate like a move's; when it is used up for the second, the call is refused (`collect` and `trade`
+stop short instead) until the next.
+
 **Attacking.**
 
 - The weapon counts as it would in a player's hand: its damage, its enchantments (Sharpness,
@@ -1519,7 +1528,8 @@ for change in farm.watch("wheat age=7"):           # then, as each ripens
 | Call or attribute | Does |
 |---|---|
 | `sensor.blocks(what=None)` | The blocks in its box: `[{"pos": [dx, dy, dz], "block", "state", "air", "fluid", "biome", "light"}]`, with `"sign"` and `"book"` where there is one (below). `what` is a name or filter, with state words: `"wheat age=7"`, `"#minecraft:crops"`, `"air"`. With none, every block that isn't air |
-| `sensor.block(pos)` | One block |
+| `sensor.block(pos, details=False)` | One block. `details=True` adds `"data"`: the block's own saved data in the game's raw form (a spawner's mob, a beehive's bees, a modded machine's settings), or `None` for a block with none. Read-only; past 32 KB it is `None` with `"data_too_large"` |
+| `sensor.write_sign(pos, lines, back=False, color=None, glowing=None)` | Writes a sign as its owner would: up to four lines (a list), on its front or (`back=True`) its back, in a dye colour (`"green"`), glowing or not. A waxed sign can't be changed: wax is how a player locks one. Returns the block |
 | `sensor.watch(what=None)` | Changes in its box, as they happen (below) |
 | `sensor.break_block(pos, to=None)` | Breaks a block as its owner would with the right netherite tool, taking as long as that does (crops at once). Drops go to `to`, all or nothing; with no `to`, they fall where the block was, for a Collector to pick up. Returns `{name: count}` |
 | `sensor.place(pos, item=None, sources=...)` | Places one item from `sources` there, as its owner would: a block, or seeds onto farmland. Returns `True` if it went there; if not, it goes back |
@@ -1553,7 +1563,13 @@ sleeps until something in the box changes. Each change is
 - At most 4,096 places are kept between looks; past that, the list ends with `{"overflow": True}`:
   read `blocks()` afresh.
 
-**Acting for the owner.** Breaking, placing and using are done by the player who placed the
+**Signs as displays.** A program can keep a sign up to date, as a cheap status board:
+
+```python
+farm.write_sign((0, 1, 2), ["Wheat", "ripe: %d" % len(farm.blocks("wheat age=7")), "", env.now()["clock"]])
+```
+
+**Acting for the owner.** Breaking, placing, using and writing signs are done by the player who placed the
 sensor, so they can't touch what that player couldn't (a land claim, say). A sensor nobody
 placed only reads and watches.
 

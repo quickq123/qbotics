@@ -1,0 +1,11 @@
+# Mods loaded for the mod tests (gradlew :neoforge:runModTests): Qbotics against real mods from
+# the modpack, as the play-test run does. Same rules as playtest-mods.txt: one mod file per line,
+# * for the version, each mod's own dependencies listed too.
+
+# Mystical Agriculture: modded crops, for the Block Sensor (watch, harvest, replant)
+Cucumber-*.jar
+MysticalAgriculture-*.jar
+
+# Animal Garden's crocodile: a modded creature, for the Entity Sensor (read, slots, attack)
+aquariuslibs-*.jar
+animalgarden-crocodile-*.jar

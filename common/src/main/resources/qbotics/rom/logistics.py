@@ -1572,9 +1572,17 @@ class BlockSensor(Device, _Watches):
         "air". With none, every block that isn't air."""
         return _call("bsensor_blocks", self.mac, what)
 
-    def block(self, pos):
-        """One block in its box, at an offset (dx, dy, dz)."""
-        return _call("bsensor_block", self.mac, list(pos))
+    def block(self, pos, details=False):
+        """One block in its box, at an offset (dx, dy, dz). details=True adds "data": the
+        block's own saved data in the game's raw form (a spawner's mob, a beehive's bees, a
+        modded machine's settings), or None for a block that has none. Read-only."""
+        return _call("bsensor_block", self.mac, list(pos), bool(details))
+
+    def write_sign(self, pos, lines, back=False, color=None, glowing=None):
+        """Writes a sign at an offset as its owner would: up to four lines (a list of text),
+        on its front, or its back with back=True. color= a dye colour ("green"), glowing=True
+        or False. A waxed sign can't be changed. Returns the block, as block() does."""
+        return _call("bsensor_sign", self.mac, list(pos), list(lines), bool(back), color, glowing)
 
     def break_block(self, pos, to=None):
         """Breaks the block at an offset as its owner would with the right netherite tool,
