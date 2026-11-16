@@ -79,7 +79,7 @@ final class QbotCalls {
             case "qbot_dig" -> dig(level, qbot, side(qbot, args));
             case "qbot_place" -> place(level, qbot, side(qbot, args), NetworkCalls.string(args, 2));
             case "qbot_use" -> use(level, qbot, side(qbot, args), NetworkCalls.string(args, 2));
-            case "qbot_attack" -> attack(level, qbot, side(qbot, args));
+            case "qbot_attack" -> attack(level, qbot, side(qbot, args), args.size() > 2 && !args.get(2).isJsonNull() && args.get(2).getAsBoolean());
             case "qbot_items" -> items(qbot.itemPort());
             case "qbot_drop" -> drop(level, qbot, side(qbot, args), NetworkCalls.string(args, 2), NetworkCalls.wholeNumber(args, 3, "count"),
                     NetworkCalls.string(args, 4));
@@ -469,8 +469,12 @@ final class QbotCalls {
         return reply;
     }
 
-    /** Attacks a creature on a side with the tool in its hand (or its fist). */
-    private static JsonObject attack(ServerLevel level, QbotBlockEntity qbot, Direction side) {
+    /**
+     * Attacks a creature on a side with the tool in its hand (or its fist), as a player's swing:
+     * the tool's damage and speed count, and the cooldown recovers from its last swing. With
+     * full, a swing before the cooldown is over isn't made: the answer is {"wait": ticks}.
+     */
+    private static JsonObject attack(ServerLevel level, QbotBlockEntity qbot, Direction side, boolean full) {
         BlockPos target = loaded(level, qbot, side);
         ServerPlayer player = standIn(level, qbot, side);
         List<LivingEntity> creatures = level.getEntitiesOfClass(LivingEntity.class, new AABB(target), e -> e.isAlive() && e != player);
@@ -480,8 +484,21 @@ final class QbotCalls {
         LivingEntity creature = creatures.getFirst();
         ItemStack tool = qbot.hand().removeItemNoUpdate(0);
         String toolName = tool.isEmpty() ? null : NetworkCalls.itemId(tool.getItem());
-        player.setItemInHand(InteractionHand.MAIN_HAND, tool);
-        player.attack(creature);
+        Swings.Armed armed = Swings.arm(player, tool);
+        long now = level.getGameTime();
+        int since = Swings.since(now, qbot.lastSwing());
+        int wait = Swings.waitFor(player, since);
+        if (full && wait > 0) {
+            armed.disarm();
+            qbot.hand().setItem(0, player.getMainHandItem());
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            JsonObject reply = new JsonObject();
+            reply.addProperty("wait", wait);
+            return reply;
+        }
+        Swings.swing(player, creature, since);
+        qbot.swung(now);
+        armed.disarm();
         ItemStack after = player.getMainHandItem();
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
         qbot.hand().setItem(0, after);

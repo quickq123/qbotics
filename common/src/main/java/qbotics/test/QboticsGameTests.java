@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -138,6 +138,7 @@ public final class QboticsGameTests {
             Map.entry("item_data_filters", QboticsGameTests::itemDataFilters),
             Map.entry("dropper_plate", QboticsGameTests::dropperPlate),
             Map.entry("entity_sensor", QboticsGameTests::entitySensor),
+            Map.entry("qbot_attack", QboticsGameTests::qbotAttack),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4798,6 +4799,32 @@ public final class QboticsGameTests {
                 "milk True 1 0\n", "breed True True 3\n", "hit minecraft:husk True True 1\n", "picked 5 7 5 7\n",
                 "offer minecraft:emerald 2 minecraft:bread 3\n", "trade 3 9 14\n", "others 2\n",
                 "There is no entity called 'not_a_mob'"));
+    }
+
+    /**
+     * A Qbot's attack is a player's swing: its sword's damage counts, and the second swing waits
+     * out the cooldown, so two hits with an iron sword take a husk from 20 to about 8 (before,
+     * the stand-in's cooldown never recovered and the sword added nothing).
+     */
+    private static void qbotAttack(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 2);
+        helper.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(at, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        qbot.hand().setItem(0, new ItemStack(Items.IRON_SWORD));
+        var husk = helper.spawn(net.minecraft.world.entity.EntityType.HUSK, new BlockPos(1, 1, 1));
+        husk.setNoAi(true);
+        husk.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0);
+        ServerComputer bot = ComputerManager.get(helper.getLevel().getServer()).getOrStart(qbot);
+        for (String line : List.of("python", "import qbot", "print('hit', qbot.attack(), qbot.attack())")) {
+            bot.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, bot, "hit minecraft:husk minecraft:husk\n");
+            helper.assertTrue(husk.getHealth() > 7.5f && husk.getHealth() < 8.5f, "two full iron-sword hits should leave the husk near 8, not " + husk.getHealth());
+            helper.assertTrue(qbot.hand().getItem(0).is(Items.IRON_SWORD) && qbot.hand().getItem(0).getDamageValue() == 2,
+                    "the sword stays in its hand, worn by two hits");
+        });
     }
 
     private static void gameInterfaces(GameTestHelper helper) {

@@ -1222,8 +1222,10 @@ item from sources; results to a destination or back), attack (the weapon's attri
 the cooldown charged from the sensor's last swing, since stand-ins are never ticked; full swings wait), trade
 (AbstractVillager offers; price checked and taken from sources, notifyTrade as the stand-in), and collect (items and
 orbs, which made a separate collector plate unnecessary). Recipe: eight cables around a sculk sensor.
-- Found on the way: a Qbot's attack has the same never-ticked stand-in, so after its first swing it hits at about a
-  fifth of its strength, and a weapon in its hand adds no damage. Not changed yet.
+- Found on the way: a Qbot's attack had the same never-ticked stand-in, so after its first swing it hit at about a
+  fifth of its strength, and a weapon in its hand added no damage. Fixed 2026-11-16: both use Swings (the weapon's
+  modifiers put on by hand, the cooldown charged from the last swing; full swings wait).
+- Decided by the project owner: no villager discounts (cured-zombie prices) for automated trading.
 
 ### 11.0.9 Dropper Plate (built 2026-11-16)
 

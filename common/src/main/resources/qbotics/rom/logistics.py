@@ -1404,31 +1404,31 @@ class Entity:
         self._update(_call("sensor_entity", self._sensor.mac, self.uuid))
         return self
 
-    def use(self, item=None, sources=None, result=None):
+    def use(self, item=None, sources=None, destination=None):
         """Right-clicks it as the sensor's owner, holding one item from sources (a name or
         filter; with no item, an empty hand): a bucket milks a cow, wheat breeds it, shears
         shear a sheep, a name tag names it. What comes of it (the milk bucket, the wool) goes
-        to result, or back to the sources; an item that wasn't used goes back. Returns True if
-        it did something.
+        to destination, or back to the sources; an item that wasn't used goes back. Returns
+        True if it did something.
 
             for cow in sensor.entities("cow"):
-                cow.use("bucket", store, result=store)"""
+                cow.use("bucket", store, destination=milk_chest)"""
         reply = _call("sensor_use", self._sensor.mac, self.uuid, None if sources is None else _ends(sources, Source),
-                      item, None if result is None else _ends(result, Destination))
+                      item, None if destination is None else _ends(destination, Destination))
         if reply["entity"]:
             self._update(reply["entity"])
         return reply["used"]
 
-    def attack(self, weapon=None, sources=None, result=None, wait=True):
+    def attack(self, weapon=None, sources=None, destination=None, wait=True):
         """Hits it as the sensor's owner, with a weapon (a name or filter) from sources, or a
         fist. The weapon's damage, enchantments (Looting too) and wear count, and a kill counts
         as the owner's. Each swing is a full one: it waits for the weapon's cooldown since the
         sensor's last swing (wait=False hits at once, as hard as the cooldown allows). The
-        weapon goes back to the sources (or result). Returns {"attacked", "alive", "health"},
+        weapon goes back to the sources (or destination). Returns {"attacked", "alive", "health"},
         and "weapon_broke" if it broke."""
         while True:
             reply = _call("sensor_attack", self._sensor.mac, self.uuid, None if sources is None else _ends(sources, Source),
-                          weapon, None if result is None else _ends(result, Destination), bool(wait))
+                          weapon, None if destination is None else _ends(destination, Destination), bool(wait))
             if "wait" not in reply:
                 return reply
             time.sleep(reply["wait"] / 20)
@@ -1440,14 +1440,14 @@ class Entity:
         (["enchant=mending", ...]) and exact "filter"."""
         return _call("sensor_offers", self._sensor.mac, self.uuid)
 
-    def trade(self, offer, sources, result=None, times=1):
+    def trade(self, offer, sources, destination=None, times=1):
         """Makes an offer (its index, or the dict from offers()) up to times times, as the
         sensor's owner: the price is taken from sources, checked before anything moves; what it
-        sells goes to result, or back to the sources. Stops early when it runs out or the price
+        sells goes to destination, or back to the sources. Stops early when it runs out or the price
         can't be paid. Returns how many trades were made."""
         index = offer["index"] if isinstance(offer, dict) else offer
         reply = _call("sensor_trade", self._sensor.mac, self.uuid, index, _ends(sources, Source),
-                      None if result is None else _ends(result, Destination), times)
+                      None if destination is None else _ends(destination, Destination), times)
         return reply["traded"]
 
     def collect(self, to):

@@ -164,6 +164,17 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
         return items;
     }
 
+    /** When it last swung (game time), for the attack cooldown. Not saved. */
+    private long lastSwing = Long.MIN_VALUE / 2;
+
+    public long lastSwing() {
+        return lastSwing;
+    }
+
+    public void swung(long gameTime) {
+        lastSwing = gameTime;
+    }
+
     public SimpleContainer hand() {
         return hand;
     }

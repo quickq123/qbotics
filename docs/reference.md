@@ -1339,7 +1339,7 @@ store = net.storage("chest*")
 for cow in sensor.entities("cow"):
     if cow.can_breed:
         cow.use("wheat", store)                       # breeds it
-    cow.use("bucket", store, result=store)            # milks it
+    cow.use("bucket", store, destination=store)       # milks it
 
 for mob in sensor.entities("#minecraft:undead"):
     mob.attack("diamond_sword", store)                # full swings, the sword goes back
@@ -1380,10 +1380,10 @@ entity that has died or left the area raises `NetworkError`.
 
 | Call | Does |
 |---|---|
-| `entity.use(item=None, sources=None, result=None)` | Right-clicks it as the owner, holding one item from `sources` (a name or filter), or an empty hand: a bucket milks a cow, wheat breeds it, shears shear a sheep, a name tag names it, a saddle saddles a pig. What comes of it (the milk bucket, the wool) goes to `result`, or back to the sources; an item that wasn't used goes back. Returns `True` if it did something |
-| `entity.attack(weapon=None, sources=None, result=None, wait=True)` | Hits it as the owner with a weapon from `sources`, or a fist. Returns `{"attacked", "alive", "health"}` |
+| `entity.use(item=None, sources=None, destination=None)` | Right-clicks it as the owner, holding one item from `sources` (a name or filter), or an empty hand: a bucket milks a cow, wheat breeds it, shears shear a sheep, a name tag names it, a saddle saddles a pig. What comes of it (the milk bucket, the wool) goes to `destination`, or back to the sources; an item that wasn't used goes back. Returns `True` if it did something |
+| `entity.attack(weapon=None, sources=None, destination=None, wait=True)` | Hits it as the owner with a weapon from `sources`, or a fist. The weapon goes back to the sources (or `destination`). Returns `{"attacked", "alive", "health"}` |
 | `entity.offers()` | A villager's or wandering trader's offers: `[{"index", "buy": {"item", "count"}, "buy_b", "sell": {...}, "uses", "max_uses", "out_of_stock"}]`. A sold item with data (an enchanted book) also has `"words"` and an exact `"filter"` (section 4) |
-| `entity.trade(offer, sources, result=None, times=1)` | Makes an offer (its index or its dict), up to `times` times (at most 64 a call): the price is taken from `sources`, checked before anything moves; what it sells goes to `result`, or back to the sources. Stops when the offer runs out or the price can't be paid. Returns how many trades were made |
+| `entity.trade(offer, sources, destination=None, times=1)` | Makes an offer (its index or its dict), up to `times` times (at most 64 a call): the price is taken from `sources`, checked before anything moves; what it sells goes to `destination`, or back to the sources. Stops when the offer runs out or the price can't be paid. Returns how many trades were made |
 | `entity.collect(to)` | Picks up a dropped item or an experience orb |
 
 **Attacking.**
@@ -1398,7 +1398,7 @@ entity that has died or left the area raises `NetworkError`.
 - Its drops land where the creature was; `sensor.collect(store)` picks them up.
 
 **Trading** is at the trader's prices as they stand, without the discounts a player earns by
-curing a zombie villager. A villager counts the trades towards its level, as from a player. A
+curing a zombie villager (automated trading doesn't need them). A villager counts the trades towards its level, as from a player. A
 villager already trading with a player is busy.
 
 **Acting for the owner.** Using, attacking and trading are done by the player who placed the
@@ -2118,7 +2118,7 @@ Seeing isn't looking inside: `inspect` says a chest is a chest; `inventory.read(
 | `qbot.dig(side)` | Digs the block there, taking as long as a player would with the same tool, and returns what it got: `{"minecraft:cobblestone": 1}`. Every drop must fit in its inventory, or nothing is dug |
 | `qbot.place(side, item=None)` | Places a block from its inventory: the named one, or the first block it holds |
 | `qbot.use(side, item=None)` | Right-clicks there as a player would: with the named item from its inventory, else the tool in its hand, else an empty hand. Works on blocks (levers, doors, bone meal, a hoe on dirt) and creatures (shears on a sheep, a bucket on a cow); what that gives goes into its inventory |
-| `qbot.attack(side)` | Attacks a creature there with the tool in its hand (or its fist), at full strength |
+| `qbot.attack(side, wait=True)` | Attacks a creature there with the tool in its hand (or its fist), as a player swings: the tool's damage and enchantments count, and each swing waits for the tool's cooldown since the last (a sword about half a second). `wait=False` swings at once, as weakly as the cooldown leaves it |
 | `qbot.pump(side)` | Takes up a source of water or lava (1,000 mB) into a tank |
 | `qbot.pour(side, fluid=None)` | Pours 1,000 mB from a tank, making a source block there |
 

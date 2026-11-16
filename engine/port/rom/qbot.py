@@ -144,10 +144,17 @@ def use(side=Side.FRONT, item=None):
     return _q("qbot_use", side, item)["used"]
 
 
-def attack(side=Side.FRONT):
-    """Attacks a creature on a side with the tool in its hand (or its fist). Returns the
-    creature's name; raises QbotError if nothing is there."""
-    return _q("qbot_attack", side)["attacked"]
+def attack(side=Side.FRONT, wait=True):
+    """Attacks a creature on a side with the tool in its hand (or its fist), as a player's
+    swing: the tool's damage and enchantments count, and each swing is a full one, waiting
+    for the tool's cooldown since the last (a sword about half a second, an axe a second).
+    wait=False swings at once, as weakly as the cooldown leaves it. Returns the creature's
+    name; raises QbotError if nothing is there."""
+    while True:
+        reply = _q("qbot_attack", side, bool(wait))
+        if "wait" not in reply:
+            return reply["attacked"]
+        time.sleep(reply["wait"] / 20)
 
 
 def pump(side=Side.FRONT):

@@ -7,9 +7,7 @@ import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,12 +15,8 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -358,35 +352,24 @@ final class EntitySensorCalls {
             }
         }
         emptyHands(player);
-        ItemStack inHand = weapon == null ? ItemStack.EMPTY : weapon.stack().copy();
-        player.setItemInHand(InteractionHand.MAIN_HAND, inHand);
-        // A stand-in is never ticked, so the weapon's damage and speed are put on it by hand.
-        List<Map.Entry<AttributeInstance, AttributeModifier>> added = new ArrayList<>();
-        inHand.forEachModifier(EquipmentSlot.MAINHAND, (Holder<Attribute> attribute, AttributeModifier modifier) -> {
-            AttributeInstance instance = player.getAttribute(attribute);
-            if (instance != null && !instance.hasModifier(modifier.id())) {
-                instance.addTransientModifier(modifier);
-                added.add(Map.entry(instance, modifier));
-            }
-        });
+        Swings.Armed armed = Swings.arm(player, weapon == null ? ItemStack.EMPTY : weapon.stack().copy());
         long now = level.getGameTime();
-        int since = (int) Math.min(Math.max(0, now - sensor.lastSwing()), 10_000);
-        float delay = player.getCurrentItemAttackStrengthDelay();
+        int since = Swings.since(now, sensor.lastSwing());
         JsonObject answer = new JsonObject();
         List<ItemPort> into = destinations(level, network, args, 5);
         if (weapon != null) {
             into.addFirst(weapon.from());
         }
-        if (full && since < delay) {
-            added.forEach(entry -> entry.getKey().removeModifier(entry.getValue()));
+        int wait = Swings.waitFor(player, since);
+        if (full && wait > 0) {
+            armed.disarm();
             putAway(level, emptyHands(player), into, entity.position(), new JsonObject());
-            answer.addProperty("wait", (int) Math.ceil(delay - since));
+            answer.addProperty("wait", wait);
             return answer;
         }
-        Qbotics.platform().chargeAttack(player, since);
-        player.attack(entity);
+        Swings.swing(player, entity, since);
         sensor.swung(now);
-        added.forEach(entry -> entry.getKey().removeModifier(entry.getValue()));
+        armed.disarm();
         List<ItemStack> back = emptyHands(player);
         answer.addProperty("attacked", typeId(entity));
         answer.addProperty("alive", entity.isAlive());
