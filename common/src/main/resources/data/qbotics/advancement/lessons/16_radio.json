@@ -1,0 +1,37 @@
+{
+  "parent": "qbotics:lessons/15_always_on",
+  "criteria": {
+    "message": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "radio_message"
+      }
+    },
+    "device": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "radio_device"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:antenna_long"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.16_radio.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.16_radio.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "message"
+    ],
+    [
+      "device"
+    ]
+  ]
+}

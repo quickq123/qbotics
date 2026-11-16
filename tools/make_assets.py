@@ -1838,4 +1838,96 @@ write_json("data/qbotics/recipe/antenna_infinite.json", shaped(
     ["E", "A", "C"], {"E": "minecraft:ender_eye", "A": "qbotics:antenna_long", "C": "qbotics:cable"},
     "qbotics:antenna_infinite"))
 
+# The lessons (design doc §17.9): advancements, from print("hello world") to a factory that
+# runs itself, met by the qbotics:lesson trigger when a player's program does each step (see
+# qbotics.lesson.Lessons and qbotics.network.LessonHooks for the steps). Each has a README in
+# helpme/lessons/<id>/. Columns: id, parent, icon, title, description, criteria (criterion:
+# step), requirements (None: all of them), frame.
+LESSONS = [
+    ("01_hello", "root", "qbotics:computer", "Hello, World",
+     'Make a program print "hello world"', {"hello": "hello"}, None, "task"),
+    ("02_network", "01_hello", "qbotics:probe", "Who's There?",
+     "Find a named device on your computer's network from a program", {"network": "network"}, None, "task"),
+    ("03_first_move", "02_network", "qbotics:bus", "Moving Day",
+     "Move items from one chest to another with a program", {"move": "move"}, None, "task"),
+    ("04_sorting", "03_first_move", "minecraft:hopper", "A Place for Everything",
+     "Sort: move items to a list of chests, or through a bus with a filter", {"sorting": "sorting"}, None, "task"),
+    ("05_events", "04_sorting", "minecraft:clock", "Waiting, Not Looping",
+     "Have a program wait for a change, a signal or a click, and act on it", {"events": "events"}, None, "task"),
+    ("06_redstone", "05_events", "qbotics:pin", "Redstone, Programmed",
+     "Send a redstone signal from a Logic Pin, and react to one with on_pin", {"pin_out": "pin_out", "pin_in": "pin_in"}, None, "task"),
+    ("07_smelting", "03_first_move", "minecraft:furnace", "Hot Stuff",
+     "Take what a furnace has smelted with a program", {"smelting": "smelting"}, None, "task"),
+    ("08_crafting", "07_smelting", "minecraft:crafting_table", "Made to Order",
+     "Craft at a crafting table with a Recipe", {"craft": "craft"}, None, "task"),
+    ("09_workstations", "08_crafting", "minecraft:stonecutter", "Tools of the Trade",
+     "Take what a stonecutter, smithing table, grindstone, loom or anvil made", {"workstation": "workstation"}, None, "task"),
+    ("10_storage", "04_sorting", "minecraft:chest", "Many Chests as One",
+     "Move items into or out of a storage of four or more chests", {"storage": "storage"}, None, "task"),
+    ("11_monitor", "05_events", "qbotics:text_monitor", "On Screen",
+     "Open a Text Monitor from a program and write on it", {"monitor": "monitor"}, None, "task"),
+    ("12_panel", "11_monitor", "qbotics:control_panel", "Push the Button",
+     "Have a program react to a player pressing a Control Panel's widget", {"panel": "panel"}, None, "task"),
+    ("13_web", "12_panel", "qbotics:web_panel", "Web Developer",
+     "Have a program react to a player clicking or typing on a Web Panel's page", {"web": "web"}, None, "task"),
+    ("14_tablet", "13_web", "qbotics:tablet", "In the Palm of Your Hand",
+     "Have a program react to a player using its page on a Tablet", {"tablet": "tablet"}, None, "task"),
+    ("15_always_on", "05_events", "minecraft:repeater", "Always On",
+     "Keep a program started by startup.sh or startup.py running for a whole game day", {"always_on": "always_on"}, None, "goal"),
+    ("16_radio", "15_always_on", "qbotics:antenna_long", "Over the Air",
+     "Through antennas, send a message to another computer and work a device on another network",
+     {"message": "radio_message", "device": "radio_device"}, None, "task"),
+    ("17_service", "16_radio", "qbotics:server", "At Your Service",
+     "Keep a service running on a Server for a whole game day", {"service": "service"}, None, "goal"),
+    ("18_farmer", "10_storage", "qbotics:block_sensor", "Down on the Farm",
+     "Harvest and replant a crop with a Block Sensor, or tend an animal with an Entity Sensor",
+     {"harvest": "harvest", "replant": "replant", "rancher": "rancher"}, [["harvest", "rancher"], ["replant", "rancher"]], "task"),
+    ("19_qbot", "02_network", "qbotics:iron_qbot", "Robot Worker",
+     "Have a Qbot's own program move it and dig", {"move": "qbot_move", "dig": "qbot_dig"}, None, "task"),
+    ("20_factory", "10_storage", "minecraft:crafter", "The Factory",
+     "Craft from a storage of eight or more chests, sort what arrives, show it on a display, and run it unattended",
+     {"craft": "factory_craft", "sorting": "sorting", "monitor": "monitor", "panel": "panel", "web": "web", "tablet": "tablet",
+      "always_on": "always_on", "service": "service"},
+     [["craft"], ["sorting"], ["monitor", "panel", "web", "tablet"], ["always_on", "service"]], "challenge"),
+]
+
+LESSON_LANG = {
+    "advancements.qbotics.lessons.root.title": "Qbotics Lessons",
+    "advancements.qbotics.lessons.root.description": "Programs that run your base, one lesson at a time. Type git clone helpme, then read /helpme/lessons/README.md",
+}
+write_json("data/qbotics/advancement/lessons/root.json", {
+    "criteria": {
+        "computer": {"trigger": "minecraft:inventory_changed", "conditions": {"items": [{"items": "qbotics:computer"}]}},
+        "laptop": {"trigger": "minecraft:inventory_changed", "conditions": {"items": [{"items": "qbotics:laptop"}]}},
+    },
+    "display": {
+        "icon": {"id": "qbotics:computer"},
+        "title": {"translate": "advancements.qbotics.lessons.root.title"},
+        "description": {"translate": "advancements.qbotics.lessons.root.description"},
+        "background": "minecraft:gui/advancements/backgrounds/stone",
+        "show_toast": False,
+        "announce_to_chat": False,
+    },
+    "requirements": [["computer", "laptop"]],
+})
+for lesson_id, parent, icon, title, description, criteria, requirements, frame in LESSONS:
+    key = "advancements.qbotics.lessons.%s" % lesson_id
+    LESSON_LANG[key + ".title"] = title
+    LESSON_LANG[key + ".description"] = "%s. Lesson: /helpme/lessons/%s" % (description, lesson_id)
+    write_json("data/qbotics/advancement/lessons/%s.json" % lesson_id, {
+        "parent": "qbotics:lessons/%s" % parent,
+        "criteria": {name: {"trigger": "qbotics:lesson", "conditions": {"lesson": step}} for name, step in criteria.items()},
+        "display": {
+            "icon": {"id": icon},
+            "title": {"translate": key + ".title"},
+            "description": {"translate": key + ".description"},
+            "frame": frame,
+        },
+        "requirements": requirements if requirements is not None else [[name] for name in criteria],
+    })
+with open(os.path.join(RES, "assets/qbotics/lang/en_us.json"), encoding="utf-8") as f:
+    lang = json.load(f)
+lang.update(LESSON_LANG)
+write_json("assets/qbotics/lang/en_us.json", lang)
+
 print("assets written")

@@ -50,6 +50,8 @@ public final class ScreenSessions {
         long lastUsed;
         /** Where levels the screen asks for are paid from, as the program's latest call named them; empty for nowhere. */
         List<Payer> payers = List.of();
+        /** Whether ingredients came from a storage of LessonHooks.BIG_STORAGE or more, for the final lesson. */
+        boolean fedFromBigStorage;
 
         Session(Opened opened, ServerLevel level, BlockPos busPos) {
             this.player = opened.player();

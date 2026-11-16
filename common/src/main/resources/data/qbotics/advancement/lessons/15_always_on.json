@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/05_events",
+  "criteria": {
+    "always_on": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "always_on"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:repeater"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.15_always_on.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.15_always_on.description"
+    },
+    "frame": "goal"
+  },
+  "requirements": [
+    [
+      "always_on"
+    ]
+  ]
+}

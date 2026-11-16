@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/07_smelting",
+  "criteria": {
+    "craft": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "craft"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:crafting_table"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.08_crafting.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.08_crafting.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "craft"
+    ]
+  ]
+}

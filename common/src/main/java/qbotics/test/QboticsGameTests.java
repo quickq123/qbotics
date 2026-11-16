@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -88,6 +88,9 @@ public final class QboticsGameTests {
             Map.entry("helpme_events", QboticsGameTests::helpmeEvents),
             Map.entry("helpme_storage_world", QboticsGameTests::helpmeStorageWorld),
             Map.entry("read_markdown", QboticsGameTests::readMarkdown),
+            Map.entry("lessons", QboticsGameTests::lessons),
+            Map.entry("lessons_world", QboticsGameTests::lessonsWorld),
+            Map.entry("lessons_unattended", QboticsGameTests::lessonsUnattended),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
             Map.entry("server_model", QboticsGameTests::serverModel),
@@ -3971,6 +3974,161 @@ public final class QboticsGameTests {
             String paged = screen.substring(0, screen.lastIndexOf("sh /show.sh"));
             helper.assertTrue(!paged.contains("- point 30"), "q stopped the typed one: " + paged);
         });
+    }
+
+    /**
+     * The lessons: a player's program doing what a lesson asks meets that advancement, for the
+     * computer's owner. Saying hello, finding a device, moving, sorting into a list, a storage of
+     * four, and waiting for a change; a lesson not done (smelting) stays undone.
+     */
+    private static void lessons(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        helper.setBlock(new BlockPos(0, 1, 0), QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity block = helper.getBlockEntity(new BlockPos(0, 1, 0), ComputerBlockEntity.class);
+        block.onPlaced(player.getUUID());
+        ServerComputer computer = ComputerManager.get(helper.getLevel().getServer()).getOrStart(block);
+        java.util.Map<BlockPos, String> names = new java.util.HashMap<>();
+        for (int y = 1; y <= 2; y++) {
+            for (int x = 1; x <= 2; x++) {
+                setPort(helper, new BlockPos(x, y, 0), Kind.BUS, Direction.SOUTH);
+                helper.setBlock(new BlockPos(x, y, 1), Blocks.BARREL);
+                names.put(helper.absolutePos(new BlockPos(x, y, 0)), "chest_" + (x + 2 * (y - 1)));
+            }
+        }
+        helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.BarrelBlockEntity.class)
+                .setItem(0, new ItemStack(Items.COBBLESTONE, 10));
+        for (NetworkDevice device : networkAt(helper, new BlockPos(1, 1, 0)).devices()) {
+            if (names.containsKey(device.getBlockPos())) {
+                device.setDeviceName(names.get(device.getBlockPos()));
+            }
+        }
+        for (String line : List.of("python", "from logistics import network, move", "net = network()", "a = net.bus('chest_1')",
+                "w = net.bus('chest_2').watch()",
+                "print('moved', move(a, [net.bus('chest_2'), net.bus('chest_3')], 'cobblestone', 4))",
+                "print('stored', move(a, net.storage('chest*'), 'cobblestone', 2))",
+                "print('changes', len(w.wait(3)))", "print('Hello, ' + 'World!')")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "moved 4", "stored 2", "changes ", "Hello, World!");
+            for (String lesson : List.of("01_hello", "02_network", "03_first_move", "04_sorting", "05_events", "10_storage")) {
+                helper.assertTrue(lessonDone(helper, player, lesson), "the lesson " + lesson + " is done");
+            }
+            helper.assertTrue(!lessonDone(helper, player, "07_smelting"), "a lesson not done stays undone");
+        });
+    }
+
+    /**
+     * The lessons that work blocks: taking what a furnace smelted, crafting at a crafting table,
+     * taking a stonecutter's product, a Logic Pin's signal sent (half of the redstone lesson),
+     * and writing on a Text Monitor.
+     */
+    private static void lessonsWorld(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        helper.setBlock(new BlockPos(0, 1, 1), QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity block = helper.getBlockEntity(new BlockPos(0, 1, 1), ComputerBlockEntity.class);
+        block.onPlaced(player.getUUID());
+        ServerComputer computer = ComputerManager.get(level.getServer()).getOrStart(block);
+        helper.setBlock(new BlockPos(0, 2, 1), QboticsContent.TEXT_MONITOR_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.WEST));
+        helper.setBlock(new BlockPos(0, 1, 2), QboticsContent.INTERFACE_BLOCK.get());
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(0, 1, 2), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Blocks.OAK_PLANKS, 4));
+        store.setItem(1, new ItemStack(Blocks.STONE, 2));
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.CRAFTING_TABLE);
+        helper.setBlock(new BlockPos(1, 1, 2), Blocks.STONECUTTER);
+        helper.setBlock(new BlockPos(1, 1, 0), Blocks.FURNACE);
+        helper.getBlockEntity(new BlockPos(1, 1, 0), net.minecraft.world.level.block.entity.FurnaceBlockEntity.class)
+                .setItem(2, new ItemStack(Items.IRON_INGOT, 3));
+        setPort(helper, new BlockPos(1, 1, 1), Kind.BUS, Direction.EAST);
+        BlockPos cableAt = helper.absolutePos(new BlockPos(1, 1, 1));
+        CableBlock.attach(level, cableAt, Kind.BUS, Direction.SOUTH);
+        CableBlock.attach(level, cableAt, Kind.BUS, Direction.NORTH);
+        CableBlock.attach(level, cableAt, Kind.PIN, Direction.UP);
+        PortBlockEntity plates = helper.getBlockEntity(new BlockPos(1, 1, 1), PortBlockEntity.class);
+        Map.of(Direction.EAST, "table", Direction.SOUTH, "cutter", Direction.NORTH, "furnace", Direction.UP, "lamp").forEach((side, name) -> {
+            CablePort plate = plates.port(side);
+            plate.onPlaced(player.getUUID());
+            plate.setDeviceName(name);
+        });
+        String program = String.join("\n",
+                "from logistics import network, move, Slot, Face",
+                "net = network()",
+                "store = net.interface()",
+                "print('smelted', move(net.bus('furnace').source(face=Face.BOTTOM), store))",
+                "with net.bus('table').open_screen() as s:",
+                "    s.put(Slot(1), 'oak_planks', sources=store)",
+                "    s.put(Slot(4), 'oak_planks', sources=store)",
+                "    print('sticks', s.take(Slot(0), store))",
+                "with net.bus('cutter').open_screen() as s:",
+                "    s.put(Slot(0), 'stone', 1, sources=store)",
+                "    s.press(0)",
+                "    print('cut', s.take(Slot(1), store))",
+                "net.pin('lamp').write(15)",
+                "net.monitor().print('lessons')",
+                "print('all done')",
+                "");
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/l.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /l.py");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "smelted 3", "sticks 4", "all done");
+            helper.assertTrue(!screen(computer).contains("cut 0"), "the stonecutter made something: " + screen(computer));
+            for (String lesson : List.of("07_smelting", "08_crafting", "09_workstations", "11_monitor")) {
+                helper.assertTrue(lessonDone(helper, player, lesson), "the lesson " + lesson + " is done");
+            }
+            var redstone = level.getServer().getAdvancements().get(qbotics.Qbotics.id("lessons/06_redstone"));
+            var progress = player.getAdvancements().getOrStartProgress(redstone);
+            helper.assertTrue(!progress.isDone() && progress.getCriterion("pin_out").isDone(), "half the redstone lesson: the signal sent");
+        });
+    }
+
+    /**
+     * The lessons for running unattended, with the game day made a couple of seconds: a Server
+     * whose startup.sh starts a service and then runs a program of its own. Both count for the
+     * Server's owner once they have run that long.
+     */
+    private static void lessonsUnattended(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        BlockPos at = new BlockPos(0, 1, 0);
+        helper.setBlock(at, QboticsContent.SERVER_BLOCK.get());
+        qbotics.block.ServerBlockEntity block = helper.getBlockEntity(at, qbotics.block.ServerBlockEntity.class);
+        block.claim(player.getUUID());
+        ComputerManager manager = ComputerManager.get(helper.getLevel().getServer());
+        ServerComputer first = manager.getOrStart(block);
+        String loop = "import env, time\nwhile True:\n    env.now()\n    time.sleep(0.1)\n";
+        try {
+            java.nio.charset.Charset utf8 = java.nio.charset.StandardCharsets.UTF_8;
+            first.drive().call(qbotics.engine.HostFileSystem.WRITE, "/loop.py", loop.getBytes(utf8));
+            first.drive().call(qbotics.engine.HostFileSystem.WRITE, "/startup.sh", "service start /loop.py\nrun /loop.py\n".getBytes(utf8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        qbotics.lesson.Lessons.dayTicks = 40;
+        manager.remove(first.deviceId());
+        ServerComputer server = manager.getOrStart(block); // started again: startup.sh runs
+        helper.succeedWhen(() -> {
+            helper.assertTrue("run /loop.py".equals(server.running()) || server.running() == null, "running: " + server.running());
+            helper.assertTrue(lessonDone(helper, player, "15_always_on"), "a program from startup ran a 'day'");
+            helper.assertTrue(lessonDone(helper, player, "17_service"), "a service ran a 'day'");
+            qbotics.lesson.Lessons.dayTicks = 24_000;
+            server.interrupt();
+        });
+    }
+
+    private static boolean lessonDone(GameTestHelper helper, net.minecraft.server.level.ServerPlayer player, String lesson) {
+        var holder = helper.getLevel().getServer().getAdvancements().get(qbotics.Qbotics.id("lessons/" + lesson));
+        if (holder == null) {
+            throw new IllegalStateException("No advancement for the lesson " + lesson);
+        }
+        return player.getAdvancements().getOrStartProgress(holder).isDone();
     }
 
     private static int countIn(GameTestHelper helper, BlockPos pos, net.minecraft.world.item.Item item) {

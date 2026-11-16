@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/03_first_move",
+  "criteria": {
+    "smelting": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "smelting"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:furnace"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.07_smelting.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.07_smelting.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "smelting"
+    ]
+  ]
+}

@@ -321,8 +321,10 @@ public final class ServerComputer {
      */
     static ServerComputer service(UUID id, ServerComputer server, Semaphore cpu, Listener listener,
             Function<String, CompletableFuture<String>> worldCalls, String name, String file) {
-        return new ServerComputer(id, server.driveId, server.drive, cpu, listener, worldCalls, false, false, Services.HEAP_BYTES,
+        ServerComputer service = new ServerComputer(id, server.driveId, server.drive, cpu, listener, worldCalls, false, false, Services.HEAP_BYTES,
                 server.quotaBytes, name, file);
+        service.lessonServer = server; // a service's lessons are its Server's owner's
+        return service;
     }
 
     private ServerComputer(UUID deviceId, UUID driveId, qbotics.engine.MountedFileSystem drive, Semaphore cpu, Listener listener,
@@ -387,11 +389,14 @@ public final class ServerComputer {
         computer.lineReader = null; // nobody types to a service: input() gets nothing
         serviceState = ServiceState.RUNNING;
         boolean ok;
+        unattendedSince = qbotics.lesson.Lessons.tick();
         try {
             String folder = serviceFile.substring(0, Math.max(1, serviceFile.lastIndexOf('/')));
             ok = runPython(computer, startProgram(folder, serviceFile) + "execfile(" + pyString(serviceFile) + ")");
         } catch (Restart restart) {
             ok = false;
+        } finally {
+            unattendedSince = -1;
         }
         String ended = java.time.LocalTime.now().withNano(0).toString();
         if (shutDown) {
@@ -760,6 +765,7 @@ public final class ServerComputer {
             if (session != eventSession) {
                 return false;
             }
+            lessonFor(event);
             if (waitingEvent != null) {
                 waitingEvent.complete(reply.toString());
                 waitingEvent = null;
@@ -770,6 +776,49 @@ public final class ServerComputer {
             }
             events.add(reply.toString());
             return true;
+        }
+    }
+
+    /** An event a program is listening for, told to the lessons: waiting for things, and what sent it. */
+    private void lessonFor(JsonObject event) {
+        String type = event.has("type") ? event.get("type").getAsString() : "";
+        qbotics.lesson.Lessons.award(lessonOwnerNow(), "events");
+        switch (type) {
+            case "pin" -> qbotics.lesson.Lessons.award(lessonOwnerNow(), "pin_in");
+            case "panel" -> qbotics.lesson.Lessons.award(lessonOwnerNow(), "panel");
+            case "web" -> qbotics.lesson.Lessons.award(lessonOwnerNow(), event.has("tablet") ? "tablet" : "web");
+            default -> {
+            }
+        }
+    }
+
+    /** What a program prints: to the terminal, and looked at for the "hello world" lesson. */
+    private void programOutput(String text) {
+        terminal.write(text);
+        if (lessonOwnerNow() == null) {
+            return;
+        }
+        synchronized (printed) {
+            for (int i = 0; i < text.length(); i++) {
+                char c = Character.toLowerCase(text.charAt(i));
+                if (c >= 'a' && c <= 'z') {
+                    printed.append(c);
+                }
+            }
+            if (printed.indexOf("helloworld") >= 0) {
+                qbotics.lesson.Lessons.award(lessonOwnerNow(), "hello");
+                printed.setLength(0);
+            } else if (printed.length() > 64) {
+                printed.delete(0, printed.length() - 16);
+            }
+        }
+    }
+
+    /** On each call into the game: a program running unattended for a game day has its lesson. */
+    private void unattendedLesson() {
+        int since = unattendedSince;
+        if (since >= 0 && qbotics.lesson.Lessons.tick() - since >= qbotics.lesson.Lessons.dayTicks) {
+            qbotics.lesson.Lessons.award(lessonOwnerNow(), serviceFile != null ? "service" : "always_on");
         }
     }
 
@@ -821,11 +870,16 @@ public final class ServerComputer {
                                 runProgramNow(computer);
                             }
                         } else {
-                            if (exists(STARTUP_SCRIPT)) {
-                                runScript(computer, STARTUP_SCRIPT);
-                            }
-                            if (exists(STARTUP_FILE)) {
-                                runPython(computer, startProgram("/", STARTUP_FILE) + "execfile(" + pyString(STARTUP_FILE) + ")");
+                            unattendedSince = qbotics.lesson.Lessons.tick();
+                            try {
+                                if (exists(STARTUP_SCRIPT)) {
+                                    runScript(computer, STARTUP_SCRIPT);
+                                }
+                                if (exists(STARTUP_FILE)) {
+                                    runPython(computer, startProgram("/", STARTUP_FILE) + "execfile(" + pyString(STARTUP_FILE) + ")");
+                                }
+                            } finally {
+                                unattendedSince = -1;
                             }
                         }
                     }
@@ -880,6 +934,19 @@ public final class ServerComputer {
     private volatile boolean atShellPrompt;
     /** The command running at the shell now ("run sorter.py", "python"), or null at the prompt; "program" for a Qbot's own. */
     private volatile String runningCommand;
+    /** Whose lessons this computer's programs count for (qbotics.lesson): its block's owner, or a laptop's player. */
+    public volatile java.util.@org.jspecify.annotations.Nullable UUID lessonOwner;
+    /** The end of what programs have printed, letters only, for the "hello world" lesson. */
+    private final StringBuilder printed = new StringBuilder();
+    /** The tick a program began running unattended (from startup, or as a service), or -1. */
+    private volatile int unattendedSince = -1;
+    /** For a service: the Server it runs on, whose owner its lessons count for. */
+    private volatile ServerComputer lessonServer;
+
+    /** Whose lessons this program counts for now. */
+    private java.util.@org.jspecify.annotations.Nullable UUID lessonOwnerNow() {
+        return lessonServer != null ? lessonServer.lessonOwner : lessonOwner;
+    }
     /** True while a command typed at the terminal runs (not one from a script, an ssh command or a program): read pages then. */
     private boolean typedAtTerminal;
     /** What the AI helper last stopped here, to start again. */
@@ -1155,9 +1222,12 @@ public final class ServerComputer {
 
     private Computer newVm() {
         Computer computer = new Computer(ComputerManager.engine(), heapBytes,
-                call -> call.equals(RECEIVE_CALL) ? receive() : call.equals(EVENT_CALL) ? nextEvent() : worldCalls.apply(call), drive);
+                call -> {
+                    unattendedLesson();
+                    return call.equals(RECEIVE_CALL) ? receive() : call.equals(EVENT_CALL) ? nextEvent() : worldCalls.apply(call);
+                }, drive);
         computer.cpu = cpu;
-        computer.outputSink = terminal::write;
+        computer.outputSink = this::programOutput;
         computer.lineReader = this::readInputLine;
         computer.lastsAcrossRuns = RECEIVE_CALL::equals;
         computer.held = held;

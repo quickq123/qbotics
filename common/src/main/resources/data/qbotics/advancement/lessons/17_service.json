@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/16_radio",
+  "criteria": {
+    "service": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "service"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:server"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.17_service.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.17_service.description"
+    },
+    "frame": "goal"
+  },
+  "requirements": [
+    [
+      "service"
+    ]
+  ]
+}

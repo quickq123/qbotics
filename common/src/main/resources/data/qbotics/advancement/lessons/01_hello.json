@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/root",
+  "criteria": {
+    "hello": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "hello"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:computer"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.01_hello.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.01_hello.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "hello"
+    ]
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/05_events",
+  "criteria": {
+    "monitor": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "monitor"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:text_monitor"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.11_monitor.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.11_monitor.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "monitor"
+    ]
+  ]
+}

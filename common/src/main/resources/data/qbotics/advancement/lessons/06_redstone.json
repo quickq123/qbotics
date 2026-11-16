@@ -1,0 +1,37 @@
+{
+  "parent": "qbotics:lessons/05_events",
+  "criteria": {
+    "pin_out": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "pin_out"
+      }
+    },
+    "pin_in": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "pin_in"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:pin"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.06_redstone.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.06_redstone.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "pin_out"
+    ],
+    [
+      "pin_in"
+    ]
+  ]
+}

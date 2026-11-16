@@ -1,0 +1,45 @@
+{
+  "parent": "qbotics:lessons/10_storage",
+  "criteria": {
+    "harvest": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "harvest"
+      }
+    },
+    "replant": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "replant"
+      }
+    },
+    "rancher": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "rancher"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:block_sensor"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.18_farmer.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.18_farmer.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "harvest",
+      "rancher"
+    ],
+    [
+      "replant",
+      "rancher"
+    ]
+  ]
+}

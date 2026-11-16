@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/11_monitor",
+  "criteria": {
+    "panel": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "panel"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:control_panel"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.12_panel.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.12_panel.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "panel"
+    ]
+  ]
+}

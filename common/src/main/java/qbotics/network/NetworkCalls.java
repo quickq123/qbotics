@@ -92,7 +92,15 @@ public final class NetworkCalls {
             callPos = computerPos;
             LINKS.clear();
             REMOTE.clear();
-            reply.add("r", run(level, network, computerPos, args));
+            JsonElement result = run(level, network, computerPos, args);
+            reply.add("r", result);
+            try {
+                if (result != null) {
+                    LessonHooks.afterCall(level, network, computerPos, args, result, !REMOTE.isEmpty());
+                }
+            } catch (RuntimeException e) {
+                Qbotics.LOGGER.debug("A lesson's check failed on {}", request, e); // never the call's problem
+            }
         } catch (CallError e) {
             reply.addProperty("e", e.getMessage());
         } catch (RuntimeException e) {
@@ -1575,7 +1583,20 @@ public final class NetworkCalls {
                 return answer;
             }
         }
+        LessonHooks.Before lesson = null;
+        if (medium == Medium.ITEM) {
+            try {
+                lesson = LessonHooks.beforeMove(level, sources, destinations, end -> onScreen(end) ? openScreen(level, screenBus(end.device())) : null);
+            } catch (RuntimeException e) {
+                Qbotics.LOGGER.debug("A lesson's check failed before a move", e);
+            }
+        }
         long moved = sweep(step, sources.size(), destinations.size(), limit, false);
+        try {
+            LessonHooks.afterMove(lesson, sources, destinations, moved);
+        } catch (RuntimeException e) {
+            Qbotics.LOGGER.debug("A lesson's check failed after a move", e);
+        }
         if (need != null && moved < need) {
             // Several kinds competing for the same free slots can make the trial run optimistic.
             throw new CallError("Only " + moved + " of the " + need + " needed could be moved; the rest had nowhere to go.");
@@ -1773,7 +1794,7 @@ public final class NetworkCalls {
     // ---- messages between computers (design doc §9.3) ---------------------------------
 
     /** "100.64.0.12:1003": an antenna's external address and a device's port on it. */
-    private static final Pattern EXTERNAL = Pattern.compile("(\\d{1,3}(?:\\.\\d{1,3}){3}):(\\d{1,5})");
+    static final Pattern EXTERNAL = Pattern.compile("(\\d{1,3}(?:\\.\\d{1,3}){3}):(\\d{1,5})");
     /** The same, with the port left out or ignored: an antenna's whole network. */
     private static final Pattern EXTERNAL_OR_IP = Pattern.compile("(\\d{1,3}(?:\\.\\d{1,3}){3})(?::\\d{1,5})?");
     private static final int MAX_MESSAGE_CHARS = 4096;

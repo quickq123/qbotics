@@ -35,6 +35,7 @@ public final class Qbotics {
 
     public static void setServer(net.minecraft.server.@org.jspecify.annotations.Nullable MinecraftServer running) {
         server = running;
+        qbotics.lesson.Lessons.reset(); // a new game: whose lessons were told is for this one to find out
     }
 
     public static QboticsPlatform platform() {

@@ -1,0 +1,44 @@
+{
+  "criteria": {
+    "computer": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "qbotics:computer"
+          }
+        ]
+      }
+    },
+    "laptop": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "qbotics:laptop"
+          }
+        ]
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:computer"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.root.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.root.description"
+    },
+    "background": "minecraft:gui/advancements/backgrounds/stone",
+    "show_toast": false,
+    "announce_to_chat": false
+  },
+  "requirements": [
+    [
+      "computer",
+      "laptop"
+    ]
+  ]
+}

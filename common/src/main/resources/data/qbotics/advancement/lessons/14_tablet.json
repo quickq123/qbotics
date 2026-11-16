@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/13_web",
+  "criteria": {
+    "tablet": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "tablet"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:tablet"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.14_tablet.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.14_tablet.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "tablet"
+    ]
+  ]
+}

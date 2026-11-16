@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/04_sorting",
+  "criteria": {
+    "events": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "events"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:clock"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.05_events.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.05_events.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "events"
+    ]
+  ]
+}

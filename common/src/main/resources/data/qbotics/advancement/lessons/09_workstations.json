@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/08_crafting",
+  "criteria": {
+    "workstation": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "workstation"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:stonecutter"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.09_workstations.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.09_workstations.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "workstation"
+    ]
+  ]
+}

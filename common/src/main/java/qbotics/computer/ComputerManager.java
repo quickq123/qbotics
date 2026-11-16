@@ -139,6 +139,7 @@ public final class ComputerManager {
     public ServerComputer getOrStart(ComputerBlockEntity block) {
         ServerComputer running = computers.get(block.deviceId());
         if (running != null) {
+            running.lessonOwner = block.owner();
             return running;
         }
         // Two placed computers must never share a drive (design doc §17.1 step 3). That can
@@ -155,6 +156,7 @@ public final class ComputerManager {
                 block instanceof qbotics.qbot.QbotBlockEntity qbot && qbot.programRunning(),
                 block instanceof qbotics.block.ServerBlockEntity ? qbotics.block.ServerBlockEntity.HEAP_BYTES : ServerComputer.BASIC_HEAP_BYTES,
                 block instanceof qbotics.block.ServerBlockEntity ? qbotics.block.ServerBlockEntity.DRIVE_BYTES : ServerComputer.DRIVE_QUOTA_BYTES);
+        computer.lessonOwner = block.owner();
         computers.put(block.deviceId(), computer);
         places.put(block.deviceId(), new Viewing(block.deviceId(), dimension, pos));
         if (block instanceof qbotics.qbot.QbotBlockEntity qbot && block.getLevel() != null && block.getLevel().getServer() != null) {
@@ -317,6 +319,7 @@ public final class ComputerManager {
             outbox.add(server -> answer.complete(NetworkCalls.handleLaptop(server, owner, call)));
             return answer;
         }, false, false, qbotics.laptop.Laptops.HEAP_BYTES, ServerComputer.DRIVE_QUOTA_BYTES);
+        computer.lessonOwner = owner; // a laptop is its player's
         computers.put(id, computer);
         laptops.put(owner, computer);
         return computer;

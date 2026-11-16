@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/01_hello",
+  "criteria": {
+    "network": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "network"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:probe"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.02_network.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.02_network.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "network"
+    ]
+  ]
+}

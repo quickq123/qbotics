@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/02_network",
+  "criteria": {
+    "move": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "move"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:bus"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.03_first_move.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.03_first_move.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "move"
+    ]
+  ]
+}

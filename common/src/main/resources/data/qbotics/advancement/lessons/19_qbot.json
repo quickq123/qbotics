@@ -1,0 +1,37 @@
+{
+  "parent": "qbotics:lessons/02_network",
+  "criteria": {
+    "move": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "qbot_move"
+      }
+    },
+    "dig": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "qbot_dig"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:iron_qbot"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.19_qbot.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.19_qbot.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "move"
+    ],
+    [
+      "dig"
+    ]
+  ]
+}

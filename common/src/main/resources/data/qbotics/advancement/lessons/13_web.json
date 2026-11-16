@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/12_panel",
+  "criteria": {
+    "web": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "web"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "qbotics:web_panel"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.13_web.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.13_web.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "web"
+    ]
+  ]
+}

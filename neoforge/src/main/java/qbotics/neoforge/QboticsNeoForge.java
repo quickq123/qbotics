@@ -291,6 +291,11 @@ public final class QboticsNeoForge {
     }
 
     /** The mod's own tab in the creative inventory, holding everything it adds. */
+    private static final DeferredRegister<net.minecraft.advancements.CriterionTrigger<?>> TRIGGERS =
+            DeferredRegister.create(Registries.TRIGGER_TYPE, Qbotics.MOD_ID);
+    private static final DeferredHolder<net.minecraft.advancements.CriterionTrigger<?>, qbotics.lesson.LessonTrigger> LESSON_TRIGGER =
+            TRIGGERS.register("lesson", qbotics.lesson.LessonTrigger::new);
+
     private static final DeferredRegister<CreativeModeTab> CREATIVE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Qbotics.MOD_ID);
     private static final DeferredHolder<CreativeModeTab, CreativeModeTab> CREATIVE_TAB = CREATIVE_TABS.register("qbotics",
             () -> CreativeModeTab.builder()
@@ -426,6 +431,7 @@ public final class QboticsNeoForge {
         QboticsContent.GAME_INTERFACE_BLOCK_ENTITY = GAME_INTERFACE_BLOCK_ENTITY;
         QboticsContent.EXPERIENCE_INTERFACE_BLOCK_ENTITY = EXPERIENCE_INTERFACE_BLOCK_ENTITY;
         QboticsContent.XP_POINTS = XP_POINTS;
+        QboticsContent.LESSON_TRIGGER = LESSON_TRIGGER;
         QboticsContent.FLUID_INTERFACE_BLOCK_ENTITY = FLUID_INTERFACE_BLOCK_ENTITY;
         QboticsContent.ENERGY_INTERFACE_BLOCK_ENTITY = ENERGY_INTERFACE_BLOCK_ENTITY;
         QboticsContent.INTERFACE_BLOCK_ENTITY = INTERFACE_BLOCK_ENTITY;
@@ -445,6 +451,7 @@ public final class QboticsNeoForge {
         modBus.addListener(QboticsNeoForge::registerPayloads);
         CREATIVE_TABS.register(modBus);
         MENUS.register(modBus);
+        TRIGGERS.register(modBus);
         // Hoppers and other mods' pipes see the Input block as an ordinary (filtered) inventory.
         modBus.addListener((RegisterCapabilitiesEvent event) -> {
             event.registerBlockEntity(Capabilities.Item.BLOCK, INTERFACE_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input));

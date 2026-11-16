@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/03_first_move",
+  "criteria": {
+    "sorting": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "sorting"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:hopper"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.04_sorting.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.04_sorting.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "sorting"
+    ]
+  ]
+}

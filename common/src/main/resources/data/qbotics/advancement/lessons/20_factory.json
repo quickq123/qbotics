@@ -1,0 +1,83 @@
+{
+  "parent": "qbotics:lessons/10_storage",
+  "criteria": {
+    "craft": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "factory_craft"
+      }
+    },
+    "sorting": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "sorting"
+      }
+    },
+    "monitor": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "monitor"
+      }
+    },
+    "panel": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "panel"
+      }
+    },
+    "web": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "web"
+      }
+    },
+    "tablet": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "tablet"
+      }
+    },
+    "always_on": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "always_on"
+      }
+    },
+    "service": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "service"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:crafter"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.20_factory.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.20_factory.description"
+    },
+    "frame": "challenge"
+  },
+  "requirements": [
+    [
+      "craft"
+    ],
+    [
+      "sorting"
+    ],
+    [
+      "monitor",
+      "panel",
+      "web",
+      "tablet"
+    ],
+    [
+      "always_on",
+      "service"
+    ]
+  ]
+}

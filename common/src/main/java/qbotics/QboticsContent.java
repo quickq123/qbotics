@@ -18,6 +18,8 @@ import qbotics.block.PortBlockEntity;
  * before any of them is used.
  */
 public final class QboticsContent {
+    /** The advancement trigger the lessons are met by (qbotics.lesson). */
+    public static Supplier<qbotics.lesson.LessonTrigger> LESSON_TRIGGER;
     public static Supplier<ComputerBlock> COMPUTER_BLOCK;
     public static Supplier<BlockEntityType<ComputerBlockEntity>> COMPUTER_BLOCK_ENTITY;
     public static Supplier<CableBlock> CABLE_BLOCK;

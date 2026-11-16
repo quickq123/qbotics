@@ -1,0 +1,28 @@
+{
+  "parent": "qbotics:lessons/04_sorting",
+  "criteria": {
+    "storage": {
+      "trigger": "qbotics:lesson",
+      "conditions": {
+        "lesson": "storage"
+      }
+    }
+  },
+  "display": {
+    "icon": {
+      "id": "minecraft:chest"
+    },
+    "title": {
+      "translate": "advancements.qbotics.lessons.10_storage.title"
+    },
+    "description": {
+      "translate": "advancements.qbotics.lessons.10_storage.description"
+    },
+    "frame": "task"
+  },
+  "requirements": [
+    [
+      "storage"
+    ]
+  ]
+}
