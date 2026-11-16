@@ -196,6 +196,12 @@ public final class QboticsNeoForge {
     private static final DeferredItem<BlockItem> ENTITY_SENSOR_ITEM = ITEMS.registerSimpleBlockItem(ENTITY_SENSOR);
     static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.EntitySensorBlockEntity>> ENTITY_SENSOR_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("entity_sensor", () -> new BlockEntityType<>(qbotics.block.EntitySensorBlockEntity::new, ENTITY_SENSOR.get()));
+    // The Collector: a chest's worth of slots that picks up what lies in a box around it.
+    private static final DeferredBlock<qbotics.block.CollectorBlock> COLLECTOR = BLOCKS.registerBlock("collector",
+            qbotics.block.CollectorBlock::new, properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> COLLECTOR_ITEM = ITEMS.registerSimpleBlockItem(COLLECTOR);
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.CollectorBlockEntity>> COLLECTOR_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("collector", () -> new BlockEntityType<>(qbotics.block.CollectorBlockEntity::new, COLLECTOR.get()));
     private static final DeferredItem<BlockItem> CHAT_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(CHAT_INTERFACE);
     private static final DeferredItem<net.minecraft.world.item.GameMasterBlockItem> COMMAND_INTERFACE_ITEM = ITEMS.registerItem("command_interface",
             properties -> new net.minecraft.world.item.GameMasterBlockItem(COMMAND_INTERFACE.get(), properties),
@@ -294,6 +300,7 @@ public final class QboticsNeoForge {
                         output.accept(PLAYER_INTERFACE_ITEM.get());
                         output.accept(CHAT_INTERFACE_ITEM.get());
                         output.accept(ENTITY_SENSOR_ITEM.get());
+                        output.accept(COLLECTOR_ITEM.get());
                         output.accept(BUS_ITEM.get());
                         output.accept(FLUID_BUS_ITEM.get());
                         output.accept(ENERGY_BUS_ITEM.get());
@@ -403,6 +410,8 @@ public final class QboticsNeoForge {
         QboticsContent.PLAYER_INTERFACE_BLOCK = PLAYER_INTERFACE;
         QboticsContent.ENTITY_SENSOR_BLOCK = ENTITY_SENSOR;
         QboticsContent.ENTITY_SENSOR_BLOCK_ENTITY = ENTITY_SENSOR_BLOCK_ENTITY;
+        QboticsContent.COLLECTOR_BLOCK = COLLECTOR;
+        QboticsContent.COLLECTOR_BLOCK_ENTITY = COLLECTOR_BLOCK_ENTITY;
         QboticsContent.CHAT_INTERFACE_BLOCK = CHAT_INTERFACE;
         QboticsContent.COMMAND_INTERFACE_BLOCK = COMMAND_INTERFACE;
         QboticsContent.GAME_INTERFACE_BLOCK_ENTITY = GAME_INTERFACE_BLOCK_ENTITY;
@@ -430,6 +439,8 @@ public final class QboticsNeoForge {
         // Hoppers and other mods' pipes see the Input block as an ordinary (filtered) inventory.
         modBus.addListener((RegisterCapabilitiesEvent event) -> {
             event.registerBlockEntity(Capabilities.Item.BLOCK, INTERFACE_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input));
+            // Hoppers and pipes take from a Collector (and put into it) as from a chest.
+            event.registerBlockEntity(Capabilities.Item.BLOCK, COLLECTOR_BLOCK_ENTITY.get(), (collector, side) -> VanillaContainerWrapper.of(collector));
             // The fluid and energy stores are ordinary tanks and batteries to other mods' pipes and cables.
             event.registerBlockEntity(Capabilities.Fluid.BLOCK, FLUID_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
             event.registerBlockEntity(Capabilities.Energy.BLOCK, ENERGY_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
@@ -842,7 +853,7 @@ public final class QboticsNeoForge {
                 .playToClient(qbotics.net.SensorPayloads.Info.TYPE, qbotics.net.SensorPayloads.Info.STREAM_CODEC)
                 .playToServer(qbotics.net.SensorPayloads.Action.TYPE, qbotics.net.SensorPayloads.Action.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
-                        qbotics.block.EntitySensorBlockEntity.onAction(player, payload);
+                        qbotics.block.AreaBlockEntity.onAction(player, payload);
                     }
                 })
                 .playToClient(qbotics.net.XpPayloads.Info.TYPE, qbotics.net.XpPayloads.Info.STREAM_CODEC)

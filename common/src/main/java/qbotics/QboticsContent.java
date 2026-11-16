@@ -42,6 +42,8 @@ public final class QboticsContent {
     public static Supplier<qbotics.block.GameInterfaceBlock> PLAYER_INTERFACE_BLOCK;
     public static Supplier<qbotics.block.EntitySensorBlock> ENTITY_SENSOR_BLOCK;
     public static Supplier<BlockEntityType<qbotics.block.EntitySensorBlockEntity>> ENTITY_SENSOR_BLOCK_ENTITY;
+    public static Supplier<qbotics.block.CollectorBlock> COLLECTOR_BLOCK;
+    public static Supplier<BlockEntityType<qbotics.block.CollectorBlockEntity>> COLLECTOR_BLOCK_ENTITY;
     public static Supplier<qbotics.block.GameInterfaceBlock> CHAT_INTERFACE_BLOCK;
     public static Supplier<qbotics.block.GameInterfaceBlock> COMMAND_INTERFACE_BLOCK;
     public static Supplier<BlockEntityType<qbotics.block.GameInterfaceBlockEntity>> GAME_INTERFACE_BLOCK_ENTITY;

@@ -15,6 +15,19 @@ public final class Experience {
     private Experience() {
     }
 
+    /** All the points an experience orb is worth: orbs that merge keep a count of themselves. */
+    public static int orbPoints(net.minecraft.world.entity.ExperienceOrb orb) {
+        int count = 1;
+        try {
+            java.lang.reflect.Field field = net.minecraft.world.entity.ExperienceOrb.class.getDeclaredField("count");
+            field.setAccessible(true);
+            count = Math.max(1, field.getInt(orb));
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            // an orb counts once
+        }
+        return orb.getValue() * count;
+    }
+
     /** The points it takes to go from nothing to exactly this level (the game's own rule). */
     public static long pointsAtLevel(long level) {
         long l = Math.clamp(level, 0, MAX_LEVEL);

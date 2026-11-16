@@ -29,7 +29,9 @@ public interface NetworkDevice {
          */
         PLAYER("player_interface"), CHAT("chat_interface"), COMMAND("command_interface"),
         /** Sees the entities in a box around it and acts on them as its owner (docs/reference.md §6.12). */
-        ENTITY_SENSOR("entity_sensor");
+        ENTITY_SENSOR("entity_sensor"),
+        /** A chest's worth of slots that picks up what lies around it (docs/reference.md §6.13). */
+        COLLECTOR("collector");
 
         /** The word Python programs and messages use. */
         public final String word;

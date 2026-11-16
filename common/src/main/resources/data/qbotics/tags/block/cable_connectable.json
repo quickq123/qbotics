@@ -11,6 +11,7 @@
     "qbotics:chat_interface",
     "qbotics:command_interface",
     "qbotics:entity_sensor",
+    "qbotics:collector",
     "qbotics:antenna_short",
     "qbotics:antenna_long",
     "qbotics:antenna_infinite",

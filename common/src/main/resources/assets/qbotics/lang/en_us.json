@@ -95,6 +95,7 @@
   "block.qbotics.player_interface": "Player Interface",
   "block.qbotics.chat_interface": "Chat Interface",
   "block.qbotics.entity_sensor": "Entity Sensor",
+  "block.qbotics.collector": "Collector",
   "screen.qbotics.sensor.show_area": "Show area",
   "screen.qbotics.sensor.hide_area": "Hide area",
   "screen.qbotics.sensor.size": "Sees %s x %s blocks, %s tall",

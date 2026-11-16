@@ -1460,7 +1460,52 @@ class Entity:
         return "<%s%s %.1f m>" % (self.type.replace("minecraft:", ""), named, self.data["distance"])
 
 
-class EntitySensor(Device):
+class _Area:
+    # For blocks that work a box around them: radius out to each side, height up and down.
+    @property
+    def radius(self):
+        """How far it reaches out to each side, in blocks."""
+        return self.refresh()._info["radius"]
+
+    @property
+    def height(self):
+        """How far it reaches up and down, in blocks."""
+        return self.refresh()._info["height"]
+
+    def set_area(self, radius=None, height=None):
+        """Sets how far it reaches: radius out to each side, height up and down, each 1 to 20."""
+        self._update(_call("area", self.mac, radius, height))
+
+
+class Collector(Device, _Area, _Gives, _Takes, _Watches):
+    """A Collector: a chest's worth of slots (27) that fills itself with what lies in a box
+    around it. Twice a second it picks up the dropped items it has room for (once their
+    pickup delay is over, as a player would), and experience orbs into an Experience
+    Interface on its network, if there is one (with none, orbs stay where they are).
+
+    It is a source and a destination for move(), as a chest behind a bus is:
+
+        drops = net.collector()
+        move(drops, net.storage("chest*"))
+        print(drops.count("rotten_flesh"))"""
+
+    def contents(self, details=False):
+        """What it holds: a list of {"slot": 0, "item": "minecraft:bone", "count": 12}.
+        details=True adds each stack's "data", exact "filter" and "words"."""
+        return _call("contents", self.mac, None, bool(details))
+
+    def count(self, item=None, slot=None):
+        """How many of an item (a name or filter) it holds; of everything, with none."""
+        item, _, slot = _aim(item, None, slot)
+        return _call("count", self.mac, item, None, slot)
+
+    @property
+    def slots(self):
+        """How many slots it has (27)."""
+        return self._info["slots"]
+
+
+class EntitySensor(Device, _Area):
     """An Entity Sensor: sees the creatures, players, dropped items and experience orbs in a
     box around it (radius blocks out to each side, height up and down, each 1 to 20), and acts
     on them as its owner. Right-click it for its screen and Show area.
@@ -1472,21 +1517,6 @@ class EntitySensor(Device):
         for zombie in sensor.entities("#minecraft:undead"):
             zombie.attack("diamond_sword", store)
         sensor.collect(store)                   # the drops"""
-
-    @property
-    def radius(self):
-        """How far it sees out to each side, in blocks."""
-        return self.refresh()._info["radius"]
-
-    @property
-    def height(self):
-        """How far it sees up and down, in blocks."""
-        return self.refresh()._info["height"]
-
-    def set_area(self, radius=None, height=None):
-        """Sets how far it sees: radius out to each side, height up and down, each 1 to 20."""
-        _call("sensor_area", self.mac, radius, height)
-        self.refresh()
 
     def entities(self, what=None):
         """What is in its area now, nearest first: a list of Entity. what is a name or filter
@@ -1575,7 +1605,7 @@ _KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay,
           "fluid_interface": FluidInterface, "fluid_bus": FluidBus,
           "energy_interface": EnergyInterface, "energy_bus": EnergyBus, "experience_interface": ExperienceInterface,
           "player_interface": PlayerInterface, "chat_interface": ChatInterface, "command_interface": CommandInterface,
-          "entity_sensor": EntitySensor}
+          "entity_sensor": EntitySensor, "collector": Collector}
 
 
 def _wrap(info):
@@ -1662,6 +1692,10 @@ class Network:
     def entity_sensor(self, key=None):
         """An Entity Sensor by name or address; with no argument, the network's only one."""
         return self._find(key, "entity_sensor")
+
+    def collector(self, key=None):
+        """A Collector by name or address; with no argument, the network's only one."""
+        return self._find(key, "collector")
 
     def monitor(self, key=None):
         """A text monitor by name or address; with no argument, the network's only one.

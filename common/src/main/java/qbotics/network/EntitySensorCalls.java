@@ -55,7 +55,6 @@ final class EntitySensorCalls {
         }
         level = NetworkCalls.levelOf(device, level);
         return switch (method) {
-            case "sensor_area" -> area(sensor, args);
             case "sensor_entities" -> list(level, sensor, args);
             case "sensor_entity" -> describe(sensor, find(level, sensor, args, 2));
             case "sensor_use" -> use(level, network, sensor, args);
@@ -69,31 +68,13 @@ final class EntitySensorCalls {
 
     // ---- the area and what is in it ------------------------------------------------------
 
-    /** ["sensor_area", mac, radius or null, height or null]: sets (what is given of) its size; returns it. */
-    private static JsonObject area(EntitySensorBlockEntity sensor, JsonArray args) {
-        Integer radius = NetworkCalls.wholeNumber(args, 2, "radius");
-        Integer height = NetworkCalls.wholeNumber(args, 3, "height");
-        for (Integer given : new Integer[] {radius, height}) {
-            if (given != null && (given < 1 || given > EntitySensorBlockEntity.MOST)) {
-                throw new CallError("An Entity Sensor sees from 1 to " + EntitySensorBlockEntity.MOST + " blocks each way, not " + given + ".");
-            }
-        }
-        if (radius != null || height != null) {
-            sensor.setArea(radius != null ? radius : sensor.radius(), height != null ? height : sensor.height());
-        }
-        JsonObject answer = new JsonObject();
-        answer.addProperty("radius", sensor.radius());
-        answer.addProperty("height", sensor.height());
-        return answer;
-    }
-
     /** ["sensor_entities", mac, name or filter of a kind of entity, or null]: what is in the area, nearest first. */
     private static JsonArray list(ServerLevel level, EntitySensorBlockEntity sensor, JsonArray args) {
         String wanted = NetworkCalls.string(args, 2);
         NameMatch<EntityType<?>> match = wanted == null ? null : NetworkCalls.entityType(wanted);
         Vec3 centre = Vec3.atCenterOf(sensor.getBlockPos());
         List<Entity> found = level.getEntities((Entity) null, sensor.area(),
-                entity -> entity.isAlive() && !(entity instanceof ServerPlayer player && player.isSpectator()) && !isStandIn(entity)
+                entity -> entity.isAlive() && sensor.holds(entity) && !(entity instanceof ServerPlayer player && player.isSpectator()) && !isStandIn(entity)
                         && (match == null || match.test(entity.getType())));
         found.sort(Comparator.comparingDouble(entity -> entity.distanceToSqr(centre)));
         JsonArray list = new JsonArray();
@@ -120,7 +101,7 @@ final class EntitySensorCalls {
         if (entity == null || !entity.isAlive()) {
             throw new CallError("That " + (entity == null ? "entity" : name(entity)) + " is gone.");
         }
-        if (!sensor.area().intersects(entity.getBoundingBox())) {
+        if (!sensor.holds(entity)) {
             throw new CallError("The " + name(entity) + " has left the sensor's area.");
         }
         return entity;
@@ -202,7 +183,7 @@ final class EntitySensorCalls {
             info.addProperty("count", item.getItem().getCount());
         }
         if (entity instanceof ExperienceOrb orb) {
-            info.addProperty("value", orbPoints(orb));
+            info.addProperty("value", qbotics.block.Experience.orbPoints(orb));
         }
         return info;
     }
@@ -509,19 +490,6 @@ final class EntitySensorCalls {
 
     // ---- picking things up ---------------------------------------------------------------
 
-    /** All the points an orb is worth: orbs that merge keep a count of themselves. */
-    private static int orbPoints(ExperienceOrb orb) {
-        int count = 1;
-        try {
-            java.lang.reflect.Field field = ExperienceOrb.class.getDeclaredField("count");
-            field.setAccessible(true);
-            count = Math.max(1, field.getInt(orb));
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            // an orb counts once
-        }
-        return orb.getValue() * count;
-    }
-
     /**
      * ["sensor_collect", mac, uuid or null, destinations, name or filter or null]: picks up dropped
      * items (into item destinations) and experience orbs (into Experience Interfaces among them):
@@ -532,7 +500,7 @@ final class EntitySensorCalls {
         if (NetworkCalls.string(args, 2) != null) {
             targets.add(find(level, sensor, args, 2));
         } else {
-            targets.addAll(level.getEntities((Entity) null, sensor.area(), entity -> entity.isAlive()
+            targets.addAll(level.getEntities((Entity) null, sensor.area(), entity -> entity.isAlive() && sensor.holds(entity)
                     && (entity instanceof ItemEntity || entity instanceof ExperienceOrb)));
         }
         String wanted = NetworkCalls.string(args, 4);
@@ -570,7 +538,7 @@ final class EntitySensorCalls {
                     dropped.setItem(stack.copyWithCount(stack.getCount() - put));
                 }
             } else if (entity instanceof ExperienceOrb orb && match == null && !banks.isEmpty()) {
-                int worth = orbPoints(orb);
+                int worth = qbotics.block.Experience.orbPoints(orb);
                 long left = worth;
                 for (ExperienceInterfaceBlockEntity bank : banks) {
                     left -= bank.add(left);

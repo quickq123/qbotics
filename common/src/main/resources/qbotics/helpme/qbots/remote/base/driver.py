@@ -40,15 +40,9 @@ ORDERS = {
 }
 
 # ---- what it sees -----------------------------------------------------------------------
-# A Qbot takes one picture a second at most, so this waits if the last one was too recent.
-last_picture = time.ticks_ms() - 2000
+# A Qbot takes one picture a second at most: snapshot() waits until it may take the next.
 
 def picture():
-    global last_picture
-    wait = 1050 - time.ticks_diff(time.ticks_ms(), last_picture)
-    if wait > 0:
-        time.sleep(wait / 1000)
-    last_picture = time.ticks_ms()
     return qbot.snapshot(96, 64)
 
 # ---- obeying ----------------------------------------------------------------------------

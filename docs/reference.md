@@ -299,6 +299,7 @@ With an antenna on the network, each device can also be reached from other netwo
 | `placer`, `breaker` | Plates that place blocks and fluid, or break them |
 | `dropper` | A plate that throws items out as a dropper, or fires them as a dispenser (section 6.10) |
 | `entity_sensor` | Sees the creatures, players and dropped things around it, and acts on them as its owner (section 6.12) |
+| `collector` | A chest's worth of slots that picks up the dropped items around it, and experience into an Experience Interface (section 6.13) |
 | `drive_bay` | Holds hard drives; every computer on its network sees them under `/net` |
 | `programmer` | Puts programs from its hard drive onto the computer in front of it |
 | `monitor`, `panel` | A Text Monitor or a Control Panel: a screen, of one block or several (section 7c) |
@@ -432,6 +433,7 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `net.experience_interface(key)` | The experience store |
 | `net.player_interface(key)`, `net.chat_interface(key)`, `net.command_interface(key)` | The game interfaces (section 6.11) |
 | `net.entity_sensor(key)` | An Entity Sensor (section 6.12) |
+| `net.collector(key)` | A Collector (section 6.13) |
 | `net.interfaces()`, `net.buses()`, `net.usbs()` | Every interface, Item Serial Bus or USB |
 | `net.storage(names)` | Many chests as one: every interface and item bus the names find (section 6.4c) |
 
@@ -1326,7 +1328,8 @@ owner**: using an item on them, attacking, trading, and picking things up.
 **Recipe:** eight cables around a sculk sensor.
 
 **Its area** is a box centred on the block: `radius` blocks out to each side and `height` up
-and down, each 1 to 20 (default 8). At the most, 41 x 41 blocks and 41 tall.
+and down, each 1 to 20 (default 8). At the most, 41 x 41 blocks and 41 tall. An entity is in
+it when the spot it stands on is, so one by the border is plainly in or out.
 
 **Right-click it** for its screen: the radius and height, each with -5, -1, +1 and +5
 buttons (only its owner, or an operator, can change them), and **Show area**, which outlines
@@ -1404,6 +1407,48 @@ villager already trading with a player is busy.
 **Acting for the owner.** Using, attacking and trading are done by the player who placed the
 sensor, so they can't touch what that player couldn't: animals in someone else's claim, say.
 A sensor nobody placed only looks and picks up. Reading needs no owner at all.
+
+### 6.13 Collector: picking up what lies around
+
+A full block on the network with a chest's worth of slots (27) that fills itself with what
+lies in a box around it: the same box as an Entity Sensor's (section 6.12), `radius` blocks
+out to each side and `height` up and down, each 1 to 20 (default 8), with the same screen and
+Show area.
+
+**Recipe:** seven cables around a hopper, with a chest below it:
+
+```
+C C C        C = cable, H = hopper, T = chest
+C H C
+C T C
+```
+
+- **Right-click** it to open its slots, as a chest's.
+- **Sneak and right-click** with an empty hand for its size and Show area.
+- **Twice a second** it picks up the dropped items in its area that it has room for. Like a
+  player, it waits for an item's pickup delay (half a second after a Dropper throws it, say).
+  Stacks of the same kind are topped up first.
+- **Experience:** if an Experience Interface is on its cable network, it picks up experience
+  orbs too and stores them there. With none, orbs stay where they are.
+- **It needs no program and no owner.** Breaking it drops what it holds.
+
+**To programs** it is an item store, like an Interface: a source and a destination for
+`move()`, counted, listed and watched, and it can be part of a storage (section 6.4c).
+Hoppers and other mods' pipes take from it (and put into it) as from a chest.
+
+```python
+drops = net.collector()
+move(drops, net.storage("chest*"))          # empty it into storage
+drops.set_area(radius=12, height=4)
+```
+
+| Call or attribute | Does |
+|---|---|
+| `collector.contents(details=False)` | What it holds: `[{"slot", "item", "count"}]` (section 6.5 for details) |
+| `collector.count(item=None, slot=None)` | How many of an item it holds |
+| `collector.radius`, `collector.height`, `collector.set_area(radius=None, height=None)` | Its area, each 1 to 20 |
+| `collector.slots` | 27 |
+| `collector.source(...)`, `collector.destination(...)`, `collector.watch(...)` | Sections 6.4 and 6.4b |
 
 ## 7. The `network` module
 
@@ -2203,7 +2248,7 @@ web.image("cam", pic)                # players see the picture, coloured from th
 
 | Call | Does |
 |---|---|
-| `qbot.snapshot(width=64, height=48, pitch=0)` | A picture of what is in front of it, up to 32 blocks away. `pitch` tilts the camera up (positive) or down, in degrees. At most 128 x 96, one a second |
+| `qbot.snapshot(width=64, height=48, pitch=0, wait=True)` | A picture of what is in front of it, up to 32 blocks away. `pitch` tilts the camera up (positive) or down, in degrees. At most 128 x 96, one a second of game time: asked sooner, it waits until it may (`wait=False` raises `QbotError` instead). Don't time pictures by the clock: a busy server's second is longer than a real one |
 | `pic.width`, `pic.height` | Its size in pixels |
 | `pic.block_at(x, y)` | What a pixel shows: a block's id, `"monster"`, `"animal"`, `"player"` or `"creature"`, or `None` for the sky (0, 0 is the top left) |
 | `pic.counts()` | How many pixels show each thing |

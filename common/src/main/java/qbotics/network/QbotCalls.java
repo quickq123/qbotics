@@ -54,11 +54,20 @@ final class QbotCalls {
     /** When each Qbot last took a picture (game time): one a second each. */
     private static final java.util.Map<java.util.UUID, Long> LAST_PICTURE = new java.util.HashMap<>();
 
-    /** A picture of what is in front of it (design doc §8): see qbotics.camera.Camera. */
-    private static JsonElement snapshot(ServerLevel level, QbotBlockEntity qbot, int width, int height, double pitch) {
+    /**
+     * A picture of what is in front of it (design doc §8): see qbotics.camera.Camera. One a second
+     * of game time: too soon, it is {"wait": ticks} for a program that waits, else an error. (A
+     * program can't time it by the clock: a busy server's second is longer than a real one.)
+     */
+    private static JsonElement snapshot(ServerLevel level, QbotBlockEntity qbot, int width, int height, double pitch, boolean wait) {
         long now = level.getGameTime();
         Long last = LAST_PICTURE.get(qbot.deviceId());
         if (last != null && now - last < 20 && now >= last) {
+            if (wait) {
+                JsonObject reply = new JsonObject();
+                reply.addProperty("wait", 20 - (now - last));
+                return reply;
+            }
             throw new CallError("A Qbot takes one picture a second; wait a moment.");
         }
         if (width < 1 || height < 1 || width > qbotics.camera.Camera.MAX_WIDTH || height > qbotics.camera.Camera.MAX_HEIGHT) {
@@ -97,7 +106,7 @@ final class QbotCalls {
             case "qbot_pump" -> pump(level, qbot, side(qbot, args));
             case "qbot_pour" -> pour(level, qbot, side(qbot, args), NetworkCalls.string(args, 2));
             case "qbot_snapshot" -> snapshot(level, qbot, NetworkCalls.wholeNumber(args, 1, "width"), NetworkCalls.wholeNumber(args, 2, "height"),
-                    args.get(3).getAsDouble());
+                    args.get(3).getAsDouble(), args.size() > 4 && !args.get(4).isJsonNull() && args.get(4).getAsBoolean());
             default -> throw new CallError("This computer doesn't know the call '" + method + "'.");
         };
     }

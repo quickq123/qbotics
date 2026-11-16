@@ -375,8 +375,13 @@ class Picture:
         return "<Picture %d x %d>" % (self.width, self.height)
 
 
-def snapshot(width=64, height=48, pitch=0):
+def snapshot(width=64, height=48, pitch=0, wait=True):
     """Takes a picture of what is in front of it, up to 32 blocks away: blocks, fluids and
     creatures. pitch tilts the camera up (positive) or down, in degrees. At most 128 x 96
-    pixels, and one picture a second."""
-    return Picture(_q("qbot_snapshot", width, height, pitch))
+    pixels, and one picture a second of game time: asked sooner, it waits until it may
+    (wait=False raises QbotError instead)."""
+    while True:
+        reply = _q("qbot_snapshot", width, height, pitch, bool(wait))
+        if "wait" not in reply:
+            return Picture(reply)
+        time.sleep(reply["wait"] / 20)

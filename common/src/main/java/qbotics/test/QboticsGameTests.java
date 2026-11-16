@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -139,6 +139,7 @@ public final class QboticsGameTests {
             Map.entry("dropper_plate", QboticsGameTests::dropperPlate),
             Map.entry("entity_sensor", QboticsGameTests::entitySensor),
             Map.entry("qbot_attack", QboticsGameTests::qbotAttack),
+            Map.entry("collector", QboticsGameTests::collector),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -3252,9 +3253,10 @@ public final class QboticsGameTests {
                 "seen = pic.counts()",
                 "print('stone', seen.get('minecraft:stone', 0) > 100, 'pig', seen.get('animal', 0) > 0)",
                 "try:",
-                "    qbot.snapshot()",
+                "    qbot.snapshot(wait=False)",
                 "except qbot.QbotError as e:",
                 "    print('again:', e)",
+                "print('waited', qbot.snapshot(8, 6).width)",
                 "web = network().web_panel()",
                 "web.html('<img src=\"image:cam\">')",
                 "web.image('cam', pic)",
@@ -3268,7 +3270,8 @@ public final class QboticsGameTests {
         }
         computer.submitLine("run /cam.py");
         helper.succeedWhen(() -> {
-            assertScreen(helper, computer, "pic 32 24", "middle animal", "stone True pig True", "again: A Qbot takes one picture a second", "shown");
+            assertScreen(helper, computer, "pic 32 24", "middle animal", "stone True pig True", "again: A Qbot takes one picture a second",
+                    "waited 8", "shown");
             qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(2, 1, 5), qbotics.block.DisplayBlockEntity.class);
             qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();
             qbotics.camera.Picture picture = web.images().get("cam");
@@ -4824,6 +4827,60 @@ public final class QboticsGameTests {
             helper.assertTrue(husk.getHealth() > 7.5f && husk.getHealth() < 8.5f, "two full iron-sword hits should leave the husk near 8, not " + husk.getHealth());
             helper.assertTrue(qbot.hand().getItem(0).is(Items.IRON_SWORD) && qbot.hand().getItem(0).getDamageValue() == 2,
                     "the sword stays in its hand, worn by two hits");
+        });
+    }
+
+    /**
+     * The Collector picks up the dropped items in its area into its slots (not one outside it,
+     * nor before its pickup delay is over), and leaves experience orbs alone until an Experience
+     * Interface joins its network, then stores them there. A program sets its area and reads it
+     * as an item store. Everything stays inside the test's own area (see entitySensor).
+     */
+    private static void collector(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(-1, 1, 1));
+        helper.setBlock(new BlockPos(-1, 1, 0), QboticsContent.COLLECTOR_BLOCK.get());
+        qbotics.block.CollectorBlockEntity collector = helper.getBlockEntity(new BlockPos(-1, 1, 0), qbotics.block.CollectorBlockEntity.class);
+        var cobble = helper.spawnItem(Items.COBBLESTONE, new BlockPos(1, 1, 1));
+        cobble.getItem().setCount(5);
+        BlockPos diamondAt = helper.absolutePos(new BlockPos(2, 1, 2)); // outside a radius of 2
+        var diamond = new net.minecraft.world.entity.item.ItemEntity(helper.getLevel(), diamondAt.getX() + 0.5, diamondAt.getY(), diamondAt.getZ() + 0.5,
+                new ItemStack(Items.DIAMOND));
+        helper.getLevel().addFreshEntity(diamond);
+        cobble.setPickUpDelay(40);
+        diamond.setPickUpDelay(40);
+        // Lying still where they were put (a new item is given a small random push), and the area
+        // small from the start: the program sets the same again and reads it back.
+        cobble.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        diamond.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        collector.setArea(2, 1);
+        BlockPos orbAt = helper.absolutePos(new BlockPos(0, 1, 1));
+        var orb = new net.minecraft.world.entity.ExperienceOrb(helper.getLevel(), orbAt.getX() + 0.5, orbAt.getY(), orbAt.getZ() + 0.5, 7);
+        helper.getLevel().addFreshEntity(orb);
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "net = network()",
+                "c = net.collector()",
+                "c.set_area(radius=2, height=1)",
+                "print('set', c.radius, c.height, c.slots, c.kind)")) {
+            computer.submitLine(line);
+        }
+        helper.runAfterDelay(100, () -> {
+            helper.assertTrue(collector.countItem(Items.COBBLESTONE) == 5 && !cobble.isAlive(), "the cobblestone should be collected");
+            helper.assertTrue(diamond.isAlive() && collector.countItem(Items.DIAMOND) == 0, "the diamond, outside its area, should stay: alive "
+                    + diamond.isAlive() + " " + diamond.getRemovalReason() + " at " + diamond.position() + " (area " + collector.area()
+                    + "), collected " + collector.countItem(Items.DIAMOND));
+            helper.assertTrue(orb.isAlive(), "with no Experience Interface on its network, the orb should stay");
+            helper.setBlock(new BlockPos(-1, 2, 1), QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get());
+            // A fresh orb, with the store now there: orbs drift towards any player within 8 blocks
+            // (a neighbouring test's), so the first may have wandered off by now.
+            helper.getLevel().addFreshEntity(new net.minecraft.world.entity.ExperienceOrb(helper.getLevel(), orbAt.getX() + 0.5, orbAt.getY(), orbAt.getZ() + 0.5, 7));
+            computer.submitLine("print('held', c.count('cobblestone'), [e['item'] for e in c.contents()])");
+        });
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "set 2 1 27 collector\n", "held 5 ['minecraft:cobblestone']\n");
+            qbotics.block.ExperienceInterfaceBlockEntity bank = helper.getBlockEntity(new BlockPos(-1, 2, 1), qbotics.block.ExperienceInterfaceBlockEntity.class);
+            helper.assertTrue(bank.points() >= 7, "the orb should go into the Experience Interface: " + bank.points());
         });
     }
 

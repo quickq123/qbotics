@@ -12,14 +12,14 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
-import qbotics.block.EntitySensorBlockEntity;
+import qbotics.block.AreaBlockEntity;
 import qbotics.client.SensorScreen;
 
 /**
- * Outlines the box an Entity Sensor sees while its screen's Show area is on: the twelve edges
+ * Outlines the box an Entity Sensor or a Collector works while its screen's Show area is on: the twelve edges
  * of its area, in cyan, with a fainter mark at each block along the top edges to count by.
  */
-final class SensorAreaRenderer implements BlockEntityRenderer<EntitySensorBlockEntity, SensorAreaRenderer.State> {
+final class SensorAreaRenderer<T extends AreaBlockEntity> implements BlockEntityRenderer<T, SensorAreaRenderer.State> {
     private static final int EDGE = 0xFF40E0FF;
     private static final int TICK = 0x8040E0FF;
 
@@ -38,7 +38,7 @@ final class SensorAreaRenderer implements BlockEntityRenderer<EntitySensorBlockE
     }
 
     @Override
-    public void extractRenderState(EntitySensorBlockEntity sensor, State state, float partialTicks, Vec3 cameraPosition,
+    public void extractRenderState(T sensor, State state, float partialTicks, Vec3 cameraPosition,
             ModelFeatureRenderer.@Nullable CrumblingOverlay breakProgress) {
         BlockEntityRenderer.super.extractRenderState(sensor, state, partialTicks, cameraPosition, breakProgress);
         state.shown = SensorScreen.shown(sensor.getBlockPos());
@@ -97,7 +97,7 @@ final class SensorAreaRenderer implements BlockEntityRenderer<EntitySensorBlockE
     }
 
     @Override
-    public AABB getRenderBoundingBox(EntitySensorBlockEntity sensor) {
+    public AABB getRenderBoundingBox(T sensor) {
         return sensor.area();
     }
 }

@@ -726,7 +726,24 @@ public final class NetworkCalls {
                 return Watches.poll(level, network, computerPos, args);
             case "watch_close":
                 return Watches.close(args);
-            case "sensor_area", "sensor_entities", "sensor_entity", "sensor_use", "sensor_attack", "sensor_offers", "sensor_trade", "sensor_collect":
+            case "area": {
+                // ["area", mac, radius or null, height or null]: an Entity Sensor's or a Collector's box; sets what is given.
+                if (!(byMac(network, args, 1) instanceof qbotics.block.AreaBlockEntity device)) {
+                    throw new CallError("Only an Entity Sensor or a Collector has an area.");
+                }
+                Integer radius = wholeNumber(args, 2, "radius");
+                Integer height = wholeNumber(args, 3, "height");
+                for (Integer given : new Integer[] {radius, height}) {
+                    if (given != null && given > qbotics.block.AreaBlockEntity.MOST) {
+                        throw new CallError("An area reaches from 1 to " + qbotics.block.AreaBlockEntity.MOST + " blocks each way, not " + given + ".");
+                    }
+                }
+                if (radius != null || height != null) {
+                    device.setArea(radius != null ? radius : device.radius(), height != null ? height : device.height());
+                }
+                return describe(level, network, device);
+            }
+            case "sensor_entities", "sensor_entity", "sensor_use", "sensor_attack", "sensor_offers", "sensor_trade", "sensor_collect":
                 return EntitySensorCalls.call(method, level, network, args);
             case "player_info", "chat_say", "chat_tell", "chat_command", "chat_listen", "command_run":
                 return GameInterfaceCalls.call(method, level, network, computerPos, args);
@@ -1759,6 +1776,9 @@ public final class NetworkCalls {
         if (device instanceof qbotics.block.GameInterfaceBlockEntity game && game.kind() == Kind.PLAYER) {
             return GameInterfaceCalls.playerItems(game);
         }
+        if (device instanceof qbotics.block.CollectorBlockEntity collector) {
+            return new ContainerItemPort(collector);
+        }
         return null;
     }
 
@@ -2268,9 +2288,12 @@ public final class NetworkCalls {
             JsonArray drives = new JsonArray();
             bay.mounted().keySet().forEach(drives::add);
             info.add("drives", drives);
-        } else if (device instanceof qbotics.block.EntitySensorBlockEntity sensor) {
-            info.addProperty("radius", sensor.radius());
-            info.addProperty("height", sensor.height());
+        } else if (device instanceof qbotics.block.AreaBlockEntity area) {
+            info.addProperty("radius", area.radius());
+            info.addProperty("height", area.height());
+            if (area instanceof qbotics.block.CollectorBlockEntity) {
+                info.addProperty("slots", qbotics.block.CollectorBlockEntity.SLOTS);
+            }
         } else if (device instanceof qbotics.block.GameInterfaceBlockEntity game) {
             // Whose it is; a Player Interface also says whether they are online, and its slots.
             info.addProperty("player", game.ownerName(level.getServer()));

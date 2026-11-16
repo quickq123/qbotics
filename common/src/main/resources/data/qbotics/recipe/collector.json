@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "C": "qbotics:cable",
+    "H": "minecraft:hopper",
+    "T": "minecraft:chest"
+  },
+  "pattern": [
+    "CCC",
+    "CHC",
+    "CTC"
+  ],
+  "result": {
+    "id": "qbotics:collector"
+  }
+}

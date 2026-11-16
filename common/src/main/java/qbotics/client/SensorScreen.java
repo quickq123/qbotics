@@ -9,11 +9,11 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import qbotics.Qbotics;
-import qbotics.block.EntitySensorBlockEntity;
+import qbotics.block.AreaBlockEntity;
 import qbotics.net.SensorPayloads;
 
 /**
- * The Entity Sensor's screen: how far it sees (radius out to each side, height up and down,
+ * The Entity Sensor's and the Collector's screen: how far it reaches (radius out to each side, height up and down,
  * each 1 to 20, changed by its owner) and Show area, which outlines the box it sees in the
  * world until pressed again.
  */
@@ -25,8 +25,15 @@ public class SensorScreen extends Screen {
     private SensorPayloads.Info info;
 
     public SensorScreen(SensorPayloads.Info info) {
-        super(Component.translatable("block.qbotics.entity_sensor"));
+        super(titleFor(info.pos()));
         this.info = info;
+    }
+
+    /** The name of the block it is for: an Entity Sensor or a Collector. */
+    private static Component titleFor(BlockPos pos) {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft.level == null ? Component.translatable("block.qbotics.entity_sensor")
+                : minecraft.level.getBlockState(pos).getBlock().getName();
     }
 
     /** For the screenshot run: outlines a sensor's area as Show area would. */
@@ -51,8 +58,8 @@ public class SensorScreen extends Screen {
     }
 
     private void send(int radius, int height) {
-        int r = Math.clamp(radius, 1, EntitySensorBlockEntity.MOST);
-        int h = Math.clamp(height, 1, EntitySensorBlockEntity.MOST);
+        int r = Math.clamp(radius, 1, AreaBlockEntity.MOST);
+        int h = Math.clamp(height, 1, AreaBlockEntity.MOST);
         Qbotics.platform().sendToServer(new SensorPayloads.Action(info.pos(), r, h));
     }
 

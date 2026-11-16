@@ -58,6 +58,8 @@ public final class QboticsNeoForgeClient {
         // The Entity Sensor's area, outlined while its screen's Show area is on.
         modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
                 event.registerBlockEntityRenderer(QboticsNeoForge.ENTITY_SENSOR_BLOCK_ENTITY.get(), SensorAreaRenderer::new));
+        modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
+                event.registerBlockEntityRenderer(QboticsNeoForge.COLLECTOR_BLOCK_ENTITY.get(), SensorAreaRenderer::new));
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) -> {
             event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new);
             event.register(QboticsNeoForge.FLUID_INTERFACE_MENU.get(), qbotics.client.FluidInterfaceScreen::new);
