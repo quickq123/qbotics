@@ -1212,6 +1212,24 @@ Decided by the project owner: two buses can be linked so that each end's face of
 - **Tunnel light** (decided by the project owner): two pixels at the middle of each edge of a bus's front plate, the sides facing out from its axis (the face itself is against the target). Off with no tunnel, amber while the other end can't be reached, green when connected. The server checks loaded tunnel ends once a second and tells players' games when one changes; the colour is a tint (sources 6-11 of the cable's tint list, after the six ring colours).
 - Not yet: tunnels between Qbots and buses.
 
+### 11.0.8 Storage: many containers as one (built 2026-11-16)
+
+Asked for by the project owner, who wants storage and logistics to be efficient for programs without
+remaking Refined Storage or Applied Energistics (no storage network, no terminal to manage items by hand).
+`net.storage(names)` (logistics.Storage) is a group of interfaces and item buses found by name pattern
+(`chest*`), name or address, looked up again on every call. On the server it is one end of a move
+(an End with group members, NetworkCalls.storageMembers), whose container is StoragePort: the members' slots
+in order. One call counts, lists (`stock`) or moves across every member, instead of a tick per bus.
+
+- Putting: a kind goes first to a member already holding it, then the first with room.
+- Taking: members in order.
+- A move between a storage and one of its own members leaves that member out.
+- Members reaching one container (two buses on a chest, or a double chest's halves) count once (NetworkCalls.places).
+- Unreachable members are skipped.
+- At most 256 members, items only.
+- Not yet: watching a storage; a dense item vault (kinds and counts, no slots, awkward by hand) is the
+  owner's idea for later.
+
 ### 11.0.7 Game interfaces: the player, the chat and commands (built 2026-11-14)
 
 Asked for by the project owner: interfaces to the vanilla game itself. Three full blocks (GameInterfaceBlock, one block
@@ -1882,6 +1900,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-16 | Storage (asked for by the project owner): `net.storage("chest*")` uses many buses and interfaces as one container, one call for count, contents and move, kinds gathered where they already are, double chests counted once. Before any dense storage block; not a storage network. §11.0.8 | Built 2026-11-16 |
 | 2026-11-14 | Game interfaces (asked for by the project owner): a Player Interface (Ender Chest recipe) that is a bus on its owner's inventory, armour and off hand; a Chat Interface that hears chat as events, writes to it and runs commands as its owner; a Command Interface with no recipe (operators in creative, or commands) that runs commands as a command block. Owner-only, as in §11.0.7 | Built 2026-11-14 |
 | 2026-11-13 | Tablets: Delete twice unpairs the tab showing; a Qbot's tab follows its drive, so it survives the Qbot being broken and placed again | Built 2026-11-13 |
 | 2026-11-13 | A tablet pairs with a Qbot (sneak and right-click it): a tab the Qbot's own program draws on with network().tablet(), anywhere; helpme qbots/remote is now that, one startup.py on the Qbot (the radio version moved to qbots/remote/base) | Built 2026-11-13 |

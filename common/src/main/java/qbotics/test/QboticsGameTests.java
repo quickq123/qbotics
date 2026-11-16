@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -133,6 +133,7 @@ public final class QboticsGameTests {
             Map.entry("qbot_remote", QboticsGameTests::qbotRemote),
             Map.entry("qbot_tablet", QboticsGameTests::qbotTablet),
             Map.entry("game_interfaces", QboticsGameTests::gameInterfaces),
+            Map.entry("storage_group", QboticsGameTests::storageGroup),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4476,6 +4477,70 @@ public final class QboticsGameTests {
      * its owner (with only their permissions) and hears chat as events. A Command Interface
      * runs commands as a command block. Another player's computer is refused.
      */
+    /**
+     * A storage: buses found by a name pattern, used as one container. One call counts and
+     * lists across all of them; a double chest with a bus on each half counts once; a kind
+     * goes in where it already is; a move to one of its own members moves nothing.
+     */
+    private static void storageGroup(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(0, 2, 0), QboticsContent.INTERFACE_BLOCK.get());
+        for (int x = 1; x <= 5; x++) {
+            setPort(helper, new BlockPos(x, 1, 0), Kind.BUS, Direction.SOUTH);
+        }
+        BlockState chest = Blocks.CHEST.defaultBlockState().setValue(net.minecraft.world.level.block.ChestBlock.FACING, Direction.NORTH);
+        helper.setBlock(new BlockPos(1, 1, 1), chest);
+        helper.setBlock(new BlockPos(2, 1, 1), chest.setValue(net.minecraft.world.level.block.ChestBlock.TYPE,
+                net.minecraft.world.level.block.state.properties.ChestType.LEFT));
+        helper.setBlock(new BlockPos(3, 1, 1), chest.setValue(net.minecraft.world.level.block.ChestBlock.TYPE,
+                net.minecraft.world.level.block.state.properties.ChestType.RIGHT));
+        helper.setBlock(new BlockPos(4, 1, 1), Blocks.BARREL);
+        helper.setBlock(new BlockPos(5, 1, 1), Blocks.FURNACE);
+        var single = helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        single.setItem(0, new ItemStack(Items.COAL, 20));
+        helper.getBlockEntity(new BlockPos(3, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class)
+                .setItem(0, new ItemStack(Items.IRON_INGOT, 5));
+        helper.getBlockEntity(new BlockPos(4, 1, 1), net.minecraft.world.level.block.entity.BarrelBlockEntity.class)
+                .setItem(0, new ItemStack(Items.IRON_INGOT, 40));
+        InterfaceBlockEntity inbox = helper.getBlockEntity(new BlockPos(0, 2, 0), InterfaceBlockEntity.class);
+        inbox.setFilter(0, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "iron_ingot"));
+        inbox.setItem(0, new ItemStack(Items.IRON_INGOT, 10));
+        inbox.setFilter(1, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "cobblestone"));
+        inbox.setItem(1, new ItemStack(Items.COBBLESTONE, 30));
+        List<String> names = List.of("chest-a", "chest-b", "chest-c", "chest-d", "furnace");
+        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+        for (NetworkDevice device : networkAt(helper, new BlockPos(1, 1, 0)).devices()) {
+            if (device instanceof qbotics.block.CablePort) {
+                device.setDeviceName(names.get(device.getBlockPos().getX() - origin.getX() - 1));
+            }
+        }
+        for (String line : List.of(
+                "python",
+                "from logistics import network, move",
+                "net = network()",
+                "store = net.storage('chest*')",
+                "print('n', [d.name for d in store.devices()])",
+                "print('count', store.count('iron_ingot'), store.count())",
+                "print('contents', [(c['item'], c['count']) for c in store.contents()])",
+                "print('where', [(w['device'].name, w['count']) for w in store.where('iron_ingot')])",
+                "print('fuel', move(store, net.bus('furnace'), 'coal', 8))",
+                "inbox = net.interface()",
+                "print('in', move(inbox, store, 'iron_ingot', 10), move(inbox, store, 'cobblestone', 30))",
+                "a = net.bus('chest-a')",
+                "print('a', a.count('iron_ingot'), a.count('cobblestone'), a.count('coal'))",
+                "print('self', move(store, a, 'coal', 5))",
+                "print('slots', store.slots(), net.storage(['chest-a', net.bus('chest-d')]).count('cobblestone'))",
+                "net.storage('nothing*').count()")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "n ['chest-a', 'chest-b', 'chest-d']\n", "count 45 65\n",
+                    "contents [('minecraft:iron_ingot', 45), ('minecraft:coal', 20)]\n", "where [('chest-b', 5), ('chest-d', 40)]\n",
+                    "fuel 8\n", "in 10 30\n", "a 0 30 12\n", "self 0\n", "slots 108 30\n", "NetworkError: The storage is empty");
+            helper.assertTrue(countIn(helper, new BlockPos(1, 1, 1), Items.IRON_INGOT) == 0, "no iron should go where there was none");
+        });
+    }
+
     private static void gameInterfaces(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();

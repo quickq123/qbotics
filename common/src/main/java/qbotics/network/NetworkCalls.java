@@ -473,6 +473,53 @@ public final class NetworkCalls {
                 }
                 return new JsonPrimitive(total);
             }
+            case "stock": {
+                // ["stock", sources, name or filter or null]: what item sources hold between them, by
+                // item (most first) and by container, with each container's slots and empty slots.
+                List<End> sources = ends(network, args.get(1), "source");
+                String wanted = string(args, 2);
+                NameMatch<Item> match = wanted == null ? null : item(wanted);
+                java.util.Map<String, Long> byItem = new java.util.HashMap<>();
+                JsonArray members = new JsonArray();
+                for (End end : sources) {
+                    java.util.function.Predicate<Item> own = endFilter(end, NetworkCalls::item);
+                    ItemPort port = itemSource(level, end);
+                    List<StoragePort.Member> parts = port instanceof StoragePort group ? group.members()
+                            : List.of(new StoragePort.Member(end.device(), port, java.util.Set.of()));
+                    for (StoragePort.Member member : parts) {
+                        List<ItemStack> stacks = member.port.contents();
+                        long count = 0;
+                        int free = 0;
+                        for (ItemStack stack : stacks) {
+                            if (stack.isEmpty()) {
+                                free++;
+                            } else if ((match == null || match.test(stack.getItem())) && own.test(stack.getItem())) {
+                                count += stack.getCount();
+                                byItem.merge(itemId(stack.getItem()), (long) stack.getCount(), Long::sum);
+                            }
+                        }
+                        JsonObject entry = new JsonObject();
+                        entry.add("device", describe(levelOf(member.device, level), network, member.device));
+                        entry.addProperty("count", count);
+                        entry.addProperty("slots", stacks.size());
+                        entry.addProperty("free", free);
+                        members.add(entry);
+                    }
+                }
+                List<java.util.Map.Entry<String, Long>> sorted = new ArrayList<>(byItem.entrySet());
+                sorted.sort(java.util.Map.Entry.<String, Long>comparingByValue().reversed().thenComparing(java.util.Map.Entry.comparingByKey()));
+                JsonArray items = new JsonArray();
+                for (java.util.Map.Entry<String, Long> entry : sorted) {
+                    JsonObject one = new JsonObject();
+                    one.addProperty("item", entry.getKey());
+                    one.addProperty("count", entry.getValue());
+                    items.add(one);
+                }
+                JsonObject answer = new JsonObject();
+                answer.add("items", items);
+                answer.add("members", members);
+                return answer;
+            }
             case "screen_open": {
                 CablePort bus = screenBus(byMac(network, args, 1));
                 if (bus.owner() == null) {
@@ -675,8 +722,15 @@ public final class NetworkCalls {
      * One end of a move, as the program described it: a device, and optionally a face and a
      * slot (or tank) to work through, and lists of what it will and won't pass.
      */
-    record End(NetworkDevice device, String face, int slot, JsonObject written) {
+    /**
+     * One end of a move. For a storage group (logistics.Storage), group lists its members and
+     * device is the first of them, as an item device.
+     */
+    record End(NetworkDevice device, String face, int slot, JsonObject written, @org.jspecify.annotations.Nullable List<NetworkDevice> group) {
         String label() {
+            if (group != null) {
+                return "the storage";
+            }
             return device.deviceName().isEmpty() ? device.ip() : device.deviceName();
         }
     }
@@ -692,6 +746,11 @@ public final class NetworkCalls {
         List<End> ends = new ArrayList<>();
         for (JsonElement element : list) {
             JsonObject spec = element.getAsJsonObject();
+            if (spec.has("group")) {
+                List<NetworkDevice> members = storageMembers(network, spec);
+                ends.add(new End(members.getFirst(), null, -1, spec, members));
+                continue;
+            }
             String mac = spec.get("mac").getAsString();
             NetworkDevice device = resolve(network, mac);
             if (device == null) {
@@ -702,7 +761,7 @@ public final class NetworkCalls {
             if (slot < -1) {
                 throw new CallError("Slots and tanks are numbered from 0; there is no number " + slot + ".");
             }
-            ends.add(new End(device, face, slot, spec));
+            ends.add(new End(device, face, slot, spec, null));
         }
         return ends;
     }
@@ -722,6 +781,208 @@ public final class NetworkCalls {
     }
 
     /** What one end lets through: anything in its "only" list (or anything, if that is empty) that is not in its "without" list. */
+    /** The most containers one storage may have. */
+    private static final int MAX_STORAGE_MEMBERS = 256;
+
+    /**
+     * The members of a storage group, found again on every call so that a container named to
+     * match joins at once: {"group": [names, patterns ("chest*"), addresses], "address": external
+     * IP or null}. Each name or address is every item device it finds (all of them, where
+     * several share a name); a pattern is every device whose name matches, in name order
+     * (chest2 before chest10),
+     * that holds items (devices of other kinds are passed over). A USB takes part as its item bus.
+     */
+    static List<NetworkDevice> storageMembers(CableNetwork network, JsonObject spec) {
+        String address = spec.has("address") && !spec.get("address").isJsonNull() ? spec.get("address").getAsString().strip() : null;
+        CableNetwork where = network;
+        if (address != null) {
+            if (callLevel == null) {
+                throw new CallError("Devices behind another antenna can only be reached from a program.");
+            }
+            Far far = far(callLevel, network, address, callPos);
+            if (far.network() == null) {
+                throw new CallError("The antenna at " + address + " isn't its network's router, so nothing behind it can be reached.");
+            }
+            where = far.network();
+        }
+        List<NetworkDevice> members = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        JsonArray keys = spec.getAsJsonArray("group");
+        if (keys.isEmpty()) {
+            throw new CallError("A storage needs at least one name or device: net.storage(\"chest*\").");
+        }
+        for (JsonElement written : keys) {
+            String key = written.getAsString();
+            List<NetworkDevice> found = new ArrayList<>();
+            boolean pattern = key.indexOf('*') >= 0 || key.indexOf('?') >= 0;
+            if (pattern) {
+                Pattern names = glob(key);
+                for (NetworkDevice device : where.devices()) {
+                    if (!device.deviceName().isEmpty() && names.matcher(device.deviceName()).matches()) {
+                        found.add(device);
+                    }
+                }
+                found.sort(java.util.Comparator.comparing(NetworkDevice::deviceName, NetworkCalls::byName)
+                        .thenComparingInt(NetworkDevice::hostNumber));
+            } else if (address == null && key.indexOf('/') > 0) {
+                NetworkDevice device = resolve(network, key); // one behind another antenna, by its full address
+                if (device != null) {
+                    found.add(device);
+                }
+            } else {
+                found.addAll(where.find(key));
+                if (found.isEmpty()) {
+                    throw new CallError("The storage names '" + key + "', but nothing on " + (address == null ? "this network" : "the network behind " + address)
+                            + " has that name or address.");
+                }
+            }
+            for (NetworkDevice device : found) {
+                if (where != network) {
+                    device = resolve(network, address + "/" + device.mac()); // reached through both antennas, as any remote device is
+                    if (device == null) {
+                        continue;
+                    }
+                }
+                NetworkDevice items = concrete(device, Medium.ITEM);
+                if (!holdsItems(items)) {
+                    if (pattern) {
+                        continue;
+                    }
+                    throw new CallError("The storage names '" + key + "', which is " + article(device) + ": only interfaces and item buses hold items.");
+                }
+                if (!seen.add(items.mac())) {
+                    continue; // named twice (by a name and a pattern, say): once is enough
+                }
+                if (members.size() >= MAX_STORAGE_MEMBERS) {
+                    throw new CallError("A storage can have at most " + MAX_STORAGE_MEMBERS + " containers.");
+                }
+                members.add(items);
+            }
+        }
+        if (members.isEmpty()) {
+            throw new CallError("The storage is empty: no interface or item bus " + (address == null ? "on this network" : "behind " + address)
+                    + " has a name matching " + keys + ".");
+        }
+        return members;
+    }
+
+    /** True for a device that holds items a storage can use: an interface, a player interface, an item bus. */
+    private static boolean holdsItems(NetworkDevice device) {
+        return ownItems(device) != null || (device instanceof CablePort port && port.medium() == Medium.ITEM && port.gives() && port.takes());
+    }
+
+    /** Names in the order a person would put them: runs of digits compare as numbers, so chest2 comes before chest10. */
+    private static int byName(String a, String b) {
+        int i = 0;
+        int j = 0;
+        while (i < a.length() && j < b.length()) {
+            char x = a.charAt(i);
+            char y = b.charAt(j);
+            if (Character.isDigit(x) && Character.isDigit(y)) {
+                int si = i;
+                int sj = j;
+                while (i < a.length() && Character.isDigit(a.charAt(i))) {
+                    i++;
+                }
+                while (j < b.length() && Character.isDigit(b.charAt(j))) {
+                    j++;
+                }
+                java.math.BigInteger m = new java.math.BigInteger(a.substring(si, i));
+                java.math.BigInteger n = new java.math.BigInteger(b.substring(sj, j));
+                if (m.compareTo(n) != 0) {
+                    return m.compareTo(n);
+                }
+            } else {
+                if (x != y) {
+                    return Character.compare(x, y);
+                }
+                i++;
+                j++;
+            }
+        }
+        return Integer.compare(a.length() - i, b.length() - j);
+    }
+
+    /** A device name pattern: * is any run of characters, ? any one. */
+    private static Pattern glob(String written) {
+        StringBuilder regex = new StringBuilder();
+        StringBuilder literal = new StringBuilder();
+        for (char c : written.toCharArray()) {
+            if (c == '*' || c == '?') {
+                if (!literal.isEmpty()) {
+                    regex.append(Pattern.quote(literal.toString()));
+                    literal.setLength(0);
+                }
+                regex.append(c == '*' ? ".*" : ".");
+            } else {
+                literal.append(c);
+            }
+        }
+        if (!literal.isEmpty()) {
+            regex.append(Pattern.quote(literal.toString()));
+        }
+        return Pattern.compile(regex.toString());
+    }
+
+    /**
+     * A storage group as one container. A member whose container can't be reached now (its
+     * area unloaded, the chest gone) is left out; so is one reaching a container an earlier
+     * member already reaches (two buses on one chest, or on the two halves of a double chest).
+     */
+    static StoragePort storage(ServerLevel level, List<NetworkDevice> group) {
+        List<StoragePort.Member> members = new ArrayList<>();
+        java.util.Set<String> taken = new java.util.HashSet<>();
+        for (NetworkDevice device : group) {
+            ServerLevel at = levelOf(device, level);
+            ItemPort port = ownItems(device);
+            if (port == null && device instanceof CablePort plate) {
+                try {
+                    port = wholeTarget(at, plate);
+                } catch (CallError unreachable) {
+                    port = null;
+                }
+            }
+            if (port == null) {
+                continue;
+            }
+            java.util.Set<String> places = places(at, device);
+            boolean again = false;
+            for (String place : places) {
+                again |= taken.contains(place);
+            }
+            if (again) {
+                continue;
+            }
+            taken.addAll(places);
+            members.add(new StoragePort.Member(device, port, places));
+        }
+        return new StoragePort(members);
+    }
+
+    /**
+     * Where a device's items are, as words that are equal for the same container: an
+     * interface's own block, a player interface's player, the block a bus points at (both
+     * halves of a double chest).
+     */
+    static java.util.Set<String> places(ServerLevel level, NetworkDevice device) {
+        ServerLevel at = levelOf(device, level);
+        String dimension = at.dimension().toString();
+        if (device instanceof qbotics.block.GameInterfaceBlockEntity game && game.kind() == Kind.PLAYER) {
+            return java.util.Set.of("player " + game.owner());
+        }
+        if (device instanceof CablePort plate) {
+            BlockPos target = plate.targetPos();
+            net.minecraft.world.level.block.state.BlockState state = at.isLoaded(target) ? at.getBlockState(target) : null;
+            if (state != null && state.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
+                    && state.getValue(net.minecraft.world.level.block.ChestBlock.TYPE) != net.minecraft.world.level.block.state.properties.ChestType.SINGLE) {
+                BlockPos other = target.relative(net.minecraft.world.level.block.ChestBlock.getConnectedDirection(state));
+                return java.util.Set.of(dimension + " " + target.asLong(), dimension + " " + other.asLong());
+            }
+            return java.util.Set.of(dimension + " " + target.asLong());
+        }
+        return java.util.Set.of(dimension + " " + device.getBlockPos().asLong());
+    }
+
     static <T> java.util.function.Predicate<T> endFilter(End end, java.util.function.Function<String, NameMatch<T>> parse) {
         List<NameMatch<T>> only = names(end.written(), "only", parse);
         List<NameMatch<T>> without = names(end.written(), "without", parse);
@@ -866,6 +1127,9 @@ public final class NetworkCalls {
     }
 
     static ItemPort itemSource(ServerLevel level, End end) {
+        if (end.group() != null) {
+            return storage(level, end.group());
+        }
         level = levelOf(end.device(), level);
         if (onScreen(end)) {
             return openScreen(level, screenBus(end.device())).port();
@@ -881,6 +1145,9 @@ public final class NetworkCalls {
     }
 
     static ItemPort itemDestination(ServerLevel level, End end) {
+        if (end.group() != null) {
+            return storage(level, end.group());
+        }
         level = levelOf(end.device(), level);
         if (onScreen(end)) {
             return openScreen(level, screenBus(end.device())).port();
@@ -933,7 +1200,10 @@ public final class NetworkCalls {
     static List<End> asMedium(List<End> ends, Medium medium) {
         List<End> out = new ArrayList<>(ends.size());
         for (End end : ends) {
-            out.add(new End(concrete(end.device(), medium), end.face(), end.slot(), end.written()));
+            if (end.group() != null && medium != Medium.ITEM) {
+                throw new CallError("A storage holds items only; it has no " + medium.word + ".");
+            }
+            out.add(new End(concrete(end.device(), medium), end.face(), end.slot(), end.written(), end.group()));
         }
         return out;
     }
@@ -1027,6 +1297,24 @@ public final class NetworkCalls {
                     checkSlot(end.slot(), port.contents().size(), end.label(), "slot");
                     to.add(port);
                 }
+                // A storage and one of its own members: the storage without that member, so
+                // nothing is moved from a chest into itself.
+                List<ItemPort> fromPair = new ArrayList<>();
+                List<ItemPort> toPair = new ArrayList<>();
+                for (int s = 0; s < sources.size(); s++) {
+                    for (int d = 0; d < destinations.size(); d++) {
+                        ItemPort a = from.get(s);
+                        ItemPort b = to.get(d);
+                        if (a instanceof StoragePort group && sources.get(s).group() != null && destinations.get(d).group() == null) {
+                            a = group.without(places(level, destinations.get(d).device()));
+                        }
+                        if (b instanceof StoragePort group && destinations.get(d).group() != null && sources.get(s).group() == null) {
+                            b = group.without(places(level, sources.get(s).device()));
+                        }
+                        fromPair.add(a);
+                        toPair.add(b);
+                    }
+                }
                 for (End source : sources) {
                     java.util.function.Predicate<Item> own = endFilter(source, NetworkCalls::item);
                     for (End destination : destinations) {
@@ -1036,8 +1324,11 @@ public final class NetworkCalls {
                 }
                 most = MAX_ITEMS_PER_CALL;
                 byDefault = match != null && match.single() != null ? 1 : most;
-                step = (s, d, limit, simulate) -> from.get(s) == to.get(d) ? 0 : ItemPort.move(from.get(s), sources.get(s).slot(),
-                        to.get(d), destinations.get(d).slot(), passes.get(s * destinations.size() + d), (int) limit, simulate);
+                step = (s, d, limit, simulate) -> {
+                    int pair = s * destinations.size() + d;
+                    return from.get(s) == to.get(d) ? 0 : ItemPort.move(fromPair.get(pair), sources.get(s).slot(),
+                            toPair.get(pair), destinations.get(d).slot(), passes.get(pair), (int) limit, simulate);
+                };
             }
             case FLUID -> {
                 NameMatch<Fluid> match = wanted == null ? null : fluid(wanted);

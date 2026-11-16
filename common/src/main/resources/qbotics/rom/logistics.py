@@ -112,7 +112,7 @@ class Destination(Source):
 
 
 def _ends(given, make):
-    # One end of a move: a Source or Destination, a device, a name, or a list of those.
+    # One end of a move: a Source or Destination, a device, a Storage, a name, or a list of those.
     if not isinstance(given, (list, tuple)):
         given = [given]
     specs = []
@@ -121,6 +121,8 @@ def _ends(given, make):
             end = _wrap(_call("find", end, None))
         if isinstance(end, Device):
             end = make(end)
+        if isinstance(end, Storage):
+            end = _StorageEnd(end)
         specs.append(end._spec())
     return specs
 
@@ -285,6 +287,97 @@ class _Watches:
 
             changes = chest.watch().wait(10)    # whatever changes in the next 10 seconds"""
         return Watch(self, face, what, every)
+
+
+class Storage:
+    """Many containers used as one: the chests (or barrels, drawers, interfaces) behind
+    item buses, found by their names. Make one with net.storage():
+
+        store = net.storage("chest*")            # every bus or interface named chest...
+        store = net.storage("storage")           # every one named "storage"
+        store = net.storage(["ores", "chest*", net.interface()])
+
+    Each call asks about all of them at once, in one tick, however many there are:
+
+        store.count("iron_ingot")                # across every chest
+        store.contents()                         # [{"item": ..., "count": ...}], most first
+        move(store, furnace, "coal", 8)          # from whichever chests have it
+        move(furnace.source(face=Face.BOTTOM), store)   # to where that item already is
+
+    The names are looked up again on every call, so a bus named to match joins at once.
+    A bus on a container another member already reaches (both halves of a double chest)
+    is counted once. A member whose chest can't be reached now (gone, or not loaded) is
+    left out until it can be."""
+
+    def __init__(self, keys, address=None):
+        if isinstance(keys, (str, Device)):
+            keys = [keys]
+        self.keys = [key.mac if isinstance(key, Device) else str(key) for key in keys]
+        self._address = address
+        if not self.keys:
+            raise NetworkError('A storage needs at least one name or device: net.storage("chest*").')
+
+    def _spec(self, only=None, without=None):
+        return {"group": self.keys, "address": self._address, "only": _list(only), "without": _list(without)}
+
+    def source(self, only=None, without=None):
+        """The storage as somewhere to draw from, for move(). only= and without= as for a device."""
+        return _StorageEnd(self, only, without)
+
+    def destination(self, only=None, without=None):
+        """The storage as somewhere to put things, for move(). Each kind goes first to a
+        container that already holds some, then to the first with room."""
+        return _StorageEnd(self, only, without)
+
+    def _stock(self, item=None):
+        return _call("stock", [self._spec()], item)
+
+    def count(self, item=None):
+        """How many of an item (a name or filter) are in all of it; with no item, how many
+        items there are in all."""
+        return _call("available", [self._spec()], item)
+
+    def contents(self):
+        """What it holds, added up across every container: a list of
+        {"item": "minecraft:coal", "count": 1200}, the most first."""
+        return self._stock()["items"]
+
+    def where(self, item):
+        """Which containers hold an item (a name or filter), and how many each:
+        a list of {"device": <bus>, "count": 40}."""
+        return [{"device": _wrap(m["device"]), "count": m["count"]} for m in self._stock(item)["members"] if m["count"]]
+
+    def free(self):
+        """How many empty slots there are, in all."""
+        return sum(m["free"] for m in self._stock()["members"])
+
+    def slots(self):
+        """How many slots there are, in all."""
+        return sum(m["slots"] for m in self._stock()["members"])
+
+    def devices(self):
+        """The buses and interfaces it is made of now, in order."""
+        return [_wrap(m["device"]) for m in self._stock()["members"]]
+
+    def __repr__(self):
+        return "<storage %s>" % ", ".join(self.keys)
+
+
+class _StorageEnd(Source):
+    # A storage as one end of a move.
+    def __init__(self, storage, only=None, without=None):
+        self.storage = storage
+        self.device = None
+        self.only = _list(only)
+        self.without = _list(without)
+        self.face = None
+        self.slot = None
+
+    def _spec(self):
+        return self.storage._spec(self.only, self.without)
+
+    def __repr__(self):
+        return "<storage end %s>" % ", ".join(self.storage.keys)
 
 
 class Port(Device):
@@ -1229,6 +1322,16 @@ class Network:
     def usbs(self):
         """Every Universal Serial Bus on the network."""
         return self.devices("usb")
+
+    def storage(self, *keys):
+        """Many containers used as one (see Storage): every interface and item bus a name,
+        a pattern ("chest*"), an address or a device given here finds.
+
+            store = net.storage("chest*")
+            print(store.count("iron_ingot"))"""
+        if len(keys) == 1 and isinstance(keys[0], (list, tuple)):
+            keys = keys[0]
+        return Storage(list(keys), getattr(self, "address", None))
 
     @property
     def me(self):

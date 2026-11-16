@@ -415,6 +415,7 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `net.experience_interface(key)` | The experience store |
 | `net.player_interface(key)`, `net.chat_interface(key)`, `net.command_interface(key)` | The game interfaces (section 6.11) |
 | `net.interfaces()`, `net.buses()`, `net.usbs()` | Every interface, Item Serial Bus or USB |
+| `net.storage(names)` | Many chests as one: every interface and item bus the names find (section 6.4c) |
 
 ### 6.2 Every device
 
@@ -630,6 +631,67 @@ Each change is a dictionary:
 When one kind of item replaces another in a slot, that is two changes: the old one going to 0
 and the new one coming from 0. Nothing is missed between looks: each compares with the one
 before. A watch nobody looks at for a minute ends; a computer can have 16 at once.
+
+### 6.4c Storage: many chests as one
+
+A **storage** is a group of containers used as one: the chests, barrels or drawers behind
+item buses, and interfaces, found by their names. Each call asks about all of them at once,
+in one tick, however many there are, where asking each bus in turn takes a tick per bus.
+
+```python
+from logistics import network, move
+net = network()
+store = net.storage("chest*")          # every bus or interface whose name starts with chest
+
+print(store.count("iron_ingot"))       # across every chest
+for entry in store.contents():         # added up, the most first
+    print(entry["count"], entry["item"])
+move(store, net.bus("furnace"), "coal", 8)     # from whichever chests have it
+move(net.bus("drop_off"), store)               # each kind to where it already is
+```
+
+**Naming what is in it.** `net.storage()` takes one or more of these, or a list:
+
+| Given | Finds |
+|---|---|
+| A pattern: `"chest*"`, `"ore_?"` | Every device whose name matches (`*` any run of characters, `?` any one), in name order (`chest2` before `chest10`). Devices that hold no items (a computer named `chest_ctl`) are passed over |
+| A name: `"storage"` | Every device with that name. Several buses can share one name |
+| An address, or a device: `net.interface()` | That one |
+
+Name a bus with `bus.rename("chest_3")`, or with the Network Probe. The names are looked
+up again on every call, so a new bus named to match joins at once, and one taken off leaves.
+
+| Call | Gives |
+|---|---|
+| `store.count(item=None)` | How many of an item (a name or filter) are in all of it; with none, how many items in all |
+| `store.contents()` | `[{"item": "minecraft:coal", "count": 1200}, ...]`, added up across every container, the most first |
+| `store.where(item)` | Which containers hold an item: `[{"device": <bus>, "count": 40}, ...]` |
+| `store.free()`, `store.slots()` | Empty slots, and all slots, in all |
+| `store.devices()` | The buses and interfaces it is made of now |
+| `store.source(only=None, without=None)`, `store.destination(...)` | It as one end of a move, with filters (section 6.4) |
+
+A storage goes wherever a device does: `move()`, a recipe's `sources`, a placer's or
+breaker's, and `game.plan(have=store)`.
+
+**How it moves things.**
+
+- **Order:** the containers are in the order they were named; those a pattern finds, in name order.
+- **Taking:** from the containers in order, the first that has some first.
+- **Putting:** each kind goes first to a container that already holds some, then to the first with
+  room. So kinds gather together and don't spread across every empty slot.
+- **To or from one of its own members:** `move(store, net.bus("chest_1"))` gathers things into
+  chest_1 from the others; that chest isn't counted as a source as well.
+
+**What it leaves out.**
+
+- **Two buses on one container,** or one bus on each half of a double chest: it is counted once.
+- **A container it can't reach now** (broken, or its area not loaded) is left out until it can
+  be reached. `store.devices()` shows what is in now.
+- **Behind another antenna:** `net.remote("100.64.0.2").storage("chest*")` works too, with the
+  same rules as remote moves (section 7.3b).
+
+**Limits.** A storage holds up to 256 containers, and items only. A move carries at most 576
+items a call, as any move does. A storage can't be watched yet: watch its buses one by one.
 
 ### 6.5 Items
 
