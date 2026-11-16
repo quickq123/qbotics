@@ -9,9 +9,10 @@ import net.minecraft.world.item.ItemStack;
 /**
  * Many containers used as one: a storage group (logistics.Storage, docs/reference.md §6.4c).
  * Its slots are its members' slots one after another, in member order. Items are taken from
- * the members in order; they are put first where that kind already is, so a kind gathers in
- * a few places instead of spreading over every empty slot, and then into the first member
- * with room.
+ * the members in order. They are put first into a member that chooses them (a bus whose
+ * filter lets them in, an interface), where that kind already is and then anywhere such a
+ * member has room; then into members with no filter, again where the kind already is first.
+ * So a kind gathers in a few places instead of spreading over every empty slot.
  *
  * <p>Made fresh for each call, on the server thread.
  */
@@ -75,15 +76,34 @@ final class StoragePort implements ItemPort {
         return false;
     }
 
+    /** True for a member that chooses what it takes: a bus with a filter, or an interface (its slot filters). */
+    private static boolean chooses(Member member) {
+        return member.port instanceof BusFilter.Filtered || member.port instanceof qbotics.block.InterfaceBlockEntity;
+    }
+
+    /** True if a member that chooses lets this kind in. */
+    private static boolean lets(Member member, ItemStack like) {
+        if (member.port instanceof BusFilter.Filtered filtered) {
+            return filtered.allows(like);
+        }
+        return member.port.insert(like, 1, true) > 0;
+    }
+
     @Override
     public int insert(ItemStack like, int max, boolean simulate) {
         int done = 0;
         boolean[] tried = new boolean[members.size()];
-        // First where some of it already is, then anywhere with room.
-        for (int pass = 0; pass < 2 && done < max; pass++) {
+        boolean[] chooses = new boolean[members.size()];
+        for (int i = 0; i < members.size(); i++) {
+            chooses[i] = chooses(members.get(i));
+        }
+        // 0: a member whose filter lets it in and that holds some; 1: one whose filter lets it in;
+        // 2: one with no filter that holds some; 3: one with no filter (the overflow). A member
+        // whose filter doesn't let it in never gets it, even if some is there already.
+        for (int pass = 0; pass < 4 && done < max; pass++) {
             for (int i = 0; i < members.size() && done < max; i++) {
                 Member member = members.get(i);
-                if (tried[i] || (pass == 0 && !holds(member, like))) {
+                if (tried[i] || chooses[i] != pass < 2 || (pass % 2 == 0 && !holds(member, like)) || (chooses[i] && !lets(member, like))) {
                     continue;
                 }
                 tried[i] = true;

@@ -400,6 +400,27 @@ public final class NetworkCalls {
                 input.setFilter(slot, item == null ? null : item(item));
                 return JsonNull.INSTANCE;
             }
+            case "set_bus_filter": {
+                // ["set_bus_filter", mac, [names] or null, matching]: what an item bus lets into its container.
+                CablePort port = port(byMac(network, args, 1));
+                if (port.kind() != Kind.BUS || (port.base().medium() != Medium.ITEM && port.base().medium() != Medium.UNIVERSAL)) {
+                    throw new CallError("Only an Item Serial Bus or a USB keeps an item filter.");
+                }
+                List<String> names = new ArrayList<>();
+                if (args.size() > 2 && args.get(2).isJsonArray()) {
+                    for (JsonElement name : args.get(2).getAsJsonArray()) {
+                        String word = name.getAsString().strip();
+                        item(word); // says now if it isn't a name or filter
+                        names.add(word);
+                    }
+                }
+                if (names.size() > BusFilter.MOST_NAMES) {
+                    throw new CallError("A bus keeps at most " + BusFilter.MOST_NAMES + " names or filters.");
+                }
+                boolean matching = args.size() > 3 && !args.get(3).isJsonNull() && args.get(3).getAsBoolean();
+                port.setFilter(names.isEmpty() && !matching ? null : new BusFilter(names, matching));
+                return describe(level, network, port);
+            }
             case "set_face": {
                 CablePort port = port(byMac(network, args, 1));
                 port.setAccessFace(face(args.get(2).getAsString()));
@@ -488,17 +509,28 @@ public final class NetworkCalls {
                             : List.of(new StoragePort.Member(end.device(), port, java.util.Set.of()));
                     for (StoragePort.Member member : parts) {
                         List<ItemStack> stacks = member.port.contents();
+                        BusFilter filter = member.device instanceof CablePort plate ? plate.filter() : null;
                         long count = 0;
                         int free = 0;
+                        long strays = 0;
                         for (ItemStack stack : stacks) {
                             if (stack.isEmpty()) {
                                 free++;
-                            } else if ((match == null || match.test(stack.getItem())) && own.test(stack.getItem())) {
+                                continue;
+                            }
+                            if ((match == null || match.test(stack.getItem())) && own.test(stack.getItem())) {
                                 count += stack.getCount();
                                 byItem.merge(itemId(stack.getItem()), (long) stack.getCount(), Long::sum);
                             }
+                            if (filter != null && !filter.matching() && !filter.named(stack.getItem())) {
+                                strays += stack.getCount(); // put there by hand, say: its filter doesn't let it in
+                            }
                         }
                         JsonObject entry = new JsonObject();
+                        if (filter != null) {
+                            entry.add("filter", filterJson(filter));
+                        }
+                        entry.addProperty("strays", strays);
                         entry.add("device", describe(levelOf(member.device, level), network, member.device));
                         entry.addProperty("count", count);
                         entry.addProperty("slots", stacks.size());
@@ -2113,7 +2145,7 @@ public final class NetworkCalls {
     static ItemPort wholeTarget(ServerLevel level, CablePort port) {
         BlockPos pos = port.targetPos();
         ItemPort whole = level.isLoaded(pos) ? Qbotics.platform().itemPort(level, pos, null) : null;
-        return whole != null ? whole : target(level, port, null);
+        return whole != null ? BusFilter.wrap(whole, port.filter()) : target(level, port, null);
     }
 
     /** The container a bus points at, seen through a face. */
@@ -2127,7 +2159,7 @@ public final class NetworkCalls {
             throw new CallError("The " + port.kindWord().replace('_', ' ') + " at " + port.ip() + " points at " + block
                     + ", which holds no items" + (face == AccessFace.NEAR ? "." : " that can be reached through its " + face.word() + " face."));
         }
-        return target;
+        return BusFilter.wrap(target, port.filter());
     }
 
     // ---- describing things -----------------------------------------------------------
@@ -2185,6 +2217,9 @@ public final class NetworkCalls {
                 info.addProperty("tunnel", to == null ? "" : to);
             }
             info.addProperty("face", port.accessFace().word());
+            if (port.filter() != null) {
+                info.add("filter", filterJson(port.filter()));
+            }
             info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
         } else if (device instanceof qbotics.block.DisplayBlockEntity display) {
             display.describe().entrySet().forEach(entry -> info.add(entry.getKey(), entry.getValue()));
@@ -2217,6 +2252,15 @@ public final class NetworkCalls {
             info.addProperty("lock", store.lock().word);
         }
         return info;
+    }
+
+    private static JsonObject filterJson(BusFilter filter) {
+        JsonObject written = new JsonObject();
+        JsonArray names = new JsonArray();
+        filter.names().forEach(names::add);
+        written.add("only", names);
+        written.addProperty("matching", filter.matching());
+        return written;
     }
 
     private static JsonArray contents(ItemPort port) {

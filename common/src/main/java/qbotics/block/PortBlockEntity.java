@@ -138,6 +138,10 @@ public class PortBlockEntity extends BlockEntity {
                 child.putInt("tunnel_side", port.tunnel.side().get3DDataValue());
                 child.putBoolean("tunnel_live", port.tunnelLive);
             }
+            if (port.filter != null) {
+                child.putString("filter", String.join("\n", port.filter.names()));
+                child.putBoolean("filter_matching", port.filter.matching());
+            }
             if (port.kind == NetworkDevice.Kind.PIN) {
                 child.putBoolean("pin_output", port.pinOutput);
                 child.putInt("pin_level", port.pinLevel);
@@ -171,6 +175,11 @@ public class PortBlockEntity extends BlockEntity {
             port.pinOutput = child.getBooleanOr("pin_output", false);
             port.pinLevel = Math.clamp(child.getIntOr("pin_level", 0), 0, 15);
             port.pulseUntil = child.getLongOr("pulse_until", 0L);
+            String filterNames = child.getStringOr("filter", null);
+            if (filterNames != null) {
+                port.filter = new qbotics.network.BusFilter(filterNames.isEmpty() ? List.of() : List.of(filterNames.split("\n")),
+                        child.getBooleanOr("filter_matching", false));
+            }
             UUID tunnelId = child.read("tunnel_id", UUIDUtil.CODEC).orElse(null);
             net.minecraft.resources.Identifier dimension = net.minecraft.resources.Identifier.tryParse(child.getStringOr("tunnel_dimension", ""));
             if (tunnelId != null && dimension != null) {

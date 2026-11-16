@@ -1227,6 +1227,15 @@ in order. One call counts, lists (`stock`) or moves across every member, instead
 - Members reaching one container (two buses on a chest, or a double chest's halves) count once (NetworkCalls.places).
 - Unreachable members are skipped.
 - At most 256 members, items only.
+- **Sorting** (asked for by the project owner next): an item bus keeps a filter (BusFilter on the plate:
+  names, and *matching*: kinds the container already holds), applied when things go into its container
+  (NetworkCalls.target and wholeTarget wrap it; tunnels check the far bus), never when they come out, so
+  strays put in by hand stay countable. A storage puts each kind into a member whose filter takes it
+  (holding some first), then members with no filter (the overflow); `strays()` and `tidy()` find and
+  move what a filter doesn't take. Matching was the owner's idea: cheap to set up (all matching but one
+  overflow, a sample of each kind placed by hand), at the cost that a kind run out falls to the overflow.
+- Inserting into another mod's or a vanilla container now tops up stacks before starting an empty slot
+  (ResourceHandlerUtil.insertStacking); before, it filled slots in order.
 - Not yet: watching a storage; a dense item vault (kinds and counts, no slots, awkward by hand) is the
   owner's idea for later.
 
@@ -1900,6 +1909,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-16 | Sorting (asked for by the project owner): item bus filters kept by the plate (names, and matching), honoured by moves, storages and tunnels, never on the way out; storages put each kind where a filter takes it before the overflow; `strays()`, `tidy()`; stacks topped up before empty slots. §11.0.8 | Built 2026-11-16 |
 | 2026-11-16 | Storage (asked for by the project owner): `net.storage("chest*")` uses many buses and interfaces as one container, one call for count, contents and move, kinds gathered where they already are, double chests counted once. Before any dense storage block; not a storage network. §11.0.8 | Built 2026-11-16 |
 | 2026-11-14 | Game interfaces (asked for by the project owner): a Player Interface (Ender Chest recipe) that is a bus on its owner's inventory, armour and off hand; a Chat Interface that hears chat as events, writes to it and runs commands as its owner; a Command Interface with no recipe (operators in creative, or commands) that runs commands as a command block. Owner-only, as in §11.0.7 | Built 2026-11-14 |
 | 2026-11-13 | Tablets: Delete twice unpairs the tab showing; a Qbot's tab follows its drive, so it survives the Qbot being broken and placed again | Built 2026-11-13 |

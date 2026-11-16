@@ -46,6 +46,8 @@ public final class CablePort implements NetworkDevice {
     qbotics.network.Tunnels.@Nullable Link tunnel;
     /** True while its tunnel's other end can be reached: what its light shows (green, not amber). */
     boolean tunnelLive;
+    /** What an item bus lets into its container, or null for anything (see BusFilter). */
+    qbotics.network.@Nullable BusFilter filter;
 
     // ---- a Logic Pin (see WorldPlates). Saved: the mode, the level it drives and when a pulse ends. ----
     /** True if it drives a signal; false if it reads one. */
@@ -263,6 +265,20 @@ public final class CablePort implements NetworkDevice {
 
     public AccessFace accessFace() {
         return viewOf != null ? viewOf.accessFace : accessFace;
+    }
+
+    /** What it lets into its container (items only), or null for anything. */
+    public qbotics.network.@Nullable BusFilter filter() {
+        return viewOf != null ? viewOf.filter : filter;
+    }
+
+    public void setFilter(qbotics.network.@Nullable BusFilter wanted) {
+        if (viewOf != null) {
+            viewOf.setFilter(wanted);
+            return;
+        }
+        filter = wanted;
+        host.setChanged();
     }
 
     public void setAccessFace(AccessFace face) {

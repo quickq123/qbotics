@@ -473,6 +473,32 @@ move(net.energy_interface(), machine, count=50000)  # energy in
 print(machine.fluid.amount(), machine.energy.stored())
 ```
 
+### 6.3a A bus's filter: what it lets in
+
+An Item Serial Bus (or a USB, for items) can keep a **filter**: what it lets into the
+container it points at. The bus keeps it, so it holds for every program's moves, for every
+storage the bus is part of (section 6.4c), and for things pushed in through its tunnel.
+
+```python
+net.bus("ores").set_filter(["#c:ores", "#c:raw_materials", "coal"])
+net.bus("food").set_filter("#c:foods")
+net.bus("chest_3").set_filter(matching=True)          # only kinds already in it
+net.bus("tools").set_filter("#c:tools", matching=True) # tools, and anything already there
+net.bus("ores").set_filter()                           # cleared: anything goes in
+```
+
+| Call | Does |
+|---|---|
+| `bus.set_filter(only=None, matching=False)` | `only`: a name or filter, or a list of up to 32 (section 4). `matching=True`: also any kind the container already holds. Nothing given: clears it |
+| `bus.filter` | `{"only": [...], "matching": False}`, or `None` for anything |
+
+- **It only limits what goes in.** Taking out is never stopped, so something put in by hand
+  (outside the filter) can still be counted and taken.
+- **Matching** lets in a kind only while the container holds some of it. When the last one
+  is taken out, that kind no longer goes in until one is put back by hand.
+- **Only through the bus.** A hopper or a player putting things straight into the chest
+  isn't stopped: the filter belongs to the bus, not the chest.
+
 ### 6.3b Tunnels between buses
 
 Two buses can be joined by a **tunnel**. Each end then offers, to whatever touches its face
@@ -668,17 +694,42 @@ up again on every call, so a new bus named to match joins at once, and one taken
 | `store.where(item)` | Which containers hold an item: `[{"device": <bus>, "count": 40}, ...]` |
 | `store.free()`, `store.slots()` | Empty slots, and all slots, in all |
 | `store.devices()` | The buses and interfaces it is made of now |
+| `store.strays()` | Things in a chest whose bus's filter doesn't let them in (put there by hand): `[{"device": <bus>, "count": 5}]` |
+| `store.tidy()` | Moves the strays to where they belong in the storage; returns how many moved. Things with nowhere to go stay |
 | `store.source(only=None, without=None)`, `store.destination(...)` | It as one end of a move, with filters (section 6.4) |
 
 A storage goes wherever a device does: `move()`, a recipe's `sources`, a placer's or
 breaker's, and `game.plan(have=store)`.
 
+**Sorting.** Give each chest's bus a filter, leave one with none for the overflow, and one
+move sorts everything:
+
+```python
+net.bus("chest_ores").set_filter(["#c:ores", "#c:raw_materials"])
+net.bus("chest_food").set_filter("#c:foods")
+for bus in net.storage("chest_*").devices():
+    if bus.name not in ("chest_ores", "chest_food", "chest_overflow"):
+        bus.set_filter(matching=True)        # the rest: whatever you started them with
+store = net.storage("chest_*")
+move(net.bus("drop_off"), store)             # each kind to its own chest
+```
+
+With matching buses, put one of each kind in its chest by hand to say where it goes. A kind
+that runs out goes to the overflow until one is put back.
+
 **How it moves things.**
 
 - **Order:** the containers are in the order they were named; those a pattern finds, in name order.
 - **Taking:** from the containers in order, the first that has some first.
-- **Putting:** each kind goes first to a container that already holds some, then to the first with
-  room. So kinds gather together and don't spread across every empty slot.
+- **Putting:** each kind goes to the first of these with room:
+  1. a bus whose filter (section 6.3a) lets it in, holding some already;
+  2. a bus whose filter lets it in;
+  3. a container with no filter, holding some already;
+  4. a container with no filter: the overflow.
+
+  A bus whose filter doesn't let a kind in never gets it, even if some is there already. An
+  interface counts as having a filter (its slot filters). Inside each chest, stacks of the
+  same kind are topped up before an empty slot is started.
 - **To or from one of its own members:** `move(store, net.bus("chest_1"))` gathers things into
   chest_1 from the others; that chest isn't counted as a source as well.
 

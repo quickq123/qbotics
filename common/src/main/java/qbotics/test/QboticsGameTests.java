@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -134,6 +134,7 @@ public final class QboticsGameTests {
             Map.entry("qbot_tablet", QboticsGameTests::qbotTablet),
             Map.entry("game_interfaces", QboticsGameTests::gameInterfaces),
             Map.entry("storage_group", QboticsGameTests::storageGroup),
+            Map.entry("bus_filters", QboticsGameTests::busFilters),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4538,6 +4539,71 @@ public final class QboticsGameTests {
                     "contents [('minecraft:iron_ingot', 45), ('minecraft:coal', 20)]\n", "where [('chest-b', 5), ('chest-d', 40)]\n",
                     "fuel 8\n", "in 10 30\n", "a 0 30 12\n", "self 0\n", "slots 108 30\n", "NetworkError: The storage is empty");
             helper.assertTrue(countIn(helper, new BlockPos(1, 1, 1), Items.IRON_INGOT) == 0, "no iron should go where there was none");
+        });
+    }
+
+    /**
+     * Sorting with bus filters: one move into a storage sends each kind to the bus whose filter
+     * takes it (before an overflow that already holds some), a matching bus takes only kinds it
+     * holds, strays stay countable and tidy() moves them out; a stack is topped up before an
+     * empty slot is started.
+     */
+    private static void busFilters(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(0, 2, 0), QboticsContent.INTERFACE_BLOCK.get());
+        InterfaceBlockEntity inbox = helper.getBlockEntity(new BlockPos(0, 2, 0), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            inbox.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        inbox.setItem(0, new ItemStack(Items.IRON_INGOT, 10));
+        inbox.setItem(1, new ItemStack(Items.COAL, 10));
+        inbox.setItem(2, new ItemStack(Items.COBBLESTONE, 20));
+        inbox.setItem(3, new ItemStack(Items.DIAMOND, 3));
+        List<String> names = List.of("bin-ingots", "bin-match", "bin-overflow", "bin-gems");
+        for (int x = 1; x <= 4; x++) {
+            setPort(helper, new BlockPos(x, 1, 0), Kind.BUS, Direction.SOUTH);
+            helper.setBlock(new BlockPos(x, 1, 1), Blocks.BARREL);
+        }
+        java.util.function.IntFunction<net.minecraft.world.level.block.entity.BarrelBlockEntity> barrel = x ->
+                helper.getBlockEntity(new BlockPos(x, 1, 1), net.minecraft.world.level.block.entity.BarrelBlockEntity.class);
+        barrel.apply(2).setItem(5, new ItemStack(Items.COBBLESTONE, 1));   // what the matching bin is for
+        barrel.apply(3).setItem(0, new ItemStack(Items.IRON_INGOT, 2));    // the overflow already has some iron
+        barrel.apply(4).setItem(0, new ItemStack(Items.DIRT, 5));          // a stray, put in by hand
+        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+        for (NetworkDevice device : networkAt(helper, new BlockPos(1, 1, 0)).devices()) {
+            if (device instanceof qbotics.block.CablePort) {
+                device.setDeviceName(names.get(device.getBlockPos().getX() - origin.getX() - 1));
+            }
+        }
+        for (String line : List.of(
+                "python",
+                "from logistics import network, move",
+                "net = network()",
+                "net.bus('bin-ingots').set_filter(['#c:ingots', 'coal'])",
+                "net.bus('bin-match').set_filter(matching=True)",
+                "net.bus('bin-gems').set_filter('diamond')",
+                "store = net.storage('bin*')",
+                "print('moved', move(net.interface(), store))",
+                "i = net.bus('bin-ingots')",
+                "print('ingots', i.count('iron_ingot'), i.count('coal'), net.bus('bin-match').count('cobblestone'), net.bus('bin-gems').count('diamond'))",
+                "print('over', net.bus('bin-overflow').count())",
+                "print('strays', [(s['device'].name, s['count']) for s in store.strays()], store.count('dirt'))",
+                "print('tidy', store.tidy(), net.bus('bin-overflow').count('dirt'), store.strays())",
+                "print('refused', move(net.bus('bin-match'), net.bus('bin-gems'), 'cobblestone', 1))",
+                "f = i.filter",
+                "print('filter', f['only'], f['matching'])",
+                "net.bus('bin-match').set_filter()",
+                "print('cleared', net.bus('bin-match').filter)",
+                "net.bus('bin-gems').set_filter('not_a_thing')")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "moved 43\n", "ingots 10 10 21 3\n", "over 2\n", "strays [('bin-gems', 5)] 5\n",
+                    "tidy 5 5 []\n", "refused 0\n", "filter ['#c:ingots', 'coal'] False\n", "cleared None\n",
+                    "There is no item called 'not_a_thing'");
+            var match = barrel.apply(2);
+            helper.assertTrue(match.getItem(5).getCount() == 21 && match.getItem(0).isEmpty(),
+                    "the cobblestone should top up its stack in slot 5, not start one in slot 0: " + match.getItem(0) + " / " + match.getItem(5));
         });
     }
 

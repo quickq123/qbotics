@@ -28,8 +28,9 @@ record HandlerItemPort(ResourceHandler<ItemResource> handler) implements ItemPor
             return 0;
         }
         // A transaction that is closed without being committed changes nothing: that is the trial run.
+        // Stacks of the same kind are topped up before an empty slot is started.
         try (Transaction transaction = Transaction.openRoot()) {
-            int inserted = handler.insert(ItemResource.of(like), max, transaction);
+            int inserted = net.neoforged.neoforge.transfer.ResourceHandlerUtil.insertStacking(handler, ItemResource.of(like), max, transaction);
             if (!simulate) {
                 transaction.commit();
             }

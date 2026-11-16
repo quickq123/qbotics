@@ -64,7 +64,7 @@ final class TunnelHandlers {
     }
 
     /** The handler behind the other end now, with the antennas a transfer crosses; null if there is none. */
-    private record Target<H>(H handler, Set<AntennaBlockEntity> links, ServerLevel level) {
+    private record Target<H>(H handler, Set<AntennaBlockEntity> links, ServerLevel level, CablePort port) {
     }
 
     private static <H> @Nullable Target<H> target(PortBlockEntity host, Direction side, BlockCapability<H, @Nullable Direction> capability, Medium medium) {
@@ -82,7 +82,7 @@ final class TunnelHandlers {
         CablePort other = far.port();
         Direction face = other.accessFace().resolve(other.pointing());
         H handler = far.level().getCapability(capability, other.targetPos(), face);
-        return handler == null ? null : new Target<>(handler, far.links(), far.level());
+        return handler == null ? null : new Target<>(handler, far.links(), far.level(), other);
     }
 
     /**
@@ -239,6 +239,11 @@ final class TunnelHandlers {
                 Target<ResourceHandler<T>> t = target();
                 if (t == null || index >= t.handler().size() || amount <= 0) {
                     return 0;
+                }
+                if (in && medium == Medium.ITEM && t.port().filter() instanceof qbotics.network.BusFilter filter
+                        && resource instanceof ItemResource item && !filter.allows(item.getItem(),
+                                filter.matching() ? new HandlerItemPort((ResourceHandler<ItemResource>) t.handler()).contents() : java.util.List.of())) {
+                    return 0; // the bus at the far end doesn't let this into its container
                 }
                 long now = t.level().getGameTime();
                 int allowed = (int) Math.min(amount, crossing.room(t.links(), now));

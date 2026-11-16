@@ -326,7 +326,9 @@ class Storage:
 
     def destination(self, only=None, without=None):
         """The storage as somewhere to put things, for move(). Each kind goes first to a
-        container that already holds some, then to the first with room."""
+        bus whose filter lets it in (where some already is, then any with room), then to a
+        container with no filter (again where some already is first): the overflow. A bus
+        whose filter doesn't let it in never gets it."""
         return _StorageEnd(self, only, without)
 
     def _stock(self, item=None):
@@ -358,6 +360,26 @@ class Storage:
     def devices(self):
         """The buses and interfaces it is made of now, in order."""
         return [_wrap(m["device"]) for m in self._stock()["members"]]
+
+    def strays(self):
+        """Things sitting in a chest whose bus's filter doesn't let them in (put there by
+        hand, or before the filter was set): a list of {"device": <bus>, "count": 3}."""
+        return [{"device": _wrap(m["device"]), "count": m["strays"]} for m in self._stock()["members"] if m["strays"]]
+
+    def tidy(self):
+        """Moves strays to where they belong in this storage: to a chest whose filter takes
+        them, or the overflow. Returns how many moved. Things with nowhere to go stay put."""
+        moved = 0
+        for m in self._stock()["members"]:
+            left = m["strays"]
+            while left > 0:
+                bus = _wrap(m["device"])
+                step = move(bus.source(without=m["filter"]["only"]), self, count=left)
+                if step == 0:
+                    break
+                moved += step
+                left -= step
+        return moved
 
     def __repr__(self):
         return "<storage %s>" % ", ".join(self.keys)
@@ -581,6 +603,22 @@ class Screen:
 
 
 class Bus(Port, _Reads, _Gives, _Takes):
+    def set_filter(self, only=None, matching=False):
+        """Sets what this bus lets into the container it points at, kept by the bus for every
+        move, every storage it is part of, and things pushed through its tunnel. only= is a
+        name or filter, or a list of them; matching=True also lets in any kind the container
+        already holds. Taking things out is never stopped, so something put in by hand can
+        still be counted and taken. set_filter() with nothing clears it: anything goes in.
+
+            net.bus("ores").set_filter(["#c:ores", "#c:raw_materials"])
+            net.bus("chest_3").set_filter(matching=True)    # only kinds already in it"""
+        self._update(_call("set_bus_filter", self.mac, _list(only) or None, bool(matching)))
+
+    @property
+    def filter(self):
+        """What it lets in: {"only": [...], "matching": False}, or None for anything."""
+        return self.refresh()._info.get("filter")
+
     """An Item Serial Bus: takes items out of the container it points at and puts them in.
     A source and a destination for move()."""
 
