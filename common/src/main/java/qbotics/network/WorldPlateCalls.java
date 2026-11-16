@@ -54,6 +54,7 @@ final class WorldPlateCalls {
             case "pour" -> pour(level, network, plate(device, Kind.PLACER), args);
             case "break" -> breakBlock(level, network, plate(device, Kind.BREAKER), args);
             case "drop" -> drop(level, network, plate(device, Kind.DROPPER), args);
+            case "drop_xp" -> dropExperience(level, network, plate(device, Kind.DROPPER), args);
             case "dropper_set" -> {
                 CablePort dropper = plate(device, Kind.DROPPER);
                 dropper.setDispense(args.size() > 2 && !args.get(2).isJsonNull() && args.get(2).getAsBoolean());
@@ -216,6 +217,57 @@ final class WorldPlateCalls {
                 return answer;
             }
         }
+        return answer;
+    }
+
+    /** The most experience a dropper sends out in one call, in points (about level 480's worth from nothing). */
+    private static final long MOST_POINTS = 1_000_000;
+
+    /**
+     * ["drop_xp", mac, sources, points or null, levels or null]: takes exactly that much
+     * experience from the sources (Experience Interfaces, liquid experience in fluid stores, in
+     * order) and sends it out as orbs, or nothing at all if they don't hold that much. Levels are
+     * counted from 0: 30 levels is the 1,395 points that take a player from level 0 to 30.
+     */
+    private static JsonObject dropExperience(ServerLevel level, CableNetwork network, CablePort dropper, JsonArray args) {
+        loadedTarget(level, dropper);
+        Integer points = NetworkCalls.wholeNumber(args, 3, "points");
+        Integer levels = NetworkCalls.wholeNumber(args, 4, "levels");
+        if ((points == null) == (levels == null)) {
+            throw new CallError("Say how much experience: points= or levels=, one of them.");
+        }
+        long wanted = points != null ? points : qbotics.block.Experience.pointsAtLevel(levels);
+        if (wanted > MOST_POINTS) {
+            throw new CallError("A dropper sends out at most " + MOST_POINTS + " points at a time; " + wanted + " were asked for.");
+        }
+        List<ScreenSessions.Payer> payers = NetworkCalls.payers(level, network, args.get(2));
+        if (payers.isEmpty()) {
+            throw new CallError("drop_xp() needs sources= holding experience: an Experience Interface, or liquid experience in a fluid store.");
+        }
+        long held = 0;
+        for (ScreenSessions.Payer payer : payers) {
+            held += payer.points();
+        }
+        if (held < wanted) {
+            throw new CallError("The sources hold " + held + " points of experience; " + wanted + " were asked for. Nothing was sent out.");
+        }
+        long left = wanted;
+        for (ScreenSessions.Payer payer : payers) {
+            long taken = Math.min(left, payer.points());
+            if (taken > 0) {
+                payer.take(taken);
+                left -= taken;
+            }
+        }
+        net.minecraft.core.Position at = mouth(dropper);
+        if (wanted > 0) {
+            // The game splits it into orbs of its usual sizes.
+            net.minecraft.world.entity.ExperienceOrb.award(level, new Vec3(at.x(), at.y(), at.z()), (int) wanted);
+            level.levelEvent(1000, dropper.getBlockPos(), 0);
+            level.levelEvent(2000, dropper.getBlockPos(), dropper.pointing().get3DDataValue());
+        }
+        JsonObject answer = new JsonObject();
+        answer.addProperty("dropped", wanted);
         return answer;
     }
 

@@ -1356,6 +1356,19 @@ class Dropper(_WorldPlate):
         return sent
 
 
+    def drop_xp(self, points=None, levels=None, sources=None):
+        """Sends out experience as orbs, taken from sources (an Experience Interface, or liquid
+        experience in a fluid store; one or a list, drawn on in order). Give points=, or levels=
+        counted from 0: levels=30 is the 1,395 points that take a player from level 0 to 30
+        (one already above 0 gains fewer levels from it). Exactly that much, or nothing and a
+        NetworkError if the sources hold less. Returns the points sent out.
+
+            spout.drop_xp(levels=30, sources=net.experience_interface())"""
+        if sources is None:
+            raise NetworkError("drop_xp() needs sources= to say where the experience comes from.")
+        return _call("drop_xp", self.mac, _ends(sources, Source), points, levels)["dropped"]
+
+
 class Breaker(_WorldPlate):
     """A Breaker: breaks the block in front of it, as the best tool for that block would
     (a netherite pickaxe, axe, shovel, hoe or sword, unenchanted), but never bedrock or

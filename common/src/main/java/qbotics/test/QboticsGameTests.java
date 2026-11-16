@@ -4691,6 +4691,8 @@ public final class QboticsGameTests {
         inbox.setItem(1, new ItemStack(Items.ARROW, 4));
         inbox.setItem(2, new ItemStack(Items.BONE_MEAL, 3));
         setPort(helper, new BlockPos(1, 1, 0), Kind.DROPPER, Direction.SOUTH);
+        helper.setBlock(new BlockPos(0, 1, 1), QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get());
+        helper.getBlockEntity(new BlockPos(0, 1, 1), qbotics.block.ExperienceInterfaceBlockEntity.class).add(2000);
         for (String line : List.of(
                 "python",
                 "from logistics import network",
@@ -4703,18 +4705,24 @@ public final class QboticsGameTests {
                 "print('fired', d.drop('arrow', 2, sources=store), store.count('arrow'), d.dispense)",
                 "print('meal', d.drop('bone_meal', sources=store), store.count('bone_meal'))",
                 "print('once', d.drop('cobblestone', 3, sources=store, dispense=False), d.dispense)",
-                "print('none', d.drop('diamond', sources=store))")) {
+                "print('none', d.drop('diamond', sources=store))",
+                "bank = net.experience_interface()",
+                "print('xp', d.drop_xp(levels=30, sources=bank), bank.points)",
+                "d.drop_xp(points=1000, sources=bank)")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "mode False dropper\n", "thrown 16 4\n", "fired 2 2 True\n", "meal 0 3\n",
-                    "once 3 True\n", "none 0\n");
+                    "once 3 True\n", "none 0\n", "xp 1395 605\n", "The sources hold 605 points of experience; 1000 were asked for.");
             net.minecraft.world.phys.AABB around = new net.minecraft.world.phys.AABB(helper.absolutePos(new BlockPos(1, 1, 0))).inflate(12);
             List<net.minecraft.world.entity.item.ItemEntity> thrown = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around);
             int cobble = thrown.stream().filter(e -> e.getItem().is(Items.COBBLESTONE)).mapToInt(e -> e.getItem().getCount()).sum();
             helper.assertTrue(cobble == 19, "19 cobblestone should lie in front of the dropper, not " + cobble);
             helper.assertTrue(!helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.projectile.arrow.AbstractArrow.class, around).isEmpty(),
                     "the dispensed arrows should be flying arrows, not items");
+            int orbs = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.ExperienceOrb.class, around).stream()
+                    .mapToInt(net.minecraft.world.entity.ExperienceOrb::getValue).sum();
+            helper.assertTrue(orbs == 1395, "1395 points of orbs should lie in front of the dropper, not " + orbs);
         });
     }
 

@@ -1150,6 +1150,17 @@ spout.drop("water_bucket", sources=store)       # pours it; the empty bucket goe
 |---|---|
 | `dropper.drop(what=None, count=1, sources=..., dispense=None)` | Takes items from `sources` (one source or a list) and sends them out; returns how many went. `what` is a name or filter; left out, whatever comes first. `dispense=True` or `False` does it that way this once, whatever the setting |
 | `dropper.dispense` | `False` (the default): it throws items out as a dropper does. `True`: it fires them as a dispenser does. Set it to change; the plate keeps it |
+| `dropper.drop_xp(points=None, levels=None, sources=...)` | Sends out exactly that much experience as orbs, from an Experience Interface or liquid experience in a fluid store (one source or a list, in order). Nothing, and `NetworkError`, if they hold less. Returns the points sent out |
+
+**Experience.** `levels=` counts from level 0: `levels=30` is the 1,395 points that take a
+player from 0 to 30. Each level costs more than the last, so a player already at level 20 gains
+fewer than 30 levels from it; give `points=` to say exactly. The orbs are the game's own, so
+items with Mending on a player picking them up take their share first. Up to 1,000,000 points
+a call.
+
+```python
+spout.drop_xp(levels=30, sources=net.experience_interface())    # an enchanting table's worth
+```
 
 - **As a dropper** it throws up to 64 of one kind a tick, as one stack.
 - **As a dispenser** it fires one item a tick, as a real dispenser would fire it: arrows,
