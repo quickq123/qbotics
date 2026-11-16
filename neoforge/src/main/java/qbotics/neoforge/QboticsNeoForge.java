@@ -722,6 +722,15 @@ public final class QboticsNeoForge {
             }
 
             @Override
+            public java.util.List<String[]> loadedMods() {
+                return net.neoforged.fml.ModList.get().getMods().stream()
+                        .map(mod -> new String[] {mod.getModId(), mod.getDisplayName(), mod.getVersion().toString(),
+                                mod.getDescription() == null ? "" : mod.getDescription()})
+                        .sorted(java.util.Comparator.comparing((String[] mod) -> mod[1].toLowerCase(java.util.Locale.ROOT)))
+                        .toList();
+            }
+
+            @Override
             public qbotics.network.FluidPort fluidPort(ServerLevel level, BlockPos pos, Direction side) {
                 var handler = level.getCapability(Capabilities.Fluid.BLOCK, pos, side);
                 return handler == null ? null : new MediaHandlers.FluidTarget(handler);

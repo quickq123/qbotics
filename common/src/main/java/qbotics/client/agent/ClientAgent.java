@@ -605,6 +605,15 @@ public final class ClientAgent {
                 Map.of("item", "The item: mod:name, or its display name", "count", "How many (default 1)"), "item"));
         tools.add(tool("search_manual", "Searches the Qbotics manual (devices, the logistics/events/network/display modules, limits).",
                 Map.of("query", "What to look for, e.g. \"furnace faces\" or \"events on_change\""), "query"));
+        tools.add(tool("mods", "The mods loaded in this game, with versions; with a query, those matching it and what each says it is. "
+                + "Check here before suggesting a mod or its items: only these are installed.",
+                Map.of("query", "A word to narrow it, e.g. \"jetpack\"; leave out for all")));
+        tools.add(tool("mod_docs", "Searches what the other mods in this game say about themselves, in this version: their guidebooks "
+                + "(Patchouli), tooltips and JEI information pages. Use it to explain how another mod's things work.",
+                Map.of("query", "What to look for, e.g. \"jetpack fuel\" or \"bee breeding\""), "query"));
+        tools.add(tool("controls", "The player's key bindings, as they have set them: which key does what, every mod's included. "
+                + "Use it for \"how do I use/turn on...\" questions.",
+                Map.of("query", "A mod or action, e.g. \"jetpack\" or \"hover\"; leave out for all")));
         return tools;
     }
 
@@ -670,6 +679,12 @@ public final class ClientAgent {
             }
             case "search_manual":
                 return Manual.search(parsed.has("query") ? parsed.get("query").getAsString() : "");
+            case "mods":
+                return GameDocs.mods(parsed.has("query") ? parsed.get("query").getAsString() : "");
+            case "mod_docs":
+                return GameDocs.docs(parsed.has("query") ? parsed.get("query").getAsString() : "");
+            case "controls":
+                return GameDocs.controls(parsed.has("query") ? parsed.get("query").getAsString() : "");
             case "write_file": {
                 String path = parsed.has("path") ? parsed.get("path").getAsString() : "?";
                 String content = parsed.has("content") ? parsed.get("content").getAsString() : "";
@@ -803,6 +818,10 @@ public final class ClientAgent {
                 + "- A computer running a program (computers shows running_program) can't run your code. Ask to stop it with "
                 + "stop_program, do your tests, and always put it back with start_program afterwards.\n"
                 + "- When unsure how something in the mod works, use search_manual.\n"
+                + "- For other mods in this game: mods says what is installed; mod_docs searches their own guidebooks and tooltips, "
+                + "for how their things work in this version; controls gives the player's actual keys (\"how do I turn on my jetpack\"). "
+                + "Use them before answering from memory, and say when an answer comes from memory instead, since mods change between "
+                + "versions.\n"
                 + "- For items, tags and crafting, look them up in this game with find_items, item_info and recipes: it has other "
                 + "mods, and its recipes may differ from plain Minecraft's. Use the exact item names they give in code.\n"
                 + "- Replies appear in Minecraft chat, which is narrow: be brief (a few sentences), explain as to a beginner, and "

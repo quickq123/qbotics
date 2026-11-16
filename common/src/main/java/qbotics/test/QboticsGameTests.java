@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -95,6 +95,7 @@ public final class QboticsGameTests {
             Map.entry("error_hints", QboticsGameTests::errorHints),
             Map.entry("device_names", QboticsGameTests::deviceNames),
             Map.entry("step_from_start", QboticsGameTests::stepFromStart),
+            Map.entry("mod_docs", QboticsGameTests::modDocs),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
             Map.entry("server_model", QboticsGameTests::serverModel),
@@ -4282,6 +4283,44 @@ public final class QboticsGameTests {
         });
     }
 
+    /**
+     * What the AI helper reads about other mods (its mod_docs tool): language lines that explain
+     * (a tooltip, an information page) but not bare names, a Patchouli entry translated and with
+     * its formatting codes taken out, found by the words of a question; and the loaded mods.
+     */
+    private static void modDocs(GameTestHelper helper) {
+        java.util.Map<String, String> lang = new java.util.HashMap<>();
+        lang.put("item.ironjetpacks.jetpack", "Jetpack");
+        lang.put("tooltip.ironjetpacks.jetpack", "Press the Toggle Engine key to turn the engine on or off.");
+        lang.put("tooltip.ironjetpacks.fuel", "Uses energy (FE). Charge it in an energy cell or a charger.");
+        lang.put("block.minecraft.stone", "Stone");
+        lang.put("book.ironjetpacks.entry.flying.name", "Flying");
+        lang.put("book.ironjetpacks.entry.flying.text", "Hold $(k:jump)Jump$() to fly. $(br)Sneak to hover $(item)slowly$().");
+        java.util.Map<String, String> owner = new java.util.HashMap<>();
+        lang.keySet().forEach(key -> owner.put(key, key.contains("minecraft") ? "minecraft" : "ironjetpacks"));
+        List<qbotics.agent.ModDocs.Doc> docs = new java.util.ArrayList<>(qbotics.agent.ModDocs.fromLanguage(lang, owner,
+                ns -> ns.equals("ironjetpacks") ? "Iron Jetpacks" : "Minecraft"));
+        helper.assertTrue(docs.stream().noneMatch(d -> d.text().equals("Stone") || d.text().equals("Jetpack")), "names alone are left out: " + docs);
+        helper.assertTrue(docs.stream().anyMatch(d -> d.title().equals("Jetpack") && d.text().startsWith("Press the Toggle Engine key")),
+                "a tooltip, under its item's name: " + docs);
+        helper.assertTrue(docs.stream().anyMatch(d -> d.title().equals("fuel") && d.text().startsWith("Uses energy")),
+                "one with no item of that name, under readable words, not its key: " + docs);
+        String entry = "{\"name\": \"book.ironjetpacks.entry.flying.name\", \"category\": \"basics\", \"pages\": ["
+                + "{\"type\": \"patchouli:text\", \"text\": \"book.ironjetpacks.entry.flying.text\"},"
+                + "{\"type\": \"patchouli:crafting\", \"recipe\": \"ironjetpacks:jetpack\", \"title\": \"Making one\"}]}";
+        qbotics.agent.ModDocs.Doc page = qbotics.agent.ModDocs.fromPatchouli("Iron Jetpacks", "patchouli_books/guide/en_us/entries/flying.json", entry, lang);
+        helper.assertTrue(page != null && page.title().equals("Flying") && page.text().contains("Hold Jump to fly.")
+                && page.text().contains("Sneak to hover slowly.") && !page.text().contains("$(") && page.text().contains("(shows ironjetpacks:jetpack)"),
+                "a guidebook entry, translated and cleaned: " + page);
+        docs.add(page);
+        String found = qbotics.agent.ModDocs.search(docs, "How do I turn on my jetpack?");
+        helper.assertTrue(found.startsWith("[Iron Jetpacks, guidebook: Flying]") || found.contains("Toggle Engine"), "found: " + found);
+        helper.assertTrue(found.contains("Toggle Engine") && found.contains("Hold Jump to fly"), "both kinds are found: " + found);
+        helper.assertTrue(qbotics.agent.ModDocs.search(docs, "bees").contains("say nothing about"), "nothing found is said plainly");
+        helper.assertTrue(qbotics.Qbotics.platform().loadedMods().stream().anyMatch(m -> m[0].equals("qbotics")), "the mod list has Qbotics");
+        helper.succeed();
+    }
+
     private static boolean lessonDone(GameTestHelper helper, net.minecraft.server.level.ServerPlayer player, String lesson) {
         var holder = helper.getLevel().getServer().getAdvancements().get(qbotics.Qbotics.id("lessons/" + lesson));
         if (holder == null) {
@@ -4789,15 +4828,15 @@ public final class QboticsGameTests {
             throw new IllegalStateException("could not put driver.py on the Qbot", e);
         }
         bot.submitLine("run /driver.py");
-        for (String line : List.of("python", "import network, time", "time.sleep(2)",
+        // The base sends its orders once the driver says it is listening (on a busy machine that can take a while).
+        List<String> orders = List.of("python", "import network",
                 "print('sent', network.send('" + address + "', {'do': 'forward'}))",
                 "a = network.receive(10).data",
                 "print('answer', a['ok'], a['said'], type(a['picture']).__name__, a['where'])",
                 "network.send('" + address + "', 'spin')",
                 "print('unknown', network.receive(10).data['said'])",
-                "print('end')")) {
-            base.submitLine(line);
-        }
+                "print('end')");
+        boolean[] sent = {false};
         for (String line : List.of("python", "import network",
                 "try:",
                 "    network.send('" + address + "', 'forward')",
@@ -4808,6 +4847,12 @@ public final class QboticsGameTests {
         }
         BlockPos moved = qbotPos.north();
         helper.succeedWhen(() -> {
+            if (!sent[0]) {
+                assertScreen(helper, bot, "Ready. My radio address is " + address + "\n");
+                orders.forEach(base::submitLine);
+                sent[0] = true;
+                helper.fail("sending the orders");
+            }
             assertScreen(helper, bot, "Ready. My radio address is " + address + "\n", "forward -> moved forward\n");
             BlockPos at = helper.absolutePos(moved);
             assertScreen(helper, base, "sent True\n", "answer True moved forward int " + at.getX() + ", " + at.getY() + ", " + at.getZ()

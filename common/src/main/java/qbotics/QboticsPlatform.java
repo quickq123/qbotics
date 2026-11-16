@@ -72,6 +72,9 @@ public interface QboticsPlatform {
     /** The name players know a mod by ("Applied Energistics 2"), given its ID; the ID itself if it isn't known. */
     String modName(String modId);
 
+    /** The loaded mods: {id, display name, version, description}, by name. For the AI helper's mods tool. */
+    java.util.List<String[]> loadedMods();
+
     /** The same for the fluid in a block: its tanks, as reached through one of its sides. */
     qbotics.network.@Nullable FluidPort fluidPort(ServerLevel level, BlockPos pos, @Nullable Direction side);
 

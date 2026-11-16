@@ -885,6 +885,16 @@ public final class ScreenshotRun {
 
     private static void agent() {
         section("agent");
+        // What the helper reads about the game's mods, from this client: logged, to check by eye.
+        then(5, minecraft -> new Thread(() -> {
+            try {
+                Qbotics.LOGGER.info("[agent tools] mods qbotics:\n{}", qbotics.client.agent.GameDocs.mods("qbotics"));
+                Qbotics.LOGGER.info("[agent tools] controls inventory:\n{}", qbotics.client.agent.GameDocs.controls("inventory"));
+                Qbotics.LOGGER.info("[agent tools] mod_docs computer:\n{}", qbotics.client.agent.GameDocs.docs("How do I use a computer?"));
+            } catch (Exception e) {
+                Qbotics.LOGGER.error("[agent tools] failed", e);
+            }
+        }, "agent-tools-check").start());
         then(5, minecraft -> {
             java.util.concurrent.atomic.AtomicInteger asked = new java.util.concurrent.atomic.AtomicInteger();
             java.util.concurrent.atomic.AtomicBoolean sawPicture = new java.util.concurrent.atomic.AtomicBoolean();
