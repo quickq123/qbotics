@@ -110,7 +110,7 @@ public class InterfaceBlockEntity extends DeviceBlockEntity implements Container
     @Override
     public boolean canPlaceItem(int slot, ItemStack stack) {
         NameMatch<Item> filter = filters.get(slot);
-        return filter != null && filter.test(stack.getItem());
+        return filter != null && filter.testStack(stack);
     }
 
     @Override

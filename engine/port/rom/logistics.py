@@ -20,6 +20,15 @@
 #     "@minecraft *_ore"    several words: all must hold
 #     "-*_slab"             a word starting with - must not hold
 #     "coal | charcoal"     alternatives
+#
+# Items also have words about one stack's data, and the game's own item syntax:
+#     "enchanted_book enchant=mending"   "potion effect=strength"
+#     "#c:tools damaged"   "undamaged"   "enchanted"   "named"
+#     "potion[potion_contents={potion:'minecraft:strong_strength'}]"
+#
+# Filter() builds a filter from others, to name once and use anywhere:
+#     junk = Filter(only=["#c:stones", "dirt", "gravel"])
+#     keep = Filter(only="@minecraft", without=junk) | "#c:gems"
 import json
 import time
 import _host
@@ -29,8 +38,19 @@ class NetworkError(Exception):
     """The network couldn't do what was asked. The message says why."""
 
 
+def _plain(value):
+    # What goes to the game: a Filter as the filter words it stands for.
+    if isinstance(value, Filter):
+        return str(value)
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
+    return value
+
+
 def _call(*args):
-    reply = _host.wait(_host.submit(json.dumps(list(args))))
+    reply = _host.wait(_host.submit(json.dumps(_plain(list(args)))))
     if reply is None:
         raise NetworkError("the call was interrupted")
     if not reply.startswith("{"):
@@ -79,12 +99,161 @@ def _aim(what, face, slot):
 
 
 def _list(names):
-    # only= and without= take one name or a list of them.
+    # only= and without= take one name (or Filter) or a list of them.
     if names is None:
         return []
-    if isinstance(names, str):
+    if isinstance(names, (str, Filter)):
         return [names]
     return list(names)
+
+
+def _split(text, alternatives):
+    # A filter cut at | (alternatives) or at spaces (words), but not inside [...], {...} or
+    # quotes, which the game's item syntax uses. The same as the game reads it.
+    parts = []
+    part = []
+    depth = 0
+    quote = None
+    i = 0
+    while i < len(text):
+        c = text[i]
+        if quote:
+            part.append(c)
+            if c == "\\" and i + 1 < len(text):
+                i += 1
+                part.append(text[i])
+            elif c == quote:
+                quote = None
+            i += 1
+            continue
+        if c == '"' or c == "'":
+            quote = c
+        elif c == "[" or c == "{":
+            depth += 1
+        elif (c == "]" or c == "}") and depth > 0:
+            depth -= 1
+        if depth == 0 and (c == "|" if alternatives else c.isspace()):
+            if alternatives:
+                parts.append("".join(part).strip())
+            elif part:
+                parts.append("".join(part))
+            part = []
+        else:
+            part.append(c)
+        i += 1
+    if alternatives:
+        parts.append("".join(part).strip())
+    elif part:
+        parts.append("".join(part))
+    return parts
+
+
+def _negate(word):
+    return word[1:] if word.startswith("-") and len(word) > 1 else "-" + word
+
+
+_MOST_ALTERNATIVES = 128
+
+
+def _and(a, b):
+    # Both must hold: every alternative of one with every alternative of the other.
+    out = []
+    for p in a:
+        for q in b:
+            words = list(p)
+            for w in q:
+                if w not in words:
+                    words.append(w)
+            if any(_negate(w) in words for w in words):
+                continue          # a word and its opposite: nothing passes
+            if words not in out:
+                out.append(words)
+    if len(out) > _MOST_ALTERNATIVES:
+        raise NetworkError("That filter grew too large (over %d alternatives). Make it with fewer 'without' and '~' parts." % _MOST_ALTERNATIVES)
+    return out
+
+
+def _or(a, b):
+    out = list(a)
+    for q in b:
+        if q not in out:
+            out.append(q)
+    return out
+
+
+def _not(a):
+    # Not (p or q or ...) is (not p) and (not q) and ...; not (x and y) is (not x) or (not y).
+    out = [[]]
+    for words in a:
+        out = _and(out, [[_negate(w)] for w in words])
+    return out
+
+
+def _alternatives(given):
+    # A name, filter words, a Filter, or a list of them (any may hold), as alternatives of words.
+    if isinstance(given, Filter):
+        return given._alternatives
+    if isinstance(given, (list, tuple)):
+        out = []
+        for one in given:
+            out = _or(out, _alternatives(one))
+        return out
+    text = str(given)
+    out = []
+    for alternative in _split(text, True):
+        words = _split(alternative, False)
+        if not words:
+            raise NetworkError("'%s' has an empty part beside a |." % text)
+        out = _or(out, [words])
+    return out
+
+
+class Filter:
+    """A filter made from others, to name once and use wherever a name or filter goes:
+    move(), count(), watch(), only= and without=, a bus's set_filter().
+
+        junk     = Filter(only=["#c:stones", "dirt", "gravel", "*_seeds"])
+        vanilla  = Filter(only="@minecraft", without="*stone")
+        treasure = Filter(only=["#c:gems", "#c:ingots", "enchanted_book enchant=mending"])
+        keep     = (vanilla | treasure) & ~junk
+
+    only= is what passes (any of a list); without= is what never does (none of a list). With
+    no only=, everything passes but what without= names. Combine them with | (either), & (both)
+    and ~ (not). str(f) gives the filter words it stands for."""
+
+    def __init__(self, only=None, without=None):
+        self._alternatives = [[]] if only is None else _alternatives(_list(only))
+        for one in _list(without):
+            self._alternatives = _and(self._alternatives, _not(_alternatives(one)))
+
+    @staticmethod
+    def _of(alternatives):
+        made = Filter()
+        made._alternatives = alternatives
+        return made
+
+    def __or__(self, other):
+        return Filter._of(_or(self._alternatives, _alternatives(other)))
+
+    def __ror__(self, other):
+        return Filter._of(_or(_alternatives(other), self._alternatives))
+
+    def __and__(self, other):
+        return Filter._of(_and(self._alternatives, _alternatives(other)))
+
+    def __rand__(self, other):
+        return Filter._of(_and(_alternatives(other), self._alternatives))
+
+    def __invert__(self):
+        return Filter._of(_not(self._alternatives))
+
+    def __str__(self):
+        if not self._alternatives:
+            return "-*"           # nothing passes
+        return " | ".join(" ".join(words) if words else "*" for words in self._alternatives)
+
+    def __repr__(self):
+        return "Filter(%r)" % str(self)
 
 
 class Source:
@@ -331,18 +500,20 @@ class Storage:
         whose filter doesn't let it in never gets it."""
         return _StorageEnd(self, only, without)
 
-    def _stock(self, item=None):
-        return _call("stock", [self._spec()], item)
+    def _stock(self, item=None, details=False):
+        return _call("stock", [self._spec()], item, details)
 
     def count(self, item=None):
         """How many of an item (a name or filter) are in all of it; with no item, how many
         items there are in all."""
         return _call("available", [self._spec()], item)
 
-    def contents(self):
+    def contents(self, details=False):
         """What it holds, added up across every container: a list of
-        {"item": "minecraft:coal", "count": 1200}, the most first."""
-        return self._stock()["items"]
+        {"item": "minecraft:coal", "count": 1200}, the most first. With details=True, stacks
+        that differ in data (a Strength potion, a Swiftness potion) are counted apart, each
+        with its "data", exact "filter" and "words"."""
+        return self._stock(None, bool(details))["items"]
 
     def where(self, item):
         """Which containers hold an item (a name or filter), and how many each:
@@ -446,9 +617,12 @@ class Port(Device):
 
 class _Reads(_Watches):
     # For plates that can see what their target holds.
-    def contents(self, face=None):
-        """What the target holds, as seen through a face (or all of it, with no face)."""
-        return _call("contents", self.mac, face)
+    def contents(self, face=None, details=False):
+        """What the target holds, as seen through a face (or all of it, with no face): a list
+        of {"slot": 0, "item": "minecraft:coal", "count": 12}. With details=True each also has
+        its "data" (what sets it apart from its kind), a "filter" naming exactly it, and the
+        short filter "words" that hold for it, such as ["enchant=mending", "enchanted"]."""
+        return _call("contents", self.mac, face, bool(details))
 
     def count(self, item=None, face=None, slot=None):
         """How many of an item the target holds: chest.count("coal"). With no item, how
@@ -462,9 +636,10 @@ class _Reads(_Watches):
 class Interface(Device, _Gives, _Takes, _Watches):
     """Filtered storage: the network's chest. A source and a destination for move()."""
 
-    def contents(self):
-        """What it holds: a list of {"slot": 0, "item": "minecraft:coal", "count": 12}."""
-        return _call("contents", self.mac, None)
+    def contents(self, details=False):
+        """What it holds: a list of {"slot": 0, "item": "minecraft:coal", "count": 12}.
+        details=True adds each stack's "data", exact "filter" and "words", as for a bus."""
+        return _call("contents", self.mac, None, bool(details))
 
     def count(self, item=None, slot=None):
         """How many of an item it holds (or of everything, with no item). slot= narrows it
@@ -606,17 +781,21 @@ class Bus(Port, _Reads, _Gives, _Takes):
     def set_filter(self, only=None, matching=False):
         """Sets what this bus lets into the container it points at, kept by the bus for every
         move, every storage it is part of, and things pushed through its tunnel. only= is a
-        name or filter, or a list of them; matching=True also lets in any kind the container
-        already holds. Taking things out is never stopped, so something put in by hand can
-        still be counted and taken. set_filter() with nothing clears it: anything goes in.
+        name, filter or Filter, or a list of them. matching=True also lets in any item the
+        container already holds (a worn pickaxe lets in a new one); matching="exact" only
+        things identical to one already there, data and all (a Strength II potion, not any
+        potion). Taking things out is never stopped, so something put in by hand can still be
+        counted and taken. set_filter() with nothing clears it: anything goes in.
 
             net.bus("ores").set_filter(["#c:ores", "#c:raw_materials"])
-            net.bus("chest_3").set_filter(matching=True)    # only kinds already in it"""
-        self._update(_call("set_bus_filter", self.mac, _list(only) or None, bool(matching)))
+            net.bus("chest_3").set_filter(matching=True)        # only items already in it
+            net.bus("potions").set_filter(matching="exact")     # only potions just like those in it"""
+        how = matching if matching == "exact" else bool(matching)
+        self._update(_call("set_bus_filter", self.mac, [str(n) for n in _list(only)] or None, how))
 
     @property
     def filter(self):
-        """What it lets in: {"only": [...], "matching": False}, or None for anything."""
+        """What it lets in: {"only": [...], "matching": False, True or "exact"}, or None for anything."""
         return self.refresh()._info.get("filter")
 
     """An Item Serial Bus: takes items out of the container it points at and puts them in.

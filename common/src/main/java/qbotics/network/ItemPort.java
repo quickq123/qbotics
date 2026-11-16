@@ -35,7 +35,7 @@ public interface ItemPort {
 
     /** Moves up to count of an item from one place to another, using any slots. */
     static int move(ItemPort from, ItemPort to, Item item, int count) {
-        return move(from, -1, to, -1, other -> other == item, count);
+        return move(from, -1, to, -1, stack -> stack.is(item), count);
     }
 
     /**
@@ -45,9 +45,9 @@ public interface ItemPort {
      *
      * @param fromSlot the one slot to take from, or -1 for any
      * @param toSlot   the one slot to put into, or -1 for any
-     * @param wanted   which items to move (one item, or a filter many pass), or null for whatever is there
+     * @param wanted   which stacks to move (one item, or a filter many pass), or null for whatever is there
      */
-    static int move(ItemPort from, int fromSlot, ItemPort to, int toSlot, @Nullable Predicate<Item> wanted, int count) {
+    static int move(ItemPort from, int fromSlot, ItemPort to, int toSlot, @Nullable Predicate<ItemStack> wanted, int count) {
         return move(from, fromSlot, to, toSlot, wanted, count, false);
     }
 
@@ -56,14 +56,14 @@ public interface ItemPort {
      * many would move. (A trial of several kinds of item into one place can come out a little
      * high, because each kind is tried as if it had the free slots to itself.)
      */
-    static int move(ItemPort from, int fromSlot, ItemPort to, int toSlot, @Nullable Predicate<Item> wanted, int count, boolean simulate) {
+    static int move(ItemPort from, int fromSlot, ItemPort to, int toSlot, @Nullable Predicate<ItemStack> wanted, int count, boolean simulate) {
         int moved = 0;
         // Stacks of one item can still differ (damage, enchantments, names); each kind moves separately.
         List<ItemStack> kinds = new ArrayList<>();
         List<ItemStack> held = from.contents();
         for (int slot = 0; slot < held.size(); slot++) {
             ItemStack stack = held.get(slot);
-            boolean moves = !stack.isEmpty() && (fromSlot < 0 || slot == fromSlot) && (wanted == null || wanted.test(stack.getItem()));
+            boolean moves = !stack.isEmpty() && (fromSlot < 0 || slot == fromSlot) && (wanted == null || wanted.test(stack));
             if (moves && kinds.stream().noneMatch(kind -> ItemStack.isSameItemSameComponents(kind, stack))) {
                 kinds.add(stack);
             }

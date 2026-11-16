@@ -19,6 +19,9 @@ over any item in any inventory, including JEI's list and the creative menu.
 - **Ctrl+C** copies that name, ready to paste into a program.
 - **Hold Shift** to list the item's **tags**, such as `#c:raw_materials/iron`. Each one can go
   straight into a filter. Up to 8 are shown, with a count of the rest.
+- With Shift held, a stack that carries data (an enchanted book, a potion, a worn tool) also
+  shows its **data words**, such as `enchant=mending enchanted` (§2b), and a filter naming
+  **exactly that stack** in the game's own syntax (§2c). **Ctrl+Shift+C** copies that exact filter.
 
 **With JEI installed**, its search box takes the same words as Qbotics filters, so you can try
 a filter there first: type `$c:ores` or `@create -*_slab` and see what comes up.
@@ -58,10 +61,96 @@ every space-separated word must hold. An item passes if any alternative passes.
 "#c:foods -#c:foods/food_poisoning"   food that won't poison you
 ```
 
-Upper and lower case don't matter. A filter can be up to 200 characters.
+Upper and lower case don't matter. A filter can be up to 4,000 characters.
 
 Without a colon, a wildcard looks only at the part after the colon, so `"*_ore"` finds ores
 from every mod. Add `@minecraft` (or write `"minecraft:*_ore"`) to keep to one mod.
+
+---
+
+## 2b. Words about one stack's data
+
+Every name, tag and wildcard above looks only at **what kind** of item something is. But two
+stacks of one item can differ: one enchanted book holds Mending, another Sharpness; one potion
+is Strength, another Swiftness; one pickaxe is worn, another new. What sets a stack apart is
+its **data** (the game calls them data components; older versions called it NBT). These words
+look at it:
+
+| Word | Passes a stack that | Example |
+|---|---|---|
+| `enchant=name` | Has that enchantment, on it or (a book) stored in it, at any level | `"enchanted_book enchant=mending"`, `"#c:tools enchant=silk_touch"` |
+| `effect=name` | Is a potion (or tipped arrow) with that effect, at any strength or length | `"potion effect=strength"`, `"*potion effect=fire_resistance"` |
+| `damaged` | Has lost some durability | `"#c:tools damaged"` |
+| `undamaged` | Hasn't (anything that can't be damaged is undamaged) | `"#c:armors undamaged"` |
+| `enchanted` | Has any enchantment, on it or stored | `"#c:tools enchanted"` |
+| `named` | Has been renamed on an anvil | `"*_sword named"` |
+
+A name after `=` without a colon means Minecraft's: `enchant=mending` is `minecraft:mending`.
+For another mod's, write it in full: `enchant=apotheosis:capturing`. Effect names are the
+effect's, not the potion's: Swiftness is `effect=speed`, Healing `effect=instant_health`; the probe
+(§1) shows the right word.
+
+They combine with every other word: `"enchanted_book -enchant=mending"` is every book but
+Mending ones; `"#c:tools damaged | #c:armors damaged"` is gear to repair.
+
+Where only a kind of item is known, not a stack (the Interface slot's picture, say), these
+words are passed over.
+
+## 2c. The game's own item syntax
+
+For anything the words above don't cover, a word with `[...]` in it is read by the game
+itself, as the `/clear` and `/execute if items` commands read it:
+
+```python
+"minecraft:potion[minecraft:potion_contents={potion:'minecraft:strong_strength'}]"   # exactly Strength II
+"*[minecraft:damage~{durability:{max:10}}]"                                        # nearly broken, anything
+"#c:tools[!minecraft:enchantments]"                                                 # tools with no enchantments
+```
+
+- Before the `[` comes an item, a `#tag`, or `*` for any item, written as the game writes them
+  (not Qbotics' wildcards or `@mod`).
+- `component=value` must equal; `component~predicate` tests (as `damage~{durability:...}`);
+  `!component` must be missing.
+- You rarely need to write it yourself. The probe's Shift view shows it for any stack, and
+  `contents(details=True)` gives it to a program:
+
+```python
+for c in chest.contents(details=True):
+    print(c["item"], c["words"], c["filter"])
+#  minecraft:potion ['effect=strength'] minecraft:potion[minecraft:potion_contents={potion:"minecraft:strength"}]
+```
+
+It is an ordinary word, so it combines like any other: `"-named potion[...]"`.
+
+## 2d. Building filters in a program: `Filter`
+
+A filter can be named once and used anywhere, built from others:
+
+```python
+from logistics import Filter
+
+junk      = Filter(only=["#c:stones", "dirt", "gravel", "*_seeds"])
+vanilla   = Filter(only="@minecraft", without="*stone")
+treasure  = Filter(only=["#c:gems", "#c:ingots", "enchanted_book enchant=mending"])
+keep      = (vanilla | treasure) & ~junk
+
+move(drop_off, store.destination(only=keep))
+net.bus("treasure").set_filter(treasure)
+print(store.count(treasure))
+```
+
+| Made with | Means |
+|---|---|
+| `Filter(only=x)` | What `x` passes: a name, filter words, another `Filter`, or a list of them (any may hold) |
+| `Filter(only=x, without=y)` | What `x` passes but nothing in `y` does. With no `only=`, everything except `y` |
+| `a \| b` | Either |
+| `a & b` | Both |
+| `~a` | Not |
+
+A `Filter` goes wherever a name or filter does: `move`, `count`, `watch`, `only=` and
+`without=`, `set_filter()`. It is turned into the filter words above (`str(f)` shows them), so a
+bus keeps it after the program ends. A good place for a base's filters is one file, say
+`/lib/filters.py`, that every program imports.
 
 ---
 

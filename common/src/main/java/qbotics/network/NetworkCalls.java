@@ -303,13 +303,16 @@ public final class NetworkCalls {
                 if (device.medium() == Medium.ENERGY) {
                     throw new CallError("Energy has no contents to list. Ask how much is stored instead.");
                 }
+                // ["contents", mac, face, details]: with details, each stack's data and an exact filter for it.
+                boolean details = args.size() > 3 && !args.get(3).isJsonNull() && args.get(3).getAsBoolean();
+                ServerLevel where = levelOf(device, level);
                 if (ownItems(device) instanceof ItemPort own) {
-                    return contents(own);
+                    return contents(own, details ? where : null);
                 }
                 if (device instanceof CablePort port && port.gives()) {
                     // With no face named, a bus reads the whole container, not only what one face shows.
                     String faceWord = string(args, 2);
-                    return contents(faceWord == null ? wholeTarget(level, port) : target(level, port, faceWord));
+                    return contents(faceWord == null ? wholeTarget(where, port) : target(where, port, faceWord), details ? where : null);
                 }
                 throw new CallError("Only an interface or a bus can list contents; this is " + article(device) + ".");
             }
@@ -349,7 +352,7 @@ public final class NetworkCalls {
                 }
                 for (int i = 0; i < stacks.size(); i++) {
                     ItemStack stack = stacks.get(i);
-                    if (!stack.isEmpty() && (slot < 0 || slot == i) && (match == null || match.test(stack.getItem()))) {
+                    if (!stack.isEmpty() && (slot < 0 || slot == i) && (match == null || match.testStack(stack))) {
                         total += stack.getCount();
                     }
                 }
@@ -417,8 +420,14 @@ public final class NetworkCalls {
                 if (names.size() > BusFilter.MOST_NAMES) {
                     throw new CallError("A bus keeps at most " + BusFilter.MOST_NAMES + " names or filters.");
                 }
-                boolean matching = args.size() > 3 && !args.get(3).isJsonNull() && args.get(3).getAsBoolean();
-                port.setFilter(names.isEmpty() && !matching ? null : new BusFilter(names, matching));
+                // Matching: false, true (the same item), or "exact" (identical, data and all).
+                JsonElement how = args.size() > 3 ? args.get(3) : JsonNull.INSTANCE;
+                boolean exact = how.isJsonPrimitive() && how.getAsJsonPrimitive().isString() && how.getAsString().equals("exact");
+                if (how.isJsonPrimitive() && how.getAsJsonPrimitive().isString() && !exact) {
+                    throw new CallError("matching= is True, False or \"exact\", not '" + how.getAsString() + "'.");
+                }
+                boolean matching = exact || (how.isJsonPrimitive() && how.getAsJsonPrimitive().isBoolean() && how.getAsBoolean());
+                port.setFilter(names.isEmpty() && !matching ? null : new BusFilter(names, matching, exact));
                 return describe(level, network, port);
             }
             case "set_face": {
@@ -482,12 +491,12 @@ public final class NetworkCalls {
                 long total = 0;
                 for (End end : sources) {
                     ItemPort port = itemSource(level, end);
-                    java.util.function.Predicate<Item> own = endFilter(end, NetworkCalls::item);
+                    java.util.function.Predicate<ItemStack> own = itemFilter(end);
                     List<ItemStack> stacks = port.contents();
                     for (int i = 0; i < stacks.size(); i++) {
                         ItemStack stack = stacks.get(i);
-                        if (!stack.isEmpty() && (end.slot() < 0 || end.slot() == i) && (match == null || match.test(stack.getItem()))
-                                && own.test(stack.getItem())) {
+                        if (!stack.isEmpty() && (end.slot() < 0 || end.slot() == i) && (match == null || match.testStack(stack))
+                                && own.test(stack)) {
                             total += stack.getCount();
                         }
                     }
@@ -495,15 +504,18 @@ public final class NetworkCalls {
                 return new JsonPrimitive(total);
             }
             case "stock": {
-                // ["stock", sources, name or filter or null]: what item sources hold between them, by
-                // item (most first) and by container, with each container's slots and empty slots.
+                // ["stock", sources, name or filter or null, details]: what item sources hold between them, by
+                // item (most first) and by container, with each container's slots and empty slots. With
+                // details, stacks differing in data (two potions) are counted apart, each with its details.
                 List<End> sources = ends(network, args.get(1), "source");
                 String wanted = string(args, 2);
+                boolean details = args.size() > 3 && !args.get(3).isJsonNull() && args.get(3).getAsBoolean();
                 NameMatch<Item> match = wanted == null ? null : item(wanted);
                 java.util.Map<String, Long> byItem = new java.util.HashMap<>();
+                java.util.Map<String, ItemStack> sample = new java.util.HashMap<>();
                 JsonArray members = new JsonArray();
                 for (End end : sources) {
-                    java.util.function.Predicate<Item> own = endFilter(end, NetworkCalls::item);
+                    java.util.function.Predicate<ItemStack> own = itemFilter(end);
                     ItemPort port = itemSource(level, end);
                     List<StoragePort.Member> parts = port instanceof StoragePort group ? group.members()
                             : List.of(new StoragePort.Member(end.device(), port, java.util.Set.of()));
@@ -518,11 +530,13 @@ public final class NetworkCalls {
                                 free++;
                                 continue;
                             }
-                            if ((match == null || match.test(stack.getItem())) && own.test(stack.getItem())) {
+                            if ((match == null || match.testStack(stack)) && own.test(stack)) {
                                 count += stack.getCount();
-                                byItem.merge(itemId(stack.getItem()), (long) stack.getCount(), Long::sum);
+                                String kind = details ? ItemData.exactFilter(stack, level.registryAccess()) : itemId(stack.getItem());
+                                byItem.merge(kind, (long) stack.getCount(), Long::sum);
+                                sample.putIfAbsent(kind, stack);
                             }
-                            if (filter != null && !filter.matching() && !filter.named(stack.getItem())) {
+                            if (filter != null && !filter.matching() && !filter.named(stack)) {
                                 strays += stack.getCount(); // put there by hand, say: its filter doesn't let it in
                             }
                         }
@@ -543,8 +557,12 @@ public final class NetworkCalls {
                 JsonArray items = new JsonArray();
                 for (java.util.Map.Entry<String, Long> entry : sorted) {
                     JsonObject one = new JsonObject();
-                    one.addProperty("item", entry.getKey());
+                    ItemStack stack = sample.get(entry.getKey());
+                    one.addProperty("item", itemId(stack.getItem()));
                     one.addProperty("count", entry.getValue());
+                    if (details) {
+                        addDetails(one, stack, level);
+                    }
                     items.add(one);
                 }
                 JsonObject answer = new JsonObject();
@@ -1015,6 +1033,14 @@ public final class NetworkCalls {
         return java.util.Set.of(dimension + " " + device.getBlockPos().asLong());
     }
 
+    /** What one item end lets through, judged on each stack (its data and all). */
+    static java.util.function.Predicate<ItemStack> itemFilter(End end) {
+        List<NameMatch<Item>> only = names(end.written(), "only", NetworkCalls::item);
+        List<NameMatch<Item>> without = names(end.written(), "without", NetworkCalls::item);
+        return stack -> (only.isEmpty() || only.stream().anyMatch(filter -> filter.testStack(stack)))
+                && without.stream().noneMatch(filter -> filter.testStack(stack));
+    }
+
     static <T> java.util.function.Predicate<T> endFilter(End end, java.util.function.Function<String, NameMatch<T>> parse) {
         List<NameMatch<T>> only = names(end.written(), "only", parse);
         List<NameMatch<T>> without = names(end.written(), "without", parse);
@@ -1312,7 +1338,7 @@ public final class NetworkCalls {
                 NameMatch<Item> match = wanted == null ? null : item(wanted);
                 List<ItemPort> from = new ArrayList<>();
                 List<ItemPort> to = new ArrayList<>();
-                List<java.util.function.Predicate<Item>> passes = new ArrayList<>();
+                List<java.util.function.Predicate<ItemStack>> passes = new ArrayList<>();
                 for (End end : sources) {
                     if (onScreen(end)) {
                         // Taking from a screen may cost levels (the anvil): paid from what this call names.
@@ -1348,10 +1374,10 @@ public final class NetworkCalls {
                     }
                 }
                 for (End source : sources) {
-                    java.util.function.Predicate<Item> own = endFilter(source, NetworkCalls::item);
+                    java.util.function.Predicate<ItemStack> own = itemFilter(source);
                     for (End destination : destinations) {
-                        java.util.function.Predicate<Item> theirs = endFilter(destination, NetworkCalls::item);
-                        passes.add(thing -> (match == null || match.test(thing)) && own.test(thing) && theirs.test(thing));
+                        java.util.function.Predicate<ItemStack> theirs = itemFilter(destination);
+                        passes.add(stack -> (match == null || match.testStack(stack)) && own.test(stack) && theirs.test(stack));
                     }
                 }
                 most = MAX_ITEMS_PER_CALL;
@@ -2259,11 +2285,12 @@ public final class NetworkCalls {
         JsonArray names = new JsonArray();
         filter.names().forEach(names::add);
         written.add("only", names);
-        written.addProperty("matching", filter.matching());
+        written.add("matching", filter.matchingJson());
         return written;
     }
 
-    private static JsonArray contents(ItemPort port) {
+    /** What a container holds, slot by slot; with a level to read registries from, each stack's details as well. */
+    private static JsonArray contents(ItemPort port, @org.jspecify.annotations.Nullable ServerLevel details) {
         JsonArray list = new JsonArray();
         List<ItemStack> stacks = port.contents();
         for (int slot = 0; slot < stacks.size(); slot++) {
@@ -2273,9 +2300,21 @@ public final class NetworkCalls {
                 entry.addProperty("slot", slot);
                 entry.addProperty("item", itemId(stack.getItem()));
                 entry.addProperty("count", stack.getCount());
+                if (details != null) {
+                    addDetails(entry, stack, details);
+                }
                 list.add(entry);
             }
         }
         return list;
+    }
+
+    /** A stack's data, the exact filter that names it, and the short filter words that hold for it. */
+    private static void addDetails(JsonObject entry, ItemStack stack, ServerLevel level) {
+        entry.add("data", ItemData.data(stack, level.registryAccess()));
+        entry.addProperty("filter", ItemData.exactFilter(stack, level.registryAccess()));
+        JsonArray words = new JsonArray();
+        ItemData.words(stack).forEach(words::add);
+        entry.add("words", words);
     }
 }

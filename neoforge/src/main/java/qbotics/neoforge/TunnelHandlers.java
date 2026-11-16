@@ -241,7 +241,7 @@ final class TunnelHandlers {
                     return 0;
                 }
                 if (in && medium == Medium.ITEM && t.port().filter() instanceof qbotics.network.BusFilter filter
-                        && resource instanceof ItemResource item && !filter.allows(item.getItem(),
+                        && resource instanceof ItemResource item && !filter.allows(item.toStack(1),
                                 filter.matching() ? new HandlerItemPort((ResourceHandler<ItemResource>) t.handler()).contents() : java.util.List.of())) {
                     return 0; // the bus at the far end doesn't let this into its container
                 }

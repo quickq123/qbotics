@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
 import qbotics.Qbotics;
 
@@ -26,6 +27,12 @@ import qbotics.Qbotics;
  *   coal | charcoal     alternatives, separated by |
  * </pre>
  *
+ * Items also have words about one stack's data (docs/filters.md): enchant=mending,
+ * effect=strength, damaged, undamaged, enchanted, named; and the game's own item predicate
+ * syntax for anything else, a word with [...] in it: potion[potion_contents={potion:"minecraft:strong_strength"}].
+ * Those are only known for a real stack ({@link #testStack}); asked about a kind of item
+ * alone ({@link #test}), they are passed over, as in "could this kind pass?".
+ *
  * @param <T> items or fluids
  */
 public final class NameMatch<T> implements Predicate<T> {
@@ -36,10 +43,20 @@ public final class NameMatch<T> implements Predicate<T> {
         }
     }
 
+    /** The longest filter that may be written. */
+    public static final int MOST_LETTERS = 4000;
+
+    /** One word of a filter: a test of a thing and, for items, the stack it is (null when only its kind is known). */
+    private record Word(Predicate<Subject> test, boolean data) {
+    }
+
+    private record Subject(Object thing, @Nullable ItemStack stack) {
+    }
+
     private final Registry<T> registry;
     private final String text;
-    /** Alternatives; each is a list of tests that must all hold. */
-    private final List<List<Predicate<T>>> alternatives = new ArrayList<>();
+    /** Alternatives; each is a list of words that must all hold. */
+    private final List<List<Word>> alternatives = new ArrayList<>();
     /** Set when the filter is one exact name. */
     private @Nullable T single;
 
@@ -56,19 +73,16 @@ public final class NameMatch<T> implements Predicate<T> {
      */
     public static <T> NameMatch<T> parse(Registry<T> registry, String text) {
         String cleaned = text.strip();
-        if (cleaned.isEmpty() || cleaned.length() > 200) {
-            throw new BadFilter("A name or filter can't be empty (or longer than 200 characters).");
+        if (cleaned.isEmpty() || cleaned.length() > MOST_LETTERS) {
+            throw new BadFilter("A name or filter can't be empty (or longer than " + MOST_LETTERS + " characters).");
         }
         NameMatch<T> match = new NameMatch<>(registry, cleaned);
-        for (String alternative : cleaned.split("\\|")) {
-            List<Predicate<T>> all = new ArrayList<>();
-            for (String word : alternative.strip().split("\\s+")) {
-                if (word.isEmpty()) {
-                    continue;
-                }
+        for (String alternative : split(cleaned, true)) {
+            List<Word> all = new ArrayList<>();
+            for (String word : split(alternative, false)) {
                 boolean not = word.startsWith("-") && word.length() > 1;
-                Predicate<T> test = match.word(not ? word.substring(1) : word);
-                all.add(not ? test.negate() : test);
+                Word test = match.word(not ? word.substring(1) : word);
+                all.add(not ? new Word(test.test().negate(), test.data()) : test);
             }
             if (all.isEmpty()) {
                 throw new BadFilter("'" + cleaned + "' has an empty part beside a |.");
@@ -76,7 +90,7 @@ public final class NameMatch<T> implements Predicate<T> {
             match.alternatives.add(all);
         }
         // One plain name: remember the thing itself, for the callers that want exactly one.
-        boolean plain = !cleaned.matches(".*[\\s|*?@#$].*") && !cleaned.startsWith("-");
+        boolean plain = !cleaned.matches(".*[\\s|*?@#$=\\[].*") && !cleaned.startsWith("-") && !DATA_WORDS.contains(cleaned.toLowerCase(Locale.ROOT));
         if (plain) {
             Identifier id = id(cleaned);
             match.single = id != null && registry.containsKey(id) ? registry.getValue(id) : null;
@@ -84,21 +98,167 @@ public final class NameMatch<T> implements Predicate<T> {
         return match;
     }
 
+    /** The words about a stack that stand alone. */
+    private static final java.util.Set<String> DATA_WORDS = java.util.Set.of("damaged", "undamaged", "enchanted", "named");
+
+    /**
+     * Splits a filter at | (alternatives) or at spaces (words), but not inside [...], {...}
+     * or quotes, which the game's own item syntax uses.
+     */
+    private static List<String> split(String text, boolean alternatives) {
+        List<String> parts = new ArrayList<>();
+        StringBuilder part = new StringBuilder();
+        int depth = 0;
+        char quote = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (quote != 0) {
+                part.append(c);
+                if (c == '\\' && i + 1 < text.length()) {
+                    part.append(text.charAt(++i));
+                } else if (c == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (c == '"' || c == '\'') {
+                quote = c;
+            } else if (c == '[' || c == '{') {
+                depth++;
+            } else if ((c == ']' || c == '}') && depth > 0) {
+                depth--;
+            }
+            boolean cut = depth == 0 && (alternatives ? c == '|' : Character.isWhitespace(c));
+            if (cut) {
+                if (alternatives || !part.isEmpty()) {
+                    parts.add(alternatives ? part.toString().strip() : part.toString());
+                }
+                part.setLength(0);
+            } else {
+                part.append(c);
+            }
+        }
+        if (alternatives || !part.isEmpty()) {
+            parts.add(alternatives ? part.toString().strip() : part.toString());
+        }
+        return parts;
+    }
+
     private static @Nullable Identifier id(String name) {
         return Identifier.tryParse(name.toLowerCase(Locale.ROOT));
     }
 
-    private Predicate<T> word(String word) {
+    @SuppressWarnings("unchecked")
+    private Word plainWord(Predicate<T> test) {
+        return new Word(subject -> test.test((T) subject.thing()), false);
+    }
+
+    private boolean items() {
+        return registry.key().identifier().getPath().equals("item");
+    }
+
+    /** A word about one stack's data; null if it isn't one. */
+    private @Nullable Word dataWord(String word) {
+        String lower = word.toLowerCase(Locale.ROOT);
+        Predicate<ItemStack> test = null;
+        if (word.indexOf('[') > 0 || word.startsWith("[")) {
+            test = gamePredicate(word);
+        } else if (lower.startsWith("enchant=")) {
+            Identifier wanted = id(defaultSpace(lower.substring("enchant=".length()), "enchant=mending"));
+            test = stack -> enchantments(stack).keySet().stream().anyMatch(holder -> holder.unwrapKey().map(key -> key.identifier().equals(wanted)).orElse(false));
+        } else if (lower.startsWith("effect=")) {
+            Identifier wanted = id(defaultSpace(lower.substring("effect=".length()), "effect=strength"));
+            test = stack -> {
+                net.minecraft.world.item.alchemy.PotionContents potion = stack.get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
+                if (potion == null) {
+                    return false;
+                }
+                for (net.minecraft.world.effect.MobEffectInstance effect : potion.getAllEffects()) {
+                    if (effect.getEffect().unwrapKey().map(key -> key.identifier().equals(wanted)).orElse(false)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+        } else if (lower.equals("damaged")) {
+            test = ItemStack::isDamaged;
+        } else if (lower.equals("undamaged")) {
+            test = stack -> !stack.isDamaged();
+        } else if (lower.equals("enchanted")) {
+            test = stack -> !enchantments(stack).isEmpty();
+        } else if (lower.equals("named")) {
+            test = stack -> stack.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME);
+        }
+        if (test == null) {
+            return null;
+        }
+        if (!items()) {
+            throw new BadFilter("'" + word + "' is about an item's data; fluids have none.");
+        }
+        Predicate<ItemStack> known = test;
+        return new Word(subject -> subject.stack() != null && known.test(subject.stack()), true);
+    }
+
+    private static String defaultSpace(String name, String example) {
+        if (name.isEmpty()) {
+            throw new BadFilter("Give a name after =, as in " + example + ".");
+        }
+        return name.contains(":") ? name : "minecraft:" + name;
+    }
+
+    /** Its enchantments, worn or (on a book) stored. */
+    private static net.minecraft.world.item.enchantment.ItemEnchantments enchantments(ItemStack stack) {
+        net.minecraft.world.item.enchantment.ItemEnchantments worn = stack.getOrDefault(net.minecraft.core.component.DataComponents.ENCHANTMENTS,
+                net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY);
+        net.minecraft.world.item.enchantment.ItemEnchantments stored = stack.getOrDefault(net.minecraft.core.component.DataComponents.STORED_ENCHANTMENTS,
+                net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY);
+        if (stored.isEmpty()) {
+            return worn;
+        }
+        if (worn.isEmpty()) {
+            return stored;
+        }
+        net.minecraft.world.item.enchantment.ItemEnchantments.Mutable both = new net.minecraft.world.item.enchantment.ItemEnchantments.Mutable(worn);
+        stored.entrySet().forEach(entry -> both.upgrade(entry.getKey(), entry.getIntValue()));
+        return both.toImmutable();
+    }
+
+    /** The game's own item predicate, as /clear and /execute if items read it. */
+    private static Predicate<ItemStack> gamePredicate(String word) {
+        net.minecraft.server.MinecraftServer server = Qbotics.server();
+        if (server == null) {
+            throw new BadFilter("'" + word + "' uses the game's item syntax, which needs the game running.");
+        }
+        try {
+            net.minecraft.commands.CommandBuildContext context = net.minecraft.commands.CommandBuildContext.simple(server.registryAccess(),
+                    server.getWorldData().enabledFeatures());
+            com.mojang.brigadier.StringReader reader = new com.mojang.brigadier.StringReader(word);
+            Predicate<ItemStack> test = new net.minecraft.commands.arguments.item.ItemPredicateArgument(context).parse(reader);
+            if (reader.canRead()) {
+                throw new BadFilter("'" + word + "' has something after the item: '" + reader.getRemaining() + "'.");
+            }
+            return test;
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException wrong) {
+            throw new BadFilter("'" + word + "' isn't the game's item syntax: " + wrong.getRawMessage().getString()
+                    + ". It looks like potion[potion_contents={potion:\"minecraft:strength\"}].");
+        }
+    }
+
+    private Word word(String word) {
+        Word data = dataWord(word);
+        if (data != null) {
+            return data;
+        }
         String lower = word.toLowerCase(Locale.ROOT);
         if (lower.startsWith("@")) {
             String mod = lower.substring(1);
             if (mod.isEmpty()) {
                 throw new BadFilter("After @ comes a mod's ID or name, as in @minecraft.");
             }
-            return thing -> {
+            return plainWord(thing -> {
                 String namespace = key(thing).getNamespace();
                 return namespace.contains(mod) || Qbotics.platform().modName(namespace).toLowerCase(Locale.ROOT).replace(" ", "").contains(mod);
-            };
+            });
         }
         if (lower.startsWith("#") || lower.startsWith("$")) {
             String name = lower.substring(1);
@@ -111,10 +271,10 @@ public final class NameMatch<T> implements Predicate<T> {
                 }
                 tags.add(TagKey.create(registry.key(), tagId));
             }
-            return thing -> {
+            return plainWord(thing -> {
                 var holder = registry.wrapAsHolder(thing);
                 return tags.stream().anyMatch(holder::is);
-            };
+            });
         }
         if (lower.contains("*") || lower.contains("?")) {
             StringBuilder regex = new StringBuilder();
@@ -124,13 +284,13 @@ public final class NameMatch<T> implements Predicate<T> {
             Pattern pattern = Pattern.compile(regex.toString());
             // With a colon the whole name is matched; without, the part after the colon, from any mod.
             boolean whole = lower.contains(":");
-            return thing -> pattern.matcher(whole ? key(thing).toString() : key(thing).getPath()).matches();
+            return plainWord(thing -> pattern.matcher(whole ? key(thing).toString() : key(thing).getPath()).matches());
         }
         Identifier id = id(lower);
         if (id == null) {
             throw new BadFilter("'" + word + "' isn't a name. Names look like minecraft:iron_ingot.");
         }
-        return thing -> key(thing).equals(id);
+        return plainWord(thing -> key(thing).equals(id));
     }
 
     private Identifier key(T thing) {
@@ -138,14 +298,35 @@ public final class NameMatch<T> implements Predicate<T> {
         return key == null ? Identifier.withDefaultNamespace("air") : key;
     }
 
+    /**
+     * Whether a kind of thing passes, its data unknown: words about a stack's data are passed
+     * over. For a real item stack, use {@link #testStack}.
+     */
     @Override
     public boolean test(T thing) {
-        for (List<Predicate<T>> all : alternatives) {
-            if (all.stream().allMatch(test -> test.test(thing))) {
+        Subject subject = new Subject(thing, null);
+        for (List<Word> all : alternatives) {
+            if (all.stream().allMatch(word -> word.data() || word.test().test(subject))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Whether one item stack passes, its data and all. */
+    public boolean testStack(ItemStack stack) {
+        Subject subject = new Subject(stack.getItem(), stack);
+        for (List<Word> all : alternatives) {
+            if (all.stream().allMatch(word -> word.test().test(subject))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True if some word is about a stack's data, so only {@link #testStack} gives the whole answer. */
+    public boolean aboutData() {
+        return alternatives.stream().anyMatch(all -> all.stream().anyMatch(Word::data));
     }
 
     /**

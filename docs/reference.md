@@ -324,13 +324,28 @@ words follow the JEI mod's search box.
 | `"@minecraft *_ore"` | Several words: all must hold |
 | `"-*_slab"` | A word starting with `-` must not hold |
 | `"coal \| charcoal"` | Alternatives |
+| `"enchanted_book enchant=mending"`, `"potion effect=strength"` | Items only: a stack holding that enchantment (worn or stored), or a potion with that effect |
+| `"damaged"`, `"undamaged"`, `"enchanted"`, `"named"` | Items only: a stack that is worn, unworn, enchanted, or renamed on an anvil |
+| `"potion[potion_contents={potion:'minecraft:strong_strength'}]"` | Items only: a word with `[...]` is the game's own item syntax (as in `/clear`), for any data at all |
 
 Fluids use the same words: `"water"`, `"@minecraft"`, `"#c:water"`.
 
+**Filters from filters.** `Filter(only=..., without=...)` builds one from names, filter words or
+other `Filter`s, and `|` (either), `&` (both) and `~` (not) combine them. A `Filter` goes
+anywhere a name does, including a bus's `set_filter()`:
+
+```python
+from logistics import Filter
+junk = Filter(only=["#c:stones", "dirt", "gravel"])
+keep = Filter(only="@minecraft", without=junk) | "#c:gems"
+move(drop_off, store.destination(only=keep))
+```
+
 `docs/filters.md` is a longer guide: worked examples, sorting into several chests, and a list
-of useful tags for tools, armour, ores, food and building blocks. To see an item's own name and
-tags in the game, hold the Network Probe and hover over the item; hold Shift for its tags
-(section 8).
+of useful tags for tools, armour, ores, food and building blocks, and the data words and
+`Filter` in full. To see an item's own name and tags in the game, hold the Network Probe and
+hover over the item; hold Shift for its tags, its data words and the exact filter naming that
+stack, which Ctrl+Shift+C copies (section 8).
 
 A name that doesn't exist is an error that suggests close matches. A filter that nothing in
 the game passes is an error too.
@@ -489,13 +504,17 @@ net.bus("ores").set_filter()                           # cleared: anything goes 
 
 | Call | Does |
 |---|---|
-| `bus.set_filter(only=None, matching=False)` | `only`: a name or filter, or a list of up to 32 (section 4). `matching=True`: also any kind the container already holds. Nothing given: clears it |
-| `bus.filter` | `{"only": [...], "matching": False}`, or `None` for anything |
+| `bus.set_filter(only=None, matching=False)` | `only`: a name, filter or `Filter`, or a list of up to 32 (section 4). `matching=True`: also any item the container already holds. `matching="exact"`: only things identical to one already there, data and all. Nothing given: clears it |
+| `bus.filter` | `{"only": [...], "matching": False, True or "exact"}`, or `None` for anything |
 
 - **It only limits what goes in.** Taking out is never stopped, so something put in by hand
   (outside the filter) can still be counted and taken.
-- **Matching** lets in a kind only while the container holds some of it. When the last one
-  is taken out, that kind no longer goes in until one is put back by hand.
+- **Matching** lets in an item only while the container holds some of it. When the last one
+  is taken out, that item no longer goes in until one is put back by hand.
+- **`matching=True` compares the item only:** a worn gold pickaxe lets in a new one, an
+  enchanted book any enchanted book. **`matching="exact"`** compares everything, data
+  included: a chest holding a Strength II potion takes Strength II potions only. Exact also
+  means the same durability, so it suits potions and books, not tools.
 - **Only through the bus.** A hopper or a player putting things straight into the chest
   isn't stopped: the filter belongs to the bus, not the chest.
 
@@ -690,7 +709,7 @@ up again on every call, so a new bus named to match joins at once, and one taken
 | Call | Gives |
 |---|---|
 | `store.count(item=None)` | How many of an item (a name or filter) are in all of it; with none, how many items in all |
-| `store.contents()` | `[{"item": "minecraft:coal", "count": 1200}, ...]`, added up across every container, the most first |
+| `store.contents(details=False)` | `[{"item": "minecraft:coal", "count": 1200}, ...]`, added up across every container, the most first. With `details=True`, stacks that differ in data are counted apart, each with its details (section 6.5) |
 | `store.where(item)` | Which containers hold an item: `[{"device": <bus>, "count": 40}, ...]` |
 | `store.free()`, `store.slots()` | Empty slots, and all slots, in all |
 | `store.devices()` | The buses and interfaces it is made of now |
@@ -750,7 +769,7 @@ items a call, as any move does. A storage can't be watched yet: watch its buses 
 
 | Call | Does |
 |---|---|
-| `store.contents()` | A list of `{"slot": 0, "item": "minecraft:coal", "count": 12}` |
+| `store.contents(details=False)` | A list of `{"slot": 0, "item": "minecraft:coal", "count": 12}`. With `details=True` (below), each stack's data too |
 | `store.count(item=None, slot=None)` | How many it holds of a name or filter; of everything with none |
 | `store.filters()` | What each slot accepts; `None` for a closed slot |
 | `store.set_slot_filter(slot, item)` | Opens a slot for a name or filter. `None` closes it |
@@ -763,9 +782,23 @@ A slot holds one kind of item at a time, up to one stack, even when its filter p
 
 | Call | Does |
 |---|---|
-| `bus.contents(face=None)` | What the target holds |
+| `bus.contents(face=None, details=False)` | What the target holds |
 | `bus.count(item=None, face=None, slot=None)` | How many the target holds |
 | `bus.source(...)`, `bus.destination(...)` | Section 6.4 |
+
+**Details.** `contents(details=True)` adds three things to each stack that has data:
+
+| Key | Gives |
+|---|---|
+| `"data"` | What sets it apart from its kind: `{"minecraft:stored_enchantments": {"minecraft:mending": 1}}`; `{}` for a plain stack |
+| `"filter"` | A filter naming exactly this stack, in the game's item syntax; the plain name for a plain stack |
+| `"words"` | The short filter words that hold for it: `["enchant=mending", "enchanted"]` |
+
+```python
+for c in chest.contents(details=True):
+    if "effect=strength" in c["words"]:
+        print(c["slot"], c["filter"])
+```
 
 ### 6.6 Fluid and energy
 
@@ -2582,7 +2615,9 @@ A hand tool. Sneak and scroll the mouse wheel to change its mode; its name shows
 
 In either mode, hovering an item in any inventory shows the name programs use for it. For a
 bucket it also shows the fluid's name. Ctrl+C copies the name. Holding Shift lists the item's
-tags.
+tags and, for a stack with data (an enchanted book, a potion, a worn tool), its data words
+(`enchant=mending`) and the filter naming exactly that stack; Ctrl+Shift+C copies that filter
+(section 4).
 
 ---
 

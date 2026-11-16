@@ -173,12 +173,12 @@ final class WorldPlateCalls {
                 continue;
             }
             ItemPort port = NetworkCalls.itemSource(level, end);
-            java.util.function.Predicate<Item> own = NetworkCalls.endFilter(end, NetworkCalls::item);
+            java.util.function.Predicate<ItemStack> own = NetworkCalls.itemFilter(end);
             List<ItemStack> contents = port.contents();
             for (int slot = 0; slot < contents.size(); slot++) {
                 ItemStack stack = contents.get(slot);
                 // With nothing named, only blocks: a program saying place() means "a block from here".
-                if (stack.isEmpty() || !own.test(stack.getItem()) || (match == null ? !(stack.getItem() instanceof BlockItem) : !match.test(stack.getItem()))) {
+                if (stack.isEmpty() || !own.test(stack) || (match == null ? !(stack.getItem() instanceof BlockItem) : !match.testStack(stack))) {
                     continue;
                 }
                 if (port.extractFrom(slot, stack, 1, false) < 1) {

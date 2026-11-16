@@ -26,6 +26,17 @@ public final class Qbotics {
         }
     }
 
+    private static volatile net.minecraft.server.@org.jspecify.annotations.Nullable MinecraftServer server;
+
+    /** The server running now (on this machine), or null between games. */
+    public static net.minecraft.server.@org.jspecify.annotations.Nullable MinecraftServer server() {
+        return server;
+    }
+
+    public static void setServer(net.minecraft.server.@org.jspecify.annotations.Nullable MinecraftServer running) {
+        server = running;
+    }
+
     public static QboticsPlatform platform() {
         return platform;
     }

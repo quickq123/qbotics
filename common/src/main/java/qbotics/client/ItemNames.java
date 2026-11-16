@@ -14,7 +14,8 @@ import qbotics.block.ProbeItem;
  * Looking up what an item is called in programs. While a Network Probe is in the hand,
  * every item's tooltip gains a line with its exact name (and, for a bucket, its fluid's
  * name); Ctrl+C copies that name, and holding Shift lists the item's tags, which are what
- * a filter such as "#minecraft:logs" tests.
+ * a filter such as "#minecraft:logs" tests, the short data words that hold for that stack
+ * (enchant=mending) and, for a stack with data, the exact filter naming it, which Ctrl+Shift+C copies.
  */
 public final class ItemNames {
     private static final int KEY_C = 67;
@@ -28,6 +29,10 @@ public final class ItemNames {
     private static long hoveredAt;
     private static String copied = "";
     private static long copiedAt;
+    /** The exact filter of the stack under the mouse (Shift held), and the item it is for. */
+    private static String exact = "";
+    private static String exactFor = "";
+    private static final int MAX_EXACT = 120;
 
     private ItemNames() {
     }
@@ -54,6 +59,21 @@ public final class ItemNames {
                     .withStyle(ChatFormatting.GRAY));
         }
         if (Minecraft.getInstance().hasShiftDown()) {
+            // What sets this stack apart from its kind: the short filter words, and a filter naming exactly it.
+            List<String> words = qbotics.network.ItemData.words(stack);
+            if (!words.isEmpty()) {
+                lines.add(Component.translatable("tooltip.qbotics.probe.words", Component.literal(String.join(" ", words)).withStyle(ChatFormatting.LIGHT_PURPLE))
+                        .withStyle(ChatFormatting.GRAY));
+            }
+            if (!stack.getComponentsPatch().isEmpty() && Minecraft.getInstance().level != null) {
+                exact = qbotics.network.ItemData.exactFilter(stack, Minecraft.getInstance().level.registryAccess());
+                exactFor = name;
+                String shown = exact.length() > MAX_EXACT ? exact.substring(0, MAX_EXACT) + "..." : exact;
+                lines.add(Component.translatable("tooltip.qbotics.probe.exact", Component.literal(shown).withStyle(ChatFormatting.LIGHT_PURPLE))
+                        .withStyle(ChatFormatting.GRAY));
+            } else {
+                exact = "";
+            }
             List<String> tags = stack.typeHolder().tags().map(tag -> "#" + tag.location()).sorted().toList();
             if (tags.isEmpty()) {
                 lines.add(Component.translatable("tooltip.qbotics.probe.no_tags").withStyle(ChatFormatting.DARK_GRAY));
@@ -65,7 +85,7 @@ public final class ItemNames {
                 lines.add(Component.translatable("tooltip.qbotics.probe.more_tags", tags.size() - MAX_TAGS).withStyle(ChatFormatting.DARK_GRAY));
             }
         }
-        boolean justCopied = name.equals(copied) && now - copiedAt < COPIED_MS;
+        boolean justCopied = (name.equals(copied) || (!exact.isEmpty() && exact.equals(copied))) && now - copiedAt < COPIED_MS;
         lines.add(Component.translatable(justCopied ? "tooltip.qbotics.probe.copied" : "tooltip.qbotics.probe.hint")
                 .withStyle(justCopied ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
     }
@@ -75,8 +95,10 @@ public final class ItemNames {
         Minecraft minecraft = Minecraft.getInstance();
         long now = System.currentTimeMillis();
         if (key == KEY_C && minecraft.hasControlDown() && probeInHand() && now - hoveredAt < HOVER_MS && !hovered.isEmpty()) {
-            minecraft.keyboardHandler.setClipboard(hovered);
-            copied = hovered;
+            // With Shift too, the exact filter (data and all) of a stack that has data.
+            String text = minecraft.hasShiftDown() && !exact.isEmpty() && exactFor.equals(hovered) ? exact : hovered;
+            minecraft.keyboardHandler.setClipboard(text);
+            copied = text;
             copiedAt = now;
         }
     }

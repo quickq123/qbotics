@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -135,6 +135,7 @@ public final class QboticsGameTests {
             Map.entry("game_interfaces", QboticsGameTests::gameInterfaces),
             Map.entry("storage_group", QboticsGameTests::storageGroup),
             Map.entry("bus_filters", QboticsGameTests::busFilters),
+            Map.entry("item_data_filters", QboticsGameTests::itemDataFilters),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4604,6 +4605,72 @@ public final class QboticsGameTests {
             var match = barrel.apply(2);
             helper.assertTrue(match.getItem(5).getCount() == 21 && match.getItem(0).isEmpty(),
                     "the cobblestone should top up its stack in slot 5, not start one in slot 0: " + match.getItem(0) + " / " + match.getItem(5));
+        });
+    }
+
+    /**
+     * Filters that look at a stack's data: the short words (enchant=, effect=, damaged,
+     * undamaged, enchanted, named), the exact filter from contents(details=True) in the game's
+     * own item syntax, Filter objects, and a bus matching exactly (a Swiftness potion lets in
+     * Swiftness, not Strength) or by kind.
+     */
+    private static void itemDataFilters(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        List<String> names = List.of("mixed", "potions", "sorted");
+        for (int x = 1; x <= 3; x++) {
+            setPort(helper, new BlockPos(x, 1, 0), Kind.BUS, Direction.SOUTH);
+            helper.setBlock(new BlockPos(x, 1, 1), Blocks.BARREL);
+        }
+        var enchantments = helper.getLevel().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT);
+        var mixed = helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.BarrelBlockEntity.class);
+        mixed.setItem(0, net.minecraft.world.item.alchemy.PotionContents.createItemStack(Items.POTION, net.minecraft.world.item.alchemy.Potions.STRENGTH));
+        mixed.setItem(1, net.minecraft.world.item.alchemy.PotionContents.createItemStack(Items.POTION, net.minecraft.world.item.alchemy.Potions.SWIFTNESS));
+        mixed.setItem(2, net.minecraft.world.item.enchantment.EnchantmentHelper.createBook(new net.minecraft.world.item.enchantment.EnchantmentInstance(
+                enchantments.getOrThrow(net.minecraft.world.item.enchantment.Enchantments.MENDING), 1)));
+        mixed.setItem(3, net.minecraft.world.item.enchantment.EnchantmentHelper.createBook(new net.minecraft.world.item.enchantment.EnchantmentInstance(
+                enchantments.getOrThrow(net.minecraft.world.item.enchantment.Enchantments.SHARPNESS), 3)));
+        ItemStack worn = new ItemStack(Items.GOLDEN_PICKAXE);
+        worn.setDamageValue(10);
+        mixed.setItem(4, worn);
+        mixed.setItem(5, new ItemStack(Items.GOLDEN_PICKAXE));
+        ItemStack wand = new ItemStack(Items.STICK);
+        wand.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Wand"));
+        mixed.setItem(6, wand);
+        helper.getBlockEntity(new BlockPos(2, 1, 1), net.minecraft.world.level.block.entity.BarrelBlockEntity.class)
+                .setItem(0, net.minecraft.world.item.alchemy.PotionContents.createItemStack(Items.POTION, net.minecraft.world.item.alchemy.Potions.SWIFTNESS));
+        BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+        for (NetworkDevice device : networkAt(helper, new BlockPos(1, 1, 0)).devices()) {
+            if (device instanceof qbotics.block.CablePort) {
+                device.setDeviceName(names.get(device.getBlockPos().getX() - origin.getX() - 1));
+            }
+        }
+        for (String line : List.of(
+                "python",
+                "from logistics import network, move, Filter",
+                "net = network()",
+                "b = net.bus('mixed')",
+                "print('mending', b.count('enchanted_book enchant=mending'), b.count('enchanted_book -enchant=mending'))",
+                "print('strength', b.count('potion effect=strength'), b.count('potion'))",
+                "print('picks', b.count('golden_pickaxe damaged'), b.count('golden_pickaxe undamaged'), b.count('named'), b.count('enchanted'))",
+                "d = [c for c in b.contents(details=True) if 'effect=strength' in c['words']][0]",
+                "print('exact', b.count(d['filter']), d['filter'].startswith('minecraft:potion['), len(d['data']))",
+                "p = net.bus('potions')",
+                "p.set_filter(matching='exact')",
+                "print('same', move(b, p, 'potion'), p.filter['matching'])",
+                "p.set_filter(matching=True)",
+                "print('kind', move(b, p, 'potion'))",
+                "good = Filter(only=['enchanted_book enchant=mending', 'named'])",
+                "net.bus('sorted').set_filter(good)",
+                "print('sorted', move(b, net.bus('sorted'), count=64), net.bus('sorted').count())",
+                "print('not', b.count(~good & Filter(only='enchanted_book')))",
+                "b.count('potion[nope=1]')")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "mending 1 1\n", "strength 1 2\n", "picks 1 1 1 2\n", "exact 1 True 1\n",
+                    "same 1 exact\n", "kind 1\n", "sorted 2 2\n", "not 1\n", "isn't the game's item syntax");
+            var potions = helper.getBlockEntity(new BlockPos(2, 1, 1), net.minecraft.world.level.block.entity.BarrelBlockEntity.class);
+            helper.assertTrue(potions.countItem(Items.POTION) == 3, "the potions barrel should end with three potions");
         });
     }
 

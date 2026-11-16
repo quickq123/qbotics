@@ -363,7 +363,7 @@ final class QbotCalls {
         NameMatch<Item> match = wanted == null ? null : NetworkCalls.item(wanted);
         for (int slot = 0; slot < QbotBlockEntity.SLOTS; slot++) {
             ItemStack stack = qbot.items().getItem(slot);
-            if (!stack.isEmpty() && (match == null ? otherwise.test(stack) : match.test(stack.getItem()))) {
+            if (!stack.isEmpty() && (match == null ? otherwise.test(stack) : match.testStack(stack))) {
                 return slot;
             }
         }
@@ -554,9 +554,9 @@ final class QbotCalls {
         return port;
     }
 
-    private static java.util.function.Predicate<Item> wantedItems(String wanted) {
+    private static java.util.function.Predicate<ItemStack> wantedItems(String wanted) {
         NameMatch<Item> match = wanted == null ? null : NetworkCalls.item(wanted);
-        return item -> match == null || match.test(item);
+        return stack -> match == null || match.testStack(stack);
     }
 
     /** Puts items from its inventory into the block on a side; with no container there (and no face named), onto the ground. */
@@ -572,11 +572,11 @@ final class QbotCalls {
                     + " doesn't take them.");
         }
         // Onto the ground: whole stacks, up to the count.
-        java.util.function.Predicate<Item> passes = wantedItems(wanted);
+        java.util.function.Predicate<ItemStack> passes = wantedItems(wanted);
         int dropped = 0;
         for (int slot = 0; slot < QbotBlockEntity.SLOTS && dropped < limit; slot++) {
             ItemStack stack = qbot.items().getItem(slot);
-            if (stack.isEmpty() || !passes.test(stack.getItem())) {
+            if (stack.isEmpty() || !passes.test(stack)) {
                 continue;
             }
             ItemStack out = qbot.items().removeItem(slot, Math.min(stack.getCount(), limit - dropped));
@@ -597,11 +597,11 @@ final class QbotCalls {
         if (from != null) {
             return new JsonPrimitive(ItemPort.move(from, -1, qbot.itemPort(), -1, wantedItems(wanted), limit));
         }
-        java.util.function.Predicate<Item> passes = wantedItems(wanted);
+        java.util.function.Predicate<ItemStack> passes = wantedItems(wanted);
         int taken = 0;
         for (ItemEntity entity : level.getEntitiesOfClass(ItemEntity.class, new AABB(target).inflate(0.25), ItemEntity::isAlive)) {
             ItemStack stack = entity.getItem();
-            if (taken >= limit || !passes.test(stack.getItem())) {
+            if (taken >= limit || !passes.test(stack)) {
                 continue;
             }
             int put = qbot.itemPort().insert(stack, Math.min(stack.getCount(), limit - taken), false);

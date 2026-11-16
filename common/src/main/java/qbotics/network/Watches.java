@@ -193,7 +193,7 @@ final class Watches {
     }
 
     private static void itemChange(JsonArray changes, @Nullable NameMatch<Item> match, int slot, ItemStack stack, int was, int now) {
-        if (match != null && !match.test(stack.getItem())) {
+        if (match != null && !match.testStack(stack)) {
             return;
         }
         JsonObject change = new JsonObject();

@@ -536,6 +536,9 @@ public final class QboticsNeoForge {
                             }
                             return 1;
                         }))));
+        // The server, for what needs its registries outside a call (the game's item syntax in filters).
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerAboutToStartEvent event) -> qbotics.Qbotics.setServer(event.getServer()));
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent event) -> qbotics.Qbotics.setServer(null));
         // The SSH gateway (design doc §9.5) starts with the server if the config turns it on.
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStartedEvent event) -> {
             qbotics.gateway.SshGateway.start(event.getServer());

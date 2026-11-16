@@ -1234,6 +1234,13 @@ in order. One call counts, lists (`stock`) or moves across every member, instead
   (holding some first), then members with no filter (the overflow); `strays()` and `tidy()` find and
   move what a filter doesn't take. Matching was the owner's idea: cheap to set up (all matching but one
   overflow, a sample of each kind placed by hand), at the cost that a kind run out falls to the overflow.
+- **Data filters** (asked for by the project owner): filters judge whole stacks, not just kinds
+  (NameMatch.testStack). Short words `enchant=`, `effect=`, `damaged`, `undamaged`, `enchanted`, `named`; any
+  word with `[...]` is handed to the game's ItemPredicateArgument (the /clear syntax) for anything else.
+  `contents(details=True)` gives each stack's data, an exact filter in that syntax and its words (ItemData); the
+  probe shows them with Shift and Ctrl+Shift+C copies the exact filter. `matching="exact"` on a bus compares data
+  too (matching=True stays by kind: the owner wants fuzzy matching by default). `Filter` objects in Python combine
+  filters with only/without and | & ~, compiled to the same words (alternatives of words), so they work anywhere.
 - Inserting into another mod's or a vanilla container now tops up stacks before starting an empty slot
   (ResourceHandlerUtil.insertStacking); before, it filled slots in order.
 - Not yet: watching a storage; a dense item vault (kinds and counts, no slots, awkward by hand) is the
@@ -1909,6 +1916,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-16 | Data filters (asked for by the project owner): enchant=, effect=, damaged, undamaged, enchanted, named; the game's item syntax in any word with [...]; contents(details=True) and the probe's Shift view give a stack's data and exact filter; matching="exact"; Filter objects with only/without and \| & ~. §11.0.8 | Built 2026-11-16 |
 | 2026-11-16 | Sorting (asked for by the project owner): item bus filters kept by the plate (names, and matching), honoured by moves, storages and tunnels, never on the way out; storages put each kind where a filter takes it before the overflow; `strays()`, `tidy()`; stacks topped up before empty slots. §11.0.8 | Built 2026-11-16 |
 | 2026-11-16 | Storage (asked for by the project owner): `net.storage("chest*")` uses many buses and interfaces as one container, one call for count, contents and move, kinds gathered where they already are, double chests counted once. Before any dense storage block; not a storage network. §11.0.8 | Built 2026-11-16 |
 | 2026-11-14 | Game interfaces (asked for by the project owner): a Player Interface (Ender Chest recipe) that is a bus on its owner's inventory, armour and off hand; a Chat Interface that hears chat as events, writes to it and runs commands as its owner; a Command Interface with no recipe (operators in creative, or commands) that runs commands as a command block. Owner-only, as in §11.0.7 | Built 2026-11-14 |
