@@ -159,6 +159,8 @@ public final class QboticsNeoForge {
             properties -> new PlateItem(NetworkDevice.Kind.PLACER, qbotics.network.Medium.ITEM, properties));
     private static final DeferredItem<PlateItem> BREAKER_ITEM = ITEMS.registerItem("breaker",
             properties -> new PlateItem(NetworkDevice.Kind.BREAKER, qbotics.network.Medium.ITEM, properties));
+    private static final DeferredItem<PlateItem> DROPPER_ITEM = ITEMS.registerItem("dropper",
+            properties -> new PlateItem(NetworkDevice.Kind.DROPPER, qbotics.network.Medium.ITEM, properties));
     private static final DeferredItem<PlateItem> FLUID_BUS_ITEM = ITEMS.registerItem("fluid_bus",
             properties -> new PlateItem(NetworkDevice.Kind.BUS, qbotics.network.Medium.FLUID, properties));
     private static final DeferredItem<PlateItem> ENERGY_BUS_ITEM = ITEMS.registerItem("energy_bus",
@@ -292,6 +294,7 @@ public final class QboticsNeoForge {
                         output.accept(PIN_ITEM.get());
                         output.accept(PLACER_ITEM.get());
                         output.accept(BREAKER_ITEM.get());
+                        output.accept(DROPPER_ITEM.get());
                         output.accept(ANTENNA_SHORT_ITEM.get());
                         output.accept(ANTENNA_LONG_ITEM.get());
                         output.accept(ANTENNA_INFINITE_ITEM.get());
@@ -382,6 +385,7 @@ public final class QboticsNeoForge {
                 java.util.Map.entry("pin", PIN_ITEM),
                 java.util.Map.entry("placer", PLACER_ITEM),
                 java.util.Map.entry("breaker", BREAKER_ITEM),
+                java.util.Map.entry("dropper", DROPPER_ITEM),
                 java.util.Map.entry("bus", BUS_ITEM),
                 java.util.Map.entry("fluid_bus", FLUID_BUS_ITEM),
                 java.util.Map.entry("energy_bus", ENERGY_BUS_ITEM),

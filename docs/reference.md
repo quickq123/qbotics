@@ -1053,13 +1053,13 @@ If a run can't be finished (an ingredient runs out, the product isn't what the r
 it has nowhere to go), `craft` raises `NetworkError`. What was already laid out goes back when
 the screen closes, so with a `with` block nothing is lost.
 
-### 6.10 World plates: Logic Pin, Placer and Breaker
+### 6.10 World plates: Logic Pin, Placer, Breaker and Dropper Plate
 
-Three more plates that go on cables like the others, one per side. Instead of reaching into a
+Four more plates that go on cables like the others, one per side. Instead of reaching into a
 container, they act on the block they point at. Each is a device with a name and addresses,
-found with `net.pin()`, `net.placer()` and `net.breaker()`.
+found with `net.pin()`, `net.placer()`, `net.breaker()` and `net.dropper()`.
 
-All three can say what is in front of them:
+All four can say what is in front of them:
 
 | Call or attribute | Gives |
 |---|---|
@@ -1132,6 +1132,36 @@ got = breaker.break_block(to=store)    # {"minecraft:cobblestone": 1}
 - Not caught: experience, and blocks that fall as a result (a torch on the broken block).
 - No Fortune or Silk Touch.
 
+**Dropper Plate** (`net.dropper()`). Sends items out into the world in front of it, as a
+dropper or a dispenser does. Its shape is an Item Serial Bus turned round: a small spout at
+the front, widening back to the cable.
+
+```python
+spout = net.dropper("spout")
+spout.drop("cobblestone", 16, sources=store)    # thrown out as one stack
+
+spout.dispense = True                           # from now on, fire things as a dispenser does
+spout.drop("arrow", 5, sources=store)           # five arrows fly, one a tick
+spout.drop("bone_meal", sources=store)          # grows the crop in front
+spout.drop("water_bucket", sources=store)       # pours it; the empty bucket goes back to the store
+```
+
+| Call or attribute | Does |
+|---|---|
+| `dropper.drop(what=None, count=1, sources=..., dispense=None)` | Takes items from `sources` (one source or a list) and sends them out; returns how many went. `what` is a name or filter; left out, whatever comes first. `dispense=True` or `False` does it that way this once, whatever the setting |
+| `dropper.dispense` | `False` (the default): it throws items out as a dropper does. `True`: it fires them as a dispenser does. Set it to change; the plate keeps it |
+
+- **As a dropper** it throws up to 64 of one kind a tick, as one stack.
+- **As a dispenser** it fires one item a tick, as a real dispenser would fire it: arrows,
+  snowballs and fire charges fly, bone meal grows what is there, buckets pour and pick up,
+  armour goes onto whoever stands in front, shears shear, and so on, other mods' dispenser
+  behaviours included. What it hands back (an empty bucket, a glass bottle) goes back where the
+  item came from, and so does an item it had no use for (bone meal with nothing to grow); then
+  `drop()` stops and counts only what was used.
+- It always sends things into the world, even with a chest in front. To put items into a
+  container, use an Item Serial Bus.
+- It doesn't act for its owner, any more than a dispenser does.
+
 **Acting for the owner.** The Placer and Breaker act as the player who put them on (section
 6.8), so they can't build or break where that player couldn't: in someone else's land claim,
 say. A plate with no owner can't place or break at all.
@@ -1139,8 +1169,8 @@ say. A plate with no owner can't place or break at all.
 **Cables and fluids.** Cables count as solid to water and lava, which flow around them rather
 than washing them away.
 
-**Recipes:** four cables around an observer (Logic Pin), a dispenser (Placer) or a diamond
-pickaxe (Breaker).
+**Recipes:** four cables around an observer (Logic Pin), a dispenser (Placer), a diamond
+pickaxe (Breaker) or a dropper (Dropper Plate).
 
 ### 6.11 Game interfaces: the player, the chat and commands
 

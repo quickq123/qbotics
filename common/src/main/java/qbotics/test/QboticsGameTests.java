@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -136,6 +136,7 @@ public final class QboticsGameTests {
             Map.entry("storage_group", QboticsGameTests::storageGroup),
             Map.entry("bus_filters", QboticsGameTests::busFilters),
             Map.entry("item_data_filters", QboticsGameTests::itemDataFilters),
+            Map.entry("dropper_plate", QboticsGameTests::dropperPlate),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4671,6 +4672,49 @@ public final class QboticsGameTests {
                     "same 1 exact\n", "kind 1\n", "sorted 2 2\n", "not 1\n", "isn't the game's item syntax");
             var potions = helper.getBlockEntity(new BlockPos(2, 1, 1), net.minecraft.world.level.block.entity.BarrelBlockEntity.class);
             helper.assertTrue(potions.countItem(Items.POTION) == 3, "the potions barrel should end with three potions");
+        });
+    }
+
+    /**
+     * The Dropper plate: as a dropper it throws items out as one stack; set to dispense it fires
+     * them as a dispenser does (an arrow flies), and what a dispenser can't use (bone meal with
+     * nothing to grow) goes back where it came from. The setting is kept by the plate.
+     */
+    private static void dropperPlate(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(0, 2, 0), QboticsContent.INTERFACE_BLOCK.get());
+        InterfaceBlockEntity inbox = helper.getBlockEntity(new BlockPos(0, 2, 0), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            inbox.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        inbox.setItem(0, new ItemStack(Items.COBBLESTONE, 20));
+        inbox.setItem(1, new ItemStack(Items.ARROW, 4));
+        inbox.setItem(2, new ItemStack(Items.BONE_MEAL, 3));
+        setPort(helper, new BlockPos(1, 1, 0), Kind.DROPPER, Direction.SOUTH);
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "net = network()",
+                "d = net.dropper()",
+                "store = net.interface()",
+                "print('mode', d.dispense, d.kind)",
+                "print('thrown', d.drop('cobblestone', 16, sources=store), store.count('cobblestone'))",
+                "d.dispense = True",
+                "print('fired', d.drop('arrow', 2, sources=store), store.count('arrow'), d.dispense)",
+                "print('meal', d.drop('bone_meal', sources=store), store.count('bone_meal'))",
+                "print('once', d.drop('cobblestone', 3, sources=store, dispense=False), d.dispense)",
+                "print('none', d.drop('diamond', sources=store))")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "mode False dropper\n", "thrown 16 4\n", "fired 2 2 True\n", "meal 0 3\n",
+                    "once 3 True\n", "none 0\n");
+            net.minecraft.world.phys.AABB around = new net.minecraft.world.phys.AABB(helper.absolutePos(new BlockPos(1, 1, 0))).inflate(12);
+            List<net.minecraft.world.entity.item.ItemEntity> thrown = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around);
+            int cobble = thrown.stream().filter(e -> e.getItem().is(Items.COBBLESTONE)).mapToInt(e -> e.getItem().getCount()).sum();
+            helper.assertTrue(cobble == 19, "19 cobblestone should lie in front of the dropper, not " + cobble);
+            helper.assertTrue(!helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.projectile.arrow.AbstractArrow.class, around).isEmpty(),
+                    "the dispensed arrows should be flying arrows, not items");
         });
     }
 

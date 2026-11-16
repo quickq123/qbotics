@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -52,6 +53,14 @@ final class WorldPlateCalls {
             case "place" -> place(level, network, plate(device, Kind.PLACER), args);
             case "pour" -> pour(level, network, plate(device, Kind.PLACER), args);
             case "break" -> breakBlock(level, network, plate(device, Kind.BREAKER), args);
+            case "drop" -> drop(level, network, plate(device, Kind.DROPPER), args);
+            case "dropper_set" -> {
+                CablePort dropper = plate(device, Kind.DROPPER);
+                dropper.setDispense(args.size() > 2 && !args.get(2).isJsonNull() && args.get(2).getAsBoolean());
+                JsonObject state = new JsonObject();
+                state.addProperty("dispense", dropper.dispense());
+                yield state;
+            }
             default -> throw new CallError("This computer doesn't know the call '" + method + "'.");
         };
     }
@@ -61,7 +70,7 @@ final class WorldPlateCalls {
         if (device instanceof CablePort plate && (kind == null ? !plate.kind().isLogistics() : plate.kind() == kind)) {
             return plate;
         }
-        String wanted = kind == null ? "a logic pin, a placer or a breaker" : kind == Kind.PIN ? "a logic pin" : "a " + kind.word;
+        String wanted = kind == null ? "a logic pin, a placer, a breaker or a dropper" : kind == Kind.PIN ? "a logic pin" : "a " + kind.word;
         throw new CallError("That call is for " + wanted + "; this is " + NetworkCalls.article(device) + ".");
     }
 
@@ -150,6 +159,120 @@ final class WorldPlateCalls {
             WorldPlates.drive(level, pin, true, drive, pulse == null ? 0 : pulse);
         }
         return pinState(level, pin);
+    }
+
+    // ---- Dropper -------------------------------------------------------------------------
+
+    /** The most a dropper throws out in one call, as one stack. A dispenser fires one item a call. */
+    private static final int MOST_DROPPED = 64;
+
+    /**
+     * ["drop", mac, sources, name or filter or null, count or null, dispense or null]: takes
+     * items from the sources and sends them out of the plate, as a dropper throws them or (dispense)
+     * as a dispenser fires them: arrows fly, bone meal is used, water is poured, armour is put on
+     * whoever stands there. One kind a call; a dispenser one item. Whatever a dispenser hands back
+     * (an empty bucket, a glass bottle, an item it couldn't use) goes back where it came from.
+     */
+    private static JsonObject drop(ServerLevel level, CableNetwork network, CablePort dropper, JsonArray args) {
+        BlockPos target = loadedTarget(level, dropper);
+        String wanted = NetworkCalls.string(args, 3);
+        NameMatch<Item> match = wanted == null ? null : NetworkCalls.item(wanted);
+        Integer asked = NetworkCalls.wholeNumber(args, 4, "count");
+        boolean dispense = args.size() > 5 && !args.get(5).isJsonNull() ? args.get(5).getAsBoolean() : dropper.dispense();
+        int most = dispense ? 1 : Math.clamp(asked == null ? 1 : asked, 0, MOST_DROPPED);
+        JsonObject answer = new JsonObject();
+        answer.addProperty("dropped", 0);
+        answer.add("item", JsonNull.INSTANCE);
+        if (most == 0) {
+            return answer;
+        }
+        for (End end : NetworkCalls.asMedium(NetworkCalls.ends(network, args.get(2), "source"), Medium.ITEM)) {
+            if (end.device().medium() != Medium.ITEM) {
+                continue;
+            }
+            ItemPort port = NetworkCalls.itemSource(level, end);
+            java.util.function.Predicate<ItemStack> own = NetworkCalls.itemFilter(end);
+            List<ItemStack> contents = port.contents();
+            for (int slot = 0; slot < contents.size(); slot++) {
+                ItemStack stack = contents.get(slot);
+                if (stack.isEmpty() || !own.test(stack) || (match != null && !match.testStack(stack))) {
+                    continue;
+                }
+                int taken = port.extractFrom(slot, stack, most, false);
+                if (taken <= 0) {
+                    continue;
+                }
+                ItemStack out = stack.copyWithCount(taken);
+                answer.addProperty("item", NetworkCalls.itemId(out.getItem()));
+                if (dispense) {
+                    answer.addProperty("dropped", fire(level, dropper, target, out, port) ? 1 : 0);
+                } else {
+                    Direction facing = dropper.pointing();
+                    net.minecraft.core.dispenser.DefaultDispenseItemBehavior.spawnItem(level, out, 6, facing, mouth(dropper));
+                    level.levelEvent(1000, dropper.getBlockPos(), 0);                       // the dropper's click
+                    level.levelEvent(2000, dropper.getBlockPos(), facing.get3DDataValue()); // and its puff of smoke
+                    answer.addProperty("dropped", taken);
+                }
+                return answer;
+            }
+        }
+        return answer;
+    }
+
+    /** Where things leave the plate: just past its face, as a dispenser's mouth. */
+    private static net.minecraft.core.Position mouth(CablePort dropper) {
+        Direction facing = dropper.pointing();
+        Vec3 centre = Vec3.atCenterOf(dropper.getBlockPos());
+        return new Vec3(centre.x + 0.7 * facing.getStepX(), centre.y + 0.7 * facing.getStepY(), centre.z + 0.7 * facing.getStepZ());
+    }
+
+    /**
+     * Fires one item as a dispenser at the plate, facing where it points, would. Returns false if
+     * the dispenser had nothing to do with it (bone meal with no plant there): it goes back.
+     */
+    private static boolean fire(ServerLevel level, CablePort dropper, BlockPos target, ItemStack one, ItemPort from) {
+        BlockPos at = dropper.getBlockPos();
+        BlockState state = net.minecraft.world.level.block.Blocks.DISPENSER.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.DispenserBlock.FACING, dropper.pointing());
+        // A dispenser of its own that is never placed: it holds what a behaviour hands back.
+        net.minecraft.world.level.block.entity.DispenserBlockEntity holder = new net.minecraft.world.level.block.entity.DispenserBlockEntity(at, state);
+        holder.setLevel(level);
+        net.minecraft.core.dispenser.BlockSource source = new net.minecraft.core.dispenser.BlockSource(level, at, state, holder);
+        ItemStack left = behaviour(level, one).dispense(source, one.copy());
+        boolean fired = !(left.getCount() == one.getCount() && ItemStack.isSameItemSameComponents(left, one));
+        List<ItemStack> back = new ArrayList<>();
+        back.add(left);
+        for (int i = 0; i < holder.getContainerSize(); i++) {
+            back.add(holder.getItem(i));
+        }
+        for (ItemStack thing : back) {
+            if (thing.isEmpty()) {
+                continue;
+            }
+            int put = from.insert(thing, thing.getCount(), false);
+            if (put < thing.getCount()) {
+                Block.popResource(level, target, thing.copyWithCount(thing.getCount() - put)); // nowhere to go back to
+            }
+        }
+        return fired;
+    }
+
+    /** What a dispenser does with an item, as the game's own DispenserBlock chooses it. */
+    private static net.minecraft.core.dispenser.DispenseItemBehavior behaviour(ServerLevel level, ItemStack stack) {
+        if (!stack.isItemEnabled(level.enabledFeatures())) {
+            return new net.minecraft.core.dispenser.DefaultDispenseItemBehavior();
+        }
+        net.minecraft.core.dispenser.DispenseItemBehavior known = net.minecraft.world.level.block.DispenserBlock.DISPENSER_REGISTRY.get(stack.getItem());
+        if (known != null) {
+            return known;
+        }
+        if (stack.has(net.minecraft.core.component.DataComponents.EQUIPPABLE)) {
+            return net.minecraft.core.dispenser.EquipmentDispenseItemBehavior.INSTANCE;
+        }
+        if (stack.getItem() instanceof net.minecraft.world.item.SpawnEggItem && stack.has(net.minecraft.core.component.DataComponents.ENTITY_DATA)) {
+            return net.minecraft.core.dispenser.SpawnEggItemBehavior.INSTANCE;
+        }
+        return new net.minecraft.core.dispenser.DefaultDispenseItemBehavior();
     }
 
     // ---- Placer --------------------------------------------------------------------------

@@ -56,6 +56,19 @@ public final class CablePort implements NetworkDevice {
     int pinLevel;
     /** The game time a pulse ends at, or 0 if none is running. */
     long pulseUntil;
+
+    // ---- a Dropper plate. Saved: whether it fires items as a dispenser does, or throws them out as a dropper. ----
+    boolean dispense;
+
+    /** True if this Dropper plate fires items as a dispenser would (arrows flying, bone meal used); false to throw them out as a dropper. */
+    public boolean dispense() {
+        return dispense;
+    }
+
+    public void setDispense(boolean fire) {
+        dispense = fire;
+        host.setChanged();
+    }
     /** What it last read, and counts of what it has seen happen since it was put on (not saved). */
     int inputLevel;
     boolean inputKnown;

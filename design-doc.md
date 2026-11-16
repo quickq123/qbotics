@@ -1212,6 +1212,18 @@ Decided by the project owner: two buses can be linked so that each end's face of
 - **Tunnel light** (decided by the project owner): two pixels at the middle of each edge of a bus's front plate, the sides facing out from its axis (the face itself is against the target). Off with no tunnel, amber while the other end can't be reached, green when connected. The server checks loaded tunnel ends once a second and tells players' games when one changes; the colour is a tint (sources 6-11 of the cable's tint list, after the six ring colours).
 - Not yet: tunnels between Qbots and buses.
 
+### 11.0.9 Dropper Plate (built 2026-11-16)
+
+Asked for by the project owner: a world plate (Kind.DROPPER) that sends items out of the system as a dropper
+or a dispenser would, shaped as an Item Serial Bus turned round (a small spout, widening back to the cable).
+Recipe: four cables around a dropper. `drop(what, count, sources, dispense)` takes from sources; a `dispense`
+setting kept by the plate chooses the mode. As a dropper: up to 64 of one kind a tick, thrown as one stack
+(DefaultDispenseItemBehavior.spawnItem). As a dispenser: one item a tick, through the game's own dispenser
+behaviour for it (DispenserBlock's registry, equipment and spawn eggs as the game picks them), run from a
+dispenser state at the plate facing its way, with an unplaced DispenserBlockEntity to catch what a behaviour
+hands back; that, and an item it had no use for, go back to the source. Into the world only, never into a
+container in front (a bus does that). Not as the owner: a dispenser isn't a player.
+
 ### 11.0.8 Storage: many containers as one (built 2026-11-16)
 
 Asked for by the project owner, who wants storage and logistics to be efficient for programs without
@@ -1916,6 +1928,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-16 | Dropper Plate (asked for by the project owner): a world plate shaped as a bus turned round, four cables around a dropper; `drop()` throws items out as a dropper, or with `dispense` set fires them through the game's own dispenser behaviours, giving back what a behaviour hands back. §11.0.9 | Built 2026-11-16 |
 | 2026-11-16 | Data filters (asked for by the project owner): enchant=, effect=, damaged, undamaged, enchanted, named; the game's item syntax in any word with [...]; contents(details=True) and the probe's Shift view give a stack's data and exact filter; matching="exact"; Filter objects with only/without and \| & ~. §11.0.8 | Built 2026-11-16 |
 | 2026-11-16 | Sorting (asked for by the project owner): item bus filters kept by the plate (names, and matching), honoured by moves, storages and tunnels, never on the way out; storages put each kind where a filter takes it before the overflow; `strays()`, `tidy()`; stacks topped up before empty slots. §11.0.8 | Built 2026-11-16 |
 | 2026-11-16 | Storage (asked for by the project owner): `net.storage("chest*")` uses many buses and interfaces as one container, one call for count, contents and move, kinds gathered where they already are, double chests counted once. Before any dense storage block; not a storage network. §11.0.8 | Built 2026-11-16 |

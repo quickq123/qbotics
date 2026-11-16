@@ -662,9 +662,13 @@ public final class ScreenshotRun {
             level.setBlock(base.offset(0, 0, 30), QboticsContent.PLAYER_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
             level.setBlock(base.offset(2, 0, 30), QboticsContent.CHAT_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
             level.setBlock(base.offset(4, 0, 30), QboticsContent.COMMAND_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            // A Dropper plate beside an Item Serial Bus, both pointing at the camera: the dropper is the bus turned round.
+            plated(level, base.offset(7, 0, 30), Kind.DROPPER, Direction.SOUTH);
+            plated(level, base.offset(9, 0, 30), Kind.BUS, Direction.SOUTH);
         }));
         view("20-game-interfaces", new Vec3(2.5, 1.6, 33.2), new Vec3(2.5, 0.5, 30.5));
         view("20b-game-interfaces-above", new Vec3(2.5, 3.6, 32.4), new Vec3(2.5, 0.6, 30.5));
+        view("20c-dropper-plate", new Vec3(9.6, 1.4, 32.6), new Vec3(8.0, 0.5, 30.5));
 
         // The items, as the hotbar and the hand draw them.
         section("items");

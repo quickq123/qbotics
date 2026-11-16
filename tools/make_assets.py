@@ -250,6 +250,7 @@ write_json("assets/qbotics/lang/en_us.json", {
     "screen.qbotics.charge_help": "A battery put here is charged from this store.",
     "screen.qbotics.drain_help": "A battery put here is drained into this store.",
     "item.qbotics.placer": "Placer",
+    "item.qbotics.dropper": "Dropper Plate",
     "item.qbotics.breaker": "Breaker",
     "block.qbotics.experience_interface": "Experience Interface",
     "block.qbotics.player_interface": "Player Interface",
@@ -953,6 +954,15 @@ def placer_front():
     return px
 
 
+def dropper_front():
+    """A Dropper plate's face: a small dark spout, where items come out."""
+    px = port_front()
+    for y in range(6, 10):
+        for x in range(6, 10):
+            px[y][x] = CASE_LIGHT if x in (6, 9) or y in (6, 9) else CASE_DARK
+    return px
+
+
 def breaker_front():
     """A Breaker's face: a dark opening crossed by grinding teeth."""
     px = port_front()
@@ -966,6 +976,7 @@ def breaker_front():
 write_png("assets/qbotics/textures/block/pin_front.png", pin_front())
 write_png("assets/qbotics/textures/block/placer_front.png", placer_front())
 write_png("assets/qbotics/textures/block/breaker_front.png", breaker_front())
+write_png("assets/qbotics/textures/block/dropper_front.png", dropper_front())
 write_png("assets/qbotics/textures/block/plate_ring.png", [[(255, 255, 255)] * 16 for _ in range(16)])
 # The fluid store shows four tanks; the energy store shows one tall cell.
 write_png("assets/qbotics/textures/block/fluid_interface_side.png",
@@ -1460,10 +1471,12 @@ PLATE_BOXES = {
     "pin": [(5, 5, 0, 11, 11, 1), (6, 6, 1, 10, 10, 3), (7, 7, 3, 9, 9, 6)],
     "placer": [(3, 3, 0, 13, 13, 3), (5, 5, 3, 11, 11, 5), (6, 6, 5, 10, 10, 6)],
     "breaker": [(2, 2, 0, 14, 14, 1), (3, 3, 1, 13, 13, 4), (6, 6, 4, 10, 10, 6)],
+    # A bus turned round: a small spout at the front, widening back to a broad plate on the cable.
+    "dropper": [(6, 6, 0, 10, 10, 2), (4, 4, 2, 12, 12, 4), (2, 2, 4, 14, 14, 6)],
 }
 # Plates that act on the world have one version, with a face of their own; the bus comes
 # in item, fluid, energy and universal versions and shares a face.
-WORLD_PLATES = ("pin", "placer", "breaker")
+WORLD_PLATES = ("pin", "placer", "breaker", "dropper")
 PLATE_TURNS = {"north": {}, "east": {"y": 90}, "south": {"y": 180}, "west": {"y": 270}, "up": {"x": 270}, "down": {"x": 90}}
 # The game numbers the six sides like this. A plate on a side takes its colour from the
 # colour source with that side's number (see PlateTints.java), so each side needs its own model.
@@ -1578,7 +1591,8 @@ for prefix, right in (("", "minecraft:dropper"), ("fluid_", "minecraft:bucket"),
 write_json("data/qbotics/recipe/usb.json", shapeless(["qbotics:bus", "qbotics:fluid_bus", "qbotics:energy_bus"], "qbotics:usb"))
 # The world plates, the same way: an observer for the pin that watches, a dispenser for the
 # placer, and for the breaker a diamond pickaxe, to match what it can break.
-for name, heart in (("pin", "minecraft:observer"), ("placer", "minecraft:dispenser"), ("breaker", "minecraft:diamond_pickaxe")):
+for name, heart in (("pin", "minecraft:observer"), ("placer", "minecraft:dispenser"), ("breaker", "minecraft:diamond_pickaxe"),
+                    ("dropper", "minecraft:dropper")):
     write_json("data/qbotics/recipe/%s.json" % name, shaped(
         [" C ", "CHC", " C "], {"C": "qbotics:cable", "H": heart}, "qbotics:%s" % name))
 # The fluid interface is the interface and a bucket; the energy interface, the interface and a

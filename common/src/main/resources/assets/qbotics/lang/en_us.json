@@ -89,6 +89,7 @@
   "screen.qbotics.charge_help": "A battery put here is charged from this store.",
   "screen.qbotics.drain_help": "A battery put here is drained into this store.",
   "item.qbotics.placer": "Placer",
+  "item.qbotics.dropper": "Dropper Plate",
   "item.qbotics.breaker": "Breaker",
   "block.qbotics.experience_interface": "Experience Interface",
   "block.qbotics.player_interface": "Player Interface",

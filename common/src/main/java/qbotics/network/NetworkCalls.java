@@ -728,7 +728,7 @@ public final class NetworkCalls {
                 return Watches.close(args);
             case "player_info", "chat_say", "chat_tell", "chat_command", "chat_listen", "command_run":
                 return GameInterfaceCalls.call(method, level, network, computerPos, args);
-            case "look", "pin", "pin_set", "place", "pour", "break":
+            case "look", "pin", "pin_set", "place", "pour", "break", "drop", "dropper_set":
                 return WorldPlateCalls.call(method, level, network, args);
             case "screen_cost": {
                 // What the screen asks in levels now: the anvil one number, the enchanting table one per offer.
@@ -2243,6 +2243,9 @@ public final class NetworkCalls {
                 info.addProperty("tunnel", to == null ? "" : to);
             }
             info.addProperty("face", port.accessFace().word());
+            if (port.kind() == Kind.DROPPER) {
+                info.addProperty("dispense", port.dispense());
+            }
             if (port.filter() != null) {
                 info.add("filter", filterJson(port.filter()));
             }

@@ -14,7 +14,7 @@ public interface NetworkDevice {
         /** A Serial Bus: works the container it points at, taking out and putting in. */
         BUS("bus"),
         /** World plates (design doc §11.0.1): redstone and watching, placing, breaking. */
-        PIN("pin"), PLACER("placer"), BREAKER("breaker"),
+        PIN("pin"), PLACER("placer"), BREAKER("breaker"), DROPPER("dropper"),
         /** Holds hard drives, which every computer on its network sees under /net (design doc §17.6). */
         DRIVE_BAY("drive_bay"),
         /** Copies programs from its hard drive onto the computer in front of it (design doc §5.4). */
@@ -38,7 +38,7 @@ public interface NetworkDevice {
 
         /** True for the kinds that are plates on a cable. */
         public boolean isPlate() {
-            return this == BUS || this == PIN || this == PLACER || this == BREAKER;
+            return this == BUS || this == PIN || this == PLACER || this == BREAKER || this == DROPPER;
         }
 
         /** True for the plates that move things between containers, in each medium. */

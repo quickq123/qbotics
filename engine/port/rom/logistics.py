@@ -1315,6 +1315,47 @@ class Placer(_WorldPlate):
         return _call("pour", self.mac, _ends(sources, Source), fluid)["poured"]
 
 
+class Dropper(_WorldPlate):
+    """A Dropper plate: sends items out into the world in front of it. As a dropper (the
+    default) it throws them out; with dispense set, it fires them as a dispenser would:
+    arrows and snowballs fly, bone meal grows what is there, a bucket of water is poured,
+    armour goes onto whoever stands in front.
+
+        dropper.drop("cobblestone", 16, sources=store)    # thrown out, as one stack
+        dropper.dispense = True
+        dropper.drop("arrow", 5, sources=store)           # five arrows fired, one a tick
+
+    It throws out into the world even when a chest is in front: a bus is for containers."""
+
+    @property
+    def dispense(self):
+        """True if it fires items as a dispenser does; False (the default) if it throws them out
+        as a dropper does. The plate keeps the setting."""
+        return self.refresh()._info["dispense"]
+
+    @dispense.setter
+    def dispense(self, fire):
+        _call("dropper_set", self.mac, bool(fire))
+
+    def drop(self, what=None, count=1, sources=None, dispense=None):
+        """Takes items from sources (one source or a list) and sends them out; returns how many
+        went. what is a name or filter; left out, whatever comes first. Up to count go: as a
+        dropper, up to 64 of one kind a tick; as a dispenser, one item a tick. dispense= True or
+        False does it that way this once, whatever the setting. An item the dispenser can't use
+        (bone meal with nothing to grow) goes back, and so does what it hands back (an empty
+        bucket); then it stops."""
+        if sources is None:
+            raise NetworkError("drop() needs sources= to say where the items come from.")
+        ends = _ends(sources, Source)
+        sent = 0
+        while sent < count:
+            reply = _call("drop", self.mac, ends, what, count - sent, dispense)
+            if not reply["dropped"]:
+                break
+            sent += reply["dropped"]
+        return sent
+
+
 class Breaker(_WorldPlate):
     """A Breaker: breaks the block in front of it, as the best tool for that block would
     (a netherite pickaxe, axe, shovel, hoe or sword, unenchanted), but never bedrock or
@@ -1380,7 +1421,7 @@ class Programmer(Device):
 
 
 _KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay, "programmer": Programmer,
-          "pin": Pin, "placer": Placer, "breaker": Breaker,
+          "pin": Pin, "placer": Placer, "breaker": Breaker, "dropper": Dropper,
           "fluid_interface": FluidInterface, "fluid_bus": FluidBus,
           "energy_interface": EnergyInterface, "energy_bus": EnergyBus, "experience_interface": ExperienceInterface,
           "player_interface": PlayerInterface, "chat_interface": ChatInterface, "command_interface": CommandInterface}
@@ -1523,6 +1564,10 @@ class Network:
     def breaker(self, key=None):
         """A breaker by name or address; with no argument, the network's only one."""
         return self._find(key, "breaker")
+
+    def dropper(self, key=None):
+        """A dropper plate by name or address; with no argument, the network's only one."""
+        return self._find(key, "dropper")
 
     def pins(self):
         """Every logic pin on the network."""

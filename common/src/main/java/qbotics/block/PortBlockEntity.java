@@ -143,6 +143,9 @@ public class PortBlockEntity extends BlockEntity {
                 child.putBoolean("filter_matching", port.filter.matching());
                 child.putBoolean("filter_exact", port.filter.exact());
             }
+            if (port.kind == NetworkDevice.Kind.DROPPER) {
+                child.putBoolean("dispense", port.dispense);
+            }
             if (port.kind == NetworkDevice.Kind.PIN) {
                 child.putBoolean("pin_output", port.pinOutput);
                 child.putInt("pin_level", port.pinLevel);
@@ -176,6 +179,7 @@ public class PortBlockEntity extends BlockEntity {
             port.pinOutput = child.getBooleanOr("pin_output", false);
             port.pinLevel = Math.clamp(child.getIntOr("pin_level", 0), 0, 15);
             port.pulseUntil = child.getLongOr("pulse_until", 0L);
+            port.dispense = child.getBooleanOr("dispense", false);
             String filterNames = child.getStringOr("filter", null);
             if (filterNames != null) {
                 port.filter = new qbotics.network.BusFilter(filterNames.isEmpty() ? List.of() : List.of(filterNames.split("\n")),
