@@ -45,6 +45,12 @@ public interface QboticsPlatform {
      */
     net.minecraft.server.level.ServerPlayer standIn(ServerLevel level, java.util.UUID owner, java.util.UUID plate, BlockPos at, Direction facing);
 
+    /**
+     * Readies a stand-in's swing as if this many ticks had passed since its last: a stand-in is
+     * never ticked, so its attack cooldown would otherwise never recover.
+     */
+    void chargeAttack(net.minecraft.server.level.ServerPlayer standIn, int ticks);
+
     /** True if protection (a land claim, spawn protection) lets this player break the block at a position. */
     boolean mayBreak(ServerLevel level, net.minecraft.server.level.ServerPlayer player, BlockPos pos);
 

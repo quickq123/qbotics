@@ -1369,6 +1369,143 @@ class Dropper(_WorldPlate):
         return _call("drop_xp", self.mac, _ends(sources, Source), points, levels)["dropped"]
 
 
+class Entity:
+    """One entity an Entity Sensor sees: a creature, a player, a dropped item or an experience
+    orb. What the sensor read is in .data, and each key is also an attribute:
+
+        cow.type        "minecraft:cow"          cow.name, cow.custom_name
+        cow.health      10.0                     cow.max_health
+        cow.baby        False                    cow.can_breed (adult, ready), cow.in_love
+        cow.pos         [x, y, z]                cow.offset (from the sensor), cow.distance
+        sheep.sheared, sheep.color   villager.profession, villager.level   wolf.tame, wolf.owner
+        item.item, item.count (a dropped item)   orb.value (an experience orb)
+        e.hostile, e.held, e.player, e.leashed, e.age
+
+    Keys a kind doesn't have are missing: a cow has no "sheared". refresh() reads it again."""
+
+    def __init__(self, sensor, info):
+        self._sensor = sensor
+        self._update(info)
+
+    def _update(self, info):
+        self.data = info
+        self.uuid = info["uuid"]
+        self.type = info["type"]
+        self.name = info["name"]
+
+    def __getattr__(self, key):
+        data = self.__dict__.get("data")
+        if data is not None and key in data:
+            return data[key]
+        raise AttributeError("%s has no %s" % (self.__dict__.get("type", "entity"), key))
+
+    def refresh(self):
+        """Reads it again. NetworkError if it is gone or has left the area."""
+        self._update(_call("sensor_entity", self._sensor.mac, self.uuid))
+        return self
+
+    def use(self, item=None, sources=None, result=None):
+        """Right-clicks it as the sensor's owner, holding one item from sources (a name or
+        filter; with no item, an empty hand): a bucket milks a cow, wheat breeds it, shears
+        shear a sheep, a name tag names it. What comes of it (the milk bucket, the wool) goes
+        to result, or back to the sources; an item that wasn't used goes back. Returns True if
+        it did something.
+
+            for cow in sensor.entities("cow"):
+                cow.use("bucket", store, result=store)"""
+        reply = _call("sensor_use", self._sensor.mac, self.uuid, None if sources is None else _ends(sources, Source),
+                      item, None if result is None else _ends(result, Destination))
+        if reply["entity"]:
+            self._update(reply["entity"])
+        return reply["used"]
+
+    def attack(self, weapon=None, sources=None, result=None, wait=True):
+        """Hits it as the sensor's owner, with a weapon (a name or filter) from sources, or a
+        fist. The weapon's damage, enchantments (Looting too) and wear count, and a kill counts
+        as the owner's. Each swing is a full one: it waits for the weapon's cooldown since the
+        sensor's last swing (wait=False hits at once, as hard as the cooldown allows). The
+        weapon goes back to the sources (or result). Returns {"attacked", "alive", "health"},
+        and "weapon_broke" if it broke."""
+        while True:
+            reply = _call("sensor_attack", self._sensor.mac, self.uuid, None if sources is None else _ends(sources, Source),
+                          weapon, None if result is None else _ends(result, Destination), bool(wait))
+            if "wait" not in reply:
+                return reply
+            time.sleep(reply["wait"] / 20)
+
+    def offers(self):
+        """A villager's or wandering trader's offers: a list of {"index", "buy": {"item",
+        "count"}, "buy_b" (a second price, or None), "sell": {...}, "uses", "max_uses",
+        "out_of_stock"}. A sold item with data (an enchanted book) also has its "words"
+        (["enchant=mending", ...]) and exact "filter"."""
+        return _call("sensor_offers", self._sensor.mac, self.uuid)
+
+    def trade(self, offer, sources, result=None, times=1):
+        """Makes an offer (its index, or the dict from offers()) up to times times, as the
+        sensor's owner: the price is taken from sources, checked before anything moves; what it
+        sells goes to result, or back to the sources. Stops early when it runs out or the price
+        can't be paid. Returns how many trades were made."""
+        index = offer["index"] if isinstance(offer, dict) else offer
+        reply = _call("sensor_trade", self._sensor.mac, self.uuid, index, _ends(sources, Source),
+                      None if result is None else _ends(result, Destination), times)
+        return reply["traded"]
+
+    def collect(self, to):
+        """Picks it up, if it is a dropped item (into item destinations) or an experience orb
+        (into an Experience Interface among them). Returns {"items": n, "points": p}."""
+        return _call("sensor_collect", self._sensor.mac, self.uuid, _ends(to, Destination), None)
+
+    def __repr__(self):
+        named = ' "%s"' % self.data["custom_name"] if self.data.get("custom_name") else ""
+        return "<%s%s %.1f m>" % (self.type.replace("minecraft:", ""), named, self.data["distance"])
+
+
+class EntitySensor(Device):
+    """An Entity Sensor: sees the creatures, players, dropped items and experience orbs in a
+    box around it (radius blocks out to each side, height up and down, each 1 to 20), and acts
+    on them as its owner. Right-click it for its screen and Show area.
+
+        sensor = net.entity_sensor()
+        for cow in sensor.entities("cow"):
+            if cow.can_breed:
+                cow.use("wheat", store)
+        for zombie in sensor.entities("#minecraft:undead"):
+            zombie.attack("diamond_sword", store)
+        sensor.collect(store)                   # the drops"""
+
+    @property
+    def radius(self):
+        """How far it sees out to each side, in blocks."""
+        return self.refresh()._info["radius"]
+
+    @property
+    def height(self):
+        """How far it sees up and down, in blocks."""
+        return self.refresh()._info["height"]
+
+    def set_area(self, radius=None, height=None):
+        """Sets how far it sees: radius out to each side, height up and down, each 1 to 20."""
+        _call("sensor_area", self.mac, radius, height)
+        self.refresh()
+
+    def entities(self, what=None):
+        """What is in its area now, nearest first: a list of Entity. what is a name or filter
+        of a kind of entity, as for items: "cow", "#minecraft:undead", "@minecraft",
+        "-player", "item" (dropped items), "experience_orb"."""
+        return [Entity(self, info) for info in _call("sensor_entities", self.mac, what)]
+
+    def nearest(self, what=None):
+        """The nearest entity (of a kind), or None."""
+        found = self.entities(what)
+        return found[0] if found else None
+
+    def collect(self, to, what=None):
+        """Picks up everything lying in its area: dropped items (those a name or filter what
+        passes, or all) into item destinations, and, with no what, experience orbs into an
+        Experience Interface among them. Returns {"items": n, "points": p}."""
+        return _call("sensor_collect", self.mac, None, _ends(to, Destination), what)
+
+
 class Breaker(_WorldPlate):
     """A Breaker: breaks the block in front of it, as the best tool for that block would
     (a netherite pickaxe, axe, shovel, hoe or sword, unenchanted), but never bedrock or
@@ -1437,7 +1574,8 @@ _KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay,
           "pin": Pin, "placer": Placer, "breaker": Breaker, "dropper": Dropper,
           "fluid_interface": FluidInterface, "fluid_bus": FluidBus,
           "energy_interface": EnergyInterface, "energy_bus": EnergyBus, "experience_interface": ExperienceInterface,
-          "player_interface": PlayerInterface, "chat_interface": ChatInterface, "command_interface": CommandInterface}
+          "player_interface": PlayerInterface, "chat_interface": ChatInterface, "command_interface": CommandInterface,
+          "entity_sensor": EntitySensor}
 
 
 def _wrap(info):
@@ -1520,6 +1658,10 @@ class Network:
     def command_interface(self, key=None):
         """A command interface by name or address; with no argument, the network's only one."""
         return self._find(key, "command_interface")
+
+    def entity_sensor(self, key=None):
+        """An Entity Sensor by name or address; with no argument, the network's only one."""
+        return self._find(key, "entity_sensor")
 
     def monitor(self, key=None):
         """A text monitor by name or address; with no argument, the network's only one.

@@ -190,6 +190,12 @@ public final class QboticsNeoForge {
             qbotics.block.GameInterfaceBlock::command, properties -> properties.mapColor(MapColor.COLOR_ORANGE)
                     .requiresCorrectToolForDrops().strength(-1.0f, 3600000.0f).noLootTable().sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> PLAYER_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(PLAYER_INTERFACE);
+    // The Entity Sensor: sees and acts on the entities in a box around it.
+    private static final DeferredBlock<qbotics.block.EntitySensorBlock> ENTITY_SENSOR = BLOCKS.registerBlock("entity_sensor",
+            qbotics.block.EntitySensorBlock::new, properties -> properties.mapColor(MapColor.COLOR_CYAN).strength(2.0f).sound(SoundType.METAL));
+    private static final DeferredItem<BlockItem> ENTITY_SENSOR_ITEM = ITEMS.registerSimpleBlockItem(ENTITY_SENSOR);
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.EntitySensorBlockEntity>> ENTITY_SENSOR_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register("entity_sensor", () -> new BlockEntityType<>(qbotics.block.EntitySensorBlockEntity::new, ENTITY_SENSOR.get()));
     private static final DeferredItem<BlockItem> CHAT_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(CHAT_INTERFACE);
     private static final DeferredItem<net.minecraft.world.item.GameMasterBlockItem> COMMAND_INTERFACE_ITEM = ITEMS.registerItem("command_interface",
             properties -> new net.minecraft.world.item.GameMasterBlockItem(COMMAND_INTERFACE.get(), properties),
@@ -287,6 +293,7 @@ public final class QboticsNeoForge {
                         output.accept(EXPERIENCE_INTERFACE_ITEM.get());
                         output.accept(PLAYER_INTERFACE_ITEM.get());
                         output.accept(CHAT_INTERFACE_ITEM.get());
+                        output.accept(ENTITY_SENSOR_ITEM.get());
                         output.accept(BUS_ITEM.get());
                         output.accept(FLUID_BUS_ITEM.get());
                         output.accept(ENERGY_BUS_ITEM.get());
@@ -394,6 +401,8 @@ public final class QboticsNeoForge {
         QboticsContent.ENERGY_INTERFACE_BLOCK = ENERGY_INTERFACE;
         QboticsContent.EXPERIENCE_INTERFACE_BLOCK = EXPERIENCE_INTERFACE;
         QboticsContent.PLAYER_INTERFACE_BLOCK = PLAYER_INTERFACE;
+        QboticsContent.ENTITY_SENSOR_BLOCK = ENTITY_SENSOR;
+        QboticsContent.ENTITY_SENSOR_BLOCK_ENTITY = ENTITY_SENSOR_BLOCK_ENTITY;
         QboticsContent.CHAT_INTERFACE_BLOCK = CHAT_INTERFACE;
         QboticsContent.COMMAND_INTERFACE_BLOCK = COMMAND_INTERFACE;
         QboticsContent.GAME_INTERFACE_BLOCK_ENTITY = GAME_INTERFACE_BLOCK_ENTITY;
@@ -644,6 +653,13 @@ public final class QboticsNeoForge {
             }
 
             @Override
+            public void chargeAttack(net.minecraft.server.level.ServerPlayer standIn, int ticks) {
+                if (standIn instanceof StandIn player) {
+                    player.charge(ticks);
+                }
+            }
+
+            @Override
             public boolean mayBreak(ServerLevel level, net.minecraft.server.level.ServerPlayer player, BlockPos pos) {
                 return !net.neoforged.neoforge.common.CommonHooks.fireBlockBreak(level, net.minecraft.world.level.GameType.SURVIVAL, player, pos,
                         level.getBlockState(pos)).isCanceled();
@@ -821,6 +837,12 @@ public final class QboticsNeoForge {
                 .playToServer(qbotics.net.DisplayPayloads.Touch.TYPE, qbotics.net.DisplayPayloads.Touch.STREAM_CODEC, (payload, context) -> {
                     if (context.player() instanceof ServerPlayer player) {
                         qbotics.display.Displays.onCloseUpTouch(player, payload);
+                    }
+                })
+                .playToClient(qbotics.net.SensorPayloads.Info.TYPE, qbotics.net.SensorPayloads.Info.STREAM_CODEC)
+                .playToServer(qbotics.net.SensorPayloads.Action.TYPE, qbotics.net.SensorPayloads.Action.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        qbotics.block.EntitySensorBlockEntity.onAction(player, payload);
                     }
                 })
                 .playToClient(qbotics.net.XpPayloads.Info.TYPE, qbotics.net.XpPayloads.Info.STREAM_CODEC)

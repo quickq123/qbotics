@@ -40,6 +40,8 @@ public final class QboticsContent {
     public static Supplier<qbotics.block.StoreBlock> EXPERIENCE_INTERFACE_BLOCK;
     /** The game interfaces: a player's inventory, the chat, and commands (that last one spawned in only). */
     public static Supplier<qbotics.block.GameInterfaceBlock> PLAYER_INTERFACE_BLOCK;
+    public static Supplier<qbotics.block.EntitySensorBlock> ENTITY_SENSOR_BLOCK;
+    public static Supplier<BlockEntityType<qbotics.block.EntitySensorBlockEntity>> ENTITY_SENSOR_BLOCK_ENTITY;
     public static Supplier<qbotics.block.GameInterfaceBlock> CHAT_INTERFACE_BLOCK;
     public static Supplier<qbotics.block.GameInterfaceBlock> COMMAND_INTERFACE_BLOCK;
     public static Supplier<BlockEntityType<qbotics.block.GameInterfaceBlockEntity>> GAME_INTERFACE_BLOCK_ENTITY;

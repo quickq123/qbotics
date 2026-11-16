@@ -9,6 +9,7 @@
     "qbotics:experience_interface",
     "qbotics:player_interface",
     "qbotics:chat_interface",
+    "qbotics:entity_sensor",
     "qbotics:antenna_short",
     "qbotics:antenna_long",
     "qbotics:antenna_infinite",

@@ -297,6 +297,8 @@ With an antenna on the network, each device can also be reached from other netwo
 | `command_interface` | A command block on the network. No recipe: spawned in only (section 6.11) |
 | `pin` | A Logic Pin: a redstone line in or out, and an eye on a block |
 | `placer`, `breaker` | Plates that place blocks and fluid, or break them |
+| `dropper` | A plate that throws items out as a dropper, or fires them as a dispenser (section 6.10) |
+| `entity_sensor` | Sees the creatures, players and dropped things around it, and acts on them as its owner (section 6.12) |
 | `drive_bay` | Holds hard drives; every computer on its network sees them under `/net` |
 | `programmer` | Puts programs from its hard drive onto the computer in front of it |
 | `monitor`, `panel` | A Text Monitor or a Control Panel: a screen, of one block or several (section 7c) |
@@ -429,6 +431,7 @@ Every call is answered by the game on its next tick (a twentieth of a second).
 | `net.usb(key)` | A Universal Serial Bus. `net.bus()`, `net.fluid_bus()` and `net.energy_bus()` find a USB by name too, working as that kind of bus; with no key they pick a USB only when there is no plain bus of that kind |
 | `net.experience_interface(key)` | The experience store |
 | `net.player_interface(key)`, `net.chat_interface(key)`, `net.command_interface(key)` | The game interfaces (section 6.11) |
+| `net.entity_sensor(key)` | An Entity Sensor (section 6.12) |
 | `net.interfaces()`, `net.buses()`, `net.usbs()` | Every interface, Item Serial Bus or USB |
 | `net.storage(names)` | Many chests as one: every interface and item bus the names find (section 6.4c) |
 
@@ -1313,6 +1316,94 @@ creative can place it.
 | `.output` | The lines it said, as a list. `print(result)` prints them |
 
 ---
+
+### 6.12 Entity Sensor: creatures, players and things lying about
+
+A full block on the network that sees the **entities** in a box around it (creatures,
+players, villagers, dropped items, experience orbs), reads them, and acts on them **as its
+owner**: using an item on them, attacking, trading, and picking things up.
+
+**Recipe:** eight cables around a sculk sensor.
+
+**Its area** is a box centred on the block: `radius` blocks out to each side and `height` up
+and down, each 1 to 20 (default 8). At the most, 41 x 41 blocks and 41 tall.
+
+**Right-click it** for its screen: the radius and height, each with -5, -1, +1 and +5
+buttons (only its owner, or an operator, can change them), and **Show area**, which outlines
+the box in the world in cyan, with a mark at every block along its top edges, until pressed again.
+
+```python
+sensor = net.entity_sensor()
+store = net.storage("chest*")
+
+for cow in sensor.entities("cow"):
+    if cow.can_breed:
+        cow.use("wheat", store)                       # breeds it
+    cow.use("bucket", store, result=store)            # milks it
+
+for mob in sensor.entities("#minecraft:undead"):
+    mob.attack("diamond_sword", store)                # full swings, the sword goes back
+
+librarian = sensor.nearest("villager")
+for offer in librarian.offers():
+    if "enchant=mending" in offer["sell"].get("words", []):
+        librarian.trade(offer, store, times=1)
+
+sensor.collect(store)                                 # drops and experience lying in the area
+```
+
+| Call or attribute | Does |
+|---|---|
+| `sensor.entities(what=None)` | What is in the area now, nearest first (up to 256): a list of entities. `what` is a name or filter of a kind of entity, written as for items: `"cow"`, `"#minecraft:undead"`, `"@minecraft"`, `"-player"`, `"item"` (dropped items), `"experience_orb"` |
+| `sensor.nearest(what=None)` | The nearest, or `None` |
+| `sensor.collect(to, what=None)` | Picks up everything lying in the area: dropped items (those `what` passes, or all) into item destinations, and (with no `what`) experience orbs into an Experience Interface among `to`. Returns `{"items": n, "points": p}`. Needs no owner, as a hopper doesn't |
+| `sensor.radius`, `sensor.height` | Its size |
+| `sensor.set_area(radius=None, height=None)` | Changes it, each 1 to 20 |
+
+**An entity** carries what the sensor read. Each key is also an attribute (`cow.health`);
+keys a kind doesn't have are missing. `entity.refresh()` reads it again, and a call on an
+entity that has died or left the area raises `NetworkError`.
+
+| Key | Gives |
+|---|---|
+| `uuid`, `type`, `name`, `custom_name` | Its ID, its kind (`"minecraft:cow"`), its name, and a name given with a name tag (or `None`) |
+| `pos`, `offset`, `distance` | Where it is: `[x, y, z]` in the world, from the sensor's centre, and how far |
+| `player` | True for a player |
+| `health`, `max_health`, `baby`, `held`, `hostile` | Creatures: health, a baby or not, what is in its main hand, and whether it is a monster |
+| `age`, `in_love`, `can_breed` | Animals: `can_breed` is an adult ready to breed (not in love, not waiting since the last time) |
+| `sheared`, `color` | Sheep |
+| `tame`, `owner` | Tameable animals: tamed, and the owner's UUID |
+| `leashed` | On a lead |
+| `trading`, `profession`, `level` | Villagers (and `trading` for wandering traders): trading with a player now, their job and level |
+| `item`, `count` | A dropped item |
+| `value` | An experience orb's points |
+
+| Call | Does |
+|---|---|
+| `entity.use(item=None, sources=None, result=None)` | Right-clicks it as the owner, holding one item from `sources` (a name or filter), or an empty hand: a bucket milks a cow, wheat breeds it, shears shear a sheep, a name tag names it, a saddle saddles a pig. What comes of it (the milk bucket, the wool) goes to `result`, or back to the sources; an item that wasn't used goes back. Returns `True` if it did something |
+| `entity.attack(weapon=None, sources=None, result=None, wait=True)` | Hits it as the owner with a weapon from `sources`, or a fist. Returns `{"attacked", "alive", "health"}` |
+| `entity.offers()` | A villager's or wandering trader's offers: `[{"index", "buy": {"item", "count"}, "buy_b", "sell": {...}, "uses", "max_uses", "out_of_stock"}]`. A sold item with data (an enchanted book) also has `"words"` and an exact `"filter"` (section 4) |
+| `entity.trade(offer, sources, result=None, times=1)` | Makes an offer (its index or its dict), up to `times` times (at most 64 a call): the price is taken from `sources`, checked before anything moves; what it sells goes to `result`, or back to the sources. Stops when the offer runs out or the price can't be paid. Returns how many trades were made |
+| `entity.collect(to)` | Picks up a dropped item or an experience orb |
+
+**Attacking.**
+
+- The weapon counts as it would in a player's hand: its damage, its enchantments (Sharpness,
+  Fire Aspect, Looting) and its wear. It goes back where it came from afterwards, unless it broke.
+- **A kill is the owner's**, so a mob drops what it would for a player: rare drops, Looting,
+  experience.
+- **Each swing is a full one:** `attack()` waits for the weapon's cooldown since the sensor's
+  last swing (a sword about half a second, an axe a second). `wait=False` swings at once, as
+  weakly as the cooldown leaves it.
+- Its drops land where the creature was; `sensor.collect(store)` picks them up.
+
+**Trading** is at the trader's prices as they stand, without the discounts a player earns by
+curing a zombie villager. A villager counts the trades towards its level, as from a player. A
+villager already trading with a player is busy.
+
+**Acting for the owner.** Using, attacking and trading are done by the player who placed the
+sensor, so they can't touch what that player couldn't: animals in someone else's claim, say.
+A sensor nobody placed only looks and picks up. Reading needs no owner at all.
 
 ## 7. The `network` module
 

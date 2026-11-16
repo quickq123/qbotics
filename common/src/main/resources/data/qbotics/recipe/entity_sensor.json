@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "C": "qbotics:cable",
+    "S": "minecraft:sculk_sensor"
+  },
+  "pattern": [
+    "CCC",
+    "CSC",
+    "CCC"
+  ],
+  "result": {
+    "id": "qbotics:entity_sensor"
+  }
+}

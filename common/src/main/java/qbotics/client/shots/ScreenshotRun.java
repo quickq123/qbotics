@@ -665,10 +665,17 @@ public final class ScreenshotRun {
             // A Dropper plate beside an Item Serial Bus, both pointing at the camera: the dropper is the bus turned round.
             plated(level, base.offset(7, 0, 30), Kind.DROPPER, Direction.SOUTH);
             plated(level, base.offset(9, 0, 30), Kind.BUS, Direction.SOUTH);
+            // An Entity Sensor with its area shown, as its screen's Show area button does.
+            level.setBlock(base.offset(2, 0, 40), QboticsContent.ENTITY_SENSOR_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            if (level.getBlockEntity(base.offset(2, 0, 40)) instanceof qbotics.block.EntitySensorBlockEntity sensor) {
+                sensor.setArea(4, 2);
+            }
         }));
+        then(10, minecraft -> qbotics.client.SensorScreen.showForShot(base.offset(2, 0, 40)));
         view("20-game-interfaces", new Vec3(2.5, 1.6, 33.2), new Vec3(2.5, 0.5, 30.5));
         view("20b-game-interfaces-above", new Vec3(2.5, 3.6, 32.4), new Vec3(2.5, 0.6, 30.5));
         view("20c-dropper-plate", new Vec3(9.6, 1.4, 32.6), new Vec3(8.0, 0.5, 30.5));
+        view("20d-entity-sensor-area", new Vec3(2.5, 6.5, 52.0), new Vec3(2.5, 0.5, 40.5));
 
         // The items, as the hotbar and the hand draw them.
         section("items");

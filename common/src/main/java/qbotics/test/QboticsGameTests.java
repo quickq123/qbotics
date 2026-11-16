@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -137,6 +137,7 @@ public final class QboticsGameTests {
             Map.entry("bus_filters", QboticsGameTests::busFilters),
             Map.entry("item_data_filters", QboticsGameTests::itemDataFilters),
             Map.entry("dropper_plate", QboticsGameTests::dropperPlate),
+            Map.entry("entity_sensor", QboticsGameTests::entitySensor),
             Map.entry("antenna_addresses", QboticsGameTests::antennaAddresses),
             Map.entry("radio_messages", QboticsGameTests::radioMessages),
             Map.entry("payload_codecs", QboticsGameTests::payloadCodecs));
@@ -4466,7 +4467,8 @@ public final class QboticsGameTests {
             helper.assertTrue(level.getBlockEntity(helper.absolutePos(qbotPos.north())) instanceof qbotics.qbot.QbotBlockEntity,
                     "the Qbot moved forward");
             synchronized (screen) {
-                helper.assertTrue(screen.stateJson().contains("moved forward"), "the tablet shows what it did");
+                helper.assertTrue(screen.stateJson().contains("moved forward"), "the tablet shows what it did: " + screen.stateJson()
+                        + " / screen: " + screen(bot).replace('\n', '|'));
             }
             // Delete pressed twice on the tablet: the tab showing is unpaired.
             tablets.unpairTab(player, stack.get(QboticsContent.TABLET_ID.get()), 0);
@@ -4724,6 +4726,78 @@ public final class QboticsGameTests {
                     .mapToInt(net.minecraft.world.entity.ExperienceOrb::getValue).sum();
             helper.assertTrue(orbs == 1395, "1395 points of orbs should lie in front of the dropper, not " + orbs);
         });
+    }
+
+    /**
+     * The Entity Sensor: it lists what is in its area (and not what is outside), reads a
+     * creature's data, milks and breeds a cow with items from storage, hits a husk with a sword
+     * from storage at full strength (twice, waiting out the cooldown between), picks up dropped
+     * items and an experience orb, and trades with a wandering trader.
+     *
+     * <p>Test areas are 3 blocks across, ringed with barriers, and only 5 or 6 apart: the machines
+     * go in the ring on one side (blocks may), the creatures stay inside, clear of the ring.
+     */
+    private static void entitySensor(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(-1, 1, 1));
+        helper.setBlock(new BlockPos(-1, 2, 1), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(-1, 1, 0), QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(-1, 1, 2), QboticsContent.ENTITY_SENSOR_BLOCK.get());
+        helper.getBlockEntity(new BlockPos(-1, 1, 2), qbotics.block.EntitySensorBlockEntity.class).onPlaced(java.util.UUID.randomUUID());
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(-1, 2, 1), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Items.BUCKET));
+        store.setItem(1, new ItemStack(Items.WHEAT, 4));
+        store.setItem(2, new ItemStack(Items.IRON_SWORD));
+        store.setItem(3, new ItemStack(Items.EMERALD, 20));
+        for (BlockPos at : List.of(new BlockPos(0, 1, 0), new BlockPos(1, 1, 0))) {
+            helper.spawn(net.minecraft.world.entity.EntityType.COW, at).setNoAi(true);
+        }
+        helper.spawn(net.minecraft.world.entity.EntityType.HUSK, new BlockPos(1, 1, 2)).setNoAi(true);
+        var trader = helper.spawn(net.minecraft.world.entity.EntityType.WANDERING_TRADER, new BlockPos(2, 1, 2));
+        trader.setNoAi(true);
+        // Its own offers, made known: overrideOffers does nothing on the server.
+        trader.getOffers().clear();
+        trader.getOffers().add(new net.minecraft.world.item.trading.MerchantOffer(new net.minecraft.world.item.trading.ItemCost(Items.EMERALD, 2),
+                new ItemStack(Items.BREAD, 3), 10, 1, 0.05f));
+        helper.spawnItem(Items.COBBLESTONE, new BlockPos(2, 1, 1)).getItem().setCount(5);
+        BlockPos orbAt = helper.absolutePos(new BlockPos(2, 1, 0));
+        helper.getLevel().addFreshEntity(new net.minecraft.world.entity.ExperienceOrb(helper.getLevel(), orbAt.getX() + 0.5, orbAt.getY(), orbAt.getZ() + 0.5, 7));
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "net = network()",
+                "s = net.entity_sensor()",
+                "store = net.interface()",
+                "s.set_area(radius=1, height=1)",
+                "print('near', len(s.entities()))",
+                "s.set_area(radius=4, height=2)",
+                "print('area', s.radius, s.height)",
+                "cows = s.entities('cow')",
+                "c = cows[0]",
+                "print('cows', len(cows), c.type, c.can_breed, c.baby, c.health)",
+                "print('milk', c.use('bucket', store), store.count('milk_bucket'), store.count('bucket'))",
+                "print('breed', c.use('wheat', store), c.in_love, store.count('wheat'))",
+                "z = s.entities('husk')[0]",
+                "r = z.attack('iron_sword', store)",
+                "r2 = z.attack('iron_sword', store)",
+                "print('hit', r['attacked'], r['health'] <= 14.5, r2['health'] <= 8.5, store.count('iron_sword'))",
+                "print('orbs', [(e.type, e.value) for e in s.entities('experience_orb')])",
+                "p = s.collect([store, net.experience_interface()])",
+                "print('picked', p['items'], p['points'], store.count('cobblestone'), net.experience_interface().points)",
+                "t = s.entities('wandering_trader')[0]",
+                "o = t.offers()[0]",
+                "print('offer', o['buy']['item'], o['buy']['count'], o['sell']['item'], o['sell']['count'])",
+                "print('trade', t.trade(o, store, times=3), store.count('bread'), store.count('emerald'))",
+                "print('others', len(s.entities('-cow -item -experience_orb')))",
+                "s.entities('not_a_mob')")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> assertScreen(helper, computer, "near 0\n", "area 4 2\n", "cows 2 minecraft:cow True False 10.0\n",
+                "milk True 1 0\n", "breed True True 3\n", "hit minecraft:husk True True 1\n", "picked 5 7 5 7\n",
+                "offer minecraft:emerald 2 minecraft:bread 3\n", "trade 3 9 14\n", "others 2\n",
+                "There is no entity called 'not_a_mob'"));
     }
 
     private static void gameInterfaces(GameTestHelper helper) {

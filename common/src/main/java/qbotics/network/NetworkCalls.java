@@ -726,6 +726,8 @@ public final class NetworkCalls {
                 return Watches.poll(level, network, computerPos, args);
             case "watch_close":
                 return Watches.close(args);
+            case "sensor_area", "sensor_entities", "sensor_entity", "sensor_use", "sensor_attack", "sensor_offers", "sensor_trade", "sensor_collect":
+                return EntitySensorCalls.call(method, level, network, args);
             case "player_info", "chat_say", "chat_tell", "chat_command", "chat_listen", "command_run":
                 return GameInterfaceCalls.call(method, level, network, computerPos, args);
             case "look", "pin", "pin_set", "place", "pour", "break", "drop", "dropper_set", "drop_xp":
@@ -2159,6 +2161,11 @@ public final class NetworkCalls {
 
     /** The item for an ID such as "minecraft:coal"; "coal" alone means the same. */
     /** The item, or the filter of items, for what a program wrote: "minecraft:coal", "coal", "#minecraft:logs", "@create". */
+    /** A name or filter of a kind of entity: "cow", "#minecraft:undead", "@minecraft -player". */
+    static NameMatch<net.minecraft.world.entity.EntityType<?>> entityType(String text) {
+        return match(BuiltInRegistries.ENTITY_TYPE, text, "entity", "minecraft:cow");
+    }
+
     static NameMatch<Item> item(String id) {
         return match(BuiltInRegistries.ITEM, id, "item", "minecraft:iron_ingot");
     }
@@ -2261,6 +2268,9 @@ public final class NetworkCalls {
             JsonArray drives = new JsonArray();
             bay.mounted().keySet().forEach(drives::add);
             info.add("drives", drives);
+        } else if (device instanceof qbotics.block.EntitySensorBlockEntity sensor) {
+            info.addProperty("radius", sensor.radius());
+            info.addProperty("height", sensor.height());
         } else if (device instanceof qbotics.block.GameInterfaceBlockEntity game) {
             // Whose it is; a Player Interface also says whether they are online, and its slots.
             info.addProperty("player", game.ownerName(level.getServer()));

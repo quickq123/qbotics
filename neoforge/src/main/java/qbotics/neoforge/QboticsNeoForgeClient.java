@@ -55,6 +55,9 @@ public final class QboticsNeoForgeClient {
         // Qbots: drawn from their part models, stepping, turning and swinging.
         modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
                 event.registerBlockEntityRenderer(QboticsNeoForge.QBOT_BLOCK_ENTITY.get(), qbotics.client.QbotRenderer::new));
+        // The Entity Sensor's area, outlined while its screen's Show area is on.
+        modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
+                event.registerBlockEntityRenderer(QboticsNeoForge.ENTITY_SENSOR_BLOCK_ENTITY.get(), SensorAreaRenderer::new));
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) -> {
             event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new);
             event.register(QboticsNeoForge.FLUID_INTERFACE_MENU.get(), qbotics.client.FluidInterfaceScreen::new);
@@ -100,6 +103,7 @@ public final class QboticsNeoForgeClient {
             event.register(qbotics.net.TabletPayloads.Open.TYPE, (payload, context) -> qbotics.client.display.ClientTablets.onOpen(payload));
             event.register(qbotics.net.ProbePayloads.Info.TYPE, (payload, context) -> qbotics.client.ProbeScreen.show(payload));
             event.register(qbotics.net.XpPayloads.Info.TYPE, (payload, context) -> qbotics.client.XpScreen.show(payload));
+            event.register(qbotics.net.SensorPayloads.Info.TYPE, (payload, context) -> qbotics.client.SensorScreen.show(payload));
             event.register(qbotics.net.GitPayloads.OpenToken.TYPE, (payload, context) -> qbotics.client.GitTokenScreen.show(payload));
         });
     }

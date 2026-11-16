@@ -1212,6 +1212,19 @@ Decided by the project owner: two buses can be linked so that each end's face of
 - **Tunnel light** (decided by the project owner): two pixels at the middle of each edge of a bus's front plate, the sides facing out from its axis (the face itself is against the target). Off with no tunnel, amber while the other end can't be reached, green when connected. The server checks loaded tunnel ends once a second and tells players' games when one changes; the colour is a tint (sources 6-11 of the cable's tint list, after the six ring colours).
 - Not yet: tunnels between Qbots and buses.
 
+### 11.0.10 Entity Sensor (built 2026-11-16)
+
+Asked for by the project owner: a block that handles the entities in a box around it (radius each side and
+height up and down, 1 to 20, default 8), with a screen to size it and a Show area outline. EntitySensorBlock /
+EntitySensorBlockEntity; calls in EntitySensorCalls. Lists entities nearest first (a filter over entity types, in
+the item filter language), reads each kind's data, and acts as its owner's stand-in: use (interactOn holding one
+item from sources; results to a destination or back), attack (the weapon's attribute modifiers applied by hand and
+the cooldown charged from the sensor's last swing, since stand-ins are never ticked; full swings wait), trade
+(AbstractVillager offers; price checked and taken from sources, notifyTrade as the stand-in), and collect (items and
+orbs, which made a separate collector plate unnecessary). Recipe: eight cables around a sculk sensor.
+- Found on the way: a Qbot's attack has the same never-ticked stand-in, so after its first swing it hits at about a
+  fifth of its strength, and a weapon in its hand adds no damage. Not changed yet.
+
 ### 11.0.9 Dropper Plate (built 2026-11-16)
 
 Asked for by the project owner: a world plate (Kind.DROPPER) that sends items out of the system as a dropper
@@ -1928,6 +1941,7 @@ and work on their code.
 | 2026-11-12 | Tiers: no Advanced computer; the Laptop is the mid tier (1 MB); the Server is late game (2 MB, 8 MB drive, uplink and four drive sockets built in, `servers_per_player` 2). RAM (an integrated circuit in eight gold) is its memory part. Recipe `ASA/RLR/ADA` with raw ancient debris | Built 2026-11-12 (services and chunk loading to follow) |
 | 2026-11-12 | Shell scripts (`.sh`): one command a line, run from the script's folder, `#` comments, the first failure stops it; `echo`, `sleep`, `mkdir -p`, `/startup.sh` before `startup.py`. No variables or control flow (Python is for that). `sys.exit()` ends a program quietly (failure for a number or message); git's refusals are failures | Built 2026-11-12 |
 | 2026-11-12 | The Motherboard is renamed the Integrated Circuit (item `qbotics:integrated_circuit`); same recipe and uses. Old motherboards in a world are lost | Built 2026-11-12 |
+| 2026-11-16 | Entity Sensor (asked for by the project owner): a box of up to 41 x 41 x 41 around it, a screen with Show area; lists and reads entities, and as its owner uses items on them, attacks with weapons from storage at full strength, trades with villagers, and picks up drops and experience. §11.0.10 | Built 2026-11-16 |
 | 2026-11-16 | Dropper Plate (asked for by the project owner): a world plate shaped as a bus turned round, four cables around a dropper; `drop()` throws items out as a dropper, or with `dispense` set fires them through the game's own dispenser behaviours, giving back what a behaviour hands back. §11.0.9 | Built 2026-11-16 |
 | 2026-11-16 | Data filters (asked for by the project owner): enchant=, effect=, damaged, undamaged, enchanted, named; the game's item syntax in any word with [...]; contents(details=True) and the probe's Shift view give a stack's data and exact filter; matching="exact"; Filter objects with only/without and \| & ~. §11.0.8 | Built 2026-11-16 |
 | 2026-11-16 | Sorting (asked for by the project owner): item bus filters kept by the plate (names, and matching), honoured by moves, storages and tunnels, never on the way out; storages put each kind where a filter takes it before the overflow; `strays()`, `tidy()`; stacks topped up before empty slots. §11.0.8 | Built 2026-11-16 |

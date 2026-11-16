@@ -35,6 +35,12 @@ final class StandIn extends FakePlayer {
 
     private @Nullable MenuProvider offered;
 
+    /** Its swing, readied as if this many ticks had passed since the last (see QboticsPlatform.chargeAttack). */
+    void charge(int ticks) {
+        attackStrengthTicker = ticks;
+        itemSwapTicker = ticks;
+    }
+
     private StandIn(ServerLevel level, GameProfile profile) {
         super(level, profile);
     }

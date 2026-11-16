@@ -27,7 +27,9 @@ public interface NetworkDevice {
          * Game interfaces: a player's own inventory (as a bus on them), the server's chat, and
          * commands at a command block's level (that one has no recipe).
          */
-        PLAYER("player_interface"), CHAT("chat_interface"), COMMAND("command_interface");
+        PLAYER("player_interface"), CHAT("chat_interface"), COMMAND("command_interface"),
+        /** Sees the entities in a box around it and acts on them as its owner (docs/reference.md §6.12). */
+        ENTITY_SENSOR("entity_sensor");
 
         /** The word Python programs and messages use. */
         public final String word;
