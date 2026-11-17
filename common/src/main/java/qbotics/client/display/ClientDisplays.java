@@ -27,6 +27,10 @@ public final class ClientDisplays {
         public float scale;
         public char[][] text;
         public byte[][] colors;
+        /** Goes up whenever what it shows changes, so what was worked out for drawing it can be kept until then. */
+        public int version;
+        /** What drawing it came to last time (the renderer's own; see DisplayRenderer). */
+        public Object drawn;
 
         TextView(int cols, int rows, float scale) {
             this.cols = cols;
@@ -52,8 +56,22 @@ public final class ClientDisplays {
         public int cols;
         public int rows;
         public List<Widget> widgets = List.of();
+        /** Goes up whenever what it shows changes (see TextView.version). */
+        public int version;
+        public Object drawn;
         /** When each button was last pressed (by its count of presses), so it can flash. */
         final Map<Integer, long[]> flashes = new HashMap<>();
+
+        /** True while any button is in its flash: the panel looks different from one frame to the next. */
+        public boolean anyFlashing() {
+            long now = System.currentTimeMillis();
+            for (long[] seen : flashes.values()) {
+                if (now - seen[1] < 250) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         /** True for a short while after a button was pressed. */
         public boolean flashing(Widget widget) {
@@ -95,6 +113,7 @@ public final class ClientDisplays {
             VIEWS.put(origin, view);
         }
         view.scale = payload.scale();
+        view.version++;
         for (TextScreen.Row row : payload.lines()) {
             if (row.index() < 0 || row.index() >= view.rows) {
                 continue;
@@ -113,6 +132,7 @@ public final class ClientDisplays {
         ClientWebPanels.forget(origin);
         PanelView view = VIEWS.get(origin) instanceof PanelView had ? had : new PanelView();
         VIEWS.put(origin, view);
+        view.version++;
         try {
             JsonObject state = JsonParser.parseString(payload.json()).getAsJsonObject();
             view.cols = state.get("cols").getAsInt();

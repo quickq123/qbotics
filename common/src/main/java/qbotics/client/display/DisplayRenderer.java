@@ -114,11 +114,30 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         // y downwards from here, as on a screen (like a sign's text).
         poseStack.scale(sx, -sy, sx);
 
-        WorldCanvas canvas = new WorldCanvas(font, text ? 0 : 0.02f);
-        if (view instanceof ClientDisplays.TextView textView) {
-            DisplayDrawing.drawText(canvas, textView);
-        } else {
-            DisplayDrawing.drawPanel(canvas, (ClientDisplays.PanelView) view);
+        // What it comes to is worked out when it changes, not every frame: a monitor has thousands of
+        // letters, each measured and placed, and a panel's numbers are formatted and fitted.
+        Object mark = fontMark(font);
+        boolean still = net.minecraft.client.Minecraft.getInstance().getOverlay() == null
+                && !(view instanceof ClientDisplays.PanelView panel && panel.anyFlashing());
+        int version = view instanceof ClientDisplays.TextView t ? t.version : ((ClientDisplays.PanelView) view).version;
+        Object kept = view instanceof ClientDisplays.TextView t ? t.drawn : ((ClientDisplays.PanelView) view).drawn;
+        WorldCanvas canvas = kept instanceof WorldCanvas had && still && had.version == version && had.font == font && had.fontMark == mark ? had : null;
+        if (canvas == null) {
+            canvas = new WorldCanvas(font, text ? 0 : 0.02f);
+            if (view instanceof ClientDisplays.TextView textView) {
+                DisplayDrawing.drawText(canvas, textView);
+                canvas.glyphs = still && mark != null ? glyphs(canvas, font) : null;
+            } else {
+                DisplayDrawing.drawPanel(canvas, (ClientDisplays.PanelView) view);
+            }
+            canvas.version = version;
+            canvas.fontMark = mark;
+            Object keep = still ? canvas : null;
+            if (view instanceof ClientDisplays.TextView t) {
+                t.drawn = keep;
+            } else {
+                ((ClientDisplays.PanelView) view).drawn = keep;
+            }
         }
         List<WorldCanvas.Fill> fills = canvas.fills;
         collector.submitCustomGeometry(poseStack, RenderTypes.textBackground(), (pose, buffer) -> {
@@ -144,6 +163,22 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
             poseStack.popPose();
         }
         float textZ = canvas.layer + 0.1f;
+        if (canvas.glyphs != null) {
+            // A monitor's letters, as the game's own text drawing would send them, but prepared once.
+            poseStack.pushPose();
+            poseStack.translate(0, 0, textZ);
+            for (var sheet : canvas.glyphs.entrySet()) {
+                List<net.minecraft.client.gui.font.TextRenderable> letters = sheet.getValue();
+                collector.submitCustomGeometry(poseStack, sheet.getKey(), (pose, buffer) -> {
+                    for (net.minecraft.client.gui.font.TextRenderable letter : letters) {
+                        letter.render(pose.pose(), buffer, FULL_BRIGHT, false);
+                    }
+                });
+            }
+            poseStack.popPose();
+            poseStack.popPose();
+            return;
+        }
         for (WorldCanvas.Text t : canvas.texts) {
             poseStack.pushPose();
             poseStack.translate(t.x(), t.y(), textZ);
@@ -155,6 +190,57 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
             poseStack.popPose();
         }
         poseStack.popPose();
+    }
+
+    /**
+     * Something of the font that changes when its glyphs are made again (a resource reload, a
+     * font option): the texture its letter A is on. Kept letters are only good while it is the same.
+     */
+    private static @Nullable Object fontMark(Font font) {
+        Object[] found = new Object[1];
+        try {
+            font.prepareText("A", 0, 0, -1, false, 0).visit(new Font.GlyphVisitor() {
+                @Override
+                public void acceptGlyph(net.minecraft.client.gui.font.TextRenderable.Styled glyph) {
+                    found[0] = glyph.textureView();
+                }
+            });
+        } catch (RuntimeException e) {
+            return null;
+        }
+        return found[0];
+    }
+
+    /**
+     * A monitor's letters prepared as the game prepares text it is about to draw (Font.drawInBatch),
+     * each where it goes, grouped by the sheet they are drawn from; null if any is not plain (then
+     * the letters are sent one by one, as before).
+     */
+    private static java.util.@Nullable Map<net.minecraft.client.renderer.rendertype.RenderType, List<net.minecraft.client.gui.font.TextRenderable>> glyphs(
+            WorldCanvas canvas, Font font) {
+        java.util.Map<net.minecraft.client.renderer.rendertype.RenderType, List<net.minecraft.client.gui.font.TextRenderable>> sheets = new java.util.LinkedHashMap<>();
+        Font.GlyphVisitor gather = new Font.GlyphVisitor() {
+            @Override
+            public void acceptGlyph(net.minecraft.client.gui.font.TextRenderable.Styled glyph) {
+                sheets.computeIfAbsent(glyph.renderType(Font.DisplayMode.POLYGON_OFFSET), type -> new ArrayList<>()).add(glyph);
+            }
+
+            @Override
+            public void acceptEffect(net.minecraft.client.gui.font.TextRenderable effect) {
+                sheets.computeIfAbsent(effect.renderType(Font.DisplayMode.POLYGON_OFFSET), type -> new ArrayList<>()).add(effect);
+            }
+        };
+        try {
+            for (WorldCanvas.Text t : canvas.texts) {
+                if (t.size() != 1) {
+                    return null;
+                }
+                font.prepareText(FormattedCharSequence.forward(t.text(), Style.EMPTY), t.x(), t.y(), t.color(), false, false, 0).visit(gather);
+            }
+        } catch (RuntimeException e) {
+            return null;
+        }
+        return sheets;
     }
 
     /** A Web Panel's page: its picture over the whole face, and the item icons over that. */
@@ -209,6 +295,12 @@ public class DisplayRenderer implements BlockEntityRenderer<DisplayBlockEntity, 
         public void item(String id, int x, int y, int size) {
             items.add(new Item(id, x, y, size));
         }
+
+        /** For a canvas kept between frames: the view's version it was drawn from, and the font's mark then. */
+        int version;
+        @Nullable Object fontMark;
+        /** A monitor's letters, prepared (see glyphs()); null to send the texts one by one. */
+        java.util.@Nullable Map<net.minecraft.client.renderer.rendertype.RenderType, List<net.minecraft.client.gui.font.TextRenderable>> glyphs;
 
         final Font font;
         final List<Fill> fills = new ArrayList<>();
