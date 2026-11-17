@@ -626,8 +626,20 @@ public final class ComputerManager {
             case IdePayloads.FileRequest.DELETE:
                 ServerComputer.deleteTree(drive, path);
                 return none;
-            case IdePayloads.FileRequest.RENAME:
+            case IdePayloads.FileRequest.RENAME: {
+                // Renaming or dragging onto a name that is taken is refused: the file there would be lost unasked.
+                String target = new String(request.data(), java.nio.charset.StandardCharsets.UTF_8);
+                boolean taken = true;
+                try {
+                    drive.call(HostFileSystem.STAT, target, none);
+                } catch (HostFileSystem.FsException missing) {
+                    taken = false;
+                }
+                if (taken && !target.equals(path)) {
+                    throw new HostFileSystem.FsException(HostFileSystem.EEXIST);
+                }
                 return drive.call(HostFileSystem.RENAME, path, request.data());
+            }
             case IdePayloads.FileRequest.CREATE:
                 try {
                     drive.call(HostFileSystem.STAT, path, none);

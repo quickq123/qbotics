@@ -51,6 +51,8 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue TRANSPORT_ITEMS;
     private static final ModConfigSpec.IntValue TRANSPORT_FLUID;
     private static final ModConfigSpec.IntValue TRANSPORT_ENERGY;
+    private static final ModConfigSpec.BooleanValue SENSORS_READ_OTHERS;
+    private static final ModConfigSpec.BooleanValue SENSORS_ATTACK_PLAYERS;
 
     static {
         BUILDER.push("limits");
@@ -124,7 +126,7 @@ final class QboticsServerConfig {
         AI_URL = BUILDER.comment("Its OpenAI-style address, e.g. http://192.168.1.190:11435/v1 (llama.cpp, Ollama, LM Studio, vLLM, a hosted API).")
                 .define("url", "");
         AI_MODEL = BUILDER.comment("The model's name, as that server lists it.").define("model", "");
-        AI_KEY = BUILDER.comment("Its API key, if it needs one. Stays on the server.").define("key", "");
+        AI_KEY = BUILDER.comment("Its API key, if it needs one. Stays on the server: this file is never sent to players.").define("key", "");
         AI_THINKING = BUILDER.comment("How much it may think before answering: off, low, medium or high. Low is much quicker than high.")
                 .define("thinking", "low", o -> o instanceof String s && java.util.List.of("off", "low", "medium", "high").contains(s));
         AI_VISION = BUILDER.comment("true if the model can see pictures (\"@ai look\" sends the player's view).").define("vision", false);
@@ -161,6 +163,15 @@ final class QboticsServerConfig {
         TRANSPORT_ITEMS = BUILDER.defineInRange("items_per_second", 1024, 0, 1_000_000);
         TRANSPORT_FLUID = BUILDER.comment("In millibuckets.").defineInRange("fluid_per_second", 64_000, 0, 100_000_000);
         TRANSPORT_ENERGY = BUILDER.comment("In FE.").defineInRange("energy_per_second", 2_000_000, 0, Integer.MAX_VALUE);
+        BUILDER.pop();
+
+        BUILDER.push("sensors");
+        SENSORS_READ_OTHERS = BUILDER.comment("true: a Block Sensor's raw data (data=True) includes other players' computers, Qbots and",
+                "antennas: their owner, drive and password hash. For servers that teach security by letting players try to",
+                "break in. false: a sensor reads that data only from its own owner's devices.")
+                .define("read_other_players_computers", false);
+        SENSORS_ATTACK_PLAYERS = BUILDER.comment("true: an Entity Sensor's attack() may hit players (if the server allows PvP). false: it never does.")
+                .define("attack_players", false);
         BUILDER.pop();
     }
 
@@ -213,5 +224,7 @@ final class QboticsServerConfig {
         QboticsConfig.transportItemsPerSecond = TRANSPORT_ITEMS.get();
         QboticsConfig.transportFluidPerSecond = TRANSPORT_FLUID.get();
         QboticsConfig.transportEnergyPerSecond = TRANSPORT_ENERGY.get();
+        QboticsConfig.sensorsReadOtherPlayers = SENSORS_READ_OTHERS.get();
+        QboticsConfig.sensorsAttackPlayers = SENSORS_ATTACK_PLAYERS.get();
     }
 }

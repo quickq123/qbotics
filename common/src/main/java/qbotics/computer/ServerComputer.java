@@ -118,15 +118,16 @@ public final class ServerComputer {
      * runs that file held at its first line, so a program can be followed from its start.
      */
     public void step(@org.jspecify.annotations.Nullable String openFile) {
-        ServerComputer remote = sshRemote;
-        if (remote != null) {
-            remote.step(openFile);
-            return;
+        if (sshRemote != null) {
+            return; // the editor's files are this computer's: nothing of the other computer's is stepped from here
         }
         Computer current = vm;
         if (!running || current == null) {
-            if (openFile != null && openFile.endsWith(".py") && atShellPrompt) {
-                jobs.offer(new RunFile(openFile, false, true));
+            // Once: a second F8 before the first has started would run the file again afterwards.
+            long now = System.nanoTime();
+            if (openFile != null && openFile.endsWith(".py") && atShellPrompt && now - stepQueuedAt > 1_000_000_000L
+                    && jobs.offer(new RunFile(openFile, false, true))) {
+                stepQueuedAt = now;
             }
             return;
         }
@@ -195,7 +196,9 @@ public final class ServerComputer {
         } finally {
             programActive = false;
             computer.paused = false;
-            programStatus = !ended || stoppedByButton ? "Stopped" : ok ? "Finished" : "Error: " + lastLine();
+            // The error itself, not the hint the terminal printed under it.
+            String error = errorHints.lastError();
+            programStatus = !ended || stoppedByButton ? "Stopped" : ok ? "Finished" : "Error: " + (error != null ? error : lastLine());
             if (!shutDown) {
                 listener.programRunning(deviceId, false);
             }
@@ -963,6 +966,8 @@ public final class ServerComputer {
 
     /** True while this computer sits at its shell prompt, waiting for a command. */
     private volatile boolean atShellPrompt;
+    /** When F8 last queued a file to step from its start (System.nanoTime). */
+    private volatile long stepQueuedAt;
     /** The command running at the shell now ("run sorter.py", "python"), or null at the prompt; "program" for a Qbot's own. */
     private volatile String runningCommand;
     /** Whose lessons this computer's programs count for (qbotics.lesson): its block's owner, or a laptop's player. */
@@ -1151,6 +1156,8 @@ public final class ServerComputer {
                         }
                     } finally {
                         runningCommand = null;
+                        computer.stepping = false; // also when the file could not be opened at all
+                        computer.paused = false;
                     }
                 }
                 case Interrupt ignored -> terminal.write("^C\n");
@@ -1290,6 +1297,7 @@ public final class ServerComputer {
 
     private void runGuarded(Computer computer, Runnable body) {
         running = true;
+        errorHints.reset();
         computer.beginRun();
         try {
             body.run();
@@ -1300,6 +1308,9 @@ public final class ServerComputer {
             throw e;
         } finally {
             running = false;
+            // Stepping and pausing belong to the program that ended: the next one runs freely.
+            computer.stepping = false;
+            computer.paused = false;
             computer.forgetCalls();
             computer.stop = shutDown ? Computer.StopMode.HARD : Computer.StopMode.NONE;
             stopEvents(); // a program that has ended listens for nothing
@@ -1366,7 +1377,7 @@ public final class ServerComputer {
             if (stopper != null) {
                 stopper.cancel(false);
             }
-            computer.outputSink = terminal::write;
+            computer.outputSink = this::programOutput; // as newVm sets it: hints and the first lesson watch it
             computer.lineReader = this::readInputLine;
         }
         scratchAnswer(scratch, ok[0], output.toString());

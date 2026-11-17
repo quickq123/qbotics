@@ -1179,7 +1179,15 @@ static MP_NOINLINE void vm_trace(mp_code_state_t *cs, const byte *at) {
     step_line = line_no;
     step_at = at;
     if (fresh) {
-        mpy_stepping = host_line((int32_t)line_no);
+        int32_t more = host_line((int32_t)line_no);
+        if (more < 0) {
+            // Ctrl+C while it was held on this line: it stops here, before the line runs. (The
+            // budget's own check comes only at jumps, so straight-line code would run on to its end.)
+            mpy_stepping = 0;
+            cs->ip = at + 1; // where the error is raised, for the traceback and any "except"
+            mp_raise_type(&mp_type_KeyboardInterrupt);
+        }
+        mpy_stepping = more;
     }
 }
 

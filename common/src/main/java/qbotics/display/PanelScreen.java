@@ -120,10 +120,52 @@ public final class PanelScreen extends ScreenContent {
 
     /** Sets a widget's fields from what a program gave. */
     private void apply(Widget widget, JsonObject spec) {
+        // A change that is refused changes nothing: a widget left half set (its min above its max)
+        // would fail for the next player who touched it.
+        String label = widget.label;
+        String unit = widget.unit;
+        String item = widget.item;
+        int x = widget.x;
+        int y = widget.y;
+        int w = widget.w;
+        int h = widget.h;
+        int color = widget.color;
+        double min = widget.min;
+        double max = widget.max;
+        double step = widget.step;
+        double value = widget.value;
+        try {
+            applyFields(widget, spec);
+        } catch (RuntimeException e) {
+            widget.label = label;
+            widget.unit = unit;
+            widget.item = item;
+            widget.x = x;
+            widget.y = y;
+            widget.w = w;
+            widget.h = h;
+            widget.color = color;
+            widget.min = min;
+            widget.max = max;
+            widget.step = step;
+            widget.value = value;
+            throw e;
+        }
+    }
+
+    /** The longest label or unit a widget keeps (it has to fit a panel, and be sent to every player near). */
+    private static final int MOST_TEXT = 200;
+
+    private static String shortText(JsonElement value) {
+        String text = printable(value.isJsonNull() ? "" : value.getAsString()).replace('\n', ' ');
+        return text.length() > MOST_TEXT ? text.substring(0, MOST_TEXT) : text;
+    }
+
+    private void applyFields(Widget widget, JsonObject spec) {
         for (Map.Entry<String, JsonElement> entry : spec.entrySet()) {
             JsonElement value = entry.getValue();
             switch (entry.getKey()) {
-                case "label" -> widget.label = printable(value.isJsonNull() ? "" : value.getAsString()).replace('\n', ' ');
+                case "label" -> widget.label = shortText(value);
                 case "x" -> widget.x = value.getAsInt();
                 case "y" -> widget.y = value.getAsInt();
                 case "w" -> widget.w = Math.max(1, value.getAsInt());
@@ -132,7 +174,7 @@ public final class PanelScreen extends ScreenContent {
                 case "min" -> widget.min = value.getAsDouble();
                 case "max" -> widget.max = value.getAsDouble();
                 case "step" -> widget.step = Math.max(0, value.getAsDouble());
-                case "unit" -> widget.unit = printable(value.isJsonNull() ? "" : value.getAsString()).replace('\n', ' ');
+                case "unit" -> widget.unit = shortText(value);
                 case "item" -> {
                     String id = value.isJsonNull() ? "" : value.getAsString().strip();
                     if (id.length() > 100) {
@@ -177,6 +219,9 @@ public final class PanelScreen extends ScreenContent {
 
     /** A slider's value kept in its range, on its steps. */
     private static double snap(Widget widget, double value) {
+        if (!(widget.min <= widget.max)) {
+            return value; // never asked of a sound widget; a broken one must not stop the game
+        }
         double clamped = Math.clamp(value, widget.min, widget.max);
         if (widget.step > 0) {
             clamped = widget.min + Math.round((clamped - widget.min) / widget.step) * widget.step;

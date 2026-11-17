@@ -357,6 +357,8 @@ final class EntitySensorCalls {
         ServerPlayer player = standIn(level, sensor, entity);
         String wanted = NetworkCalls.string(args, 4);
         boolean withItem = args.size() > 3 && !args.get(3).isJsonNull();
+        // Before an item is taken: a destination that can't be used (its chest gone, its owner away) stops the call here.
+        List<ItemPort> into = destinations(level, network, args, 5);
         Taken taken = null;
         if (withItem) {
             taken = takeOne(level, network, args.get(3), wanted);
@@ -375,7 +377,6 @@ final class EntitySensorCalls {
         InteractionResult result = player.interactOn(entity, InteractionHand.MAIN_HAND, entity.position());
         boolean used = result.consumesAction();
         List<ItemStack> back = emptyHands(player);
-        List<ItemPort> into = destinations(level, network, args, 5);
         if (taken != null) {
             if (!used) {
                 into.addFirst(taken.from()); // nothing happened: the item goes back where it came from
@@ -401,10 +402,15 @@ final class EntitySensorCalls {
     private static JsonObject attack(ServerLevel level, CableNetwork network, EntitySensorBlockEntity sensor, JsonArray args) {
         NetworkCalls.transportCheck(level);
         Entity entity = find(level, sensor, args, 2);
+        if (entity instanceof net.minecraft.world.entity.player.Player && !qbotics.QboticsConfig.sensorsAttackPlayers) {
+            throw new CallError("An Entity Sensor doesn't attack players here (the server's sensors.attack_players setting is off).");
+        }
         ServerPlayer player = standIn(level, sensor, entity);
         boolean withWeapon = args.size() > 3 && !args.get(3).isJsonNull();
         String wanted = NetworkCalls.string(args, 4);
         boolean full = args.size() <= 6 || args.get(6).isJsonNull() || args.get(6).getAsBoolean();
+        // Before the weapon is taken: a destination that can't be used stops the call here.
+        List<ItemPort> into = destinations(level, network, args, 5);
         Taken weapon = null;
         if (withWeapon) {
             weapon = takeOne(level, network, args.get(3), wanted);
@@ -417,7 +423,6 @@ final class EntitySensorCalls {
         long now = level.getGameTime();
         int since = Swings.since(now, sensor.lastSwing());
         JsonObject answer = new JsonObject();
-        List<ItemPort> into = destinations(level, network, args, 5);
         if (weapon != null) {
             into.addFirst(weapon.from());
         }

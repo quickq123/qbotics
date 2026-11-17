@@ -139,6 +139,28 @@ final class IdeView {
     /** Lists the open folders again (the files changed outside the editor). */
     void reloadFiles() {
         loadFolder("/");
+        // Open files with nothing unsaved show what is on the drive now (a program, git or the AI
+        // helper wrote it). One being edited is left alone: its text is the player's.
+        for (Tab tab : session.tabs) {
+            if (tab.view == null || tab.view.buffer.isDirty()) {
+                continue;
+            }
+            CodeView shown = tab.view;
+            backend.file(FileRequest.READ, tab.path, new byte[0], (errno, data) -> {
+                if (errno != 0 || tab.view != shown || shown.buffer.isDirty()) {
+                    return;
+                }
+                TextBuffer fresh = new TextBuffer(new String(data, StandardCharsets.UTF_8));
+                if (fresh.text().equals(shown.buffer.text())) {
+                    return;
+                }
+                tab.view = new CodeView(fresh, Language.forFile(Paths.name(tab.path)), true);
+                tab.view.devices = () -> session.devices;
+                tab.view.compiler = backend;
+                tab.view.path = tab.path;
+                tab.revealLine = shown.buffer.cursorLine();
+            });
+        }
     }
 
     IdeSession session() {
@@ -146,10 +168,14 @@ final class IdeView {
     }
 
     /** Twenty times a second; only the cursor's blinking depends on it. */
+    private boolean askedDevices;
+
     void tick() {
         blink++;
-        // Every five seconds (and at once on opening): the devices on the network, for suggestions.
-        if (blink % 100 == 1 && !session.editOnly && !session.laptop) {
+        // Once, on opening: the devices on the network, for suggestions. (A network rarely changes
+        // while its computer is open; opening it again asks again.)
+        if (!askedDevices && !session.editOnly && !session.laptop) {
+            askedDevices = true;
             askDevices();
         }
     }
@@ -749,6 +775,10 @@ final class IdeView {
                 return;
             }
             backend.file(FileRequest.RENAME, node.path, target.getBytes(StandardCharsets.UTF_8), (errno, data) -> {
+                if (errno == HostFileSystem.EEXIST) {
+                    toast("There is already a " + Paths.name(target) + " here. Nothing was renamed.", true);
+                    return;
+                }
                 if (errno != 0) {
                     toast(describe(errno, node.path), true);
                     return;

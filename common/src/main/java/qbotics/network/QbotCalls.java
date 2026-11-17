@@ -652,11 +652,24 @@ final class QbotCalls {
         if (slot < 0) {
             throw new CallError("The Qbot holds no " + wanted + " to equip.");
         }
+        // What it holds must have somewhere to go first: room in the inventory, or the slot the new
+        // item leaves empty (a straight swap). Otherwise nothing changes.
+        ItemStack held = qbot.hand().getItem(0);
+        boolean swap = false;
+        if (!held.isEmpty() && qbot.itemPort().insert(held, held.getCount(), true) < held.getCount()) {
+            if (qbot.items().getItem(slot).getCount() > 1) {
+                throw new CallError("The Qbot's inventory has no room for the " + NetworkCalls.itemId(held.getItem())
+                        + " it holds, so it kept it. Free a slot, or unequip into a chest first.");
+            }
+            swap = true;
+        }
         ItemStack tool = qbot.items().removeItem(slot, 1);
         ItemStack was = qbot.hand().removeItemNoUpdate(0);
         qbot.hand().setItem(0, tool);
-        if (!was.isEmpty() && qbot.itemPort().insert(was, was.getCount(), false) < was.getCount()) {
-            qbot.items().setItem(slot, was); // the slot it came from is free again
+        if (swap) {
+            qbot.items().setItem(slot, was); // the slot the new item came from is empty
+        } else if (!was.isEmpty()) {
+            qbot.itemPort().insert(was, was.getCount(), false);
         }
         return toolInfo(tool);
     }

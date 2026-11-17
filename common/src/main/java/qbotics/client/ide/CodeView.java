@@ -176,10 +176,12 @@ final class CodeView {
         }
         problems = Checker.check(lines, Docs.moduleExports());
         boolean errors = problems.stream().anyMatch(p -> p.severity() == Checker.Severity.ERROR);
-        if (!errors && compiler != null && compiledVersion != version) {
+        byte[] code = buffer.text().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        // A file too long to send is not checked by the computer (sending it would drop the player from a server).
+        if (!errors && compiler != null && compiledVersion != version && code.length <= qbotics.net.IdePayloads.MAX_FILE_BYTES) {
             compiledVersion = version;
             compiler.file(qbotics.net.IdePayloads.FileRequest.CHECK, path,
-                    buffer.text().getBytes(java.nio.charset.StandardCharsets.UTF_8), (errno, data) -> {
+                    code, (errno, data) -> {
                         String answer = new String(data, java.nio.charset.StandardCharsets.UTF_8);
                         int tab = answer.indexOf('\t');
                         if (errno != 0 || tab < 0 || buffer.version() != version) {

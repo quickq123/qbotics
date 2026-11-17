@@ -169,6 +169,25 @@ public final class ErrorHints {
         /** Lines since a traceback began, or -1 when not in one. */
         private int inTraceback = -1;
         private int errorLine = -1;
+        private @Nullable String lastError;
+
+        /** A program is starting: nothing of the last one's output is remembered. */
+        public void reset() {
+            line.setLength(0);
+            inTraceback = -1;
+            errorLine = -1;
+            lastError = null;
+        }
+
+        /** The player typed a line (for input()): what follows starts a new line, whatever the prompt left unfinished. */
+        public void typed() {
+            line.setLength(0);
+        }
+
+        /** The error that ended the program's last traceback ("NameError: name 'x' isn't defined"), or null. */
+        public @Nullable String lastError() {
+            return lastError;
+        }
 
         /** Takes printed text; returns the hint to print after it, or null. */
         public @Nullable String accept(String text) {
@@ -206,13 +225,15 @@ public final class ErrorHints {
             if (file.find()) {
                 // The player's own files (/my/farm.py, or what was typed), not the game's modules (logistics.py).
                 if (file.group(1).startsWith("/") || file.group(1).equals("<stdin>")) {
-                    errorLine = Integer.parseInt(file.group(2));
+                    // Any number of digits can be printed; only a real line number is kept.
+                    errorLine = file.group(2).length() <= 7 ? Integer.parseInt(file.group(2)) : -1;
                 }
                 return null;
             }
             Matcher error = ERROR_LINE.matcher(done);
             if (error.find()) {
                 inTraceback = -1;
+                lastError = done.strip();
                 return hint(error.group(1), error.group(2) == null ? "" : error.group(2), errorLine);
             }
             return null;

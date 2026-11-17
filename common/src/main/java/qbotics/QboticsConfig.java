@@ -100,4 +100,8 @@ public final class QboticsConfig {
     public static volatile int transportFluidPerSecond = 64_000;
     /** Energy one antenna carries each second, in FE. */
     public static volatile int transportEnergyPerSecond = 2_000_000;
+    /** Whether a Block Sensor's raw data includes other players' computers (owner, drive, password hash). */
+    public static volatile boolean sensorsReadOtherPlayers = false;
+    /** Whether an Entity Sensor's attack() may hit players. */
+    public static volatile boolean sensorsAttackPlayers = false;
 }

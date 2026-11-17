@@ -245,19 +245,28 @@ final class WorldPlateCalls {
             throw new CallError("drop_xp() needs sources= holding experience: an Experience Interface, or liquid experience in a fluid store.");
         }
         long held = 0;
+        java.util.Set<String> counted = new java.util.HashSet<>();
         for (ScreenSessions.Payer payer : payers) {
-            held += payer.points();
+            if (counted.add(payer.label())) { // a source named twice holds its experience once
+                held += payer.points();
+            }
         }
         if (held < wanted) {
             throw new CallError("The sources hold " + held + " points of experience; " + wanted + " were asked for. Nothing was sent out.");
         }
+        // What each source really gave is counted (a source listed twice, or two buses on one tank,
+        // hold their experience once): only that much is sent out.
         long left = wanted;
         for (ScreenSessions.Payer payer : payers) {
-            long taken = Math.min(left, payer.points());
+            long before = payer.points();
+            long taken = Math.min(left, before);
             if (taken > 0) {
                 payer.take(taken);
-                left -= taken;
+                left -= Math.clamp(before - payer.points(), 0, taken);
             }
+        }
+        if (left > 0) {
+            wanted -= left;
         }
         net.minecraft.core.Position at = mouth(dropper);
         if (wanted > 0) {
@@ -356,12 +365,12 @@ final class WorldPlateCalls {
                 if (stack.isEmpty() || !own.test(stack) || (match == null ? !(stack.getItem() instanceof BlockItem) : !match.testStack(stack))) {
                     continue;
                 }
+                ServerPlayer player = standIn(level, placer); // before anything is taken: a plate with no owner takes nothing
                 if (port.extractFrom(slot, stack, 1, false) < 1) {
                     continue;
                 }
                 ItemStack one = stack.copyWithCount(1);
                 String name = NetworkCalls.itemId(one.getItem()); // before it is used up
-                ServerPlayer player = standIn(level, placer);
                 player.setItemInHand(InteractionHand.MAIN_HAND, one);
                 BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(target), placer.pointing().getOpposite(), target, false);
                 player.gameMode.useItemOn(player, level, one, InteractionHand.MAIN_HAND, hit);
@@ -468,34 +477,42 @@ final class WorldPlateCalls {
         if (!drops.stacks().isEmpty() && to.isEmpty()) {
             throw new CallError("Breaking " + blockId(state) + " gives items: give an interface or a bus as the destination.");
         }
-        // All or nothing: every drop goes in, or what went in is taken back out and the block stays.
-        record Put(ItemPort port, ItemStack like, int count) {
+        // All or nothing, asked before anything moves: a destination that takes items need not give them
+        // back (a composter, a machine's input side), so nothing is put in until every drop has room.
+        for (ItemStack drop : drops.stacks()) {
+            int fits = 0;
+            for (ItemPort port : to) {
+                if (fits >= drop.getCount()) {
+                    break;
+                }
+                fits += port.insert(drop, drop.getCount() - fits, true);
+            }
+            if (fits < drop.getCount()) {
+                throw new CallError("No room for " + (drop.getCount() - fits) + " " + NetworkCalls.itemId(drop.getItem()) + " from " + blockId(state)
+                        + ", so it was not broken. Every drop must have somewhere to go.");
+            }
         }
-        List<Put> done = new ArrayList<>();
         JsonObject got = new JsonObject();
+        List<ItemStack> spilled = new ArrayList<>();
         for (ItemStack drop : drops.stacks()) {
             int left = drop.getCount();
             for (ItemPort port : to) {
                 if (left <= 0) {
                     break;
                 }
-                int put = port.insert(drop, left, false);
-                if (put > 0) {
-                    done.add(new Put(port, drop, put));
-                    left -= put;
-                }
+                left -= port.insert(drop, left, false);
             }
             if (left > 0) {
-                for (Put put : done) {
-                    put.port().extract(put.like(), put.count(), false);
-                }
-                throw new CallError("No room for " + left + " " + NetworkCalls.itemId(drop.getItem()) + " from " + blockId(state)
-                        + ", so it was not broken. Every drop must have somewhere to go.");
+                // Two kinds of drop were each promised the same last space: the rest falls where the block was.
+                spilled.add(drop.copyWithCount(left));
             }
             String id = NetworkCalls.itemId(drop.getItem());
-            got.addProperty(id, (got.has(id) ? got.get(id).getAsInt() : 0) + drop.getCount());
+            got.addProperty(id, (got.has(id) ? got.get(id).getAsInt() : 0) + drop.getCount() - left);
         }
         WorldPlates.remove(level, breaker, state, drops.contents());
+        for (ItemStack stack : spilled) {
+            net.minecraft.world.level.block.Block.popResource(level, target, stack);
+        }
         JsonObject reply = new JsonObject();
         reply.addProperty("broke", blockId(state));
         reply.add("got", got);

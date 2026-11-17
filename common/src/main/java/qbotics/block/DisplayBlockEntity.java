@@ -218,7 +218,8 @@ public class DisplayBlockEntity extends DeviceBlockEntity {
         output.putInt("width", width);
         output.putInt("height", height);
         if (content != null) {
-            output.putString("screen", content.save().toString());
+            // In pieces: one saved text holds 65,535 bytes at most, and a big screen or a web page passes that.
+            output.store("screen_parts", com.mojang.serialization.Codec.STRING.listOf(), qbotics.display.Tablets.pieces(content.save().toString()));
         }
     }
 
@@ -229,15 +230,18 @@ public class DisplayBlockEntity extends DeviceBlockEntity {
         row = input.getIntOr("row", 0);
         width = Math.clamp(input.getIntOr("width", 1), 1, MAX_WIDTH);
         height = Math.clamp(input.getIntOr("height", 1), 1, MAX_HEIGHT);
-        String saved = input.getStringOr("screen", "");
+        String saved = input.read("screen_parts", com.mojang.serialization.Codec.STRING.listOf()).map(parts -> String.join("", parts))
+                .orElseGet(() -> input.getStringOr("screen", "")); // "screen": how it was saved before
         if (!saved.isEmpty() && content == null) {
             content = newContent();
+            // Its size first: loading fits what was saved to the size the screen has, and a screen of
+            // several blocks would otherwise keep only what fits on one.
+            content.resize(width, height);
             try {
                 content.load(JsonParser.parseString(saved).getAsJsonObject());
             } catch (RuntimeException e) {
                 qbotics.Qbotics.LOGGER.warn("A display's saved screen couldn't be read; it starts blank", e);
             }
-            content.resize(width, height);
         }
     }
 

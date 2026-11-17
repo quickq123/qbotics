@@ -129,18 +129,70 @@ public final class ClientAgent {
         if (!checking && now - checkedAt > 30_000) {
             checking = true;
             checkedAt = now;
-            String url = settings.url.replaceAll("/+$", "") + "/models";
-            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(4)).GET();
-            if (!settings.key.isEmpty()) {
-                request.header("Authorization", "Bearer " + settings.key);
-            }
-            // Any answer means the server is up (not every one lists its models there).
-            HTTP.sendAsync(request.build(), HttpResponse.BodyHandlers.discarding()).whenComplete((response, error) -> {
-                reachable = error == null;
+            if (badAddress(settings.url) != null) {
+                reachable = false; // a saved address that isn't one (this is asked while drawing: it must not throw)
                 checking = false;
-            });
+                return false;
+            }
+            try {
+                String url = settings.url.replaceAll("/+$", "") + "/models";
+                HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(4)).GET();
+                if (!settings.key.isEmpty()) {
+                    request.header("Authorization", "Bearer " + settings.key);
+                }
+                // Any answer means the server is up (not every one lists its models there).
+                HTTP.sendAsync(request.build(), HttpResponse.BodyHandlers.discarding()).whenComplete((response, error) -> {
+                    reachable = error == null;
+                    checking = false;
+                });
+            } catch (RuntimeException e) {
+                reachable = false;
+                checking = false;
+            }
         }
         return Boolean.TRUE.equals(reachable);
+    }
+
+    /** What is wrong with a model's address as typed, or null if it is one: http(s)://host[:port][/path]. */
+    public static @org.jspecify.annotations.Nullable String badAddress(String url) {
+        try {
+            URI uri = new URI(url.strip());
+            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(java.util.Locale.ROOT);
+            if (!scheme.equals("http") && !scheme.equals("https")) {
+                return "it must start with http:// or https://";
+            }
+            if (uri.getHost() == null || uri.getHost().isEmpty()) {
+                return "it names no computer after " + scheme + "://";
+            }
+            return null;
+        } catch (java.net.URISyntaxException e) {
+            return "it has a space or a character an address can't have";
+        }
+    }
+
+    /** /ai url: saved only if it is an address, then tried at once so the player hears whether anything answers. */
+    private static int setAddress(String typed) {
+        String url = typed.strip();
+        String wrong = badAddress(url);
+        if (wrong != null) {
+            say("\"" + url + "\" isn't a model's address: " + wrong + ". For example: /ai url http://localhost:11434/v1", ChatFormatting.RED);
+            return 0;
+        }
+        set(s -> s.url = url, "The model's address is now " + url + ". Trying it...");
+        checkedAt = 0;
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url.replaceAll("/+$", "") + "/models")).timeout(Duration.ofSeconds(4)).GET().build();
+            HTTP.sendAsync(request, HttpResponse.BodyHandlers.discarding()).whenComplete((response, error) -> Minecraft.getInstance().execute(() -> {
+                if (error == null) {
+                    say("Something answers at that address.", ChatFormatting.GRAY);
+                } else {
+                    say("Nothing answered at that address. It is saved; check that the model is running and the address is right.", ChatFormatting.YELLOW);
+                }
+            }));
+        } catch (RuntimeException e) {
+            say("That address couldn't be tried: " + e.getMessage(), ChatFormatting.YELLOW);
+        }
+        return 1;
     }
 
     /** A question from the editor: what it shows is the question; the model is also told what is open there. */
@@ -213,7 +265,7 @@ public final class ClientAgent {
         }));
         ai.then(Commands.literal("status").executes(c -> status()));
         ai.then(Commands.literal("url").then(Commands.argument("url", StringArgumentType.greedyString()).executes(c ->
-                set(s -> s.url = StringArgumentType.getString(c, "url").strip(), "The model's address is now " + StringArgumentType.getString(c, "url").strip()))));
+                setAddress(StringArgumentType.getString(c, "url")))));
         ai.then(Commands.literal("model").then(Commands.argument("name", StringArgumentType.greedyString()).executes(c ->
                 set(s -> s.model = StringArgumentType.getString(c, "name").strip(), "The model is now " + StringArgumentType.getString(c, "name").strip()))));
         ai.then(Commands.literal("key").then(Commands.argument("key", StringArgumentType.greedyString()).executes(c -> {
@@ -489,6 +541,9 @@ public final class ClientAgent {
         body.add("messages", messages);
         body.add("tools", tools(settings));
         body.addProperty("stream", false);
+        if (badAddress(settings.url) != null) {
+            throw new IllegalStateException("\"" + settings.url + "\" isn't a model's address (" + badAddress(settings.url) + "). Set it with /ai url");
+        }
         String url = settings.url.replaceAll("/+$", "") + "/chat/completions";
         HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofMinutes(5))
                 .header("Content-Type", "application/json")

@@ -498,6 +498,15 @@ public final class Computer {
                         if (stop == StopMode.HARD) {
                             throw new HardStop();
                         }
+                        if (stop == StopMode.POLITE && stepping) {
+                            // Ctrl+C while held on a step: the engine raises KeyboardInterrupt here, before
+                            // the line runs (its usual check comes only at jumps: a short program would finish first).
+                            stop = StopMode.NONE;
+                            stopsDelivered++;
+                            stepping = false;
+                            paused = false;
+                            return new long[] {-1};
+                        }
                         return new long[] {stepping ? 1 : 0};
                     }),
             new HostFunction("host", "wait", FunctionType.of(List.of(I32, I32, I32, I32), List.of(I32)),

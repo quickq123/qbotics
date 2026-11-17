@@ -374,7 +374,9 @@ public final class QboticsNeoForge {
 
     public QboticsNeoForge(IEventBus modBus, ModContainer container) {
         // The server settings (limits, boot queue, scheduler): config/qbotics-server.toml.
-        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.SERVER, QboticsServerConfig.SPEC);
+        // COMMON, not SERVER: NeoForge copies every SERVER settings file, whole, to each player who joins,
+        // and this one holds the server's AI key and addresses. The file's name and place are unchanged.
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, QboticsServerConfig.SPEC, "qbotics-server.toml");
         modBus.addListener((net.neoforged.fml.event.config.ModConfigEvent.Loading event) -> QboticsServerConfig.apply(event));
         modBus.addListener((net.neoforged.fml.event.config.ModConfigEvent.Reloading event) -> QboticsServerConfig.apply(event));
         QboticsContent.COMPUTER_BLOCK = COMPUTER;

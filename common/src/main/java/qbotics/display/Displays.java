@@ -335,9 +335,11 @@ public final class Displays {
             String text = element.has(field) && element.get(field).isJsonPrimitive() ? element.get(field).getAsString() : "";
             event.addProperty(field, text.length() > qbotics.web.WebInputs.MAX_AREA_LENGTH ? text.substring(0, qbotics.web.WebInputs.MAX_AREA_LENGTH) : text);
         }
-        String eventName = element.has("event") ? element.get("event").getAsString() : "";
+        // What a player's game sends is not trusted to have the right shape.
+        String eventName = element.has("event") && element.get("event").isJsonPrimitive() ? element.get("event").getAsString() : "";
         event.addProperty("event", eventName.isEmpty() ? event.get("id").getAsString() : eventName);
-        event.addProperty("enter", element.has("enter") && element.get("enter").getAsBoolean()); // Enter pressed in a text field
+        event.addProperty("enter", element.has("enter") && element.get("enter").isJsonPrimitive()
+                && element.get("enter").getAsBoolean()); // Enter pressed in a text field
         if (element.has("data") && element.get("data").isJsonPrimitive()) {
             // panel.send(name, data) from the page's script: the data, as JSON.
             try {

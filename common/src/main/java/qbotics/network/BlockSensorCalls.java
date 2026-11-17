@@ -49,7 +49,7 @@ final class BlockSensorCalls {
                 BlockPos pos = at(sensor, args, 2);
                 JsonObject info = describe(level, sensor, pos);
                 if (args.size() > 3 && !args.get(3).isJsonNull() && args.get(3).getAsBoolean()) {
-                    addData(level, pos, info);
+                    addData(level, sensor, pos, info);
                 }
                 yield info;
             }
@@ -159,10 +159,18 @@ final class BlockSensorCalls {
      * A block's own saved data (a spawner's mob, a beehive's bees, a modded machine's), in the
      * game's raw form, as "data"; null for a block without any. Read-only.
      */
-    private static void addData(ServerLevel level, BlockPos pos, JsonObject info) {
+    private static void addData(ServerLevel level, BlockSensorBlockEntity sensor, BlockPos pos, JsonObject info) {
         var entity = level.getBlockEntity(pos);
         if (entity == null) {
             info.add("data", JsonNull.INSTANCE);
+            return;
+        }
+        // A computer's, Qbot's or antenna's data holds its owner, its drive and its password's hash.
+        // Another player's is read only where the server says so (sensors.read_other_players_computers).
+        if (entity instanceof qbotics.limits.Limited device && !qbotics.QboticsConfig.sensorsReadOtherPlayers
+                && !java.util.Objects.equals(device.owner(), sensor.owner())) {
+            info.add("data", JsonNull.INSTANCE);
+            info.addProperty("data_private", true);
             return;
         }
         net.minecraft.nbt.CompoundTag tag = entity.saveWithoutMetadata(level.registryAccess());
@@ -372,11 +380,11 @@ final class BlockSensorCalls {
             throw new CallError("The spot is taken by " + blockId(there) + ".");
         }
         String wanted = NetworkCalls.string(args, 4);
+        ServerPlayer player = standIn(level, sensor); // before anything is taken: a sensor with no owner takes nothing
         EntitySensorCalls.Taken taken = EntitySensorCalls.takeOne(level, network, args.get(3), wanted);
         if (taken == null) {
             throw new CallError("The sources hold no " + (wanted == null ? "items" : wanted) + " to place.");
         }
-        ServerPlayer player = standIn(level, sensor);
         EntitySensorCalls.emptyHands(player);
         player.setItemInHand(InteractionHand.MAIN_HAND, taken.stack().copy());
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
@@ -401,6 +409,9 @@ final class BlockSensorCalls {
         BlockPos pos = at(sensor, args, 2);
         boolean withItem = args.size() > 3 && !args.get(3).isJsonNull();
         String wanted = NetworkCalls.string(args, 4);
+        // Before an item is taken: the owner, and where things go, must both be there.
+        ServerPlayer player = standIn(level, sensor);
+        List<ItemPort> into = EntitySensorCalls.destinations(level, network, args, 5);
         EntitySensorCalls.Taken taken = null;
         if (withItem) {
             taken = EntitySensorCalls.takeOne(level, network, args.get(3), wanted);
@@ -410,7 +421,6 @@ final class BlockSensorCalls {
         } else if (wanted != null) {
             throw new CallError("Say where the " + wanted + " comes from: use(pos, \"" + wanted + "\", sources).");
         }
-        ServerPlayer player = standIn(level, sensor);
         EntitySensorCalls.emptyHands(player);
         player.setItemInHand(InteractionHand.MAIN_HAND, taken == null ? ItemStack.EMPTY : taken.stack().copy());
         BlockState before = level.getBlockState(pos);
@@ -420,7 +430,6 @@ final class BlockSensorCalls {
             result = player.gameMode.useItem(player, level, player.getMainHandItem(), InteractionHand.MAIN_HAND); // a bucket on water, say
         }
         boolean used = result.consumesAction() || level.getBlockState(pos) != before;
-        List<ItemPort> into = EntitySensorCalls.destinations(level, network, args, 5);
         if (taken != null) {
             if (!used) {
                 into.addFirst(taken.from());

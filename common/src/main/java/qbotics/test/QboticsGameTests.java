@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -95,6 +95,9 @@ public final class QboticsGameTests {
             Map.entry("error_hints", QboticsGameTests::errorHints),
             Map.entry("device_names", QboticsGameTests::deviceNames),
             Map.entry("step_from_start", QboticsGameTests::stepFromStart),
+            Map.entry("stepping_ends", QboticsGameTests::steppingEnds),
+            Map.entry("qbot_equip", QboticsGameTests::qbotEquip),
+            Map.entry("review_fixes", QboticsGameTests::reviewFixes),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
@@ -4284,6 +4287,156 @@ public final class QboticsGameTests {
     }
 
     /**
+     * Stepping ends with its program: after F8 from the start and Ctrl+C at the first line, the
+     * next run goes straight through (it used to start held, with nothing said). And after a
+     * scratchpad run a program's mistake still gets its hint (the scratchpad used to take the
+     * program's output watcher away for good).
+     */
+    private static void steppingEnds(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/steps.py",
+                    "print('first')\nprint('second')\nprint('third')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/bad.py", "x = 1\nmvoe(x)\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        ServerComputer watched = computer;
+        helper.onEachTick(() -> watched.setWatched(true));
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            ServerComputer.Trace now = computer.trace();
+            String screen = screen(computer);
+            switch (step[0]) {
+                case 0 -> {
+                    if (screen.contains("/ $")) {
+                        computer.step("/steps.py"); // F8, nothing running
+                        computer.step("/steps.py"); // and again at once: it is queued only once
+                        step[0] = 1;
+                    }
+                    helper.fail("starting");
+                }
+                case 1 -> {
+                    helper.assertTrue(now.paused() && now.line() == 1, "held at line 1: " + now + "\n" + screen);
+                    computer.interrupt(); // Ctrl+C while held
+                    step[0] = 2;
+                    helper.fail("stopping");
+                }
+                case 2 -> {
+                    helper.assertTrue(screen.contains("KeyboardInterrupt"), "stopped: " + screen);
+                    computer.submitScratch(UUID.randomUUID(), 1, "print('from the scratchpad')");
+                    computer.submitLine("run /steps.py");
+                    computer.submitLine("run /bad.py");
+                    computer.submitLine("echo all done");
+                    step[0] = 3;
+                    helper.fail("running again");
+                }
+                default -> {
+                    assertScreen(helper, computer, "first\n", "second\n", "third\n", "Hint: Python doesn't know `mvoe` on line 2", "all done");
+                    helper.assertTrue(screen.indexOf("[stepping:") == screen.lastIndexOf("[stepping:"), "stepped from the start only once: " + screen);
+                }
+            }
+        });
+    }
+
+    /**
+     * A Qbot equips only when what it holds has somewhere to go: with a full inventory, a torch
+     * from a stack of 64 is refused and nothing changes (it used to overwrite the other 63); a
+     * single stick swaps places with the sword.
+     */
+    private static void qbotEquip(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 1, 1);
+        helper.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(at, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        for (int slot = 0; slot < qbot.items().getContainerSize(); slot++) {
+            qbot.items().setItem(slot, new ItemStack(Items.COBBLESTONE, 64));
+        }
+        qbot.items().setItem(3, new ItemStack(Items.TORCH, 64));
+        qbot.items().setItem(4, new ItemStack(Items.STICK, 1));
+        qbot.hand().setItem(0, new ItemStack(Items.IRON_SWORD));
+        ServerComputer bot = ComputerManager.get(helper.getLevel().getServer()).getOrStart(qbot);
+        try {
+            bot.drive().call(qbotics.engine.HostFileSystem.WRITE, "/equip.py", String.join("\n",
+                    "import qbot",
+                    "try:",
+                    "    qbot.tools.equip('torch')",
+                    "except Exception as e:",
+                    "    print('refused:', e)",
+                    "qbot.tools.equip('stick')",
+                    "print('swapped')",
+                    "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        bot.submitLine("run /equip.py");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, bot, "refused: The Qbot's inventory has no room for the minecraft:iron_sword", "swapped\n");
+            helper.assertTrue(qbot.items().getItem(3).is(Items.TORCH) && qbot.items().getItem(3).getCount() == 64,
+                    "the torches are all still there: " + qbot.items().getItem(3));
+            helper.assertTrue(qbot.hand().getItem(0).is(Items.STICK), "it holds the stick: " + qbot.hand().getItem(0));
+            helper.assertTrue(qbot.items().getItem(4).is(Items.IRON_SWORD), "the sword took the stick's slot: " + qbot.items().getItem(4));
+        });
+    }
+
+    /**
+     * Smaller fixes from the November 2026 review, each checked on its own: setting an antenna's
+     * access isn't a look-only call; a refused widget change leaves the widget as it was (and a
+     * click on it doesn't throw); a monitor of several blocks loads all its text when sized
+     * first; long saved text goes in pieces the game can save; an error after an input() prompt
+     * still gets its hint, any printed line number is survived, and the error itself is kept.
+     */
+    private static void reviewFixes(GameTestHelper helper) {
+        helper.assertTrue(qbotics.engine.LookOnly.refusal("[\"access\", \"public\"]") != null, "setting access is a change, not a look");
+        helper.assertTrue(qbotics.engine.LookOnly.refusal("[\"radio\"]") == null, "reading the radio is still a look");
+
+        qbotics.display.PanelScreen panel = new qbotics.display.PanelScreen();
+        panel.resize(2, 2);
+        com.google.gson.JsonArray add = com.google.gson.JsonParser.parseString(
+                "[{\"type\": \"slider\", \"label\": \"Speed\", \"min\": 0, \"max\": 100, \"x\": 0, \"y\": 0, \"w\": 4, \"h\": 1}]").getAsJsonArray();
+        int id = panel.op("add", add).getAsInt();
+        boolean refused = false;
+        try {
+            panel.op("set", com.google.gson.JsonParser.parseString("[" + id + ", {\"label\": \"Changed\", \"min\": 200}]").getAsJsonArray());
+        } catch (IllegalArgumentException e) {
+            refused = true;
+        }
+        String state = panel.state().toString();
+        helper.assertTrue(refused && state.contains("Speed") && !state.contains("Changed"), "a refused change changes nothing: " + state);
+        panel.click(0.5, 0.5); // must not throw
+        panel.op("set", com.google.gson.JsonParser.parseString("[" + id + ", {\"label\": \"" + "x".repeat(5000) + "\"}]").getAsJsonArray());
+        helper.assertTrue(panel.state().toString().length() < 2000, "a label is kept short");
+
+        qbotics.display.TextScreen big = new qbotics.display.TextScreen();
+        big.resize(4, 3);
+        for (int i = 0; i < 20; i++) {
+            com.google.gson.JsonArray line = new com.google.gson.JsonArray();
+            line.add("row " + i + " " + "=".repeat(40) + " end");
+            big.op("print", line);
+        }
+        com.google.gson.JsonObject saved = big.save();
+        qbotics.display.TextScreen loaded = new qbotics.display.TextScreen();
+        loaded.resize(4, 3); // as a display block does now, before loading
+        loaded.load(saved);
+        helper.assertTrue(saved.get("cols").getAsInt() > 15 && loaded.save().get("text").equals(saved.get("text")),
+                "a 4x3 monitor loads all its text");
+
+        String longText = "aé中".repeat(40_000);
+        List<String> pieces = qbotics.display.Tablets.pieces(longText);
+        helper.assertTrue(String.join("", pieces).equals(longText) && pieces.stream().allMatch(p -> p.length() <= 20_000),
+                "long text is saved in pieces that join back");
+
+        qbotics.computer.ErrorHints.Watcher watcher = new qbotics.computer.ErrorHints.Watcher();
+        watcher.accept("How many? ");
+        watcher.typed();
+        String hint = watcher.accept("Traceback (most recent call last):\n  File \"/a.py\", line 99999999999999\nNameError: name 'mvoe' isn't defined\n");
+        helper.assertTrue(hint != null && "NameError: name 'mvoe' isn't defined".equals(watcher.lastError()), "hint after a prompt: " + hint);
+        watcher.reset();
+        helper.assertTrue(watcher.lastError() == null, "a new program starts with no error remembered");
+        helper.succeed();
+    }
+
+    /**
      * What the AI helper reads about other mods (its mod_docs tool): language lines that explain
      * (a tooltip, an information page) but not bare names, a Patchouli entry translated and with
      * its formatting codes taken out, found by the words of a question; and the loaded mods.
@@ -5186,12 +5339,15 @@ public final class QboticsGameTests {
                 "print('none', d.drop('diamond', sources=store))",
                 "bank = net.experience_interface()",
                 "print('xp', d.drop_xp(levels=30, sources=bank), bank.points)",
+                "d.drop_xp(points=1000, sources=[bank, bank])", // named twice, it still holds its 605 once
+                "print('still', bank.points)",
                 "d.drop_xp(points=1000, sources=bank)")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "mode False dropper\n", "thrown 16 4\n", "fired 2 2 True\n", "meal 0 3\n",
-                    "once 3 True\n", "none 0\n", "xp 1395 605\n", "The sources hold 605 points of experience; 1000 were asked for.");
+                    "once 3 True\n", "none 0\n", "xp 1395 605\n", "The sources hold 605 points of experience; 1000 were asked for.",
+                    "still 605\n", "The sources hold 605 points of experience; 1000 were asked for.");
             net.minecraft.world.phys.AABB around = new net.minecraft.world.phys.AABB(helper.absolutePos(new BlockPos(1, 1, 0))).inflate(12);
             List<net.minecraft.world.entity.item.ItemEntity> thrown = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around);
             int cobble = thrown.stream().filter(e -> e.getItem().is(Items.COBBLESTONE)).mapToInt(e -> e.getItem().getCount()).sum();

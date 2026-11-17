@@ -48,12 +48,28 @@ public final class Tablets extends SavedData {
     public static final int WIDTH = 3;
     public static final int HEIGHT = 2;
     /** Networks one tablet may be paired with. */
-    public static final int MAX_APPS = 8;
+    public static final int MAX_APPS = 10;
     /** A tablet nobody has carried for this long (real time) is forgotten: its screens and pairings. */
     private static final long FORGET_AFTER_MS = 30L * 24 * 3600 * 1000;
     public static final String[] KINDS = {"monitor", "panel", "web_panel"};
 
-    private static final Codec<Tablets> CODEC = Codec.STRING.xmap(Tablets::fromJson, Tablets::toJson);
+    /**
+     * In pieces: the game saves a piece of text of at most 65,535 bytes, and silently saves
+     * nothing at all for a longer one, which every tablet's screens together soon are. Worlds
+     * saved as one text (before this) still load.
+     */
+    private static final Codec<Tablets> CODEC = Codec.withAlternative(
+            Codec.STRING.listOf().xmap(parts -> String.join("", parts), qbotics.display.Tablets::pieces), Codec.STRING)
+            .xmap(Tablets::fromJson, Tablets::toJson);
+
+    /** A long text as pieces the game can save (a character takes up to three bytes saved). */
+    public static java.util.List<String> pieces(String text) {
+        java.util.List<String> parts = new ArrayList<>();
+        for (int at = 0; at < text.length(); at += 20_000) {
+            parts.add(text.substring(at, Math.min(text.length(), at + 20_000)));
+        }
+        return parts;
+    }
     // No data fixer: this data is the mod's own.
     static final SavedDataType<Tablets> TYPE = new SavedDataType<>(Qbotics.id("tablets"), Tablets::new, CODEC, null);
 
@@ -223,12 +239,17 @@ public final class Tablets extends SavedData {
     /** Unpairs the tablet from this network (or Qbot) if it was paired. True if it was. */
     private boolean unpair(ServerPlayer player, ItemStack stack, UUID key) {
         Tablet tablet = of(stack);
+        int index = -1;
         for (Iterator<App> it = tablet.apps.iterator(); it.hasNext(); ) {
             App app = it.next();
+            index++;
             if (app.antenna.equals(key)) {
                 it.remove();
                 app.content.markGone();
                 byKey.remove(app.key);
+                if (index < tablet.selected) {
+                    tablet.selected--; // the tab that was showing still shows
+                }
                 tablet.selected = Math.clamp(tablet.selected, 0, Math.max(0, tablet.apps.size() - 1));
                 setDirty();
                 player.sendOverlayMessage(Component.translatable("message.qbotics.tablet.unpaired", app.label()));
@@ -241,9 +262,11 @@ public final class Tablets extends SavedData {
     /** A new tab for a network (by its antenna's ID) or a Qbot (by its ID). */
     private void add(ServerPlayer player, ItemStack stack, UUID key, String label, String hint) {
         Tablet tablet = of(stack);
-        if (tablet.apps.size() >= MAX_APPS) {
-            player.sendOverlayMessage(Component.translatable("message.qbotics.tablet.full", MAX_APPS));
-            return;
+        while (tablet.apps.size() >= MAX_APPS) {
+            // Full: the new pairing takes the place of the oldest.
+            App oldest = tablet.apps.removeFirst();
+            oldest.content.markGone();
+            byKey.remove(oldest.key);
         }
         App app = new App(tablet, key, label);
         app.content = blank("monitor");

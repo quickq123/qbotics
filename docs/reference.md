@@ -40,7 +40,11 @@ drive. The folder it would go to is outlined while you drag; resting on a closed
 moment opens it, and dragging near the top or bottom scrolls the list. Open tabs follow what was
 moved. It won't replace a file of the same name there, or put a folder inside itself. A click
 without moving still opens a file or a folder. Right-click a file or folder for **Rename** and
-**Delete**.
+**Delete**. Renaming to a name that is already taken there is refused too: nothing is replaced.
+
+An open file with nothing unsaved follows the drive: if a program, `git pull` or the AI helper
+changes it, the tab shows the new text. A file you are in the middle of editing is left as you
+have it.
 
 ### 1.0 Crafting: screens and the computer
 
@@ -199,6 +203,9 @@ still moving, a `time.sleep`), the marked line is the one that called it.
   says `[paused at line N of /file.py]`. Ctrl+Z again carries on.
 - **F8 with nothing running** starts the file open in the editor, held at its first line,
   before it has done anything (`[stepping: ...]` in the terminal); then each F8 runs one line.
+  **Ctrl+C** while it is held stops it there, before that line runs. Stepping ends with the
+  program: whatever runs next runs normally. F8 does nothing while the terminal is in an `ssh`
+  session (the editor's files are this computer's).
 - **F8** steps: the program runs to the next line of your code and holds there. A loop's lines
   come round again each turn, and stepping goes into your own functions. F8 while it runs
   stops it at the next line. Ctrl+Z carries on at full speed.
@@ -2162,7 +2169,8 @@ Infinite Antenna.
 | **Delete**, twice, in the tablet's view | Unpairs the tab showing, without going back to its antenna or Qbot: the first press asks ("Press Delete again to unpair ..."), a second within 3 seconds unpairs. While a page's text field is being typed in, Delete goes to the field |
 | Hold it | The selected tab's screen shows on the tablet in your hand, live |
 
-**Tabs, not fights.** Each network a tablet is paired with (up to 8) has a screen of its own on
+**Tabs, not fights.** Each network a tablet is paired with (up to 10; pairing an eleventh takes
+the place of the oldest) has a screen of its own on
 it: a tab. A network's programs only ever draw on their own tab, and you pick which tab shows.
 Programs on one network share its tab, as they share a Control Panel.
 
@@ -2306,7 +2314,7 @@ they would for a player. (Efficiency doesn't speed it up yet.)
 
 | Call | Does |
 |---|---|
-| `tools.equip(item)` | Takes the item from its inventory into its hand (what was there goes back) |
+| `tools.equip(item)` | Takes one of the item from its inventory into its hand; what was there goes back into the inventory. If the inventory has no room for it, the two swap places when the item was the only one in its slot, and otherwise `equip` raises an error and nothing changes |
 | `tools.unequip()` | Puts it back into the inventory |
 | `tools.equipped()` | `{"item", "damage", "max_damage"}`, or `None` |
 
@@ -3106,7 +3114,7 @@ even across restarts, until someone opens it again.
 | `ssh_gateway.all_computers` | false | `true`: a logged-in player reaches every computer, not only their own |
 | `ai.enabled` | true | `false`: the in-game AI agent can't look at or change anything (section 7j) |
 | `ai.share_replies` | false | `true`: everyone sees every question asked of the agent, and its answer (for classes) |
-| `ai.url`, `ai.model`, `ai.key` | "" | A model this server offers every player (section 7j); the key stays on the server |
+| `ai.url`, `ai.model`, `ai.key` | "" | A model this server offers every player (section 7j); the key stays on the server (this file is never sent to players) |
 | `ai.thinking` | low | How much the server's model may think: off, low, medium, high |
 | `ai.vision` | false | `true` if the server's model can see pictures |
 | `ai.requests_per_minute` | 30 | Calls to the server's model a minute, per player |
@@ -3126,6 +3134,8 @@ even across restarts, until someone opens it again.
 | `transport.items_per_second` | 1024 | Items one antenna carries to and from other networks each second |
 | `transport.fluid_per_second` | 64000 | The same for fluid, in mB |
 | `transport.energy_per_second` | 2000000 | The same for energy, in FE |
+| `sensors.read_other_players_computers` | false | `true`: a Block Sensor's raw data (`details=True`) includes other players' computers, Qbots and antennas, with their owner, drive and password hash (for servers that teach security by letting players try to break in). `false`: a sensor reads that data only from its own owner's devices; for others `"data"` is `None` and `"data_private"` is `True` |
+| `sensors.attack_players` | false | `true`: an Entity Sensor's `attack()` may hit players (where the server allows PvP). `false`: it raises an error instead |
 
 ## 9c. Hard drives and the Drive Bay: moving files between computers
 
