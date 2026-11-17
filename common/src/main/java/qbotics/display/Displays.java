@@ -247,6 +247,8 @@ public final class Displays {
             Map<UUID, Sent> sent = entry.getValue();
             BlockPos pos = display.getBlockPos();
             Set<UUID> near = new HashSet<>();
+            // What is sent is made once for each version players are coming from, not once a player.
+            Map<Long, net.minecraft.network.protocol.common.custom.CustomPacketPayload> made = null;
             for (ServerPlayer player : level.players()) {
                 if (player.blockPosition().distSqr(pos) > SEND_RANGE * SEND_RANGE) {
                     continue;
@@ -269,7 +271,10 @@ public final class Displays {
                     }
                     pageAt = now;
                 }
-                Qbotics.platform().sendToPlayer(player, payload(pos, content, full ? 0 : had.version()));
+                if (made == null) {
+                    made = new HashMap<>();
+                }
+                Qbotics.platform().sendToPlayer(player, made.computeIfAbsent(full ? 0 : had.version(), since -> payload(pos, content, since)));
                 sent.put(player.getUUID(), new Sent(content, shape, version, pageAt));
             }
             sent.keySet().retainAll(near); // coming back later, a player gets it all again

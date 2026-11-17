@@ -167,6 +167,8 @@ public final class Computer {
     private static final long WAIT_NANOS = 1_000_000_000L;
     /** The thread running this computer's program, while it waits (to be woken). */
     private volatile Thread waiter;
+    /** The answers that already wake it when they come (each is told to once). Its own thread's. */
+    private final java.util.Set<CompletableFuture<String>> hooked = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
 
     /** Its stop, paused or held setting changed (or a call was answered): a waiting program looks again now. */
     public void wake() {
@@ -562,7 +564,9 @@ public final class Computer {
         try {
             // Waits until it is answered, the time is up, or it is woken to stop (Ctrl+C ends a long wait, such as one for a message).
             waiting();
-            if (mustBlock) {
+            // Once for an answer, however often it is waited for: a program waiting on events comes back to
+            // the same unanswered call each time one of its timers is due.
+            if (mustBlock && hooked.add(future)) {
                 future.whenComplete((answer, error) -> wake());
             }
             long end = timeoutMs < 0 ? Long.MAX_VALUE : System.nanoTime() + timeoutMs * 1_000_000L;

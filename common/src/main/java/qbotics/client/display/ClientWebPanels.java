@@ -56,6 +56,8 @@ public final class ClientWebPanels {
         String html = "";
         /** Whether the page has a script (worked out when it arrives, not each time it is asked). */
         boolean scripted;
+        /** A picture has been made of the page as it is loaded now (the worker's). */
+        volatile boolean painted;
         String state = "{}";
         /** Something changed since the last picture was asked for that needs a new layout. */
         boolean dirty = true;
@@ -171,6 +173,7 @@ public final class ClientWebPanels {
         view.page = null;
         view.script = null;
         view.scriptGeneration = -1;
+        view.painted = false;
     }
 
     public static @Nullable WebView view(BlockPos origin) {
@@ -320,6 +323,7 @@ public final class ClientWebPanels {
             return;
         }
         boolean relayout = view.dirty || view.page == null;
+        boolean asked = view.repaint; // the drawing changed (hover, scrolling), though not the page
         view.busy = true;
         view.dirty = false;
         view.repaint = false;
@@ -342,8 +346,10 @@ public final class ClientWebPanels {
                     view.page = new WebPage(url -> imageSize(view, url));
                 }
                 boolean layout = relayout;
+                boolean canvases = true;
+                boolean scripted = WebScript.hasScripts(html);
                 String source;
-                if (WebScript.hasScripts(html)) {
+                if (scripted) {
                     // The page's scripts own the page: they start with it, hear the state and the player, and change it.
                     if (view.script == null || view.scriptGeneration != generation) {
                         view.script = new WebScript(hooks(view));
@@ -359,7 +365,7 @@ public final class ClientWebPanels {
                         action.accept(view.script);
                     }
                     layout |= view.script.takeHtmlChanged();
-                    view.script.takeCanvasesChanged();
+                    canvases = view.script.takeCanvasesChanged();
                     source = view.script.html();
                     next = view.script.next();
                 } else {
@@ -382,7 +388,13 @@ public final class ClientWebPanels {
                     view.contentHeight = view.page.layout(width, height);
                 }
                 shownScroll = Math.clamp(scroll, 0, Math.max(0, view.contentHeight - height));
-                image = toNative(WebPainter.paint(view.page, shownScroll, scale, url -> image(view, url), overlays));
+                // A script's timer that changed neither the page nor a canvas leaves the picture as it is:
+                // nothing is painted, copied or sent to the graphics card (a page with a clock ticking
+                // did all three, twenty times a second, for a picture that came out the same).
+                if (layout || asked || canvases || !scripted || !view.painted) {
+                    image = toNative(WebPainter.paint(view.page, shownScroll, scale, url -> image(view, url), overlays));
+                    view.painted = true;
+                }
             } catch (RuntimeException e) {
                 Qbotics.LOGGER.warn("A web panel's page couldn't be drawn", e);
             }
@@ -397,11 +409,14 @@ public final class ClientWebPanels {
                 if (view.scrollY == scroll) {
                     view.scrollY = clamped; // a page that got shorter scrolls back
                 }
-                NativeImage old = view.ready;
-                view.ready = made;
-                view.readyOverlays = overlays;
-                if (old != null) {
-                    old.close();
+                if (made != null) {
+                    // (With no new picture, one made before and not yet shown stays to be shown.)
+                    NativeImage old = view.ready;
+                    view.ready = made;
+                    view.readyOverlays = overlays;
+                    if (old != null) {
+                        old.close();
+                    }
                 }
                 schedule(view); // anything that changed meanwhile
             });
@@ -507,13 +522,27 @@ public final class ClientWebPanels {
             return;
         }
         lastSweep = now;
-        for (Iterator<WebView> it = VIEWS.values().iterator(); it.hasNext(); ) {
-            WebView view = it.next();
-            if (now - view.lastSeen > FORGET_MS && !view.busy) {
+        for (WebView view : VIEWS.values()) {
+            if (now - view.lastSeen > FORGET_MS && !view.busy && (view.textureId != null || view.page != null || view.ready != null)) {
+                // Its picture, page and script go (the memory); what it was sent stays, so it is made
+                // again when someone looks. (It used to be forgotten whole, and stayed blank until the
+                // server happened to send its page again.)
                 release(view);
-                it.remove();
+                view.dirty = true;
             }
         }
+    }
+
+    static {
+        // Every few seconds, whether or not a panel is on screen: after walking away from a base, or
+        // leaving the world, nothing was being drawn to notice that its panels could let go.
+        TICKER.scheduleWithFixedDelay(() -> Minecraft.getInstance().execute(() -> {
+            if (!VIEWS.isEmpty()) {
+                sameLevel();
+                lastSweep = 0;
+                sweep();
+            }
+        }), 5, 5, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     // ---- touching, typing, scrolling ------------------------------------------------------------

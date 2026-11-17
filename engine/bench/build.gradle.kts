@@ -52,6 +52,7 @@ sourceSets.main {
 
 dependencies {
     implementation("org.jspecify:jspecify:1.0.0")
+    implementation("com.google.code.gson:gson:2.11.0") // qbotics/engine/LookOnly reads calls as JSON
 }
 
 // JavaScript speed: ./gradlew -q jsbench (design doc §10.3).
