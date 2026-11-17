@@ -146,7 +146,7 @@ public class DisplayBlock extends BaseEntityBlock {
         super.setPlacedBy(level, pos, state, placer, stack);
         if (level instanceof ServerLevel serverLevel && level.getBlockEntity(pos) instanceof DisplayBlockEntity display) {
             display.onPlaced(placer instanceof Player player ? player.getUUID() : null);
-            qbotics.network.CableNetwork.changed();
+            qbotics.network.CableNetwork.changed(pos);
         }
     }
 

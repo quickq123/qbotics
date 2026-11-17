@@ -113,7 +113,7 @@ public class DriveBayBlockEntity extends DeviceBlockEntity implements MenuProvid
         if (level != null) {
             Containers.dropContents(level, pos, drives);
         }
-        CableNetwork.changed();
+        CableNetwork.changed(pos);
     }
 
     @Override

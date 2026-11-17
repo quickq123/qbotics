@@ -73,7 +73,7 @@ public class AntennaBlockEntity extends DeviceBlockEntity implements qbotics.lim
         if (bricked != value) {
             bricked = value;
             setChanged();
-            qbotics.network.CableNetwork.changed();
+            qbotics.network.CableNetwork.changed(getBlockPos());
         }
     }
 

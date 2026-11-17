@@ -149,7 +149,7 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
     /** For kinds of computer with a block entity of their own (the Qbot). */
     protected ComputerBlockEntity(net.minecraft.world.level.block.entity.BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
-        CableNetwork.changed();
+        CableNetwork.changed(pos);
     }
 
     /**
@@ -184,7 +184,7 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
         }
         bricked = value;
         setChanged();
-        CableNetwork.changed(); // a bricked computer is not on its network
+        CableNetwork.changed(getBlockPos()); // a bricked computer is not on its network
         if (level != null && getBlockState().hasProperty(ComputerBlock.ACTIVE)) {
             level.setBlock(getBlockPos(), getBlockState().setValue(ComputerBlock.ACTIVE, !value), net.minecraft.world.level.block.Block.UPDATE_ALL);
         }
@@ -293,7 +293,7 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
     @Override
     public void setRemoved() {
         super.setRemoved();
-        CableNetwork.changed();
+        CableNetwork.changed(getBlockPos());
     }
 
     @Override

@@ -134,7 +134,7 @@ public class DisplayBlockEntity extends DeviceBlockEntity {
             if (level != null && !level.isClientSide()) {
                 level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
             }
-            qbotics.network.CableNetwork.changed();
+            qbotics.network.CableNetwork.changed(getBlockPos());
         }
     }
 

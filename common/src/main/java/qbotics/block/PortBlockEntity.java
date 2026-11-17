@@ -114,7 +114,7 @@ public class PortBlockEntity extends BlockEntity {
     public void setRemoved() {
         super.setRemoved();
         if (!ports.isEmpty()) {
-            CableNetwork.changed(); // its plates leave the network (an unloaded chunk, say)
+            CableNetwork.changed(getBlockPos()); // its plates leave the network (an unloaded chunk, say)
         }
     }
 
@@ -197,7 +197,7 @@ public class PortBlockEntity extends BlockEntity {
         }
         lookChanged();
         if (!ports.isEmpty()) {
-            CableNetwork.changed(); // plates coming in with a loaded chunk join the network
+            CableNetwork.changed(getBlockPos()); // plates coming in with a loaded chunk join the network
         }
         // In a player's game the plates' colours come from this, so the block is drawn again.
         if (level != null && level.isClientSide()) {

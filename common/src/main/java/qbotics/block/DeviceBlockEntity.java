@@ -31,7 +31,7 @@ public abstract class DeviceBlockEntity extends BlockEntity implements NetworkDe
 
     protected DeviceBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
-        CableNetwork.changed();
+        CableNetwork.changed(pos);
     }
 
     public void onPlaced(@Nullable UUID placedBy) {
@@ -108,7 +108,7 @@ public abstract class DeviceBlockEntity extends BlockEntity implements NetworkDe
     @Override
     public void setRemoved() {
         super.setRemoved();
-        CableNetwork.changed();
+        CableNetwork.changed(getBlockPos());
     }
 
     @Override

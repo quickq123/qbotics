@@ -594,6 +594,18 @@ public final class QboticsNeoForge {
             net.minecraft.server.MinecraftServer started = event.getServer();
             qbotics.agent.ServerModel.test(() -> started.execute(() -> qbotics.agent.ServerModel.tellEveryone(started)));
         });
+        // A chunk loading or unloading can lengthen or shorten a network that runs to its edge (plain cables
+        // have no block entity to say so themselves).
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Load event) -> {
+            if (event.getLevel() instanceof ServerLevel) {
+                qbotics.network.CableNetwork.chunkChanged(event.getChunk().getPos().x(), event.getChunk().getPos().z());
+            }
+        });
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Unload event) -> {
+            if (event.getLevel() instanceof ServerLevel) {
+                qbotics.network.CableNetwork.chunkChanged(event.getChunk().getPos().x(), event.getChunk().getPos().z());
+            }
+        });
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> {
             qbotics.gateway.SshGateway.stop();
             ComputerManager.shutDown(event.getServer());

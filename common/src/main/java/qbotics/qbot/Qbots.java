@@ -87,7 +87,9 @@ public final class Qbots {
         level.sendBlockUpdated(to, state, state, Block.UPDATE_CLIENTS);
         ComputerManager.get(level.getServer()).moved(arrived.deviceId(), level.dimension(), to);
         qbotics.upgrade.ChunkLoaders.moved(level, from, to);
-        CableNetwork.changed();
+        // Only the networks it left and joined (a Qbot walking a field touches none).
+        CableNetwork.changed(from);
+        CableNetwork.changed(to);
         return arrived;
     }
 

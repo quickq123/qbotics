@@ -249,13 +249,13 @@ public class CableBlock extends Block implements EntityBlock {
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        CableNetwork.changed();
+        CableNetwork.changed(pos);
     }
 
     @Override
     protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {
         super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
-        CableNetwork.changed();
+        CableNetwork.changed(pos);
     }
 
     // ---- plates --------------------------------------------------------------------------
@@ -289,7 +289,7 @@ public class CableBlock extends Block implements EntityBlock {
         CablePort port = host.add(direction, kind, medium);
         BlockState changed = withConnections(level, pos, state);
         level.setBlock(pos, changed, Block.UPDATE_ALL);
-        CableNetwork.changed();
+        CableNetwork.changed(pos);
         if (kind == NetworkDevice.Kind.PIN) {
             WorldPlates.sense(level, port); // what it sees now is where it starts counting from
             // Redstone dust beside it may now join to it.
@@ -318,7 +318,7 @@ public class CableBlock extends Block implements EntityBlock {
         BlockState changed = withConnections(level, pos, state);
         level.setBlock(pos, changed, Block.UPDATE_ALL);
         level.sendBlockUpdated(pos, state, changed, Block.UPDATE_ALL);
-        CableNetwork.changed();
+        CableNetwork.changed(pos);
         if (pin) {
             // Its signal is gone, and redstone dust that joined to it lets go.
             level.updateNeighborsAt(pos, changed.getBlock(), null);

@@ -18,5 +18,6 @@ abstract class ServerLevelBlockChangeMixin {
     @Inject(method = "updatePOIOnBlockStateChange", at = @At("HEAD"))
     private void qbotics$blockChanged(BlockPos pos, BlockState oldState, BlockState newState, CallbackInfo info) {
         BlockSensorBlockEntity.blockChanged((ServerLevel) (Object) this, pos, oldState, newState);
+        qbotics.network.CableNetwork.blockChanged((ServerLevel) (Object) this, pos, oldState, newState);
     }
 }
