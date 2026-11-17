@@ -92,14 +92,54 @@ final class IdeSession {
     boolean tracePaused;
 
     // Explorer
-    final Node root = new Node("/", "", true, 0);
-    final Set<String> expanded = new HashSet<>(Set.of("/"));
+    Node root = new Node("/", "", true, 0);
+    Set<String> expanded = new HashSet<>(Set.of("/"));
     String selectedPath = "/";
     int explorerScroll;
 
     // Editor
-    final List<Tab> tabs = new ArrayList<>();
+    List<Tab> tabs = new ArrayList<>();
     int activeTab = -1;
+
+    /**
+     * Whose files the explorer and tabs show: this computer's (its own ID), or during an ssh
+     * session the computer logged in to. filesLabel is then that computer's name, else null.
+     */
+    UUID filesOf;
+    String filesLabel;
+
+    /** The files, tabs (with unsaved edits) and folders of each computer not shown now, to come back to. */
+    private record Workspace(Node root, Set<String> expanded, String selectedPath, int explorerScroll, List<Tab> tabs, int activeTab,
+            java.util.List<qbotics.ide.Completer.Device> devices) {
+    }
+
+    private final Map<UUID, Workspace> putAside = new HashMap<>();
+
+    /** Shows another computer's files (or this one's again). Returns false if they are already shown. */
+    boolean showFilesOf(UUID computer, String label) {
+        if (computer.equals(filesOf)) {
+            filesLabel = label;
+            return false;
+        }
+        putAside.put(filesOf, new Workspace(root, expanded, selectedPath, explorerScroll, tabs, activeTab, devices));
+        Workspace back = putAside.remove(computer);
+        if (back == null) {
+            back = new Workspace(new Node("/", "", true, 0), new HashSet<>(Set.of("/")), "/", 0, new ArrayList<>(), -1, java.util.List.of());
+        }
+        root = back.root();
+        expanded = back.expanded();
+        selectedPath = back.selectedPath();
+        explorerScroll = back.explorerScroll();
+        tabs = back.tabs();
+        activeTab = back.activeTab();
+        devices = back.devices();
+        traceFile = "";
+        traceLine = 0;
+        tracePaused = false;
+        filesOf = computer;
+        filesLabel = label;
+        return true;
+    }
 
     // Terminal: the screen comes from the server; the line being typed is local.
     List<String> terminalLines = List.of();
@@ -185,6 +225,7 @@ final class IdeSession {
 
     private IdeSession(UUID deviceId) {
         this.deviceId = deviceId;
+        this.filesOf = deviceId;
     }
 
     Tab active() {

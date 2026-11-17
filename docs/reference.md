@@ -87,7 +87,7 @@ The Text Monitor takes an LCD Screen and the Control Panel an LED Screen (sectio
 | `items <word>` | Finds items: a word, a `*pattern*`, a `#tag` or an `@mod` (`--json`) |
 | `craft <item> [count]` | On a Qbot (through `ssh`): crafts from what it carries (section 7d.3a). `craft [count]` alone crafts what is laid out in its grid |
 | `devices <external IP>` | Lists the devices behind another antenna |
-| `ssh <name or address>` | Uses another computer's terminal from this one (section 7.4). `exit` returns |
+| `ssh <name or address>` | Uses another computer from this one, its terminal and its files in the editor (section 7.4). `exit` returns |
 | `settings` | Opens this computer's settings page (section 1.5) |
 | `pip` | Installs libraries from a hard drive, on this network or another (section 9d) |
 | `shutdown` | Switches this computer off; it stays off, even across restarts, until opened again (section 9b) |
@@ -1778,9 +1778,14 @@ integrated circuit; gold nuggets either side of an enchanted book with Silk Touc
 / $ ssh 100.64.0.12:1005
 ```
 
-Typed in a computer's terminal, `ssh` turns that terminal into the other computer's: what you
-type runs there and its screen is shown here. `exit` (or `logout`) at the other computer's
-prompt ends the session. Ctrl+C stops the program running there.
+Typed in a computer's terminal, `ssh` turns this computer's screen into the other computer's,
+as a laptop connected to a Qbot does: what you type runs there and its screen is shown here,
+and the **editor shows its files**. Saving changes them there; Run (F5) runs them there, and
+F8 steps through them there. `exit` (or `logout`) at the other computer's prompt ends the
+session. Ctrl+C stops the program running there, and Ctrl+Z pauses it.
+
+This is how to program a Qbot from a distance: `ssh miner`, open `startup.py`, change it, save,
+and Run.
 
 Two things decide whether you get in:
 
@@ -1793,7 +1798,10 @@ Things to know:
 
 - Who you are is decided by who owns the computer you are typing at.
 - The other computer is switched on if it wasn't. It shows a notice when someone logs in.
-- The files and the editor stay this computer's. Only the terminal is the other one's.
+- While logged in, the title bar says so (`Computer → ssh miner`), and **Settings** opens the
+  other computer's settings page (only its owner can change them). This computer's open files
+  are put aside, unsaved changes and all, and come back when you `exit`.
+- The Python Scratchpad still runs on this computer, so it waits until you `exit`.
 - The link is checked each time you enter a line. If an antenna has been retuned, moved out
   of range or made private, the session ends.
 - A password is visible while you type it, though it isn't written to the terminal afterwards.
@@ -2287,7 +2295,8 @@ selects everything), then **Ctrl+C** or **Copy selected**. With nothing selected
 - A Programmer that installs a program on a Qbot also starts it.
 - A Qbot whose program was running when its area unloaded (or the world closed) starts it
   again, from the top, when it loads.
-- `ssh` from a computer still reaches a Qbot's shell (section 7.4).
+- `ssh` from a computer (or a laptop's terminal) reaches a Qbot from a distance: its terminal,
+  and its files in the editor, as a laptop right-clicked on it gives you up close (section 7.4).
 
 
 | | Iron Qbot |

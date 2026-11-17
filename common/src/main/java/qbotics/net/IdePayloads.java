@@ -29,7 +29,7 @@ public final class IdePayloads {
      * @param requestId echoed in the response so the client can match them up
      * @param data      the bytes to write for WRITE; the new path (UTF-8) for RENAME
      */
-    public record FileRequest(UUID deviceId, int requestId, byte op, String path, byte[] data) implements CustomPacketPayload {
+    public record FileRequest(UUID deviceId, UUID filesOf, int requestId, byte op, String path, byte[] data) implements CustomPacketPayload {
         public static final byte LIST = 1;
         public static final byte READ = 2;
         public static final byte WRITE = 3;
@@ -50,6 +50,7 @@ public final class IdePayloads {
         public static final Type<FileRequest> TYPE = new Type<>(Qbotics.id("ide_file_request"));
         public static final StreamCodec<ByteBuf, FileRequest> STREAM_CODEC = StreamCodec.composite(
                 UUIDUtil.STREAM_CODEC, FileRequest::deviceId,
+                UUIDUtil.STREAM_CODEC, FileRequest::filesOf,
                 ByteBufCodecs.VAR_INT, FileRequest::requestId,
                 ByteBufCodecs.BYTE, FileRequest::op,
                 ByteBufCodecs.stringUtf8(MAX_PATH_LENGTH), FileRequest::path,
@@ -129,6 +130,24 @@ public final class IdePayloads {
 
         @Override
         public Type<OpenEditor> type() {
+            return TYPE;
+        }
+    }
+
+    /**
+     * Server to client: whose files a computer's editor shows. Its own (filesOf is its own ID,
+     * label ""), or during an ssh session the computer logged in to, as its label ("miner").
+     */
+    public record EditingFiles(UUID deviceId, UUID filesOf, String label) implements CustomPacketPayload {
+        public static final Type<EditingFiles> TYPE = new Type<>(Qbotics.id("ide_editing_files"));
+        public static final StreamCodec<ByteBuf, EditingFiles> STREAM_CODEC = StreamCodec.composite(
+                UUIDUtil.STREAM_CODEC, EditingFiles::deviceId,
+                UUIDUtil.STREAM_CODEC, EditingFiles::filesOf,
+                ByteBufCodecs.stringUtf8(128), EditingFiles::label,
+                EditingFiles::new);
+
+        @Override
+        public Type<EditingFiles> type() {
             return TYPE;
         }
     }

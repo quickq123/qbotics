@@ -163,6 +163,15 @@ final class IdeView {
         }
     }
 
+    /** An ssh session began or ended: the explorer and tabs are now another computer's. */
+    void filesSwitched() {
+        menu = null;
+        dialog = null;
+        askedDevices = false; // the other computer's network, for suggestions
+        reloadFiles();
+        toast(session.filesLabel == null ? "Back to this computer's files." : "Editing " + session.filesLabel + "'s files over ssh. exit returns.", false);
+    }
+
     IdeSession session() {
         return session;
     }
@@ -174,7 +183,7 @@ final class IdeView {
         blink++;
         // Once, on opening: the devices on the network, for suggestions. (A network rarely changes
         // while its computer is open; opening it again asks again.)
-        if (!askedDevices && !session.editOnly && !session.laptop) {
+        if (!askedDevices && !session.editOnly && (!session.laptop || session.filesLabel != null)) {
             askedDevices = true;
             askDevices();
         }
@@ -320,8 +329,13 @@ final class IdeView {
         ui.fill(0, 0, viewWidth, TITLE_H, Ui.BAR_BG);
         ui.text("QBOTICS", 6, 4, Ui.TEXT_BRIGHT);
         int computerX = 6 + ui.textWidth("QBOTICS") + 6;
-        ui.text(session.title, computerX, 4, Ui.TEXT_DIM);
-        if (session.laptop) {
+        String title = session.filesLabel == null ? session.title : session.title + " \u2192 ssh " + session.filesLabel;
+        ui.text(title, computerX, 4, session.filesLabel == null ? Ui.TEXT_DIM : Ui.TEXT_BRIGHT);
+        if (session.filesLabel != null) {
+            // Logged in to another computer: its files, its Run, its settings page.
+            button(ui, computerX + ui.textWidth(title) + 8, 1, TITLE_H - 2, "Settings", false, true, Ui.BAR_BG,
+                    () -> openFile(ComputerSettings.PATH));
+        } else if (session.laptop) {
             ui.text("Your laptop: ssh 100.64.0.12:1005 reaches a computer or Qbot", computerX + ui.textWidth(session.title) + 12, 4, Ui.TEXT_DIM);
         } else if (!session.editOnly) {
             // This computer's settings page opens in the editor, like any other file.
@@ -1202,6 +1216,13 @@ final class IdeView {
                 "",
                 "Each folder can be a program: what goes onto a computer.",
                 "programs.txt picks one per redstone level, as in \"3: miner\" and \"*: basic\".",
+            };
+        } else if (session.filesLabel != null) {
+            lines = new String[] {
+                "Logged in to " + session.filesLabel + " over ssh: these are its files.",
+                "Saving changes them there, and Run runs them there.",
+                "",
+                "Type exit in the terminal to come back to this computer's files.",
             };
         } else {
             lines = new String[] {

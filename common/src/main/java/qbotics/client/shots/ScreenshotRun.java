@@ -473,6 +473,8 @@ public final class ScreenshotRun {
         section("computer");
         then(80, minecraft -> onServer(minecraft, player -> {
             if (player.level().getBlockEntity(base.offset(6, 0, -4)) instanceof ComputerBlockEntity computer) {
+                BlockPos at = computer.getBlockPos();
+                player.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 2.5); // within reach: a screen out of reach stops updating
                 ComputerManager.get(player.level().getServer()).openTerminal(player, computer);
             }
         }));

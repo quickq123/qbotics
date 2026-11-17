@@ -33,6 +33,10 @@ public class IdeScreen extends Screen implements IdeView.Host {
     }
 
     /** Lists the open folders again (the files changed outside the editor). */
+    void filesSwitched() {
+        view.filesSwitched();
+    }
+
     void reloadFiles() {
         view.reloadFiles();
     }

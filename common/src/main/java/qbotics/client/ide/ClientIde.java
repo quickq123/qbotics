@@ -85,6 +85,19 @@ public final class ClientIde {
         }
     }
 
+    /**
+     * Whose files a computer's editor shows: during an ssh session, the computer logged in to
+     * (its tabs and folders are put aside meanwhile, unsaved edits and all, and come back after).
+     */
+    public static void onEditingFiles(IdePayloads.EditingFiles editing) {
+        IdeSession session = IdeSession.of(editing.deviceId());
+        boolean own = editing.filesOf().equals(editing.deviceId());
+        if (session.showFilesOf(editing.filesOf(), own ? null : editing.label())
+                && Minecraft.getInstance().screen instanceof IdeScreen screen && screen.session() == session) {
+            screen.filesSwitched();
+        }
+    }
+
     /** The computer's files changed from the shell or a program: the explorer looks again. */
     public static void onFilesChanged(IdePayloads.FilesChanged changed) {
         if (Minecraft.getInstance().screen instanceof IdeScreen screen && screen.session().deviceId.equals(changed.deviceId())) {
@@ -118,7 +131,7 @@ public final class ClientIde {
         public void file(byte op, String path, byte[] data, FileCallback callback) {
             int id = nextId++;
             files.put(id, callback);
-            Qbotics.platform().sendToServer(new IdePayloads.FileRequest(deviceId, id, op, path, data));
+            Qbotics.platform().sendToServer(new IdePayloads.FileRequest(deviceId, IdeSession.of(deviceId).filesOf, id, op, path, data));
         }
 
         @Override

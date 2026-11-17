@@ -353,6 +353,7 @@ public final class ComputerManager {
         UUID id = computer.deviceId();
         lastOpened.put(player.getUUID(), id);
         viewers.put(player.getUUID(), new Viewing(id, player.level().dimension(), player.blockPosition()));
+        Qbotics.platform().sendToPlayer(player, editing(computer));
         Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(id, true, computer.asShown(computer.shownTerminal().full())));
     }
 
@@ -549,8 +550,9 @@ public final class ComputerManager {
         public void openInEditor(UUID deviceId, String path) {
             outbox.add(server -> viewers.forEach((playerId, viewing) -> {
                 ServerPlayer target = server.getPlayerList().getPlayer(playerId);
-                if (target != null && viewing.deviceId().equals(deviceId)) {
-                    Qbotics.platform().sendToPlayer(target, new IdePayloads.OpenFile(deviceId, path));
+                ServerComputer open = computers.get(viewing.deviceId());
+                if (target != null && open != null && open.editTarget().deviceId().equals(deviceId)) {
+                    Qbotics.platform().sendToPlayer(target, new IdePayloads.OpenFile(viewing.deviceId(), path));
                 }
             }));
         }
@@ -577,11 +579,17 @@ public final class ComputerManager {
      * thread; the answer is sent from the server thread on a later tick.
      */
     public void onFileRequest(ServerPlayer player, IdePayloads.FileRequest request) {
-        ServerComputer computer = viewedComputer(player, request.deviceId());
+        ServerComputer viewed = viewedComputer(player, request.deviceId());
         UUID playerId = player.getUUID();
+        // During an ssh session the editor works on the computer logged in to.
+        ServerComputer computer = viewed == null ? null : viewed.editTarget();
+        if (computer != null && !computer.deviceId().equals(request.filesOf())) {
+            reply(playerId, request, HostFileSystem.EACCES, new byte[0]); // asked of the drive it showed before a session began or ended
+            return;
+        }
         if (request.op() == IdePayloads.FileRequest.DEVICES) {
             // On the server thread: what is on the computer's cables now. A laptop has none.
-            Viewing at = computer == null ? null : places.get(request.deviceId());
+            Viewing at = computer == null ? null : places.get(computer.deviceId());
             String listed = "[]";
             if (at != null) {
                 com.google.gson.JsonObject reply = com.google.gson.JsonParser.parseString(qbotics.network.NetworkCalls.handle(
@@ -624,18 +632,20 @@ public final class ComputerManager {
         }
         if (ComputerSettings.covers(request.path())) {
             // The settings page isn't on the drive: it is written from, and applied to, the computer itself.
-            Viewing viewing = viewers.get(playerId);
+            Viewing viewing = places.get(computer.deviceId());
             boolean page = request.path().equals(ComputerSettings.PATH);
-            if (!page || !(player.level().getBlockEntity(viewing.pos()) instanceof qbotics.block.ComputerBlockEntity block)) {
+            net.minecraft.server.level.ServerLevel blockLevel = viewing == null ? null : player.level().getServer().getLevel(viewing.dimension());
+            if (!page || blockLevel == null || !blockLevel.isLoaded(viewing.pos())
+                    || !(blockLevel.getBlockEntity(viewing.pos()) instanceof qbotics.block.ComputerBlockEntity block)) {
                 reply(playerId, request, HostFileSystem.EACCES, new byte[0]);
             } else if (request.op() == IdePayloads.FileRequest.READ) {
-                reply(playerId, request, 0, ComputerSettings.read(player.level(), block).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                reply(playerId, request, 0, ComputerSettings.read(blockLevel, block).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             } else if (request.op() == IdePayloads.FileRequest.WRITE) {
                 // Its settings (who may open it, its password) are its owner's to change, not a guest's.
                 boolean owners = block.owner() == null || block.owner().equals(player.getUUID())
                         || player.level().getServer().getPlayerList().isOp(player.nameAndId());
                 String problem = !owners ? "Only this computer's owner changes its settings."
-                        : ComputerSettings.write(player.level(), block, new String(request.data(), java.nio.charset.StandardCharsets.UTF_8));
+                        : ComputerSettings.write(blockLevel, block, new String(request.data(), java.nio.charset.StandardCharsets.UTF_8));
                 // A refusal carries its reason, which the editor shows.
                 reply(playerId, request, problem == null ? 0 : HostFileSystem.EINVAL,
                         problem == null ? new byte[0] : problem.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -723,7 +733,13 @@ public final class ComputerManager {
         ServerComputer computer = getOrStart(block);
         lastOpened.put(player.getUUID(), deviceId);
         viewers.put(player.getUUID(), new Viewing(deviceId, player.level().dimension(), block.getBlockPos()));
+        Qbotics.platform().sendToPlayer(player, editing(computer));
         Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(deviceId, true, computer.asShown(computer.shownTerminal().full())));
+    }
+
+    /** Which files a computer's editor shows: its own, or during an ssh session the other computer's. */
+    private static IdePayloads.EditingFiles editing(ServerComputer computer) {
+        return new IdePayloads.EditingFiles(computer.deviceId(), computer.editTarget().deviceId(), computer.editLabel());
     }
 
     /**
@@ -778,6 +794,10 @@ public final class ComputerManager {
         java.util.Set<UUID> open = new java.util.HashSet<>();
         for (Viewing viewing : viewers.values()) {
             open.add(viewing.deviceId());
+            ServerComputer viewed = computers.get(viewing.deviceId());
+            if (viewed != null) {
+                open.add(viewed.editTarget().deviceId()); // logged in to over ssh: its editor is open here
+            }
         }
         for (Map.Entry<UUID, ServerComputer> entry : computers.entrySet()) {
             entry.getValue().setWatched(open.contains(entry.getKey()));
@@ -789,7 +809,7 @@ public final class ComputerManager {
             if (computer == null || player == null) {
                 continue;
             }
-            ServerComputer.Trace now = computer.trace();
+            ServerComputer.Trace now = computer.editTarget().trace();
             if (!now.equals(traceSent.get(entry.getKey()))) {
                 traceSent.put(entry.getKey(), now);
                 Qbotics.platform().sendToPlayer(player, new qbotics.net.TracePayload(entry.getValue().deviceId(), now.file(), now.line(), now.paused()));
@@ -878,6 +898,7 @@ public final class ComputerManager {
         // terminal of the computer it is logged in to. A terminal hands out its new lines only
         // once, so each is asked once a tick however many computers are showing it.
         Map<UUID, TerminalStatePayload> changed = new HashMap<>();
+        Map<UUID, IdePayloads.EditingFiles> switched = new HashMap<>();
         Map<Terminal, Terminal.State> taken = new HashMap<>();
         for (Viewing viewing : viewers.values()) {
             UUID id = viewing.deviceId();
@@ -887,8 +908,9 @@ public final class ComputerManager {
             }
             Terminal shown = computer.shownTerminal();
             if (computer.takeViewChanged()) {
-                // A session began or ended: send the whole of what is now shown.
+                // A session began or ended: send the whole of what is now shown, and which files the editor shows.
                 changed.put(id, new TerminalStatePayload(id, false, computer.asShown(shown.full())));
+                switched.put(id, editing(computer));
             } else if (taken.containsKey(shown) || shown.isDirty()) {
                 changed.put(id, new TerminalStatePayload(id, false, computer.asShown(taken.computeIfAbsent(shown, Terminal::takeUpdate))));
             }
@@ -904,6 +926,10 @@ public final class ComputerManager {
                 continue;
             }
             TerminalStatePayload update = changed.get(entry.getValue().deviceId());
+            IdePayloads.EditingFiles files = switched.get(entry.getValue().deviceId());
+            if (files != null) {
+                Qbotics.platform().sendToPlayer(player, files); // before the screen, so the editor has switched when it shows
+            }
             if (update != null) {
                 Qbotics.platform().sendToPlayer(player, update);
             }
@@ -911,7 +937,7 @@ public final class ComputerManager {
             // explorer only knows of its own changes, so tell it to look again. Twice a second.
             ServerComputer computer = computers.get(entry.getValue().deviceId());
             if (computer != null && server.getTickCount() % 10 == 0) {
-                long now = computer.fileChanges();
+                long now = computer.editTarget().fileChanges();
                 Long seen = filesSeen.put(entry.getKey(), now);
                 if (seen != null && seen != now) {
                     Qbotics.platform().sendToPlayer(player, new IdePayloads.FilesChanged(entry.getValue().deviceId()));

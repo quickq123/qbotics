@@ -132,8 +132,10 @@ public final class ServerComputer {
      * runs that file held at its first line, so a program can be followed from its start.
      */
     public void step(@org.jspecify.annotations.Nullable String openFile) {
-        if (sshRemote != null) {
-            return; // the editor's files are this computer's: nothing of the other computer's is stepped from here
+        ServerComputer remote = sshRemote;
+        if (remote != null) {
+            remote.step(openFile); // the editor shows the other computer's files: F8 steps there
+            return;
         }
         Computer current = vm;
         if (!running || current == null) {
@@ -567,7 +569,12 @@ public final class ServerComputer {
 
     /** The editor's Run button: run a Python file, as if "run file" had been typed. */
     public void submitRunFile(String path) {
-        if (running && sshRemote == null) {
+        ServerComputer remote = sshRemote;
+        if (remote != null) {
+            remote.submitRunFile(path); // the editor shows the other computer's files: they run there
+            return;
+        }
+        if (running) {
             return; // something is running: Run does nothing, and nothing is kept to run later
         }
         jobs.offer(new RunFile(path));
@@ -1019,6 +1026,23 @@ public final class ServerComputer {
     private volatile boolean viewChanged;
     private volatile int sshSessions;
 
+    /** The label of the computer an ssh session is logged in to ("miner"), or "". */
+    private volatile String sshLabel = "";
+
+    /**
+     * The computer whose files the editor of this one works on: this one, or during an ssh
+     * session the one logged in to (as a laptop connected to a Qbot works on the Qbot's).
+     */
+    public ServerComputer editTarget() {
+        ServerComputer remote = sshRemote;
+        return remote == null ? this : remote;
+    }
+
+    /** What the editor calls the computer it works on during an ssh session, or "" when it is this one. */
+    public String editLabel() {
+        return sshRemote == null ? "" : sshLabel;
+    }
+
     /** The terminal a player looking at this computer should see. */
     Terminal shownTerminal() {
         ServerComputer remote = sshRemote;
@@ -1102,6 +1126,7 @@ public final class ServerComputer {
             remote.submitLine(""); // brings its prompt back under the notice
         }
         sshSessions++;
+        sshLabel = label;
         sshRemote = remote;
         viewChanged = true;
         String ending = "Connection to " + label + " closed.";
@@ -1128,8 +1153,8 @@ public final class ServerComputer {
                     case Interrupt ignored -> remote.interrupt();
                     case Scratch scratch -> scratchAnswer(scratch, false,
                             "The scratchpad runs on this computer, which is in an ssh session. Type exit in the terminal first.\n");
-                    case RunFile ignored -> {
-                        // The editor's files are this computer's; the session is the other one's. Nothing to run there.
+                    case RunFile run -> {
+                        // Queued just before the session began: the editor then showed this computer's files, so it isn't run.
                     }
                     case Exec exec -> exec.done().complete(busy());
                 }
@@ -1430,7 +1455,7 @@ public final class ServerComputer {
             "         name <address> <name>   name a device so programs can find it (name 192.168.1.4 inbox)",
             "         pip install -r requirements.txt   install libraries from a hard drive (pip help)",
             "         devices <address>  list the blocks behind another antenna (100.64.0.12)",
-            "         ssh <address>      use another computer's terminal from here; exit returns",
+            "         ssh <address>      another computer's terminal and files; exit returns",
             "         git clone <url>    copy a GitHub repository here (git help: pull, status, push)",
             "Game:    recipe <item>      the recipes that make an item, from every mod (--uses: that use it; --json)",
             "         item <item>        an item's names, tags, stack size, fuel and food values",

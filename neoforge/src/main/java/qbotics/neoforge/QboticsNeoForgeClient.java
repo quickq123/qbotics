@@ -98,6 +98,7 @@ public final class QboticsNeoForgeClient {
             event.register(IdePayloads.ScratchResult.TYPE, (payload, context) -> ClientIde.onScratchResult(payload));
             event.register(IdePayloads.OpenFile.TYPE, (payload, context) -> ClientIde.onOpenFile(payload));
             event.register(IdePayloads.FilesChanged.TYPE, (payload, context) -> ClientIde.onFilesChanged(payload));
+            event.register(IdePayloads.EditingFiles.TYPE, (payload, context) -> ClientIde.onEditingFiles(payload));
             event.register(IdePayloads.OpenEditor.TYPE, (payload, context) -> ClientIde.onOpenEditor(payload));
             event.register(qbotics.net.DisplayPayloads.Text.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onText(payload));
             event.register(qbotics.net.DisplayPayloads.Panel.TYPE, (payload, context) -> qbotics.client.display.ClientDisplays.onPanel(payload));
