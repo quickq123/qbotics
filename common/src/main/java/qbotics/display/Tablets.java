@@ -136,6 +136,8 @@ public final class Tablets extends SavedData {
     private int nextKey = 1;
     private record Sent(ScreenContent content, long shape, long version, long pageAt) {
     }
+    /** What the tablets' screens came to when they were last marked to be saved (see tick). */
+    private long savedDrawn;
     private final Map<UUID, Map<Integer, Sent>> sentContent = new HashMap<>();
     private final Map<UUID, Map<UUID, String>> sentState = new HashMap<>();
 
@@ -500,7 +502,20 @@ public final class Tablets extends SavedData {
             }
         }
         if (census && !tablets.isEmpty()) {
-            setDirty(); // programs draw from their own threads; what they drew is saved with the world
+            // Programs draw from their own threads; what they drew is saved with the world. Only when
+            // something was drawn, though: each save writes every tablet's every screen out again.
+            // (Once a minute regardless, for when each was last carried.)
+            long drawn = 17;
+            for (Tablet tablet : tablets.values()) {
+                drawn = drawn * 31 + tablet.selected;
+                for (App app : tablet.apps) {
+                    drawn = drawn * 31 + app.content.version() + System.identityHashCode(app.content);
+                }
+            }
+            if (drawn != savedDrawn || server.getTickCount() % 1200 == 0) {
+                savedDrawn = drawn;
+                setDirty();
+            }
         }
         if (census && server.getTickCount() % 1200 == 0) {
             sentContent.keySet().removeIf(id -> server.getPlayerList().getPlayer(id) == null);

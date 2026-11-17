@@ -67,6 +67,11 @@ public final class Watches {
 
     private static final Map<String, Watch> OPEN = new HashMap<>();
 
+    /** The server has stopped: its watches (which hold its blocks) are let go. */
+    public static void clear() {
+        OPEN.clear();
+    }
+
     private Watches() {
     }
 

@@ -46,6 +46,7 @@ public abstract class AreaBlockEntity extends DeviceBlockEntity implements HasAr
     public void setArea(int newRadius, int newHeight) {
         radius = Math.clamp(newRadius, 1, MOST);
         height = Math.clamp(newHeight, 1, MOST);
+        box = null;
         setChanged();
         if (level != null && !level.isClientSide()) {
             level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
@@ -55,8 +56,16 @@ public abstract class AreaBlockEntity extends DeviceBlockEntity implements HasAr
     /** The box it works: whole blocks, from radius (and height) out on each side of its own. */
     @Override
     public AABB area() {
-        return new AABB(getBlockPos()).inflate(radius, height, radius);
+        AABB known = box;
+        if (known == null) {
+            known = new AABB(getBlockPos()).inflate(radius, height, radius);
+            box = known; // a block doesn't move, so it stands until the radius or height is set again
+        }
+        return known;
     }
+
+    /** The box, kept between uses (it was made anew for every entity looked at). */
+    private @org.jspecify.annotations.Nullable AABB box;
 
     /** True if an entity stands in its area: where it is, not any edge of it, so one by the border is plainly in or out. */
     public boolean holds(net.minecraft.world.entity.Entity entity) {
@@ -75,6 +84,7 @@ public abstract class AreaBlockEntity extends DeviceBlockEntity implements HasAr
         super.loadAdditional(input);
         radius = Math.clamp(input.getIntOr("radius", DEFAULT), 1, MOST);
         height = Math.clamp(input.getIntOr("height", DEFAULT), 1, MOST);
+        box = null;
     }
 
     /** Players' games need its size, to draw the area. */

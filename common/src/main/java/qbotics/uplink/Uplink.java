@@ -61,11 +61,18 @@ public final class Uplink {
     }
 
     /** At most this many requests at once, server-wide. */
-    private static final ExecutorService POOL = Executors.newFixedThreadPool(4, task -> {
-        Thread thread = new Thread(task, "qbotics-uplink");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private static final ExecutorService POOL = pool();
+
+    private static ExecutorService pool() {
+        java.util.concurrent.ThreadPoolExecutor pool = new java.util.concurrent.ThreadPoolExecutor(4, 4, 60, java.util.concurrent.TimeUnit.SECONDS,
+                new java.util.concurrent.LinkedBlockingQueue<>(), task -> {
+                    Thread thread = new Thread(task, "qbotics-uplink");
+                    thread.setDaemon(true);
+                    return thread;
+                });
+        pool.allowCoreThreadTimeOut(true); // the same four at most, but none kept while nothing is asked
+        return pool;
+    }
     private static final int MAX_REDIRECTS = 5;
     private static final int MAX_HEADER_BYTES = 32 * 1024;
     private static final int MAX_BODY_SENT = 64 * 1024;

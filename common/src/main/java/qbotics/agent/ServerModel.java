@@ -191,8 +191,11 @@ public final class ServerModel {
             } finally {
                 gate.release();
             }
-        }, java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+        }, ASKING);
     }
+
+    /** Each question on a virtual thread of its own (one executor for all of them, not one made per question). */
+    private static final java.util.concurrent.Executor ASKING = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
 
     private static final String PROBLEM = "This server's AI had a problem answering. Try again in a moment; "
             + "if it keeps happening, tell the server's owner (the details are in the server's log).";

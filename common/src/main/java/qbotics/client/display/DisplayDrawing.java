@@ -102,11 +102,20 @@ public final class DisplayDrawing {
             for (int x = 0; x < view.cols; x++) {
                 char c = view.text[y][x];
                 if (c != ' ') {
-                    String s = String.valueOf(c);
+                    String s = c < LETTERS.length ? LETTERS[c] : String.valueOf(c);
                     int w = canvas.width(s);
                     canvas.text(s, x * CHAR_W + (CHAR_W - w + 1) / 2f, y * CHAR_H + 1, rgb((view.colors[y][x] >> 4) & 15), 1);
                 }
             }
+        }
+    }
+
+    /** Each common character as a text of its own, made once (a monitor draws thousands a frame). */
+    private static final String[] LETTERS = new String[256];
+
+    static {
+        for (int c = 0; c < LETTERS.length; c++) {
+            LETTERS[c] = String.valueOf((char) c);
         }
     }
 

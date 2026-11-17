@@ -599,6 +599,10 @@ public final class QboticsNeoForge {
             ComputerManager.shutDown(event.getServer());
             qbotics.upgrade.ChunkLoaders.clear();
             qbotics.network.Tunnels.clear();
+            // After the computers have stopped: what else held on to this server's world.
+            qbotics.network.Watches.clear();
+            qbotics.network.Boundaries.clear();
+            qbotics.display.Displays.clear();
         });
         // What players say in chat reaches the programs listening to a Chat Interface (on the next tick, on the server thread).
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.ServerChatEvent event) -> {

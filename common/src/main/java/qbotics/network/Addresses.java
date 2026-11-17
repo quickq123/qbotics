@@ -22,10 +22,24 @@ public final class Addresses {
      * addresses that weren't issued by a manufacturer.
      */
     public static String mac(UUID deviceId) {
+        // Kept: it never changes for an ID, and finding a device by address asks for every device's on
+        // its network, on every call a program makes.
+        String known = MACS.get(deviceId);
+        if (known != null) {
+            return known;
+        }
         long bits = deviceId.getMostSignificantBits() ^ deviceId.getLeastSignificantBits();
-        return String.format(Locale.ROOT, "02:%02X:%02X:%02X:%02X:%02X",
+        String mac = String.format(Locale.ROOT, "02:%02X:%02X:%02X:%02X:%02X",
                 (bits >>> 32) & 0xFF, (bits >>> 24) & 0xFF, (bits >>> 16) & 0xFF, (bits >>> 8) & 0xFF, bits & 0xFF);
+        if (MACS.size() >= MOST_MACS_KEPT) {
+            MACS.clear(); // far more devices than a server has loaded at once: start again
+        }
+        MACS.put(deviceId, mac);
+        return mac;
     }
+
+    private static final int MOST_MACS_KEPT = 20_000;
+    private static final java.util.Map<UUID, String> MACS = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** The internal IP address for a host number, or "" if the device has none yet. */
     public static String ip(int hostNumber) {

@@ -54,6 +54,8 @@ public final class ClientWebPanels {
         int width;
         int height;
         String html = "";
+        /** Whether the page has a script (worked out when it arrives, not each time it is asked). */
+        boolean scripted;
         String state = "{}";
         /** Something changed since the last picture was asked for that needs a new layout. */
         boolean dirty = true;
@@ -207,11 +209,17 @@ public final class ClientWebPanels {
         sameLevel();
         BlockPos origin = payload.origin().immutable();
         ClientDisplays.forget(origin);
+        WebView had = VIEWS.get(origin);
+        if (had != null && !payload.hasPage() && payload.images() == null && had.width == payload.width()
+                && had.height == payload.height() && payload.state().equals(had.state)) {
+            return; // the same size and state as it has, and no new page or pictures: nothing to draw again
+        }
         WebView view = VIEWS.computeIfAbsent(origin, WebView::new);
         view.width = payload.width();
         view.height = payload.height();
         if (payload.hasPage()) {
             view.html = payload.html();
+            view.scripted = WebScript.hasScripts(view.html); // looked for once, when the page arrives
             view.generation++;
         }
         view.state = payload.state();
@@ -413,7 +421,7 @@ public final class ClientWebPanels {
         int nearer = 0;
         long now = System.currentTimeMillis();
         for (WebView other : VIEWS.values()) {
-            if (other != view && WebScript.hasScripts(other.html) && now - other.lastSeen < 3000
+            if (other != view && other.scripted && now - other.lastSeen < 3000
                     && distance(player, other) < mine) {
                 nearer++;
             }

@@ -368,6 +368,12 @@ public final class Displays {
     }
 
     private static final Map<Integer, Handle> HANDLES = new ConcurrentHashMap<>();
+
+    /** The server has stopped: its screens and the handles programs drew on them with are let go. */
+    public static void clear() {
+        LIVE.clear();
+        HANDLES.clear();
+    }
     private static final AtomicInteger NEXT_HANDLE = new AtomicInteger(1);
 
     /** Gives a computer a handle to draw on a display of its network with. Server thread. */

@@ -87,6 +87,7 @@ public final class SshGateway {
         SshKeys known = keys(mc);
         Path data = mc.getWorldPath(LevelResource.ROOT).resolve("data/qbotics");
         SshServer ssh = SshServer.setUpDefaultServer();
+        ssh.setNioWorkers(2);
         ssh.setHost(address);
         ssh.setPort(port);
         ssh.setKeyPairProvider(new SimpleGeneratorHostKeyProvider(data.resolve("ssh_host_key")));

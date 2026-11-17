@@ -56,7 +56,15 @@ public class CollectorBlockEntity extends AreaBlockEntity implements Container, 
         }
         ContainerItemPort into = new ContainerItemPort(this);
         int looked = 0;
-        for (ItemEntity dropped : server.getEntitiesOfClass(ItemEntity.class, area(), entity -> entity.isAlive() && !entity.hasPickUpDelay() && holds(entity))) {
+        // Full to the last slot, it can take nothing: the items lying about aren't looked for (over a
+        // mob farm that was up to 128 of them tried against every slot, twice a second, for nothing).
+        boolean room = false;
+        for (int slot = 0; slot < getContainerSize() && !room; slot++) {
+            ItemStack held = getItem(slot);
+            room = held.isEmpty() || held.getCount() < Math.min(held.getMaxStackSize(), getMaxStackSize());
+        }
+        for (ItemEntity dropped : !room ? List.<ItemEntity>of()
+                : server.getEntitiesOfClass(ItemEntity.class, area(), entity -> entity.isAlive() && !entity.hasPickUpDelay() && holds(entity))) {
             if (looked++ >= MOST_AT_ONCE) {
                 break;
             }
