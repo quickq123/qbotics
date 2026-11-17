@@ -26,7 +26,9 @@ public class QbotMenu extends AbstractContainerMenu {
     public static final int GRID_Y = 18;
     public static final int HAND_X = 92;
     public static final int HAND_Y = 18;
-    public static final int UPGRADE_Y = 54;
+    /** The 2x2 of upgrade sockets, under the hand. */
+    public static final int UPGRADE_X = 83;
+    public static final int UPGRADE_Y = 47;
     public static final int GAUGES_X = 120;
     /** The row of buttons, and below it the program's state and output. */
     public static final int BUTTONS_Y = 94;
@@ -40,7 +42,7 @@ public class QbotMenu extends AbstractContainerMenu {
     /** Slots: 0-15 the grid, 16 the hand, 17 the upgrade; then the player's. */
     public static final int HAND_SLOT = QbotBlockEntity.SLOTS;
     public static final int UPGRADE_SLOT = HAND_SLOT + 1;
-    private static final int OWN_SLOTS = UPGRADE_SLOT + 1;
+    private static final int OWN_SLOTS = UPGRADE_SLOT + QbotBlockEntity.UPGRADE_SLOTS;
 
     private final @Nullable QbotBlockEntity qbot;
     private final Container items;
@@ -136,7 +138,8 @@ public class QbotMenu extends AbstractContainerMenu {
 
     /** In the player's game. */
     public QbotMenu(int containerId, Inventory inventory) {
-        this(containerId, inventory, null, new SimpleContainer(QbotBlockEntity.SLOTS), new SimpleContainer(1), new SimpleContainer(1),
+        this(containerId, inventory, null, new SimpleContainer(QbotBlockEntity.SLOTS), new SimpleContainer(1),
+                new SimpleContainer(QbotBlockEntity.UPGRADE_SLOTS),
                 new SimpleContainerData(DATA));
     }
 
@@ -158,17 +161,31 @@ public class QbotMenu extends AbstractContainerMenu {
                 return 1;
             }
         });
-        addSlot(new Slot(upgrades, 0, HAND_X, UPGRADE_Y) {
-            @Override
-            public boolean mayPlace(ItemStack stack) {
-                return UpgradeItem.kindOf(stack) == UpgradeItem.Kind.CHUNK_LOADER;
-            }
+        for (int socket = 0; socket < QbotBlockEntity.UPGRADE_SLOTS; socket++) {
+            int index = socket;
+            addSlot(new Slot(upgrades, socket, UPGRADE_X + (socket % 2) * 18, UPGRADE_Y + (socket / 2) * 18) {
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    // An upgrade of a kind it hasn't got yet. (In the player's game the sockets are a plain
+                    // container, so the kinds are looked at here too.)
+                    UpgradeItem.Kind kind = UpgradeItem.kindOf(stack);
+                    if (kind == null) {
+                        return false;
+                    }
+                    for (int other = 0; other < QbotBlockEntity.UPGRADE_SLOTS; other++) {
+                        if (other != index && UpgradeItem.kindOf(upgrades.getItem(other)) == kind) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
 
-            @Override
-            public int getMaxStackSize() {
-                return 1;
-            }
-        });
+                @Override
+                public int getMaxStackSize() {
+                    return 1;
+                }
+            });
+        }
         addStandardInventorySlots(inventory, 8, TOP_HEIGHT + 14);
         addDataSlots(data);
     }
@@ -203,8 +220,10 @@ public class QbotMenu extends AbstractContainerMenu {
             if (!moveItemStackTo(stack, OWN_SLOTS, slots.size(), true)) {
                 return ItemStack.EMPTY;
             }
-        } else if (UpgradeItem.kindOf(stack) == UpgradeItem.Kind.CHUNK_LOADER && !slots.get(UPGRADE_SLOT).hasItem()) {
-            if (!moveItemStackTo(stack, UPGRADE_SLOT, UPGRADE_SLOT + 1, false)) {
+        } else if (UpgradeItem.kindOf(stack) != null) {
+            // An upgrade goes to a free socket (if it hasn't one of that kind already), else in with the items.
+            if (!moveItemStackTo(stack, UPGRADE_SLOT, UPGRADE_SLOT + QbotBlockEntity.UPGRADE_SLOTS, false)
+                    && !moveItemStackTo(stack, 0, QbotBlockEntity.SLOTS, false)) {
                 return ItemStack.EMPTY;
             }
         } else if (!moveItemStackTo(stack, 0, QbotBlockEntity.SLOTS, false)) {

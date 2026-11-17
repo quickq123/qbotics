@@ -1673,11 +1673,17 @@ Devices on the same cables never need an antenna and are not affected by this.
 
 **Right-click an antenna** for its screen: two upgrade slots, and the switch for chunk loading.
 Its addresses still show above the hotbar. An antenna takes one upgrade of each kind; breaking it
-drops them. (Qbots will take the same upgrade items.)
+drops them.
+
+| Takes upgrades | Sockets | Which |
+|---|---|---|
+| An antenna (any tier) | 2 | One of each kind |
+| A Qbot | 4 (a 2x2 in its screen) | One of each kind (section 7d) |
+| A Server | 1 | A Chunk Loader Upgrade |
 
 | Upgrade | Does |
 |---|---|
-| **Transport Upgrade** | Lets programs use the devices behind another antenna (that also has one), and `move()` items, fluid and energy between the two networks |
+| **Transport Upgrade** | Lets programs use the devices behind another antenna (that also has one), and `move()` items, fluid and energy between the two networks. In a Qbot: between the Qbot itself and the network behind an antenna its radio reaches (below) |
 | **Chunk Loader Upgrade** | Keeps the chunks of the antenna's whole cable network loaded and working while nobody is near. A Server takes one too (section 7i) |
 
 #### Transport
@@ -1705,6 +1711,31 @@ print(mine.energy_interface().stored())
   limited.
 - Displays can't be drawn on from another network.
 - Both ends must be loaded: a Chunk Loader Upgrade, or a player nearby.
+
+**A Qbot with a Transport Upgrade** sends what it carries to a network far away, and fetches
+from it, without driving home:
+
+```python
+from logistics import network, move
+net = network()
+base = net.remote("100.64.0.2")                        # the antenna at the base
+print("Unloaded", move(net.me, base.bus("ore_chest")))   # everything it carries
+move(base.bus("supplies"), net.me, "torch", 64)        # and torches back
+move(base.fluid_interface(), net.me, "lava", 1000)     # into its tanks; energy too
+```
+
+- `net.me` is the Qbot: its 16 slots for items, its two tanks for fluid, its cell for energy.
+  The other end says which a move carries.
+- The Qbot needs a Transport Upgrade in one of its sockets, and the antenna needs one too.
+- The Qbot must be **in the antenna's range** (its tier's reach; an Infinite antenna reaches any
+  distance and across dimensions), and the antenna's access must let the Qbot's owner in. The
+  Qbot's own radio hears every frequency.
+- What crosses counts against that antenna's rate, as above.
+- Without the upgrades, `net.remote(...)` still finds and lists the devices there; using them
+  is refused, with a message that says which upgrade is missing.
+
+A parked Qbot is also an end for `move()` on a cable network it stands next to, so a base
+computer can load and unload it: `move(net.device("miner"), store)`.
 
 #### Chunk loading
 
@@ -2259,7 +2290,7 @@ selects everything), then **Ctrl+C** or **Copy selected**. With nothing selected
 |---|---|
 | Inventory | **16 slots**, a 4x4 grid (numbered 0 to 15) |
 | Hand | One tool, which it digs, attacks and is used with |
-| Upgrade slot | One: a Chunk Loader Upgrade (section 7.3b) |
+| Upgrade sockets | Four (a 2x2), one upgrade of each kind: a Chunk Loader Upgrade keeps the chunks it is in loaded; a Transport Upgrade lets its program move things to and from a network behind an antenna in range (section 7.3b) |
 | Energy cell | **1,000,000 FE** |
 | Tanks | **Two of 4,000 mB**, one fluid each, so it can carry water and lava at once |
 | Digs as | An unenchanted **iron** tool, with nothing in its hand |
@@ -2457,8 +2488,8 @@ orders sent by radio from `controller.py`.
 
 ### 7d.4 Not yet
 
-Better tiers (diamond, with a full chest of slots), inventory filters, pipes and hoppers reaching
-into a Qbot, and the Transport Upgrade in a Qbot are planned but not built.
+Better tiers (diamond, with a full chest of slots) and inventory filters are planned but not built.
+(Hoppers, pipes and cables do reach into a Qbot: its slots, tanks and energy cell, from any side.)
 
 **Recipe:** `ITI` / `ALP` / `IHI`: a crafting table on top, an iron axe and an iron pickaxe either side
 of a **Laptop**, a chest below, iron in the corners. The laptop's hard drives come back to you

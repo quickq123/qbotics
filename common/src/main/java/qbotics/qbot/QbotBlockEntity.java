@@ -78,8 +78,11 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
             QbotBlockEntity.this.handChanged();
         }
     };
-    /** Its upgrade: a Chunk Loader Upgrade, for now the only kind a Qbot takes. */
-    private final SimpleContainer upgrades = new SimpleContainer(1) {
+    /** How many upgrades it takes: a 2x2 of sockets. */
+    public static final int UPGRADE_SLOTS = 4;
+
+    /** Its upgrades, one of each kind (as an antenna takes them): a Chunk Loader, a Transport. */
+    private final SimpleContainer upgrades = new SimpleContainer(UPGRADE_SLOTS) {
         @Override
         public int getMaxStackSize() {
             return 1;
@@ -87,7 +90,16 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
 
         @Override
         public boolean canPlaceItem(int slot, ItemStack stack) {
-            return UpgradeItem.kindOf(stack) == UpgradeItem.Kind.CHUNK_LOADER;
+            UpgradeItem.Kind kind = UpgradeItem.kindOf(stack);
+            if (kind == null) {
+                return false;
+            }
+            for (int other = 0; other < getContainerSize(); other++) {
+                if (other != slot && UpgradeItem.kindOf(getItem(other)) == kind) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         @Override
@@ -188,7 +200,12 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
     }
 
     public boolean hasUpgrade(UpgradeItem.Kind kind) {
-        return UpgradeItem.kindOf(upgrades.getItem(0)) == kind;
+        for (int slot = 0; slot < upgrades.getContainerSize(); slot++) {
+            if (UpgradeItem.kindOf(upgrades.getItem(slot)) == kind) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public ItemPort itemPort() {

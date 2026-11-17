@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -100,6 +100,7 @@ public final class QboticsGameTests {
             Map.entry("review_fixes", QboticsGameTests::reviewFixes),
             Map.entry("laptop_events", QboticsGameTests::laptopEvents),
             Map.entry("qbot_hopper", QboticsGameTests::qbotHopper),
+            Map.entry("qbot_transport", QboticsGameTests::qbotTransport),
             Map.entry("computer_access", QboticsGameTests::computerAccess),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
@@ -4495,6 +4496,97 @@ public final class QboticsGameTests {
                     helper.getBlockEntity(below, net.minecraft.world.level.block.entity.HopperBlockEntity.class);
             helper.assertTrue(hopper.countItem(Items.DIAMOND) == 3 && qbot.items().isEmpty(),
                     "the hopper should have taken the Qbot's 3 diamonds, not " + hopper.countItem(Items.DIAMOND));
+        });
+    }
+
+    /**
+     * A Qbot's four upgrade sockets take one of each kind, and its Transport Upgrade lets its
+     * program move things between the Qbot and a network behind an antenna its radio reaches:
+     * refused without the Qbot's upgrade, refused without the antenna's, and with both, items go
+     * out to an interface there and come back.
+     */
+    private static void qbotTransport(GameTestHelper helper) {
+        BlockPos at = new BlockPos(0, 1, 0);
+        helper.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(at, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        qbot.items().setItem(0, new ItemStack(Items.COBBLESTONE, 20));
+        BlockPos farPos = new BlockPos(2, 2, 2);
+        helper.setBlock(new BlockPos(2, 1, 2), QboticsContent.INTERFACE_BLOCK.get());
+        helper.setBlock(farPos, QboticsContent.ANTENNA_SHORT_BLOCK.get());
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(2, 1, 2), InterfaceBlockEntity.class);
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Items.COAL, 10));
+        // A tank beside it, on the same network, with water for the Qbot's tanks.
+        helper.setBlock(new BlockPos(2, 1, 1), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.getBlockEntity(new BlockPos(2, 1, 1), qbotics.block.FluidInterfaceBlockEntity.class)
+                .insert(net.minecraft.world.level.material.Fluids.WATER, 4000, false);
+        AntennaBlockEntity far = helper.getBlockEntity(farPos, AntennaBlockEntity.class);
+        far.setAccess(qbotics.network.RadioNetwork.Access.PUBLIC);
+        networkAt(helper, new BlockPos(2, 1, 2));
+        String ip = far.externalIp();
+        net.minecraft.world.item.Item transport = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("transport_upgrade"));
+        net.minecraft.world.item.Item loader = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("chunk_loader_upgrade"));
+
+        // The sockets: four of them, upgrades only, one of each kind.
+        helper.assertTrue(qbot.upgrades().getContainerSize() == 4, "a Qbot has four upgrade sockets");
+        helper.assertTrue(!qbot.upgrades().canPlaceItem(0, new ItemStack(Items.COAL)), "only upgrades go in a Qbot's sockets");
+        qbot.upgrades().setItem(0, new ItemStack(loader));
+        helper.assertTrue(!qbot.upgrades().canPlaceItem(1, new ItemStack(loader)) && qbot.upgrades().canPlaceItem(1, new ItemStack(transport)),
+                "one of each kind: a second Chunk Loader is refused, a Transport is taken");
+        helper.assertTrue(qbot.hasUpgrade(qbotics.upgrade.UpgradeItem.Kind.CHUNK_LOADER) && !qbot.hasUpgrade(qbotics.upgrade.UpgradeItem.Kind.TRANSPORT),
+                "it has the upgrade in its socket, and not the other");
+
+        ServerComputer bot = ComputerManager.get(helper.getLevel().getServer()).getOrStart(qbot);
+        String program = String.join("\n",
+                "from logistics import network, move",
+                "net = network()",
+                "store = net.remote('" + ip + "').interface()",
+                "try:",
+                "    print('sent', move(net.me, store, 'cobblestone', 5), 'back', move(store, net.me, 'coal', 3))",
+                "    print('water', move(net.remote('" + ip + "').fluid_interface(), net.me, 'water', 1000))",
+                "except Exception as e:",
+                "    print('refused:', e)",
+                "print('ran')",
+                "");
+        try {
+            bot.drive().call(qbotics.engine.HostFileSystem.WRITE, "/t.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        bot.submitLine("run /t.py");
+        int[] step = {0};
+        helper.succeedWhen(() -> {
+            String screen = screen(bot);
+            int ran = screen.split("ran\n", -1).length - 1;
+            switch (step[0]) {
+                case 0 -> {
+                    helper.assertTrue(ran == 1, "the first run: " + screen);
+                    helper.assertTrue(screen.contains("needs a Transport Upgrade in this"), "without its own upgrade it is refused: " + screen);
+                    qbot.upgrades().setItem(1, new ItemStack(transport));
+                    bot.submitLine("run /t.py");
+                    step[0] = 1;
+                    helper.fail("the Qbot has its upgrade now");
+                }
+                case 1 -> {
+                    helper.assertTrue(ran == 2, "the second run: " + screen);
+                    helper.assertTrue(screen.contains("has no Transport Upgrade"), "without the antenna's upgrade it is refused: " + screen);
+                    far.upgrades().setItem(0, new ItemStack(transport));
+                    bot.submitLine("run /t.py");
+                    step[0] = 2;
+                    helper.fail("the antenna has its upgrade now");
+                }
+                default -> {
+                    helper.assertTrue(ran == 3 && screen.contains("sent 5 back 3\n") && screen.contains("water 1000\n"), "with both, things cross: " + screen);
+                    helper.assertTrue(qbot.fluidPort().tanks().get(0).amount() == 1000
+                            && qbot.fluidPort().tanks().get(0).fluid() == net.minecraft.world.level.material.Fluids.WATER, "a bucket of water is in its first tank");
+                    helper.assertTrue(qbot.items().countItem(Items.COBBLESTONE) == 15 && qbot.items().countItem(Items.COAL) == 3,
+                            "the Qbot has 15 cobblestone and 3 coal: " + qbot.items().countItem(Items.COBBLESTONE) + ", " + qbot.items().countItem(Items.COAL));
+                    helper.assertTrue(store.countItem(Items.COBBLESTONE) == 5 && store.countItem(Items.COAL) == 7, "the store has 5 cobblestone and 7 coal");
+                }
+            }
         });
     }
 

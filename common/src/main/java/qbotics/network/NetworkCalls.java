@@ -177,6 +177,26 @@ public final class NetworkCalls {
         }
         Far far = far(callLevel, network, ip, callPos);
         AntennaBlockEntity near = network.gateway();
+        if (near == null) {
+            // A Qbot away from any antenna: far() reached that one by the Qbot's own radio (in the antenna's
+            // range, and let in by it). The Qbot's Transport Upgrade stands where a network's antenna's would.
+            if (!(callLevel.getBlockEntity(callPos) instanceof qbotics.qbot.QbotBlockEntity qbot)
+                    || !qbot.hasUpgrade(qbotics.upgrade.UpgradeItem.Kind.TRANSPORT)) {
+                throw new CallError("Reaching devices behind an antenna needs a Transport Upgrade in this Qbot. Right-click the Qbot to fit one.");
+            }
+            if (!far.antenna().hasUpgrade(qbotics.upgrade.UpgradeItem.Kind.TRANSPORT)) {
+                throw new CallError("The antenna at " + ip + " has no Transport Upgrade, so the devices behind it can't be reached from here.");
+            }
+            if (far.network() == null) {
+                throw new CallError("The antenna at " + ip + " isn't its network's router, so nothing behind it can be reached.");
+            }
+            NetworkDevice device = far.network().byMac(mac.substring(slash + 1));
+            if (device != null) {
+                LINKS.add(far.antenna()); // what crosses counts against that antenna's rate
+                REMOTE.put(device, ip);
+            }
+            return device;
+        }
         if (far.antenna() == near) {
             return network.byMac(mac.substring(slash + 1)); // this network's own antenna: the device is here
         }
@@ -1373,7 +1393,8 @@ public final class NetworkCalls {
         // (a fluid's name moves fluid); with nothing named, items.
         Medium medium = null;
         for (End end : concat(givenSources, givenDestinations)) {
-            if (end.device().medium() != Medium.UNIVERSAL) {
+            // (A Qbot carries items, fluid and energy: the other ends say which this move is.)
+            if (end.device().medium() != Medium.UNIVERSAL && !(end.device() instanceof qbotics.qbot.QbotBlockEntity)) {
                 medium = end.device().medium();
                 break;
             }
@@ -1385,24 +1406,24 @@ public final class NetworkCalls {
         List<End> sources = asMedium(givenSources, medium);
         List<End> destinations = asMedium(givenDestinations, medium);
         for (End end : sources) {
-            if (end.device().kind() == Kind.COMPUTER || end.device().kind() == Kind.ANTENNA) {
+            if ((end.device().kind() == Kind.COMPUTER || end.device().kind() == Kind.ANTENNA) && !(end.device() instanceof qbotics.qbot.QbotBlockEntity)) {
                 throw notASource(end);
             }
         }
         for (End end : destinations) {
-            if (end.device().kind() == Kind.COMPUTER || end.device().kind() == Kind.ANTENNA) {
+            if ((end.device().kind() == Kind.COMPUTER || end.device().kind() == Kind.ANTENNA) && !(end.device() instanceof qbotics.qbot.QbotBlockEntity)) {
                 throw notADestination(end);
             }
         }
         for (End end : destinations) {
-            if (end.device().medium() != medium) {
+            if (end.device().medium() != medium && !(end.device() instanceof qbotics.qbot.QbotBlockEntity)) {
                 throw new CallError("A move carries one kind of thing: " + sources.getFirst().label() + " handles "
                         + medium.word + (medium == Medium.ITEM ? "s" : "") + " but " + end.label() + " handles " + end.device().medium().word
                         + (end.device().medium() == Medium.ITEM ? "s" : "") + ".");
             }
         }
         for (End end : sources) {
-            if (end.device().medium() != medium) {
+            if (end.device().medium() != medium && !(end.device() instanceof qbotics.qbot.QbotBlockEntity)) {
                 throw new CallError("A move carries one kind of thing, but its sources handle both " + medium.word + " and "
                         + end.device().medium().word + ".");
             }
@@ -1483,6 +1504,8 @@ public final class NetworkCalls {
                     FluidPort port;
                     if (end.device() instanceof FluidInterfaceBlockEntity store) {
                         port = store;
+                    } else if (end.device() instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                        port = qbot.fluidPort();
                     } else if (end.device() instanceof CablePort plate && plate.takes()) {
                         port = fluidTarget(level, plate, end.face(), end.slot() >= 0);
                     } else {
@@ -1518,6 +1541,8 @@ public final class NetworkCalls {
                 for (End end : destinations) {
                     if (end.device() instanceof EnergyInterfaceBlockEntity store) {
                         to.add(store);
+                    } else if (end.device() instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                        to.add(qbot.energyPort());
                     } else if (end.device() instanceof CablePort plate && plate.takes()) {
                         to.add(energyTarget(level, plate, end.face(), false));
                     } else {
@@ -1754,6 +1779,9 @@ public final class NetworkCalls {
         if (device instanceof FluidInterfaceBlockEntity store) {
             return store;
         }
+        if (device instanceof qbotics.qbot.QbotBlockEntity qbot) {
+            return qbot.fluidPort(); // its two tanks
+        }
         if (device instanceof CablePort port && port.gives()) {
             return fluidTarget(level, port, faceWord, true);
         }
@@ -1763,6 +1791,9 @@ public final class NetworkCalls {
     static EnergyPort energySource(ServerLevel level, NetworkDevice device, String faceWord) {
         if (device instanceof EnergyInterfaceBlockEntity store) {
             return store;
+        }
+        if (device instanceof qbotics.qbot.QbotBlockEntity qbot) {
+            return qbot.energyPort(); // its cell
         }
         if (device instanceof CablePort port && port.medium() == Medium.ENERGY && port.gives()) {
             return energyTarget(level, port, faceWord, true);
@@ -1854,6 +1885,9 @@ public final class NetworkCalls {
         if (device instanceof qbotics.block.CollectorBlockEntity collector) {
             return new ContainerItemPort(collector);
         }
+        if (device instanceof qbotics.qbot.QbotBlockEntity qbot) {
+            return qbot.itemPort(); // its 16 slots
+        }
         return null;
     }
 
@@ -1864,6 +1898,10 @@ public final class NetworkCalls {
     static Far far(ServerLevel level, CableNetwork network, String ip, BlockPos computerPos) {
         AntennaBlockEntity near = network.gateway();
         if (near == null) {
+            if (level.getBlockEntity(computerPos) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                // A Qbot has a radio of its own: it reaches an antenna it is in range of, and that lets its owner in.
+                return radioFar(level.getServer(), level.dimension(), computerPos, qbot.owner(), ip);
+            }
             throw new CallError("Reaching an external address needs an antenna cabled to this computer.");
         }
         AntennaBlockEntity far = RadioNetwork.get(level.getServer()).byExternalIp(ip);

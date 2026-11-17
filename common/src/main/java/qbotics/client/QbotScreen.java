@@ -327,8 +327,12 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
         int outY = gridY + (CRAFT_OUTPUT / 4) * 18;
         graphics.fill(outX + 1, outY + 1, outX + 17, outY + 17, 0x50E8B040);
         Panels.slot(graphics, x + QbotMenu.HAND_X - 1, y + QbotMenu.HAND_Y - 1);
-        Panels.socket(graphics, x + QbotMenu.HAND_X, y + QbotMenu.UPGRADE_Y);
-        Panels.slot(graphics, x + QbotMenu.HAND_X - 1, y + QbotMenu.UPGRADE_Y - 1);
+        for (int socket = 0; socket < QbotBlockEntity.UPGRADE_SLOTS; socket++) {
+            int sx = x + QbotMenu.UPGRADE_X + (socket % 2) * 18;
+            int sy = y + QbotMenu.UPGRADE_Y + (socket / 2) * 18;
+            Panels.socket(graphics, sx, sy);
+            Panels.slot(graphics, sx - 1, sy - 1);
+        }
         int top = y + QbotMenu.GRID_Y - 1;
         int inside = GAUGE_H - 2;
         // The energy cell.
@@ -401,7 +405,9 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
     protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         super.extractLabels(graphics, mouseX, mouseY);
         graphics.text(font, Component.translatable("screen.qbotics.qbot.hand"), QbotMenu.HAND_X - 1, QbotMenu.HAND_Y + 18, Panels.LABEL, false);
-        graphics.text(font, Component.translatable("screen.qbotics.qbot.upgrade"), QbotMenu.HAND_X - 4, QbotMenu.UPGRADE_Y + 18, Panels.LABEL, false);
+        Component upgradeLabel = Component.translatable("screen.qbotics.qbot.upgrade");
+        // Centred in the column between the grid and the gauges (40 wide, from 80).
+        graphics.text(font, upgradeLabel, 80 + (40 - font.width(upgradeLabel)) / 2, QbotMenu.UPGRADE_Y + 37, Panels.LABEL, false);
         drawSlotNumbers(graphics);
         drawProgram(graphics);
     }
