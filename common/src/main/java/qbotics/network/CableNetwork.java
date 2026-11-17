@@ -312,6 +312,46 @@ public final class CableNetwork {
         return present;
     }
 
+    /** Its devices of one kind, in address order (worked out once for a network, for what asks every second). */
+    @SuppressWarnings("unchecked")
+    public <T> List<T> ofType(Class<T> type) {
+        List<?> known = typed.get(type);
+        if (known == null) {
+            List<T> found = new ArrayList<>();
+            for (NetworkDevice device : devices) {
+                if (type.isInstance(device)) {
+                    found.add(type.cast(device));
+                }
+            }
+            known = List.copyOf(found);
+            typed.put(type, known);
+        }
+        for (Object device : known) {
+            if (((NetworkDevice) device).isRemoved()) {
+                // One has gone since the network was walked: leave it out, as devices() does.
+                List<T> present = new ArrayList<>();
+                for (Object each : known) {
+                    if (!((NetworkDevice) each).isRemoved()) {
+                        present.add((T) each);
+                    }
+                }
+                return present;
+            }
+        }
+        return (List<T>) known;
+    }
+
+    /** True if this device is on the network (and still there). */
+    public boolean has(NetworkDevice device) {
+        if (members == null) {
+            members = new HashSet<>(devices);
+        }
+        return members.contains(device) && !device.isRemoved();
+    }
+
+    private final Map<Class<?>, List<?>> typed = new HashMap<>();
+    private Set<NetworkDevice> members;
+
     /** True if the network has more cables or devices than is allowed; it does nothing until made smaller. */
     public boolean tooLarge() {
         return tooLarge;

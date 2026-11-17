@@ -109,13 +109,7 @@ public class CollectorBlockEntity extends AreaBlockEntity implements Container, 
 
     /** The Experience Interfaces on its cable network. */
     private List<ExperienceInterfaceBlockEntity> banks(ServerLevel server) {
-        List<ExperienceInterfaceBlockEntity> found = new ArrayList<>();
-        for (NetworkDevice device : CableNetwork.at(server, getBlockPos()).devices()) {
-            if (device instanceof ExperienceInterfaceBlockEntity bank) {
-                found.add(bank);
-            }
-        }
-        return found;
+        return CableNetwork.at(server, getBlockPos()).ofType(ExperienceInterfaceBlockEntity.class);
     }
 
     // ---- a chest's worth of slots ----------------------------------------------------------

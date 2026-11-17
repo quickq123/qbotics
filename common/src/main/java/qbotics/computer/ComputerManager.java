@@ -109,12 +109,11 @@ public final class ComputerManager {
                     mounts.put(qbotics.laptop.Laptops.DISKS_FOLDER, own);
                 }
             }
-            for (qbotics.network.NetworkDevice device : qbotics.network.CableNetwork.at(level, entry.getValue().pos()).devices()) {
-                if (device instanceof qbotics.block.DriveBayBlockEntity bay) {
-                    Map<String, qbotics.engine.HostFileSystem> drives = new java.util.LinkedHashMap<>();
-                    bay.mounted().forEach((name, id) -> drives.put(name, mediaFiles(id)));
-                    mounts.put(bay.folderName(), drives);
-                }
+            for (qbotics.block.DriveBayBlockEntity bay : qbotics.network.CableNetwork.at(level, entry.getValue().pos())
+                    .ofType(qbotics.block.DriveBayBlockEntity.class)) {
+                Map<String, qbotics.engine.HostFileSystem> drives = new java.util.LinkedHashMap<>();
+                bay.mounted().forEach((name, id) -> drives.put(name, mediaFiles(id)));
+                mounts.put(bay.folderName(), drives);
             }
             computer.setMounts(mounts);
         }

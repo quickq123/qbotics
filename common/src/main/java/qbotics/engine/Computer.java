@@ -159,8 +159,39 @@ public final class Computer {
         }
     }
 
+    /**
+     * How long a waiting program sleeps before it looks again by itself. It is woken at once when
+     * it is stopped, paused, let go or answered (wake()), so this is only for a wake that was
+     * missed. (It used to look every 50 ms: twenty wakings a second for every waiting computer.)
+     */
+    private static final long WAIT_NANOS = 1_000_000_000L;
+    /** The thread running this computer's program, while it waits (to be woken). */
+    private volatile Thread waiter;
+
+    /** Its stop, paused or held setting changed (or a call was answered): a waiting program looks again now. */
+    public void wake() {
+        Thread thread = waiter;
+        if (thread != null) {
+            java.util.concurrent.locks.LockSupport.unpark(thread);
+        }
+    }
+
+    /** Sleeps until woken, or for this long. Call {@link #waiting()} before the check that decides to sleep. */
+    private void parkFor(long nanos) throws InterruptedException {
+        java.util.concurrent.locks.LockSupport.parkNanos(this, Math.min(nanos, WAIT_NANOS));
+        if (Thread.interrupted()) {
+            throw new InterruptedException();
+        }
+    }
+
+    /** This thread is about to wait: a wake() from now on reaches it (even one that comes before it sleeps). */
+    private void waiting() {
+        waiter = Thread.currentThread();
+    }
+
     /** Waits while paused (or until stopped). With the CPU held, it is given up while waiting. */
     private void holdWhilePaused(boolean holdingCpu) {
+        waiting();
         if (!paused && !held) {
             return;
         }
@@ -176,7 +207,7 @@ public final class Computer {
         }
         try {
             while ((paused || held) && stop == StopMode.NONE) {
-                Thread.sleep(50);
+                parkFor(WAIT_NANOS);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -379,7 +410,8 @@ public final class Computer {
                         sample();
                         releaseCpu();
                         try {
-                            // Sleep in short steps so a stop request doesn't wait out a long sleep.
+                            // Asleep until the time is up, or woken to stop or pause (wake()).
+                            waiting();
                             long end = System.nanoTime() + args[0] * 1_000_000L;
                             for (long left; stop == StopMode.NONE && (left = end - System.nanoTime()) > 0; ) {
                                 if (paused || held) {
@@ -389,7 +421,7 @@ public final class Computer {
                                     end += System.nanoTime() - since;
                                     continue;
                                 }
-                                Thread.sleep(Math.min(50, left / 1_000_000L + 1));
+                                parkFor(left);
                             }
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
@@ -528,7 +560,11 @@ public final class Computer {
             releaseCpu();
         }
         try {
-            // Wait in short steps, so a stop request (Ctrl+C) ends a long wait, such as one for a message.
+            // Waits until it is answered, the time is up, or it is woken to stop (Ctrl+C ends a long wait, such as one for a message).
+            waiting();
+            if (mustBlock) {
+                future.whenComplete((answer, error) -> wake());
+            }
             long end = timeoutMs < 0 ? Long.MAX_VALUE : System.nanoTime() + timeoutMs * 1_000_000L;
             while (true) {
                 long left = end - System.nanoTime();
@@ -543,12 +579,7 @@ public final class Computer {
                 if (left <= 0) {
                     return -1;
                 }
-                try {
-                    result = future.get(Math.min(50_000_000L, left), TimeUnit.NANOSECONDS);
-                    break;
-                } catch (TimeoutException stillWaiting) {
-                    // look at the stop flag and the clock again
-                }
+                parkFor(left); // then look at the answer, the stop flag and the clock again
             }
         } catch (TimeoutException e) {
             return -1;

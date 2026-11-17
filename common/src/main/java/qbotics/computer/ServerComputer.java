@@ -80,6 +80,7 @@ public final class ServerComputer {
         if (programActive) {
             if (current != null) {
                 current.paused = false;
+                current.wake();
             }
             return;
         }
@@ -110,9 +111,11 @@ public final class ServerComputer {
         if (current.paused) {
             current.stepping = false;
             current.paused = false;
+            current.wake();
             terminal.write("[carrying on]\n");
         } else {
             current.paused = true; // it says where, as it stops (see newVm)
+            current.wake();
         }
     }
 
@@ -144,6 +147,7 @@ public final class ServerComputer {
         }
         current.stepping = true;
         current.paused = false;
+        current.wake();
     }
 
     /** Someone has this computer's editor open: its program notes which line it is on. */
@@ -175,6 +179,7 @@ public final class ServerComputer {
         Computer current = vm;
         if (programActive && current != null) {
             current.paused = true;
+            current.wake();
         }
     }
 
@@ -184,7 +189,9 @@ public final class ServerComputer {
         if (programActive && current != null) {
             stoppedByButton = true;
             current.paused = false;
+            current.wake();
             current.stop = Computer.StopMode.HARD;
+            current.wake();
         }
     }
 
@@ -207,6 +214,7 @@ public final class ServerComputer {
         } finally {
             programActive = false;
             computer.paused = false;
+            computer.wake();
             // The error itself, not the hint the terminal printed under it.
             String error = errorHints.lastError();
             programStatus = !ended || stoppedByButton ? "Stopped" : ok ? "Finished" : "Error: " + (error != null ? error : lastLine());
@@ -663,6 +671,7 @@ public final class ServerComputer {
                 // carried on, the next one stops it for certain (and restarts its Python).
                 boolean ignored = current.stop == Computer.StopMode.POLITE || current.stopsDelivered > 0;
                 current.stop = ignored ? Computer.StopMode.HARD : Computer.StopMode.POLITE;
+                current.wake();
             } else {
                 // At a prompt, or a program waiting in input(): the waiting side is told directly.
                 jobs.offer(new Interrupt());
@@ -678,6 +687,7 @@ public final class ServerComputer {
         Computer current = vm;
         if (current != null) {
             current.stop = Computer.StopMode.HARD;
+            current.wake();
         }
         thread.interrupt();
     }
@@ -1161,6 +1171,7 @@ public final class ServerComputer {
                         terminal.write("[stepping: F8 runs the next line, Ctrl+Z runs the rest, Ctrl+C stops]\n");
                         computer.stepping = true;
                         computer.paused = false;
+                        computer.wake();
                     }
                     try {
                         if (file.program()) {
@@ -1172,6 +1183,7 @@ public final class ServerComputer {
                         runningCommand = null;
                         computer.stepping = false; // also when the file could not be opened at all
                         computer.paused = false;
+                        computer.wake();
                     }
                 }
                 case Interrupt ignored -> terminal.write("^C\n");
@@ -1229,6 +1241,7 @@ public final class ServerComputer {
             alreadyStopped = current != null && current.stop == Computer.StopMode.POLITE;
             if (alreadyStopped) {
                 current.stop = Computer.StopMode.NONE;
+                current.wake();
             }
         }
         try {
@@ -1273,6 +1286,7 @@ public final class ServerComputer {
         Computer current = vm;
         if (current != null) {
             current.held = hold;
+            current.wake();
         }
     }
 
@@ -1291,6 +1305,7 @@ public final class ServerComputer {
         computer.lineReader = this::readInputLine;
         computer.lastsAcrossRuns = RECEIVE_CALL::equals;
         computer.held = held;
+        computer.wake();
         computer.watched = watched;
         // A pause says where it stopped (a step's pause is shown by the editor instead).
         computer.onPause = at -> terminal.write(at == null
@@ -1325,8 +1340,10 @@ public final class ServerComputer {
             // Stepping and pausing belong to the program that ended: the next one runs freely.
             computer.stepping = false;
             computer.paused = false;
+            computer.wake();
             computer.forgetCalls();
             computer.stop = shutDown ? Computer.StopMode.HARD : Computer.StopMode.NONE;
+            computer.wake();
             stopEvents(); // a program that has ended listens for nothing
         }
     }

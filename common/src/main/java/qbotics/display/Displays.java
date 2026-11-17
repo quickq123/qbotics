@@ -503,7 +503,7 @@ public final class Displays {
                 return true;
             }
             boolean left = level == null || !level.isLoaded(handle.computerPos())
-                    || !CableNetwork.at(level, handle.computerPos()).devices().contains(handle.display());
+                    || !CableNetwork.at(level, handle.computerPos()).has(handle.display());
             if (left) {
                 handle.content().listeners.remove(handle.computer()); // its touches too
             }

@@ -99,7 +99,7 @@ public final class Tunnels {
      */
     private static @Nullable String routeProblem(ServerLevel la, CablePort a, ServerLevel lb, CablePort b, Set<AntennaBlockEntity> links) {
         CableNetwork na = CableNetwork.at(la, a.getBlockPos());
-        if (na.devices().contains(b)) {
+        if (na.has(b)) {
             return null;
         }
         CableNetwork nb = CableNetwork.at(lb, b.getBlockPos());
@@ -259,7 +259,7 @@ public final class Tunnels {
         if (far == null) {
             return null;
         }
-        if (network.devices().contains(far.port())) {
+        if (network.has(far.port())) {
             return far.port().mac();
         }
         AntennaBlockEntity gateway = CableNetwork.at(far.level(), far.port().getBlockPos()).gateway();
