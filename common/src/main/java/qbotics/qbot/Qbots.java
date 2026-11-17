@@ -20,8 +20,8 @@ import qbotics.network.CableNetwork;
 /** How a Qbot moves (design doc §8.1): one block at a time, and turning on the spot. */
 public final class Qbots {
     /** How long a step and a turn take, in ticks: what its renderer animates over, and what its program waits. */
-    public static final int STEP_TICKS = 5;
-    public static final int TURN_TICKS = 4;
+    public static final int STEP_TICKS = 2;
+    public static final int TURN_TICKS = 2;
 
     private Qbots() {
     }

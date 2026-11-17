@@ -2324,7 +2324,7 @@ selects everything), then **Ctrl+C** or **Copy selected**. With nothing selected
 - It is a computer on the network (cables and devices beside it join it), and counts against
   `limits.qbots_per_player` (5), not the computer limit. A machine-placed Qbot is inactive
   until someone claims it, and the Programmer programs Qbots like computers.
-- A step or a turn takes a quarter of a second. While it works, it swings its arms; it hovers
+- A step or a turn takes a tenth of a second (2 game ticks). While it works, it swings its arms; it hovers
   and glides from block to block.
 
 ```python

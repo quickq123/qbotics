@@ -10,7 +10,7 @@
     qbot.turn_right()
     inventory.drop(Side.FRONT, "minecraft:cobblestone")    # into a chest in front, or onto the ground
 
-A step or a turn takes a quarter of a second. Anything it can't do raises QbotError,
+A step or a turn takes a tenth of a second. Anything it can't do raises QbotError,
 saying why; nothing fails quietly. It crafts what it carries (craft("torch", 16)) with the
 crafting table built into it. It digs as an iron tool would (an Iron Qbot); a tool in
 its hand (tools.equip) digs, attacks and is used as a player's would, and wears out."""
