@@ -43,20 +43,26 @@ public final class Camera {
     private static final int KEPT = 256;
 
     private static final AtomicInteger NEXT = new AtomicInteger(1);
-    private static final Map<Integer, Picture> PICTURES = new LinkedHashMap<>() {
+    private static final Map<Integer, Shot> PICTURES = new LinkedHashMap<>() {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<Integer, Picture> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<Integer, Shot> eldest) {
             return size() > KEPT;
         }
     };
 
+    /** A kept picture (not a view), or null. */
     public static synchronized Picture get(int id) {
+        return PICTURES.get(id) instanceof Picture picture ? picture : null;
+    }
+
+    /** A kept picture or view (qbot.view()), or null. */
+    public static synchronized Shot shot(int id) {
         return PICTURES.get(id);
     }
 
-    private static synchronized int keep(Picture picture) {
+    static synchronized int keep(Shot shot) {
         int id = NEXT.getAndIncrement();
-        PICTURES.put(id, picture);
+        PICTURES.put(id, shot);
         return id;
     }
 
@@ -198,7 +204,7 @@ public final class Camera {
     }
 
     /** Blocks nobody ever sees, which the camera looks through. */
-    private static boolean unseen(BlockState state) {
+    static boolean unseen(BlockState state) {
         return state.is(net.minecraft.world.level.block.Blocks.BARRIER) || state.is(net.minecraft.world.level.block.Blocks.LIGHT)
                 || state.is(net.minecraft.world.level.block.Blocks.STRUCTURE_VOID);
     }

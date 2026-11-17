@@ -24,12 +24,14 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3fc;
 import qbotics.camera.ConeView;
 import qbotics.camera.Picture;
+import qbotics.camera.View;
 
 /**
- * Draws what a {@link ConeView} lists, in software, into an image: each listed block's model
- * faces (the game's own models and textures), seen from the Qbot's eye, nearest in front. Even
- * light (night vision); faces shaded by the way they face, as the game shades them. A proof of
- * concept: no creatures yet, and see-through pixels (glass, leaves) are left out, not blended.
+ * Draws a Qbot's {@link View} in software, into an image: each listed block's model faces (the
+ * game's own models and textures) and each creature as a box in its kind's colour, seen from the
+ * Qbot's eye, nearest in front. Even light (night vision); faces shaded by the way they face, as
+ * the game shades them. See-through pixels (glass, leaves) are left out, not blended. Runs on the
+ * web panels' worker, off the render thread.
  */
 public final class ConeRenderer {
     private ConeRenderer() {
@@ -37,7 +39,6 @@ public final class ConeRenderer {
 
     private static final int SKY_TOP = 0x79A6FF;
     private static final int SKY_HORIZON = 0xC0D6FF;
-    private static final double NEAR = 0.05;
 
     /** A face ready to draw: its corners (x, y, z, u, v each), texture, tint and shade. */
     private record Face(double[][] corners, int[] pixels, int size, int tint, float shade) {
@@ -48,12 +49,19 @@ public final class ConeRenderer {
         return PictureColors.colorize(picture);
     }
 
+    public static BufferedImage render(View shot) {
+        return render(shot.blocks(), shot.creatures(), shot.origin(), shot.facing(), shot.pitch(), shot.width(), shot.height());
+    }
+
     public static BufferedImage render(List<ConeView.Seen> seen, BlockPos origin, Direction facing, int width, int height) {
-        Vec3 forward = Vec3.atLowerCornerOf(facing.getUnitVec3i());
-        Vec3 right = Vec3.atLowerCornerOf(facing.getClockWise().getUnitVec3i());
-        Vec3 eye = ConeView.eye(facing);
-        double across = Math.tan(Math.toRadians(ConeView.FOV / 2));
-        double upDown = across * height / width;
+        return render(seen, List.of(), origin, facing, 0, width, height);
+    }
+
+    public static BufferedImage render(List<ConeView.Seen> seen, List<ConeView.Creature> creatures, BlockPos origin, Direction facing,
+            double pitch, int width, int height) {
+        ConeView.Basis basis = ConeView.basis(facing, pitch, height / (double) width);
+        double across = basis.across();
+        double upDown = basis.upDown();
 
         int[] color = new int[width * height];
         float[] depth = new float[width * height];
@@ -69,16 +77,19 @@ public final class ConeRenderer {
             BlockState state = Block.stateById(block.state());
             for (Face face : faces(state, block, origin, tints)) {
                 // Into the eye's space: x right, y up, z ahead.
-                double[][] view = new double[4][];
-                for (int i = 0; i < 4; i++) {
-                    double[] c = face.corners()[i];
-                    Vec3 v = new Vec3(c[0], c[1], c[2]).subtract(eye);
-                    view[i] = new double[] {v.dot(right), v.y, v.dot(forward), c[3], c[4]};
-                }
-                List<double[]> polygon = clipNear(view);
-                for (int i = 1; i + 1 < polygon.size(); i++) {
-                    triangle(polygon.get(0), polygon.get(i), polygon.get(i + 1), face, color, depth, width, height, across, upDown);
-                }
+                draw(face, basis, color, depth, width, height);
+            }
+        }
+        for (ConeView.Creature c : creatures) {
+            int kind = switch (c.kind()) {
+                case Picture.MONSTER -> 0xB03A3A;
+                case Picture.ANIMAL -> 0x6DAA4F;
+                case Picture.PLAYER -> 0x3E7BD6;
+                default -> 0xA0A0A0;
+            };
+            for (Direction d : Direction.values()) {
+                double[][] corners = box(c, d);
+                draw(new Face(corners, new int[] {0xFF000000 | kind}, 1, -1, shade(d)), basis, color, depth, width, height);
             }
         }
         // A little haze far off, so distance reads.
@@ -95,6 +106,42 @@ public final class ConeRenderer {
             }
         }
         return out;
+    }
+
+    private static void draw(Face face, ConeView.Basis basis, int[] color, float[] depth, int width, int height) {
+        double[][] view = new double[4][];
+        for (int i = 0; i < 4; i++) {
+            double[] c = face.corners()[i];
+            double[] v = basis.toView(c[0], c[1], c[2]);
+            view[i] = new double[] {v[0], v[1], v[2], c[3], c[4]};
+        }
+        List<double[]> polygon = ConeView.clipNear(view, 5);
+        for (int i = 1; i + 1 < polygon.size(); i++) {
+            triangle(polygon.get(0), polygon.get(i), polygon.get(i + 1), face, color, depth, width, height, basis.across(), basis.upDown());
+        }
+    }
+
+    /** A creature's box's face. */
+    private static double[][] box(ConeView.Creature c, Direction d) {
+        double x0 = c.x();
+        double y0 = c.y();
+        double z0 = c.z();
+        double x1 = x0 + c.width();
+        double y1 = y0 + c.height();
+        double z1 = z0 + c.depth();
+        double[][] p = switch (d) {
+            case UP -> new double[][] {{x0, y1, z0}, {x0, y1, z1}, {x1, y1, z1}, {x1, y1, z0}};
+            case DOWN -> new double[][] {{x0, y0, z1}, {x0, y0, z0}, {x1, y0, z0}, {x1, y0, z1}};
+            case NORTH -> new double[][] {{x1, y1, z0}, {x1, y0, z0}, {x0, y0, z0}, {x0, y1, z0}};
+            case SOUTH -> new double[][] {{x0, y1, z1}, {x0, y0, z1}, {x1, y0, z1}, {x1, y1, z1}};
+            case WEST -> new double[][] {{x0, y1, z0}, {x0, y0, z0}, {x0, y0, z1}, {x0, y1, z1}};
+            case EAST -> new double[][] {{x1, y1, z1}, {x1, y0, z1}, {x1, y0, z0}, {x1, y1, z0}};
+        };
+        double[][] corners = new double[4][];
+        for (int i = 0; i < 4; i++) {
+            corners[i] = new double[] {p[i][0], p[i][1], p[i][2], 0.5, 0.5};
+        }
+        return corners;
     }
 
     /** The faces of one listed block to draw: those of its model the server said could be seen, and its unculled ones. */
@@ -160,7 +207,11 @@ public final class ConeRenderer {
                 if (source == null) {
                     return -1;
                 }
-                return (minecraft.level != null ? source.colorInWorld(state, minecraft.level, origin) : source.color(state)) & 0xFFFFFF;
+                try {
+                    return (minecraft.level != null ? source.colorInWorld(state, minecraft.level, origin) : source.color(state)) & 0xFFFFFF;
+                } catch (RuntimeException e) {
+                    return source.color(state) & 0xFFFFFF; // the place isn't known here (another thread, far away): the usual colour
+                }
             });
         }
         faces.add(new Face(corners, pixels, size, tint, quad.materialInfo().shade() ? shade(quad.direction()) : 1f));
@@ -194,29 +245,6 @@ public final class ConeRenderer {
             case NORTH, SOUTH -> 0.8f;
             default -> 0.6f;
         };
-    }
-
-    /** Cuts off what is behind (or too near) the eye. */
-    private static List<double[]> clipNear(double[][] polygon) {
-        List<double[]> out = new ArrayList<>(6);
-        for (int i = 0; i < polygon.length; i++) {
-            double[] a = polygon[i];
-            double[] b = polygon[(i + 1) % polygon.length];
-            boolean aIn = a[2] >= NEAR;
-            boolean bIn = b[2] >= NEAR;
-            if (aIn) {
-                out.add(a);
-            }
-            if (aIn != bIn) {
-                double t = (NEAR - a[2]) / (b[2] - a[2]);
-                double[] m = new double[5];
-                for (int k = 0; k < 5; k++) {
-                    m[k] = a[k] + (b[k] - a[k]) * t;
-                }
-                out.add(m);
-            }
-        }
-        return out;
     }
 
     private static void triangle(double[] a, double[] b, double[] c, Face face, int[] color, float[] depth, int w, int h,

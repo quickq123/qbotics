@@ -13,7 +13,7 @@ import net.minecraft.core.BlockPos;
  *
  * @param origin where it was taken, for the colours that depend on the place (grass, water)
  */
-public record Picture(int width, int height, BlockPos origin, byte[] data) {
+public record Picture(int width, int height, BlockPos origin, byte[] data) implements Shot {
     public static final int BYTES_PER_PIXEL = 9;
     public static final int SKY = 0;
     public static final int BLOCK = 1;

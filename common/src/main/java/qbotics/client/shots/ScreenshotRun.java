@@ -276,6 +276,37 @@ public final class ScreenshotRun {
             level.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH),
                     Block.UPDATE_ALL);
             coneAt = at;
+            // Creatures, standing still: drawn as boxes in their kind's colour.
+            for (var type : java.util.List.of(net.minecraft.world.entity.EntityType.SHEEP, net.minecraft.world.entity.EntityType.CREEPER)) {
+                net.minecraft.world.entity.Entity mob = type.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+                if (mob instanceof net.minecraft.world.entity.Mob still) {
+                    still.setNoAi(true);
+                    still.setPersistenceRequired();
+                    BlockPos stand = type == net.minecraft.world.entity.EntityType.SHEEP ? o.offset(2, 1, -8) : o.offset(-1, 1, -14);
+                    still.snapTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, 0, 0);
+                    level.addFreshEntity(still);
+                }
+            }
+            // A Web Panel behind the Qbot (on its network, touching it) showing what a program's qbot.view() sees.
+            BlockPos panelAt = o.offset(0, 1, 1);
+            level.setBlock(panelAt, QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState().setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH),
+                    Block.UPDATE_ALL);
+            if (level.getBlockEntity(at) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                qbot.onPlaced(player.getUUID());
+                qbotics.computer.ServerComputer computer = qbotics.computer.ComputerManager.get(level.getServer()).getOrStart(qbot);
+                try {
+                    computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/look.py", String.join("\n",
+                            "import qbot, time",
+                            "from logistics import network",
+                            "web = network().web_panel()",
+                            "web.html('<body style=\"margin:0;background:#000\"><img src=\"image:cam\" style=\"width:100%\"></body>')",
+                            "web.image('cam', qbot.view(256, 192))",
+                            "print('shown')", "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } catch (qbotics.engine.HostFileSystem.FsException e) {
+                    throw new IllegalStateException(e);
+                }
+                computer.submitLine("run /look.py");
+            }
             // Today's camera and the cone list, timed (a few times each, after a first warm-up).
             qbotics.camera.Camera.snapshot(level, at, Direction.NORTH, 128, 96, 0);
             long t0 = System.nanoTime();
@@ -314,6 +345,14 @@ public final class ScreenshotRun {
         // The game's own view from the Qbot's eye, for reference (the game's field of view differs a little).
         then(2, minecraft -> minecraft.options.fov().set(70));
         view("cone-game-view", new Vec3(70.5, 1.5, -0.2), new Vec3(70.5, 1.5, -10));
+        // The panel the program put its view on: through the whole way (server, message, drawn on the web worker).
+        then(40, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(coneAt) instanceof qbotics.qbot.QbotBlockEntity qbot) {
+                var state = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStart(qbot).terminal().full();
+                Qbotics.LOGGER.info("Screenshot run: CONE qbot screen: {}", String.join(" | ", state.lines()).strip());
+            }
+        }));
+        view("cone-on-panel", new Vec3(70.5, 1.6, 3.4), new Vec3(70.5, 1.5, 1.5));
     }
 
     private static void saveScaled(Minecraft minecraft, String name, java.awt.image.BufferedImage image, int scale) {

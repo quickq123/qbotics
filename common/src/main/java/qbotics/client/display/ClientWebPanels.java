@@ -97,6 +97,8 @@ public final class ClientWebPanels {
         long lastKey;
         /** The pictures the page shows as image:name, coloured. */
         volatile Map<String, BufferedImage> pictures = Map.of();
+        /** Render thread: counts the Qbot views sent, so an older one finished late isn't shown over a newer one. */
+        int viewsAsked;
         /** Worker only. */
         @Nullable WebPage page;
         /** A finished picture and its item icons, handed from the worker to the render thread. */
@@ -228,8 +230,43 @@ public final class ClientWebPanels {
         view.state = payload.state();
         if (payload.images() != null) {
             Map<String, BufferedImage> pictures = new HashMap<>();
-            payload.images().forEach((name, picture) -> pictures.put(name, PictureColors.colorize(picture)));
+            Map<String, qbotics.camera.View> views = new HashMap<>();
+            Map<String, BufferedImage> shown = view.pictures;
+            payload.images().forEach((name, shot) -> {
+                if (shot instanceof qbotics.camera.Picture picture) {
+                    pictures.put(name, PictureColors.colorize(picture));
+                } else if (shot instanceof qbotics.camera.View seen) {
+                    views.put(name, seen);
+                    if (shown.containsKey(name)) {
+                        pictures.put(name, shown.get(name)); // the last one stays up until the new one is drawn
+                    }
+                }
+            });
             view.pictures = pictures;
+            if (!views.isEmpty()) {
+                // A Qbot's view is drawn on the worker (a few milliseconds), then the page is drawn again with it.
+                int asked = ++view.viewsAsked;
+                WORKER.execute(() -> {
+                    Map<String, BufferedImage> drawn = new HashMap<>();
+                    views.forEach((name, seen) -> {
+                        try {
+                            drawn.put(name, ConeRenderer.render(seen));
+                        } catch (RuntimeException e) {
+                            Qbotics.LOGGER.warn("A Qbot's view couldn't be drawn", e);
+                        }
+                    });
+                    Minecraft.getInstance().execute(() -> {
+                        if (view.viewsAsked != asked) {
+                            return; // newer ones are on their way
+                        }
+                        Map<String, BufferedImage> now = new HashMap<>(view.pictures);
+                        now.putAll(drawn);
+                        view.pictures = now;
+                        view.dirty = true;
+                        schedule(view);
+                    });
+                });
+            }
         }
         view.dirty = true;
         schedule(view);

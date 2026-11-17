@@ -43,7 +43,7 @@ final class PictureColors {
     }
 
     private static final Map<Long, Face> FACES = new HashMap<>();
-    private static final Map<Identifier, int[]> TEXTURES = new HashMap<>();
+    private static final Map<Identifier, int[]> TEXTURES = new java.util.concurrent.ConcurrentHashMap<>(); // also read by ConeRenderer, on the web worker
 
     static BufferedImage colorize(Picture picture) {
         FACES.clear(); // tints depend on where the picture was taken

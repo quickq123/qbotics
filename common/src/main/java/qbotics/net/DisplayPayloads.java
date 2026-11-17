@@ -75,7 +75,7 @@ public final class DisplayPayloads {
      * changed (hasPage); its state every time it changes. Width and height in CSS pixels.
      */
     public record Web(BlockPos origin, int width, int height, boolean hasPage, String html, String state,
-            java.util.@org.jspecify.annotations.Nullable Map<String, qbotics.camera.Picture> images) implements CustomPacketPayload {
+            java.util.@org.jspecify.annotations.Nullable Map<String, qbotics.camera.Shot> images) implements CustomPacketPayload {
         public static final Type<Web> TYPE = new Type<>(Qbotics.id("display_web"));
         public static final StreamCodec<ByteBuf, Web> STREAM_CODEC = StreamCodec.of(
                 (buffer, payload) -> {
@@ -90,12 +90,18 @@ public final class DisplayPayloads {
                         ByteBufCodecs.VAR_INT.encode(buffer, -1);
                     } else {
                         ByteBufCodecs.VAR_INT.encode(buffer, payload.images().size());
-                        payload.images().forEach((name, picture) -> {
+                        payload.images().forEach((name, shot) -> {
                             ByteBufCodecs.stringUtf8(64).encode(buffer, name);
-                            ByteBufCodecs.VAR_INT.encode(buffer, picture.width());
-                            ByteBufCodecs.VAR_INT.encode(buffer, picture.height());
-                            BlockPos.STREAM_CODEC.encode(buffer, picture.origin());
-                            ByteBufCodecs.BYTE_ARRAY.encode(buffer, picture.data());
+                            if (shot instanceof qbotics.camera.Picture picture) {
+                                buffer.writeByte(0);
+                                ByteBufCodecs.VAR_INT.encode(buffer, picture.width());
+                                ByteBufCodecs.VAR_INT.encode(buffer, picture.height());
+                                BlockPos.STREAM_CODEC.encode(buffer, picture.origin());
+                                ByteBufCodecs.BYTE_ARRAY.encode(buffer, picture.data());
+                            } else if (shot instanceof qbotics.camera.View view) {
+                                buffer.writeByte(1);
+                                writeView(buffer, view);
+                            }
                         });
                     }
                 },
@@ -107,16 +113,23 @@ public final class DisplayPayloads {
                     String html = ByteBufCodecs.stringUtf8(1 << 20).decode(buffer);
                     String state = ByteBufCodecs.stringUtf8(1 << 18).decode(buffer);
                     int count = ByteBufCodecs.VAR_INT.decode(buffer);
-                    java.util.Map<String, qbotics.camera.Picture> images = null;
+                    java.util.Map<String, qbotics.camera.Shot> images = null;
                     if (count >= 0) {
                         images = new java.util.LinkedHashMap<>();
-                        for (int i = 0; i < Math.min(count, 16); i++) {
+                        for (int i = 0; i < count; i++) {
                             String name = ByteBufCodecs.stringUtf8(64).decode(buffer);
+                            if (buffer.readByte() == 1) {
+                                qbotics.camera.View view = readView(buffer);
+                                if (i < 16 && view != null) {
+                                    images.put(name, view);
+                                }
+                                continue;
+                            }
                             int w = ByteBufCodecs.VAR_INT.decode(buffer);
                             int h = ByteBufCodecs.VAR_INT.decode(buffer);
                             BlockPos at = BlockPos.STREAM_CODEC.decode(buffer);
                             byte[] data = ByteBufCodecs.BYTE_ARRAY.decode(buffer);
-                            if (w > 0 && h > 0 && data.length == w * h * qbotics.camera.Picture.BYTES_PER_PIXEL) {
+                            if (i < 16 && w > 0 && h > 0 && data.length == w * h * qbotics.camera.Picture.BYTES_PER_PIXEL) {
                                 images.put(name, new qbotics.camera.Picture(w, h, at, data));
                             }
                         }
@@ -128,6 +141,77 @@ public final class DisplayPayloads {
         public Type<Web> type() {
             return TYPE;
         }
+    }
+
+    // A Qbot's view: its size, where and which way, then each block it sees (where, as small
+    // signed numbers, its state and which faces) and each creature (its box and kind).
+
+    private static final int MAX_VIEW_BLOCKS = 1 << 16;
+
+    private static void signed(ByteBuf buffer, int n) {
+        ByteBufCodecs.VAR_INT.encode(buffer, (n << 1) ^ (n >> 31));
+    }
+
+    private static int signed(ByteBuf buffer) {
+        int n = ByteBufCodecs.VAR_INT.decode(buffer);
+        return (n >>> 1) ^ -(n & 1);
+    }
+
+    static void writeView(ByteBuf buffer, qbotics.camera.View view) {
+        ByteBufCodecs.VAR_INT.encode(buffer, view.width());
+        ByteBufCodecs.VAR_INT.encode(buffer, view.height());
+        BlockPos.STREAM_CODEC.encode(buffer, view.origin());
+        buffer.writeByte(view.facing().get3DDataValue());
+        buffer.writeFloat(view.pitch());
+        ByteBufCodecs.VAR_INT.encode(buffer, view.blocks().size());
+        for (qbotics.camera.ConeView.Seen s : view.blocks()) {
+            signed(buffer, s.dx());
+            signed(buffer, s.dy());
+            signed(buffer, s.dz());
+            ByteBufCodecs.VAR_INT.encode(buffer, s.state());
+            buffer.writeByte(s.faces());
+        }
+        ByteBufCodecs.VAR_INT.encode(buffer, view.creatures().size());
+        for (qbotics.camera.ConeView.Creature c : view.creatures()) {
+            buffer.writeFloat(c.x());
+            buffer.writeFloat(c.y());
+            buffer.writeFloat(c.z());
+            buffer.writeFloat(c.width());
+            buffer.writeFloat(c.height());
+            buffer.writeFloat(c.depth());
+            buffer.writeByte(c.kind());
+        }
+    }
+
+    /** A view, or null if it isn't one that could have been sent (it is read through either way). */
+    static qbotics.camera.@org.jspecify.annotations.Nullable View readView(ByteBuf buffer) {
+        int w = ByteBufCodecs.VAR_INT.decode(buffer);
+        int h = ByteBufCodecs.VAR_INT.decode(buffer);
+        BlockPos at = BlockPos.STREAM_CODEC.decode(buffer);
+        net.minecraft.core.Direction facing = net.minecraft.core.Direction.from3DDataValue(buffer.readByte());
+        float pitch = buffer.readFloat();
+        int blocks = ByteBufCodecs.VAR_INT.decode(buffer);
+        if (blocks < 0 || blocks > MAX_VIEW_BLOCKS) {
+            throw new IllegalArgumentException("A view of " + blocks + " blocks");
+        }
+        java.util.List<qbotics.camera.ConeView.Seen> seen = new java.util.ArrayList<>(blocks);
+        for (int i = 0; i < blocks; i++) {
+            seen.add(new qbotics.camera.ConeView.Seen(signed(buffer), signed(buffer), signed(buffer), ByteBufCodecs.VAR_INT.decode(buffer),
+                    buffer.readByte() & 0x3F));
+        }
+        int creatures = ByteBufCodecs.VAR_INT.decode(buffer);
+        if (creatures < 0 || creatures > 256) {
+            throw new IllegalArgumentException("A view of " + creatures + " creatures");
+        }
+        java.util.List<qbotics.camera.ConeView.Creature> list = new java.util.ArrayList<>(creatures);
+        for (int i = 0; i < creatures; i++) {
+            list.add(new qbotics.camera.ConeView.Creature(buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat(),
+                    buffer.readFloat(), buffer.readFloat(), buffer.readByte()));
+        }
+        if (w < 1 || h < 1 || w > qbotics.camera.ConeView.MAX_WIDTH || h > qbotics.camera.ConeView.MAX_HEIGHT || facing.getAxis().isVertical()) {
+            return null;
+        }
+        return new qbotics.camera.View(w, h, at, facing, pitch, seen, list);
     }
 
     /** Client to server: a player clicked an element of a Web Panel's page (what the page says it was, as JSON). */

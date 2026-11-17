@@ -376,7 +376,7 @@ tanks = _Tanks()
 
 
 class Picture:
-    """A picture the Qbot took (snapshot()): .width and .height in pixels. block_at(x, y)
+    """A picture the Qbot took (snapshot() or view()): .width and .height in pixels. block_at(x, y)
     says what a pixel shows: a block's id ("minecraft:stone"), "monster", "animal", "player"
     or "creature" for a creature, or None for the sky. Show it on a web panel with
     web.image("name", picture) and <img src="image:name">."""
@@ -387,23 +387,42 @@ class Picture:
         self.height = info["height"]
         self._names = info["names"]
         self._pixels = info["pixels"]
+        # A big view() names its pixels in squares (step x step), to keep the answer small.
+        self._step = info.get("step", 1)
+        self._across = (self.width + self._step - 1) // self._step
 
     def block_at(self, x, y):
         if not (0 <= x < self.width and 0 <= y < self.height):
             raise IndexError("the picture is %d x %d" % (self.width, self.height))
-        name = self._names[ord(self._pixels[y * self.width + x]) - 256]
+        s = self._step
+        name = self._names[ord(self._pixels[(y // s) * self._across + x // s]) - 256]
         return name or None
 
     def counts(self):
         """How many pixels show each thing: {"minecraft:stone": 812, ...} (the sky is None)."""
         seen = {}
+        each = self._step * self._step
         for ch in self._pixels:
             name = self._names[ord(ch) - 256] or None
-            seen[name] = seen.get(name, 0) + 1
+            seen[name] = seen.get(name, 0) + each
         return seen
 
     def __repr__(self):
         return "<Picture %d x %d>" % (self.width, self.height)
+
+
+def view(width=256, height=192, pitch=0, wait=True):
+    """What it sees ahead, up to 24 blocks away, drawn with the game's own blocks: sharper
+    and quicker than snapshot(). Each player's game draws it from the faces the Qbot can
+    see, in even light (a Qbot sees in the dark). pitch tilts it up (positive) or down, in
+    degrees. At most 256 x 192 pixels, four views a second: asked sooner, it waits until it
+    may (wait=False raises QbotError instead). Gives a Picture: show it with
+    web.image("name", view), and block_at(x, y) and counts() work as on a snapshot."""
+    while True:
+        reply = _q("qbot_view", width, height, pitch, bool(wait))
+        if "wait" not in reply:
+            return Picture(reply)
+        time.sleep(reply["wait"] / 20)
 
 
 def snapshot(width=64, height=48, pitch=0, wait=True):

@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -105,6 +105,7 @@ public final class QboticsGameTests {
             Map.entry("qbot_netherite", QboticsGameTests::qbotNetherite),
             Map.entry("ssh_editor", QboticsGameTests::sshEditor),
             Map.entry("cone_view", QboticsGameTests::coneView),
+            Map.entry("qbot_view", QboticsGameTests::qbotView),
             Map.entry("computer_access", QboticsGameTests::computerAccess),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
@@ -3300,9 +3301,79 @@ public final class QboticsGameTests {
                     "waited 8", "shown");
             qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(2, 1, 5), qbotics.block.DisplayBlockEntity.class);
             qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();
-            qbotics.camera.Picture picture = web.images().get("cam");
+            qbotics.camera.Picture picture = (qbotics.camera.Picture) web.images().get("cam");
             helper.assertTrue(picture != null && picture.width() == 32 && picture.data().length == 32 * 24 * qbotics.camera.Picture.BYTES_PER_PIXEL,
                     "the picture is on the panel");
+        });
+    }
+
+    /**
+     * A Qbot's view (qbot.view(), beside snapshot()): a stone wall with a pig before it, what its
+     * pixels show, four views a second, and the view on a web panel, sent to players' games whole.
+     */
+    private static void qbotView(GameTestHelper helper) {
+        BlockPos start = new BlockPos(1, 1, 5);
+        helper.setBlock(start, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(start, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        for (int x = -2; x <= 4; x++) {
+            for (int y = 0; y <= 4; y++) {
+                helper.setBlock(new BlockPos(x, y, 1), Blocks.STONE);
+            }
+        }
+        for (int z = 2; z <= 4; z++) {
+            helper.setBlock(new BlockPos(1, 0, z), Blocks.STONE); // a floor: the pig would fall out of sight between views
+        }
+        helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.PIG, new BlockPos(1, 1, 3));
+        helper.setBlock(new BlockPos(2, 1, 5), QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
+                .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH));
+        String program = String.join("\n",
+                "import qbot",
+                "from logistics import network",
+                "pic = qbot.view(64, 48)",
+                "print('view', pic.width, pic.height)",
+                "print('middle', pic.block_at(32, 24))",
+                "seen = pic.counts()",
+                "print('stone', seen.get('minecraft:stone', 0) > 300, 'pig', seen.get('animal', 0) > 0)",
+                "try:",
+                "    qbot.view(wait=False)",
+                "except qbot.QbotError as e:",
+                "    print('again:', e)",
+                "print('waited', qbot.view(8, 6).width)",
+                "big = qbot.view()",
+                "print('big', big.width, big.height, big.counts().get('animal', 0) > 0, sum(big.counts().values()))",
+                "web = network().web_panel()",
+                "web.html('<img src=\"image:cam\">')",
+                "web.image('cam', pic)",
+                "print('shown')",
+                "");
+        ServerComputer computer = ComputerManager.get(helper.getLevel().getServer()).getOrStart(qbot);
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/view.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /view.py");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "view 64 48", "middle animal", "stone True pig True", "again: A Qbot takes four views a second",
+                    "waited 8", "big 256 192 True 49152", "shown");
+            qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(2, 1, 5), qbotics.block.DisplayBlockEntity.class);
+            qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();
+            qbotics.camera.Shot shown = web.images().get("cam");
+            helper.assertTrue(shown instanceof qbotics.camera.View, "the view is on the panel: " + shown);
+            qbotics.camera.View onPanel = (qbotics.camera.View) shown;
+            helper.assertTrue(onPanel.width() == 64 && !onPanel.blocks().isEmpty(), "with the wall: " + onPanel.width() + " " + onPanel.blocks().size());
+            helper.assertTrue(onPanel.creatures().stream().anyMatch(c -> c.kind() == qbotics.camera.Picture.ANIMAL), "and the pig: " + onPanel.creatures());
+            qbotics.camera.View view = (qbotics.camera.View) web.images().get("cam");
+            // Sent to players' games and read back whole.
+            io.netty.buffer.ByteBuf buffer = io.netty.buffer.Unpooled.buffer();
+            qbotics.net.DisplayPayloads.Web.STREAM_CODEC.encode(buffer, new qbotics.net.DisplayPayloads.Web(BlockPos.ZERO, 10, 10, false, "", "{}",
+                    Map.of("cam", view)));
+            int bytes = buffer.readableBytes();
+            qbotics.net.DisplayPayloads.Web back = qbotics.net.DisplayPayloads.Web.STREAM_CODEC.decode(buffer);
+            helper.assertTrue(back.images().get("cam") instanceof qbotics.camera.View read && read.blocks().equals(view.blocks())
+                    && read.creatures().equals(view.creatures()) && read.facing() == Direction.NORTH && bytes < 4000,
+                    "the view arrives as it was sent, in " + bytes + " bytes");
         });
     }
 
@@ -4606,13 +4677,14 @@ public final class QboticsGameTests {
         helper.setBlock(new BlockPos(2, 2, 1), Blocks.GOLD_BLOCK);
         helper.setBlock(new BlockPos(2, 2, 7), Blocks.DIAMOND_BLOCK);
         List<qbotics.camera.ConeView.Seen> seen = qbotics.camera.ConeView.collect(helper.getLevel(), helper.absolutePos(at), Direction.NORTH, 0.75);
-        java.util.function.Function<net.minecraft.world.level.block.Block, qbotics.camera.ConeView.Seen> find = block -> seen.stream()
-                .filter(s -> net.minecraft.world.level.block.Block.stateById(s.state()).is(block)).findFirst().orElse(null);
-        qbotics.camera.ConeView.Seen stone = find.apply(Blocks.STONE);
-        helper.assertTrue(stone != null && stone.dx() == 0 && stone.dy() == 0 && stone.dz() == -3
+        java.util.function.BiFunction<Integer, Integer, qbotics.camera.ConeView.Seen> place = (dy, dz) -> seen.stream()
+                .filter(s -> s.dx() == 0 && s.dy() == dy && s.dz() == dz).findFirst().orElse(null);
+        // (Looked for by place: the view sees past the test's fence into the tests beside it.)
+        qbotics.camera.ConeView.Seen stone = place.apply(0, -3);
+        helper.assertTrue(stone != null && net.minecraft.world.level.block.Block.stateById(stone.state()).is(Blocks.STONE)
                 && stone.faces() == 1 << Direction.SOUTH.get3DDataValue(), "the stone, with only its south face: " + stone);
-        helper.assertTrue(find.apply(Blocks.GOLD_BLOCK) == null, "the gold block behind it can't be seen");
-        helper.assertTrue(find.apply(Blocks.DIAMOND_BLOCK) == null, "nor the block behind the Qbot");
+        helper.assertTrue(place.apply(0, -4) == null, "the gold block behind it can't be seen");
+        helper.assertTrue(place.apply(0, 2) == null, "nor the block behind the Qbot");
         helper.succeed();
     }
 

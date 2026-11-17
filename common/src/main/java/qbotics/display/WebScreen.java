@@ -25,8 +25,8 @@ public final class WebScreen extends ScreenContent {
     private JsonObject state = new JsonObject();
     /** The version at which the page itself last changed (not only its state). */
     private long pageVersion = 1;
-    /** Pictures the page shows as image:name (Qbot snapshots), and when they last changed. */
-    private final java.util.LinkedHashMap<String, qbotics.camera.Picture> images = new java.util.LinkedHashMap<>();
+    /** Pictures the page shows as image:name (Qbot snapshots and views), and when they last changed. */
+    private final java.util.LinkedHashMap<String, qbotics.camera.Shot> images = new java.util.LinkedHashMap<>();
     private long imagesVersion = 1;
     public static final int MAX_IMAGES = 8;
 
@@ -42,7 +42,7 @@ public final class WebScreen extends ScreenContent {
         return imagesVersion > version;
     }
 
-    public synchronized java.util.Map<String, qbotics.camera.Picture> images() {
+    public synchronized java.util.Map<String, qbotics.camera.Shot> images() {
         return new java.util.LinkedHashMap<>(images);
     }
 
@@ -124,7 +124,7 @@ public final class WebScreen extends ScreenContent {
                 if (number == null || number.isJsonNull()) {
                     images.remove(name);
                 } else {
-                    qbotics.camera.Picture picture = qbotics.camera.Camera.get(intArg(args, 1, "The picture"));
+                    qbotics.camera.Shot picture = qbotics.camera.Camera.shot(intArg(args, 1, "The picture"));
                     if (picture == null) {
                         throw new IllegalArgumentException("That picture is no longer kept: take it again.");
                     }

@@ -2454,6 +2454,7 @@ web.image("cam", pic)                # players see the picture, coloured from th
 | Call | Does |
 |---|---|
 | `qbot.snapshot(width=64, height=48, pitch=0, wait=True)` | A picture of what is in front of it, up to 32 blocks away. `pitch` tilts the camera up (positive) or down, in degrees. At most 128 x 96, one a second of game time: asked sooner, it waits until it may (`wait=False` raises `QbotError` instead). Don't time pictures by the clock: a busy server's second is longer than a real one |
+| `qbot.view(width=256, height=192, pitch=0, wait=True)` | **New, beside `snapshot()`:** what it sees, up to 24 blocks ahead, drawn in each player's game with the real block models (flowers, glass, torches and stairs as they look). Sharper and four times as often: at most 256 x 192, **four a second** of game time. Even light everywhere: a Qbot sees in the dark. Gives the same kind of picture, so `block_at`, `counts` and `web.image` work the same (past 128 x 96, each name in `block_at` covers a 2 x 2 square of pixels) |
 | `pic.width`, `pic.height` | Its size in pixels |
 | `pic.block_at(x, y)` | What a pixel shows: a block's id, `"monster"`, `"animal"`, `"player"` or `"creature"`, or `None` for the sky (0, 0 is the top left) |
 | `pic.counts()` | How many pixels show each thing |
@@ -2466,6 +2467,14 @@ light and distance; creatures are flat shapes in a colour by kind (red monsters,
 blue players). On a panel a picture is shown pixelated, two CSS pixels to a pixel unless CSS sizes
 it. Pictures are kept on the server for a while (the latest 256), not with the world: after a
 restart, take them again.
+
+**`view()` works differently, and costs the server about a tenth as much.** The server doesn't
+trace rays: it lists the blocks ahead with a face turned towards the Qbot and not covered by the
+block beside it, and the creatures in sight (about 2 KB for a field). Each player's game draws
+those with the game's own models and textures, nearest in front, in the background so the game
+doesn't stutter; the last view stays up until the next is drawn. Creatures are boxes in their
+kind's colour. Blocks that draw themselves (chests, signs) don't show yet, and see-through
+pixels (glass, leaves) are left out rather than blended. `snapshot()` stays as it is for now.
 
 ### 7d.3c Its radio: reached anywhere
 
