@@ -66,7 +66,7 @@ public final class ScreenshotRun {
 
     /** The sections of the script, in the order they run. */
     public static final java.util.List<String> SECTIONS = java.util.List.of(
-            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "agent", "night", "stage", "items", "interfaces");
+            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "agent", "night", "stage", "items", "interfaces", "cone");
     /** The sections asked for (-Pshots=a,b), or every section. */
     private static final java.util.Set<String> WANTED = wanted();
     /** Whether the section being planned is wanted: steps of other sections are left out. */
@@ -209,6 +209,129 @@ public final class ScreenshotRun {
             player.teleportTo(player.level(), from.x, from.y - player.getEyeHeight(), from.z, Set.of(), yaw, pitch, false);
         }));
         then(6, minecraft -> shot(minecraft, name));
+    }
+
+    // ---- the cone view proof of concept (camera.ConeView): the same view three ways ----------------
+
+    private static volatile java.util.List<qbotics.camera.ConeView.Seen> coneSeen;
+    private static volatile qbotics.camera.Picture conePicture;
+    private static volatile BlockPos coneAt;
+
+    private static void cone() {
+        section("cone");
+        then(10, minecraft -> onServer(minecraft, player -> {
+            net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) player.level();
+            BlockPos o = base.offset(70, 0, 0); // well away from the other scenes
+            // Clear a space, lay grass, and put things to see in front of a Qbot facing north (-z).
+            for (int x = -14; x <= 14; x++) {
+                for (int z = -30; z <= 3; z++) {
+                    for (int y = -1; y <= 12; y++) {
+                        level.setBlock(o.offset(x, y, z), y < 0 ? Blocks.DIRT.defaultBlockState() : y == 0 ? Blocks.GRASS_BLOCK.defaultBlockState()
+                                : Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    }
+                }
+            }
+            for (int x = 3; x <= 9; x++) { // a hill of stone, grass on top
+                for (int z = -15; z <= -10; z++) {
+                    int top = 3 - Math.max(Math.abs(x - 6), Math.abs(z + 12)) + 1;
+                    for (int y = 1; y <= top; y++) {
+                        level.setBlock(o.offset(x, y, z), y == top ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    }
+                }
+            }
+            level.setBlock(o.offset(6, 3, -12), Blocks.IRON_ORE.defaultBlockState(), Block.UPDATE_CLIENTS);
+            for (int y = 1; y <= 4; y++) { // an oak
+                level.setBlock(o.offset(-4, y, -8), Blocks.OAK_LOG.defaultBlockState(), Block.UPDATE_CLIENTS);
+            }
+            for (int x = -6; x <= -2; x++) {
+                for (int z = -10; z <= -6; z++) {
+                    for (int y = 3; y <= 5; y++) {
+                        if (!(x == -4 && z == -8 && y < 5) && Math.abs(x + 4) + Math.abs(z + 8) + (y == 5 ? 2 : 0) <= 3) {
+                            level.setBlock(o.offset(x, y, z), Blocks.OAK_LEAVES.defaultBlockState()
+                                    .setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), Block.UPDATE_CLIENTS);
+                        }
+                    }
+                }
+            }
+            for (int x = -9; x <= -6; x++) { // a pool
+                for (int z = -16; z <= -13; z++) {
+                    level.setBlock(o.offset(x, 0, z), Blocks.WATER.defaultBlockState(), Block.UPDATE_CLIENTS);
+                }
+            }
+            level.setBlock(o.offset(0, 1, -6), Blocks.GLASS.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(1, 1, -6), Blocks.GLASS.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(2, 1, -4), Blocks.POPPY.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-1, 1, -5), Blocks.DANDELION.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-1, 1, -3), Blocks.SHORT_GRASS.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(3, 1, -5), Blocks.OAK_STAIRS.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-2, 1, -11), Blocks.CRAFTING_TABLE.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-2, 2, -11), Blocks.TORCH.defaultBlockState(), Block.UPDATE_CLIENTS);
+            for (int x = -12; x <= 12; x++) { // a wall far off
+                for (int y = 1; y <= 3; y++) {
+                    level.setBlock(o.offset(x, y, -24), (x + y) % 3 == 0 ? Blocks.MOSSY_COBBLESTONE.defaultBlockState()
+                            : Blocks.COBBLESTONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+                }
+            }
+            BlockPos at = o.offset(0, 1, 0);
+            level.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH),
+                    Block.UPDATE_ALL);
+            coneAt = at;
+            // Today's camera and the cone list, timed (a few times each, after a first warm-up).
+            qbotics.camera.Camera.snapshot(level, at, Direction.NORTH, 128, 96, 0);
+            long t0 = System.nanoTime();
+            int id = 0;
+            for (int i = 0; i < 5; i++) {
+                id = qbotics.camera.Camera.snapshot(level, at, Direction.NORTH, 128, 96, 0).get("id").getAsInt();
+            }
+            long camera = (System.nanoTime() - t0) / 5;
+            qbotics.camera.ConeView.collect(level, at, Direction.NORTH, 0.75);
+            t0 = System.nanoTime();
+            java.util.List<qbotics.camera.ConeView.Seen> seen = null;
+            for (int i = 0; i < 5; i++) {
+                seen = qbotics.camera.ConeView.collect(level, at, Direction.NORTH, 0.75);
+            }
+            long cone = (System.nanoTime() - t0) / 5;
+            java.util.Set<Integer> kinds = new java.util.HashSet<>();
+            seen.forEach(s -> kinds.add(s.state()));
+            Qbotics.LOGGER.info("Screenshot run: CONE camera 128x96 {} us; cone list {} us: {} blocks, {} kinds, about {} bytes to send",
+                    camera / 1000, cone / 1000, seen.size(), kinds.size(), seen.size() * 4 + kinds.size() * 3);
+            conePicture = qbotics.camera.Camera.get(id);
+            coneSeen = seen;
+        }));
+        then(10, minecraft -> {
+            long t0 = System.nanoTime();
+            java.awt.image.BufferedImage made = qbotics.client.display.ConeRenderer.render(coneSeen, coneAt, Direction.NORTH, 256, 192);
+            long drawn = (System.nanoTime() - t0) / 1000;
+            long t1 = System.nanoTime();
+            for (int i = 0; i < 5; i++) {
+                qbotics.client.display.ConeRenderer.render(coneSeen, coneAt, Direction.NORTH, 256, 192);
+            }
+            Qbotics.LOGGER.info("Screenshot run: CONE drawn at 256x192 in {} us the first time, {} us after", drawn, (System.nanoTime() - t1) / 5000);
+            saveScaled(minecraft, "cone-new-256x192", made, 3);
+            saveScaled(minecraft, "cone-new-128x96", qbotics.client.display.ConeRenderer.render(coneSeen, coneAt, Direction.NORTH, 128, 96), 6);
+            saveScaled(minecraft, "cone-old-128x96", qbotics.client.display.ConeRenderer.oldPicture(conePicture), 6);
+        });
+        // The game's own view from the Qbot's eye, for reference (the game's field of view differs a little).
+        then(2, minecraft -> minecraft.options.fov().set(70));
+        view("cone-game-view", new Vec3(70.5, 1.5, -0.2), new Vec3(70.5, 1.5, -10));
+    }
+
+    private static void saveScaled(Minecraft minecraft, String name, java.awt.image.BufferedImage image, int scale) {
+        java.awt.image.BufferedImage big = new java.awt.image.BufferedImage(image.getWidth() * scale, image.getHeight() * scale,
+                java.awt.image.BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < big.getHeight(); y++) {
+            for (int x = 0; x < big.getWidth(); x++) {
+                big.setRGB(x, y, image.getRGB(x / scale, y / scale));
+            }
+        }
+        try {
+            java.io.File folder = new java.io.File(minecraft.gameDirectory, "screenshots");
+            folder.mkdirs();
+            javax.imageio.ImageIO.write(big, "png", new java.io.File(folder, name + ".png"));
+            Qbotics.LOGGER.info("Screenshot run: Saved {}.png", name);
+        } catch (java.io.IOException e) {
+            Qbotics.LOGGER.error("Screenshot run: couldn't save {}", name, e);
+        }
     }
 
     private static void plan() {
@@ -634,6 +757,7 @@ public final class ScreenshotRun {
 
         editor();
         agent();
+        cone();
 
         section("night");
         if (!WANTED.contains("displays")) {

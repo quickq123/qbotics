@@ -155,7 +155,7 @@ final class PictureColors {
     }
 
     /** A texture's first frame (a square from its top), ARGB; null if it can't be read. Cached. */
-    private static int @Nullable [] texture(Identifier sprite) {
+    static int @Nullable [] texture(Identifier sprite) {
         return TEXTURES.computeIfAbsent(sprite, name -> {
             Identifier file = Identifier.fromNamespaceAndPath(name.getNamespace(), "textures/" + name.getPath() + ".png");
             Optional<Resource> resource = Minecraft.getInstance().getResourceManager().getResource(file);
