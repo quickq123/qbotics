@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -98,6 +98,7 @@ public final class QboticsGameTests {
             Map.entry("stepping_ends", QboticsGameTests::steppingEnds),
             Map.entry("qbot_equip", QboticsGameTests::qbotEquip),
             Map.entry("review_fixes", QboticsGameTests::reviewFixes),
+            Map.entry("laptop_events", QboticsGameTests::laptopEvents),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
@@ -2118,7 +2119,7 @@ public final class QboticsGameTests {
                     "p = network().programmer()",
                     "print(p.status)",
                     "import time",
-                    "time.sleep(0.2)    # once a tick: let the redstone's tick pass",
+                    "time.sleep(1)    # once a tick: let the redstone's tick pass (a busy test server's ticks run long)",
                     "print(p.program('basic'))",
                     "try:",
                     "    p.program('nothere')",
@@ -4434,6 +4435,47 @@ public final class QboticsGameTests {
         watcher.reset();
         helper.assertTrue(watcher.lastError() == null, "a new program starts with no error remembered");
         helper.succeed();
+    }
+
+    /**
+     * events.run() on a laptop (it has no cable network, and used to refuse): a timer fires and
+     * the run ends. And the editor offers what the game's modules really hold, read from the
+     * modules themselves: events.on_chat, and everything in env.
+     */
+    private static void laptopEvents(GameTestHelper helper) {
+        ComputerManager manager = ComputerManager.get(helper.getLevel().getServer());
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        ItemStack laptop = new ItemStack(QboticsContent.LAPTOP_ITEM.get());
+        ItemStack drive = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("hard_drive")));
+        drive.set(QboticsContent.MEDIA_ID.get(), UUID.randomUUID());
+        laptop.set(net.minecraft.core.component.DataComponents.CONTAINER,
+                net.minecraft.world.item.component.ItemContainerContents.fromItems(List.of(drive, ItemStack.EMPTY)));
+        player.getInventory().setItem(3, laptop);
+        ServerComputer computer = manager.getOrStartLaptop(player);
+        qbotics.laptop.Laptops.refresh(player);
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/t.py", String.join("\n",
+                    "import events",
+                    "events.after(0.2, lambda: print('timer fired'))",
+                    "events.run()",
+                    "print('run ended')",
+                    "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitLine("run /t.py");
+
+        qbotics.ide.TextBuffer chat = new qbotics.ide.TextBuffer("import events\nevents.on_c");
+        chat.moveDocumentEnd(false);
+        var offered = qbotics.ide.Completer.complete(chat, false);
+        helper.assertTrue(offered != null && offered.items().contains("on_chat") && offered.items().contains("on_change"), "events.on_c: " + offered);
+        qbotics.ide.TextBuffer env = new qbotics.ide.TextBuffer("import env\nenv.wa");
+        env.moveDocumentEnd(false);
+        var envOffered = qbotics.ide.Completer.complete(env, false);
+        helper.assertTrue(envOffered != null && envOffered.items().contains("watch"), "env.wa: " + envOffered);
+        helper.assertTrue(qbotics.ide.Docs.moduleExports().containsKey("env"), "the editor knows the env module");
+
+        helper.succeedWhen(() -> assertScreen(helper, computer, "timer fired\n", "run ended\n"));
     }
 
     /**

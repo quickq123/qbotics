@@ -638,6 +638,18 @@ public final class QboticsNeoForge {
             if (event.getEntity() instanceof ServerPlayer player) {
                 // What the in-game AI agent may do here (ai.enabled, ai.share_replies).
                 Qbotics.platform().sendToPlayer(player, qbotics.agent.ServerModel.settings());
+                qbotics.display.Tablets.get(player.level().getServer()).forgetSent(player.getUUID());
+            }
+        });
+        // The player's game starts its screens afresh in a new dimension and on respawning: tablets are sent whole again.
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player) {
+                qbotics.display.Tablets.get(player.level().getServer()).forgetSent(player.getUUID());
+            }
+        });
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerRespawnEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player) {
+                qbotics.display.Tablets.get(player.level().getServer()).forgetSent(player.getUUID());
             }
         });
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {

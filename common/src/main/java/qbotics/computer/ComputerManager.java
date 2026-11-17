@@ -316,6 +316,21 @@ public final class ComputerManager {
                 outbox.add(server -> GAME_WORKER.execute(() -> answer.complete(qbotics.agent.GameKnowledge.answerCall(server, call))));
                 return answer;
             }
+            if (call.startsWith("[\"events_start\"")) {
+                // events.run(): the laptop's own computer handles events (its timers, env.watch()); it has
+                // no cable network, so there are no pins, displays or messages to sign up for.
+                outbox.add(server -> {
+                    ServerComputer self = computers.get(id);
+                    com.google.gson.JsonObject reply = new com.google.gson.JsonObject();
+                    if (self == null) {
+                        reply.addProperty("e", "This laptop is switched off.");
+                    } else {
+                        reply.addProperty("r", self.startEvents(false));
+                    }
+                    answer.complete(reply.toString());
+                });
+                return answer;
+            }
             outbox.add(server -> answer.complete(NetworkCalls.handleLaptop(server, owner, call)));
             return answer;
         }, false, false, qbotics.laptop.Laptops.HEAP_BYTES, ServerComputer.DRIVE_QUOTA_BYTES);

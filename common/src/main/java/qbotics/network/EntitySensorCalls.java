@@ -286,7 +286,8 @@ final class EntitySensorCalls {
             List<ItemStack> contents = port.contents();
             for (int slot = 0; slot < contents.size(); slot++) {
                 ItemStack stack = contents.get(slot);
-                if (!stack.isEmpty() && own.test(stack) && (match == null || match.testStack(stack)) && port.extractFrom(slot, stack, 1, false) == 1) {
+                if (!stack.isEmpty() && own.test(stack) && (match == null || match.testStack(stack)) && (end.slot() < 0 || slot == end.slot())
+                        && port.extractFrom(slot, stack, 1, false) == 1) {
                     return new Taken(stack.copyWithCount(1), port);
                 }
             }
@@ -375,6 +376,7 @@ final class EntitySensorCalls {
         emptyHands(player);
         player.setItemInHand(InteractionHand.MAIN_HAND, taken == null ? ItemStack.EMPTY : taken.stack().copy());
         InteractionResult result = player.interactOn(entity, InteractionHand.MAIN_HAND, entity.position());
+        doneTrading(entity, player);
         boolean used = result.consumesAction();
         List<ItemStack> back = emptyHands(player);
         if (taken != null) {
@@ -448,6 +450,16 @@ final class EntitySensorCalls {
     }
 
     // ---- trading -------------------------------------------------------------------------
+
+    /**
+     * A villager right-clicked by a stand-in takes it for its customer, and the stand-in opens no
+     * trading screen whose closing would end that: it is ended here, or no player could trade with it.
+     */
+    static void doneTrading(Entity entity, ServerPlayer player) {
+        if (entity instanceof net.minecraft.world.entity.npc.villager.AbstractVillager trader && trader.getTradingPlayer() == player) {
+            trader.setTradingPlayer(null);
+        }
+    }
 
     private static net.minecraft.world.entity.npc.villager.AbstractVillager trader(Entity entity) {
         if (entity instanceof net.minecraft.world.entity.npc.villager.AbstractVillager trader) {

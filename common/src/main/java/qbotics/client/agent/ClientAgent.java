@@ -218,7 +218,18 @@ public final class ClientAgent {
         }
     }
 
+    private static Object talkedOn;
+
     public static void onSettings(AgentPayloads.Settings settings) {
+        // Sent on joining: a conversation had on another server (or in another world) is not carried
+        // to this one, whose model would otherwise be sent it with the first question.
+        Object connection = Minecraft.getInstance().getConnection();
+        if (connection != talkedOn) {
+            talkedOn = connection;
+            synchronized (history) {
+                history.clear();
+            }
+        }
         serverEnabled = settings.enabled();
         serverShared = settings.shared();
         serverOffers = settings.offered();
@@ -373,7 +384,7 @@ public final class ClientAgent {
         stopping = false;
         boolean look = question.regionMatches(true, 0, "look", 0, 4) && (question.length() == 4 || !Character.isLetter(question.charAt(4)));
         if (serverShared) {
-            Qbotics.platform().sendToServer(new AgentPayloads.Share(false, question));
+            Qbotics.platform().sendToServer(new AgentPayloads.Share(false, question.length() > 7000 ? question.substring(0, 7000) + "..." : question));
         } else {
             show(AgentChat.question(Minecraft.getInstance().getUser().getName(), question));
         }
@@ -427,12 +438,18 @@ public final class ClientAgent {
                 return;
             }
             for (JsonObject call : calls) {
-                if (stopping) {
-                    break;
-                }
                 String name = call.getAsJsonObject("function").get("name").getAsString();
-                String args = argumentsOf(call.getAsJsonObject("function"));
-                String result = runTool(name, args, settings);
+                String result;
+                if (stopping) {
+                    // A model's server refuses a conversation in which a tool it asked for was never answered.
+                    result = "Not run: the player stopped the helper.";
+                } else {
+                    try {
+                        result = runTool(name, argumentsOf(call.getAsJsonObject("function")), settings);
+                    } catch (RuntimeException e) {
+                        result = "The tool failed: " + describe(e);
+                    }
+                }
                 JsonObject toolMessage = message("tool", result);
                 toolMessage.addProperty("tool_call_id", call.has("id") ? call.get("id").getAsString() : name);
                 addHistory(toolMessage);
@@ -489,10 +506,30 @@ public final class ClientAgent {
         }
         body.add("messages", messages);
         body.add("tools", tools(settings));
+        String json = GSON.toJson(body);
+        if (json.length() > MOST_REQUEST) {
+            // Too long to send in one message (the player would be dropped from the server): the
+            // pictures but the newest are taken out, which is nearly always what filled it.
+            boolean newest = true;
+            for (int i = messages.size() - 1; i >= 0; i--) {
+                JsonObject m = messages.get(i).getAsJsonObject();
+                if (m.has("content") && m.get("content").isJsonArray()) {
+                    if (newest) {
+                        newest = false;
+                    } else {
+                        m.addProperty("content", textOf(m) + " [a screenshot was shown here]");
+                    }
+                }
+            }
+            json = GSON.toJson(body);
+        }
+        if (json.length() > MOST_REQUEST) {
+            throw new IllegalStateException("the conversation has grown too long to send to this server's model. /ai clear starts a new one");
+        }
         int id = NEXT_ID.getAndIncrement();
         CompletableFuture<AgentPayloads.ModelReply> reply = new CompletableFuture<>();
         MODEL_PENDING.put(id, reply);
-        Qbotics.platform().sendToServer(new AgentPayloads.ModelRequest(id, GSON.toJson(body)));
+        Qbotics.platform().sendToServer(new AgentPayloads.ModelRequest(id, json));
         AgentPayloads.ModelReply answer;
         try {
             answer = reply.get(7, TimeUnit.MINUTES);
@@ -921,18 +958,26 @@ public final class ClientAgent {
     }
 
     /** After a turn, pictures are dropped from the conversation: they are large, and were for that question. */
+    /** The most a request to the server's model may be, under the message's own limit (AgentPayloads.ModelRequest). */
+    private static final int MOST_REQUEST = 3_800_000;
+
+    /** The words of a message that also holds a picture. */
+    private static String textOf(JsonObject message) {
+        StringBuilder text = new StringBuilder();
+        for (JsonElement part : message.getAsJsonArray("content")) {
+            JsonObject p = part.getAsJsonObject();
+            if (p.has("text")) {
+                text.append(p.get("text").getAsString());
+            }
+        }
+        return text.toString();
+    }
+
     private static void stripImages() {
         synchronized (history) {
             for (JsonObject m : history) {
                 if (m.has("content") && m.get("content").isJsonArray()) {
-                    StringBuilder text = new StringBuilder();
-                    for (JsonElement part : m.getAsJsonArray("content")) {
-                        JsonObject p = part.getAsJsonObject();
-                        if (p.has("text")) {
-                            text.append(p.get("text").getAsString());
-                        }
-                    }
-                    m.addProperty("content", text + " [a screenshot was shown here]");
+                    m.addProperty("content", textOf(m) + " [a screenshot was shown here]");
                 }
             }
         }

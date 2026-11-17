@@ -2781,7 +2781,8 @@ looking at is. That needs a model that can see pictures (a "VL" or vision model)
 can't, `/ai vision off`.
 
 While it works, chat shows what it does in grey: `(devices)`, `(read file /main.py)`. It
-remembers the conversation until `/ai clear`; `/ai stop` stops it mid-way.
+remembers the conversation until `/ai clear`, or until you join another server or world (a
+conversation is never carried from one to the next); `/ai stop` stops it mid-way.
 
 | What it can do | |
 |---|---|

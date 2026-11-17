@@ -79,9 +79,15 @@ public final class ClientDisplays {
         return view != null ? view : ClientWebPanels.view(origin);
     }
 
+    /** The screen there is a web page now: its text or panel view is gone. */
+    static void forget(BlockPos origin) {
+        VIEWS.remove(origin);
+    }
+
     public static void onText(DisplayPayloads.Text payload) {
         sameLevel();
         BlockPos origin = payload.origin().immutable();
+        ClientWebPanels.forget(origin);
         TextView view = VIEWS.get(origin) instanceof TextView had && !payload.full()
                 && had.cols == payload.cols() && had.rows == payload.rows() ? had : null;
         if (view == null) {
@@ -104,6 +110,7 @@ public final class ClientDisplays {
     public static void onPanel(DisplayPayloads.Panel payload) {
         sameLevel();
         BlockPos origin = payload.origin().immutable();
+        ClientWebPanels.forget(origin);
         PanelView view = VIEWS.get(origin) instanceof PanelView had ? had : new PanelView();
         VIEWS.put(origin, view);
         try {

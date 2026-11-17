@@ -196,7 +196,7 @@ final class WorldPlateCalls {
             List<ItemStack> contents = port.contents();
             for (int slot = 0; slot < contents.size(); slot++) {
                 ItemStack stack = contents.get(slot);
-                if (stack.isEmpty() || !own.test(stack) || (match != null && !match.testStack(stack))) {
+                if (stack.isEmpty() || !own.test(stack) || (match != null && !match.testStack(stack)) || (end.slot() >= 0 && slot != end.slot())) {
                     continue;
                 }
                 int taken = port.extractFrom(slot, stack, most, false);
@@ -362,7 +362,8 @@ final class WorldPlateCalls {
             for (int slot = 0; slot < contents.size(); slot++) {
                 ItemStack stack = contents.get(slot);
                 // With nothing named, only blocks: a program saying place() means "a block from here".
-                if (stack.isEmpty() || !own.test(stack) || (match == null ? !(stack.getItem() instanceof BlockItem) : !match.testStack(stack))) {
+                if (stack.isEmpty() || !own.test(stack) || (match == null ? !(stack.getItem() instanceof BlockItem) : !match.testStack(stack))
+                        || (end.slot() >= 0 && slot != end.slot())) {
                     continue;
                 }
                 ServerPlayer player = standIn(level, placer); // before anything is taken: a plate with no owner takes nothing

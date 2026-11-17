@@ -376,7 +376,8 @@ public final class NetworkCalls {
                 if (ownItems(device) instanceof ItemPort own) {
                     stacks = own.contents();
                 } else if (device instanceof CablePort port && port.medium() == Medium.ITEM && port.gives()) {
-                    stacks = (string(args, 3) == null ? wholeTarget(level, port) : target(level, port, string(args, 3))).contents();
+                    ServerLevel where = levelOf(device, level); // a bus behind another antenna may be in another dimension
+                    stacks = (string(args, 3) == null ? wholeTarget(where, port) : target(where, port, string(args, 3))).contents();
                 } else {
                     throw new CallError("Only an interface or a bus can count what is there; this is " + article(device) + ".");
                 }
@@ -975,6 +976,9 @@ public final class NetworkCalls {
 
     /** True for a device that holds items a storage can use: an interface, a player interface, an item bus. */
     private static boolean holdsItems(NetworkDevice device) {
+        if (device instanceof qbotics.block.GameInterfaceBlockEntity game && game.kind() == Kind.PLAYER) {
+            return true; // also while its player is away: it is left out then, not an error
+        }
         return ownItems(device) != null || (device instanceof CablePort port && port.medium() == Medium.ITEM && port.gives() && port.takes());
     }
 
@@ -1041,7 +1045,12 @@ public final class NetworkCalls {
         java.util.Set<String> taken = new java.util.HashSet<>();
         for (NetworkDevice device : group) {
             ServerLevel at = levelOf(device, level);
-            ItemPort port = ownItems(device);
+            ItemPort port;
+            try {
+                port = ownItems(device);
+            } catch (CallError unreachable) {
+                continue; // a Player Interface whose player is away: left out, as any member that can't be reached
+            }
             if (port == null && device instanceof CablePort plate) {
                 try {
                     port = wholeTarget(at, plate);
@@ -1690,6 +1699,9 @@ public final class NetworkCalls {
 
     private static String nothingThere(ServerLevel level, CablePort port, String what) {
         level = levelOf(port, level);
+        if (!level.isLoaded(port.targetPos())) {
+            return notLoaded(port);
+        }
         String block = BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString();
         return "The " + port.kindWord().replace('_', ' ') + " at " + port.ip() + " points at " + block + ", which holds no " + what + ".";
     }
@@ -2271,13 +2283,21 @@ public final class NetworkCalls {
         AccessFace face = faceWord == null ? port.accessFace() : face(faceWord);
         BlockPos pos = port.targetPos();
         Direction side = face.resolve(port.pointing());
-        ItemPort target = level.isLoaded(pos) ? Qbotics.platform().itemPort(level, pos, side) : null;
+        if (!level.isLoaded(pos)) {
+            throw new CallError(notLoaded(port));
+        }
+        ItemPort target = Qbotics.platform().itemPort(level, pos, side);
         if (target == null) {
             String block = BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString();
             throw new CallError("The " + port.kindWord().replace('_', ' ') + " at " + port.ip() + " points at " + block
                     + ", which holds no items" + (face == AccessFace.NEAR ? "." : " that can be reached through its " + face.word() + " face."));
         }
         return BusFilter.wrap(target, port.filter());
+    }
+
+    /** Asking what block is there would load that part of the world: it is said not to be loaded instead. */
+    private static String notLoaded(CablePort port) {
+        return "The " + port.kindWord().replace('_', ' ') + " at " + port.ip() + " points into a part of the world that isn't loaded now.";
     }
 
     // ---- describing things -----------------------------------------------------------
@@ -2341,7 +2361,8 @@ public final class NetworkCalls {
             if (port.filter() != null) {
                 info.add("filter", filterJson(port.filter()));
             }
-            info.addProperty("target", BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString());
+            info.addProperty("target", level.isLoaded(port.targetPos())
+                    ? BuiltInRegistries.BLOCK.getKey(level.getBlockState(port.targetPos()).getBlock()).toString() : "not loaded");
         } else if (device instanceof qbotics.block.DisplayBlockEntity display) {
             display.describe().entrySet().forEach(entry -> info.add(entry.getKey(), entry.getValue()));
         } else if (device instanceof qbotics.block.ProgrammerBlockEntity programmer) {

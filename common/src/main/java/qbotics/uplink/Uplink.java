@@ -419,7 +419,7 @@ public final class Uplink {
 
     /** Reads a reply: the status line, the headers, then the body (whole, chunked, or to the end). */
     private static Answer read(InputStream in, boolean head, long deadline, int limit) throws IOException, UplinkError {
-        String status = line(in);
+        String status = line(in, deadline);
         String[] parts = status.split(" ", 3);
         if (parts.length < 2 || !parts[0].startsWith("HTTP/")) {
             throw new UplinkError("The site's answer wasn't HTTP.");
@@ -428,7 +428,7 @@ public final class Uplink {
         String reason = parts.length > 2 ? parts[2] : "";
         Map<String, String> headers = new java.util.LinkedHashMap<>();
         int headerBytes = 0;
-        for (String line = line(in); !line.isEmpty(); line = line(in)) {
+        for (String line = line(in, deadline); !line.isEmpty(); line = line(in, deadline)) {
             headerBytes += line.length();
             if (headerBytes > MAX_HEADER_BYTES) {
                 throw new UplinkError("The site's answer had too many headers.");
@@ -446,14 +446,14 @@ public final class Uplink {
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         if ("chunked".equalsIgnoreCase(headers.getOrDefault("transfer-encoding", ""))) {
             while (true) {
-                String size = line(in);
+                String size = line(in, deadline);
                 int semicolon = size.indexOf(';');
                 int length = Integer.parseInt((semicolon >= 0 ? size.substring(0, semicolon) : size).strip(), 16);
                 if (length == 0) {
                     break;
                 }
                 copy(in, body, length, limit, deadline);
-                line(in); // the chunk's own line end
+                line(in, deadline); // the chunk's own line end
             }
         } else if (headers.containsKey("content-length")) {
             long length = Long.parseLong(headers.get("content-length"));
@@ -495,10 +495,13 @@ public final class Uplink {
     }
 
     /** One line of the reply's head, without its line end. */
-    private static String line(InputStream in) throws IOException, UplinkError {
+    private static String line(InputStream in, long deadline) throws IOException, UplinkError {
         ByteArrayOutputStream line = new ByteArrayOutputStream();
         int c;
         while ((c = in.read()) >= 0) {
+            if (System.currentTimeMillis() > deadline) {
+                throw new UplinkError("The site took too long to answer.");
+            }
             if (c == '\n') {
                 break;
             }

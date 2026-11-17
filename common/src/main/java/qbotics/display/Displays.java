@@ -210,7 +210,7 @@ public final class Displays {
     // ---- what players see -----------------------------------------------------------------
 
     /** What each player has been sent of a screen: which content, its shape and version. */
-    private record Sent(ScreenContent content, long shape, long version) {
+    private record Sent(ScreenContent content, long shape, long version, long pageAt) {
     }
 
     /** The screens loaded on the server (their top-left blocks), and what each player has of them. */
@@ -259,16 +259,18 @@ public final class Displays {
                     continue;
                 }
                 boolean full = had == null || had.content() != content || had.shape() != shape;
-                if (!full && content instanceof WebScreen web && web.pageChangedSince(had.version())) {
-                    // A page goes out at most once a second: a program rewriting a big page fast can't flood players.
-                    long now = System.currentTimeMillis();
-                    if (now - web.lastPageSent < 1000) {
+                long now = System.currentTimeMillis();
+                long pageAt = had == null ? 0 : had.pageAt();
+                if (full || (content instanceof WebScreen web && web.pageChangedSince(had.version()))) {
+                    // A page goes out at most once a second to each player: a program rewriting a big
+                    // page fast can't flood anyone, and one player's turn doesn't use up another's.
+                    if (!full && now - pageAt < 1000) {
                         continue;
                     }
-                    web.lastPageSent = now;
+                    pageAt = now;
                 }
                 Qbotics.platform().sendToPlayer(player, payload(pos, content, full ? 0 : had.version()));
-                sent.put(player.getUUID(), new Sent(content, shape, version));
+                sent.put(player.getUUID(), new Sent(content, shape, version, pageAt));
             }
             sent.keySet().retainAll(near); // coming back later, a player gets it all again
         }
@@ -473,15 +475,33 @@ public final class Displays {
             if (handle.content().isGone() || computers.computer(handle.computer()) == null) {
                 return true;
             }
+            ServerLevel level = server.getLevel(handle.dimension());
             if (handle.display() == null) {
-                return false; // a tablet's screen: gone when the tablet is unpaired or changes kind
+                // A tablet's screen: gone when the tablet is unpaired or changes kind, and when its
+                // computer (still standing where it was; a Qbot's tab is its own) is no longer on the
+                // network the tab belongs to.
+                UUID key = Tablets.get(server).keyOf(handle.content());
+                if (key == null || level == null || !level.isLoaded(handle.computerPos())
+                        || !(level.getBlockEntity(handle.computerPos()) instanceof qbotics.block.ComputerBlockEntity block)
+                        || block instanceof qbotics.qbot.QbotBlockEntity || !block.deviceId().equals(handle.computer())) {
+                    return false;
+                }
+                var gateway = CableNetwork.at(level, handle.computerPos()).gateway();
+                if (gateway != null && gateway.deviceId().equals(key)) {
+                    return false;
+                }
+                handle.content().listeners.remove(handle.computer());
+                return true;
             }
             if (handle.display().isRemoved() || handle.display().content() != handle.content()) {
                 return true;
             }
-            ServerLevel level = server.getLevel(handle.dimension());
-            return level == null || !level.isLoaded(handle.computerPos())
+            boolean left = level == null || !level.isLoaded(handle.computerPos())
                     || !CableNetwork.at(level, handle.computerPos()).devices().contains(handle.display());
+            if (left) {
+                handle.content().listeners.remove(handle.computer()); // its touches too
+            }
+            return left;
         });
     }
 
@@ -553,7 +573,7 @@ public final class Displays {
         if (content != null) {
             Qbotics.platform().sendToPlayer(player, payload(display.getBlockPos(), content, 0));
             Map<UUID, Sent> sent = LIVE.computeIfAbsent(display, d -> new HashMap<>());
-            sent.put(player.getUUID(), new Sent(content, content.shapeVersion(), content.version()));
+            sent.put(player.getUUID(), new Sent(content, content.shapeVersion(), content.version(), System.currentTimeMillis()));
         }
     }
 

@@ -176,9 +176,37 @@ public final class ClientWebPanels {
         return VIEWS.get(origin);
     }
 
+    /**
+     * A click as it is sent: a page can give an element any length of id, name or value, and a
+     * message over its limit would drop the player from the server, so long ones are cut short.
+     */
+    private static String clickText(JsonObject element) {
+        for (String field : new java.util.ArrayList<>(element.keySet())) {
+            com.google.gson.JsonElement value = element.get(field);
+            if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString() && value.getAsString().length() > 1500) {
+                element.addProperty(field, value.getAsString().substring(0, 1500));
+            }
+        }
+        String text = element.toString();
+        if (text.length() > 8000) {
+            element.remove("data");
+            text = element.toString();
+        }
+        return text.length() > 8000 ? "{}" : text;
+    }
+
+    /** The screen there is text or a panel now: its web view is gone. */
+    static void forget(BlockPos origin) {
+        WebView view = VIEWS.remove(origin);
+        if (view != null) {
+            release(view);
+        }
+    }
+
     public static void onWeb(DisplayPayloads.Web payload) {
         sameLevel();
         BlockPos origin = payload.origin().immutable();
+        ClientDisplays.forget(origin);
         WebView view = VIEWS.computeIfAbsent(origin, WebView::new);
         view.width = payload.width();
         view.height = payload.height();
@@ -231,7 +259,7 @@ public final class ClientWebPanels {
                 element.addProperty("event", name);
                 element.addProperty("value", "");
                 element.addProperty("data", dataJson.length() > 3000 ? "null" : dataJson);
-                Minecraft.getInstance().execute(() -> Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, element.toString())));
+                Minecraft.getInstance().execute(() -> Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, clickText(element))));
             }
 
             @Override
@@ -253,7 +281,7 @@ public final class ClientWebPanels {
                     element.addProperty("name", "");
                     element.addProperty("event", "error");
                     element.addProperty("value", view.lastError.length() > 200 ? view.lastError.substring(0, 200) : view.lastError);
-                    Minecraft.getInstance().execute(() -> Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, element.toString())));
+                    Minecraft.getInstance().execute(() -> Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, clickText(element))));
                 }
             }
 
@@ -539,7 +567,7 @@ public final class ClientWebPanels {
                 if (element != null && toProgram && !(element.get("event").getAsString().isEmpty() && element.get("id").getAsString().isEmpty()
                         && !element.get("tag").getAsString().equals("button") && !element.get("tag").getAsString().equals("a"))) {
                     element.remove("qbn");
-                    Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(origin, element.toString()));
+                    Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(origin, clickText(element)));
                 }
                 schedule(view);
             });
@@ -599,7 +627,7 @@ public final class ClientWebPanels {
         element.addProperty("event", name);
         element.addProperty("value", value);
         element.addProperty("enter", true);
-        Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, element.toString()));
+        Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, clickText(element)));
         schedule(view);
     }
 
@@ -695,7 +723,7 @@ public final class ClientWebPanels {
         element.addProperty("event", field);
         element.addProperty("value", view.typed.getOrDefault(field, ""));
         element.addProperty("enter", entered);
-        Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, element.toString()));
+        Qbotics.platform().sendToServer(new DisplayPayloads.WebClick(view.origin, clickText(element)));
     }
 
     /** The wheel over a point of the panel: a box there that scrolls moves, otherwise the page. */

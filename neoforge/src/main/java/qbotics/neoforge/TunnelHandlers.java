@@ -81,6 +81,9 @@ final class TunnelHandlers {
         }
         CablePort other = far.port();
         Direction face = other.accessFace().resolve(other.pointing());
+        if (!far.level().isLoaded(other.targetPos())) {
+            return null; // asking would load that chunk, each time a pipe looked through the tunnel
+        }
         H handler = far.level().getCapability(capability, other.targetPos(), face);
         return handler == null ? null : new Target<>(handler, far.links(), far.level(), other);
     }

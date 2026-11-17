@@ -420,6 +420,7 @@ final class QbotCalls {
         int slot = -1;
         ItemStack held;
         boolean fromHand = false;
+        ServerPlayer player = standIn(level, qbot, side); // before anything is taken: a Qbot with no owner keeps its items
         if (wanted != null) {
             slot = slotOf(qbot, wanted, stack -> false);
             if (slot < 0) {
@@ -431,7 +432,6 @@ final class QbotCalls {
             held = qbot.hand().removeItemNoUpdate(0);
             fromHand = !held.isEmpty();
         }
-        ServerPlayer player = standIn(level, qbot, side);
         String toolBefore = fromHand ? NetworkCalls.itemId(held.getItem()) : null;
         player.setItemInHand(InteractionHand.MAIN_HAND, held);
         InteractionResult result = InteractionResult.PASS;
@@ -441,6 +441,7 @@ final class QbotCalls {
             LivingEntity creature = creatures.getFirst();
             on = BuiltInRegistries.ENTITY_TYPE.getKey(creature.getType()).toString();
             result = player.interactOn(creature, InteractionHand.MAIN_HAND, creature.position());
+            EntitySensorCalls.doneTrading(creature, player);
         } else {
             BlockState state = level.getBlockState(target);
             on = blockId(state);

@@ -95,6 +95,9 @@ final class BlockSensorCalls {
         if (!sensor.covers(pos)) {
             throw new CallError("(" + offset.get(0) + ", " + offset.get(1) + ", " + offset.get(2) + ") is outside the sensor's area.");
         }
+        if (sensor.getLevel() != null && !sensor.getLevel().isLoaded(pos)) {
+            throw new CallError("(" + offset.get(0) + ", " + offset.get(1) + ", " + offset.get(2) + ") is in a part of the world that isn't loaded now.");
+        }
         return pos;
     }
 

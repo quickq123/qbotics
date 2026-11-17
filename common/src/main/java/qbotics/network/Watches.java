@@ -111,6 +111,12 @@ public final class Watches {
         }
         watch.lastUsed = level.getGameTime();
         NetworkDevice device = NetworkCalls.resolve(network, watch.mac);
+        if (watch.blocks != null && device instanceof qbotics.block.BlockSensorBlockEntity sensor) {
+            // The sensor is a new object each time its chunk loads, and stops listening when it
+            // thinks nobody watches: the watch is put back on the one that is there now.
+            watch.blocks = sensor;
+            sensor.watched(true);
+        }
         if (device != null) {
             device = NetworkCalls.concrete(device, Medium.ITEM); // a USB with no medium named is watched for items
         }

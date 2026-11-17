@@ -122,6 +122,29 @@ public final class Completer {
     }
 
     /**
+     * What a module holds: for the game's own modules, read from the module itself (so a new
+     * function is offered without this list being kept up), with the names listed above; null
+     * for a module that isn't known.
+     */
+    private static @org.jspecify.annotations.Nullable List<String> members(String module) {
+        List<String> listed = MODULES.get(module);
+        java.util.Set<String> own = Docs.moduleExports().get(module);
+        if (own == null) {
+            return listed;
+        }
+        TreeSet<String> all = new TreeSet<>();
+        for (String name : own) {
+            if (!name.startsWith("_")) {
+                all.add(name);
+            }
+        }
+        if (listed != null) {
+            all.addAll(listed);
+        }
+        return new ArrayList<>(all);
+    }
+
+    /**
      * Suggestions for the word ending at the cursor, or null if there is nothing to offer.
      *
      * @param asked true if the player pressed Ctrl+Space; otherwise suggestions wait until two
@@ -166,7 +189,7 @@ public final class Completer {
             if (owner.isEmpty()) {
                 return null;
             }
-            List<String> members = MODULES.get(importedModules(buffer).getOrDefault(owner, ""));
+            List<String> members = members(importedModules(buffer).getOrDefault(owner, ""));
             if (members != null) {
                 candidates.addAll(members);
             } else {
@@ -185,6 +208,7 @@ public final class Completer {
             candidates.addAll(BUILTINS);
             candidates.addAll(KEYWORDS);
             candidates.addAll(new TreeSet<>(MODULES.keySet()));
+            candidates.addAll(new TreeSet<>(Docs.moduleExports().keySet()));
         }
 
         // Exact-case matches first, then matches that differ only in capitals.

@@ -134,10 +134,31 @@ public final class Tablets extends SavedData {
     // Not saved: the made-up keys, and what each player has been sent.
     private final Map<Integer, App> byKey = new HashMap<>();
     private int nextKey = 1;
-    private record Sent(ScreenContent content, long shape, long version) {
+    private record Sent(ScreenContent content, long shape, long version, long pageAt) {
     }
     private final Map<UUID, Map<Integer, Sent>> sentContent = new HashMap<>();
     private final Map<UUID, Map<UUID, String>> sentState = new HashMap<>();
+
+    /**
+     * A player's game has forgotten every screen it was sent (it does on changing dimension,
+     * respawning and joining): the tablets they hold are sent whole again.
+     */
+    public void forgetSent(UUID player) {
+        sentContent.remove(player);
+        sentState.remove(player);
+    }
+
+    /** The network (its antenna's ID) or Qbot (its drive's) whose tab shows this content, or null. */
+    public @Nullable UUID keyOf(ScreenContent content) {
+        for (Tablet tablet : tablets.values()) {
+            for (App app : tablet.apps) {
+                if (app.content == content) {
+                    return app.antenna;
+                }
+            }
+        }
+        return null;
+    }
 
     public Tablets() {
     }
@@ -527,15 +548,16 @@ public final class Tablets extends SavedData {
             return;
         }
         boolean full = had == null || had.content() != content || had.shape() != shape;
-        if (!full && content instanceof WebScreen web && web.pageChangedSince(had.version())) {
-            long ms = System.currentTimeMillis();
-            if (ms - web.lastPageSent < 1000) {
-                return; // a page goes out at most once a second
+        long ms = System.currentTimeMillis();
+        long pageAt = had == null ? 0 : had.pageAt();
+        if (full || (content instanceof WebScreen web && web.pageChangedSince(had.version()))) {
+            if (!full && ms - pageAt < 1000) {
+                return; // a page goes out at most once a second (to each player)
             }
-            web.lastPageSent = ms;
+            pageAt = ms;
         }
         Qbotics.platform().sendToPlayer(player, Displays.payload(keyPos(app.key), content, full ? 0 : had.version()));
-        sent.put(app.key, new Sent(content, shape, version));
+        sent.put(app.key, new Sent(content, shape, version, pageAt));
     }
 
     /** The made-up position a tablet's selected screen is known by in players' games (for tests). */

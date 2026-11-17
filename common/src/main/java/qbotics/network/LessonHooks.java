@@ -143,7 +143,7 @@ final class LessonHooks {
                     }
                 }
             } else if (end.device() instanceof qbotics.block.CablePort plate && plate.level() != null
-                    && plate.level().getBlockEntity(plate.targetPos()) instanceof AbstractFurnaceBlockEntity furnace) {
+                    && plate.level().isLoaded(plate.targetPos()) && plate.level().getBlockEntity(plate.targetPos()) instanceof AbstractFurnaceBlockEntity furnace) {
                 furnaceBlocks.add(furnace);
                 furnaces.add(new int[] {furnace.getItem(2).getCount()});
             }
