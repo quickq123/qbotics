@@ -131,7 +131,10 @@ run /factory/report.py
 - **The first command that fails stops it**, saying which line: a missing file, an unknown
   command, a `git` that refused, or a program that ended with an error or `sys.exit(1)`.
 - Scripts can run scripts (up to 8 deep).
-- **`/startup.sh`** runs when the computer starts, before `/startup.py`.
+- **`/startup.sh`** runs when the computer starts: when it is switched on, and each time its part
+  of the world loads again (you came back, the server restarted). Every new computer has one,
+  holding only notes. **`/startup.py`** runs instead if `startup.sh` has no commands in it. A
+  program you started by hand with `run` is not started again: put it in `startup.sh`.
 - No variables, `if` or loops: for those, write a Python program and `run` it from the script.
 
 | Command | Does |
@@ -243,6 +246,7 @@ message, and nothing is changed.
 | Setting | Values | Meaning |
 |---|---|---|
 | `name` | text | What the computer is called on its network |
+| `open` | `"owner"`, `"team"`, `"public"` | Who may open the computer by right-clicking it (a Qbot's and a Server's screen too). `owner`: only you (how every computer starts; operators always may). `team`: your team (FTB Teams, or the game's `/team`). `public`: anyone. Whoever opens it works as you: your files, your devices, your interfaces. Only the owner changes this page |
 | `remote_login.allow` | `"owner"`, `"password"`, `"off"` | Who may log in with `ssh`. `owner`: only computers placed by the same player (how every computer starts). `password`: those, and anyone who gives the password. `off`: nobody |
 | `remote_login.password` | text | Type a new one to set it. It is shown as `********` once set and is never shown again; empty removes it |
 | `antenna.access` | `"private"`, `"team"`, `"public"` | Who may reach this network by radio (section 7.3). Only shown when an antenna is cabled in |
@@ -366,13 +370,12 @@ stack, which Ctrl+Shift+C copies (section 8).
 A name that doesn't exist is an error that suggests close matches. A filter that nothing in
 the game passes is an error too.
 
-How many move when no count is given:
-
-| Written | Default amount |
-|---|---|
-| One item name | 1 |
-| One fluid name | 1,000 mB (one bucket) |
-| A filter, or nothing | Everything there, up to the limit for one move |
+With no count, **everything** that matches and fits moves, up to the limit for one move,
+however it is named: `move(chest, store, "coal")` moves all the coal. Give a count to move
+fewer: `move(chest, store, "coal", 8)`. This is the same for `move`, a screen's `put` and
+`take`, a Dropper's `drop` and a Qbot's `inventory.drop` and `suck`. (Putting ingredients into a
+crafting grid, give the count: `screen.put(Slot(1), "oak_planks", 1, sources=store)`.) A count
+of 0 is an error: check it first (`if n > 0:`).
 
 ---
 
@@ -393,6 +396,12 @@ treat their sides differently, such as a furnace.
 For a plate pointing up or down, `TOP` is north and `LEFT` is west, as on a map.
 
 `plate.set_face(face)` changes the face used when a call names none.
+
+**Moving** with no face named goes through that face, taking out as well as putting in:
+`move(furnace, store)` takes only what the bus's face gives. `Face.ALL` is the whole block,
+every slot whichever face it is reached through: `move(furnace.source(face=Face.ALL), store)`.
+A slot given by number (`slot=Slot(2)`) with no face is one of the whole block's.
+**Looking** (`contents()`, `count()`, `watch()`) with no face named sees the whole block.
 
 For a furnace: `Face.TOP` reaches the ingredient, a side reaches the fuel, `Face.BOTTOM`
 reaches the product.
@@ -905,8 +914,8 @@ net = network()
 store, table = net.interface("store"), net.bus("crafter")
 
 with table.open_screen() as screen:               # closed at the end, even after an error
-    screen.put(Slot(1), "oak_planks", sources=store)
-    screen.put(Slot(4), "oak_planks", sources=store)
+    screen.put(Slot(1), "oak_planks", 1, sources=store)
+    screen.put(Slot(4), "oak_planks", 1, sources=store)
     print(screen.take(Slot(0), store))            # 4 sticks, into the store
 ```
 
@@ -965,8 +974,8 @@ names, never from a player:
 bank = net.experience_interface("bank")
 
 with net.bus("anvil").open_screen(xp=bank) as screen:
-    screen.put(Slot(0), "iron_sword", sources=store)      # two worn swords...
-    screen.put(Slot(1), "iron_sword", sources=store)
+    screen.put(Slot(0), "iron_sword", 1, sources=store)      # two worn swords...
+    screen.put(Slot(1), "iron_sword", 1, sources=store)
     print(screen.cost())                                  # ...asks 2 levels
     screen.take(Slot(2), store)                           # repaired; the levels come from bank
 
@@ -1126,7 +1135,7 @@ placer.pour("water", sources=tanks)           # a bucket's worth (1000 mB), pour
 
 | Call | Does |
 |---|---|
-| `placer.place(what=None, sources=...)` | Takes one item from `sources` (one source or a list) and places it. `what` is a name or filter; left out, the first block found is placed. Returns the item's name. If it can't be placed (it can't stand there, or its owner may not build there), it goes back where it came from and `NetworkError` says so |
+| `placer.place(what=None, sources=...)` | Takes one item from `sources` (one source or a list) and places it. `what` is a name or filter; left out, the first block found is placed. Returns the item's name. If it can't be placed (it can't stand there, or its owner may not build there), it goes back where it came from and `NetworkError` says so **It returns `False`, not an error, when nothing was placed** (the space is taken, the sources hold none, the owner may not build there); `placer.why` then says which |
 | `placer.pour(fluid=None, sources=...)` | Takes 1000 mB from a fluid interface, fluid input or fluid bus and pours it. Returns the fluid's name |
 
 **Breaker** (`net.breaker()`). Breaks the block in front of it and holds nothing itself:
@@ -1167,7 +1176,7 @@ spout.drop("water_bucket", sources=store)       # pours it; the empty bucket goe
 
 | Call or attribute | Does |
 |---|---|
-| `dropper.drop(what=None, count=1, sources=..., dispense=None)` | Takes items from `sources` (one source or a list) and sends them out; returns how many went. `what` is a name or filter; left out, whatever comes first. `dispense=True` or `False` does it that way this once, whatever the setting |
+| `dropper.drop(what=None, count=None, sources=..., dispense=None)` | Takes items from `sources` (one source or a list) and sends them out; returns how many went. `what` is a name or filter; left out, whatever comes first. `dispense=True` or `False` does it that way this once, whatever the setting **With no count, everything that matches goes** (up to 576 a call), as `move` does |
 | `dropper.dispense` | `False` (the default): it throws items out as a dropper does. `True`: it fires them as a dispenser does. Set it to change; the plate keeps it |
 | `dropper.drop_xp(points=None, levels=None, sources=...)` | Sends out exactly that much experience as orbs, from an Experience Interface or liquid experience in a fluid store (one source or a list, in order). Nothing, and `NetworkError`, if they hold less. Returns the points sent out |
 
@@ -1283,7 +1292,7 @@ events.run()
 
 | Call | Does |
 |---|---|
-| `chat.say(text)` | Writes a line to everyone's chat, as `[name] text`: the interface's name, or `Chat Interface` |
+| `chat.say(text)` | Writes a line to everyone's chat, as `[name] text`: its owner's name (so a program can't pass for the server or another player). Where the server sets `chat_interfaces.speak_as_owner` to false, the interface's own name, or `Chat Interface` |
 | `chat.tell(player, text)` | The same, to one player only |
 | `chat.command(command)` | Runs a command as the owner, as if they had typed it (a leading `/` is optional), and returns a command result (below). It has the owner's permissions and no more, and needs them online |
 | `chat.on_chat(function)`, `events.on_chat(chat, function)` | Runs the function for each chat message while `events.run()` is going. It gets an event with `.player`, `.message`, `.uuid` (the player's) and `.name` (the interface's) |
@@ -1401,9 +1410,9 @@ entity that has died or left the area raises `NetworkError`.
 | Call | Does |
 |---|---|
 | `entity.use(item=None, sources=None, destination=None)` | Right-clicks it as the owner, holding one item from `sources` (a name or filter), or an empty hand: a bucket milks a cow, wheat breeds it, shears shear a sheep, a name tag names it, a saddle saddles a pig. What comes of it (the milk bucket, the wool) goes to `destination`, or back to the sources; an item that wasn't used goes back. Returns `True` if it did something |
-| `entity.attack(weapon=None, sources=None, destination=None, wait=True)` | Hits it as the owner with a weapon from `sources`, or a fist. The weapon goes back to the sources (or `destination`). Returns `{"attacked", "alive", "health"}` |
+| `entity.attack(weapon=None, sources=None, destination=None, wait=True)` | Hits it as the owner with a weapon from `sources`, or a fist. The weapon goes back to the sources (or `destination`). Returns `{"attacked", "alive", "health"}` Afterwards the entity is as the hit left it: `zombie.health` has gone down and `zombie.alive` is `False` once it is dead, so `while zombie.alive: zombie.attack(...)` ends |
 | `entity.offers()` | A villager's or wandering trader's offers: `[{"index", "buy": {"item", "count"}, "buy_b", "sell": {...}, "uses", "max_uses", "out_of_stock"}]`. A sold item with data (an enchanted book) also has `"words"` and an exact `"filter"` (section 4) |
-| `entity.trade(offer, sources, destination=None, times=1)` | Makes an offer (its index or its dict), up to `times` times (at most 64 a call): the price is taken from `sources`, checked before anything moves; what it sells goes to `destination`, or back to the sources. Stops when the offer runs out or the price can't be paid. Returns how many trades were made |
+| `entity.trade(offer, sources, destination=None, times=1)` | Makes an offer (its index or its dict), up to `times` times (at most 64 a call): the price is taken from `sources`, checked before anything moves; what it sells goes to `destination`, or back to the sources. Stops when the offer runs out or the price can't be paid. Returns how many trades were made **It returns -1 when none were made because the offer is sold out** (0 when the price couldn't be paid) |
 | `entity.collect(to)` | Picks up a dropped item or an experience orb |
 
 **Inventories.** An entity with items is a source and a destination for `move()`, as a chest
@@ -1458,6 +1467,9 @@ villager already trading with a player is busy.
 
 **Acting for the owner.** Using, attacking and trading are done by the player who placed the
 sensor, so they can't touch what that player couldn't: animals in someone else's claim, say.
+Reaching into entity inventories (a chest minecart, a donkey) and picking up dropped items
+and experience keep to land the owner may change too, and so does a Collector, unless the
+server's `sensors.read_other_players_computers` setting lifts that.
 A sensor nobody placed only looks and picks up. Reading needs no owner at all.
 
 ### 6.13 Collector: picking up what lies around
@@ -1529,12 +1541,15 @@ store = net.storage("chest*")
 farm.set_area(x=(-4, 4), y=2, z=(-4, 4))           # a 9 x 9 field, two above the sensor
 
 for spot in farm.blocks("wheat age=7"):            # what is ripe now
-    farm.break_block(spot["pos"], to=store)
+    farm.break_block(spot["pos"], destination=store)
     farm.place(spot["pos"], "wheat_seeds", store)
 
 for change in farm.watch("wheat age=7"):           # then, as each ripens
-    farm.break_block(change["pos"], to=store)
-    farm.place(change["pos"], "wheat_seeds", store)
+    # Harvesting ripe wheat is a change too (it was ripe, now it is a seedling): act only on
+    # what is ripe now. State values are text, so "7", not 7.
+    if change.get("block") == "minecraft:wheat" and change["state"].get("age") == "7":
+        farm.break_block(change["pos"], destination=store)
+        farm.place(change["pos"], "wheat_seeds", store)
 ```
 
 | Call or attribute | Does |
@@ -1544,7 +1559,7 @@ for change in farm.watch("wheat age=7"):           # then, as each ripens
 | `sensor.write_sign(pos, lines, back=False, color=None, glowing=None)` | Writes a sign as its owner would: up to four lines (a list), on its front or (`back=True`) its back, in a dye colour (`"green"`), glowing or not. A waxed sign can't be changed: wax is how a player locks one. Returns the block |
 | `sensor.watch(what=None)` | Changes in its box, as they happen (below) |
 | `sensor.break_block(pos, to=None)` | Breaks a block as its owner would with the right netherite tool, taking as long as that does (crops at once). Drops go to `to`, all or nothing; with no `to`, they fall where the block was, for a Collector to pick up. Returns `{name: count}` |
-| `sensor.place(pos, item=None, sources=...)` | Places one item from `sources` there, as its owner would: a block, or seeds onto farmland. Returns `True` if it went there; if not, it goes back |
+| `sensor.place(pos, item=None, sources=...)` | Places one item from `sources` there, as its owner would: a block, or seeds onto farmland. Returns `True` if it went there; if not, it goes back With no item named, the first block or seeds found. `False` also when the spot is taken or the sources hold none; `sensor.why` says which |
 | `sensor.use(pos, item=None, sources=None, destination=None)` | Right-clicks the block there as its owner, holding one item from `sources` (or an empty hand): bone meal grows it, a hoe tills dirt, a bucket fills or empties, a lever flips. What comes of it goes to `destination`, or back to the sources. Returns `True` if it did something |
 | `sensor.area`, `sensor.set_area(x=None, y=None, z=None)` | Its box, as `{"x": (low, high), ...}` offsets. Give each axis a pair, or one number for one layer |
 
@@ -1643,7 +1658,7 @@ devices and to `ssh`:
 | Access | Lets in |
 |---|---|
 | `private` | Only devices placed by the antenna's owner. Every antenna starts like this |
-| `team` | The owner's devices, and those of players on the owner's team (the game's `/team`) |
+| `team` | The owner's devices, and those of players on the owner's team (a team in FTB Teams, if that mod is installed, or the game's own `/team`) |
 | `public` | Anyone on the same frequency and in range |
 
 Devices on the same cables never need an antenna and are not affected by this.
@@ -1698,7 +1713,7 @@ print(mine.energy_interface().stored())
   computers, plates and displays. Machines there keep working.
 - Up to **25 chunks per antenna** (the server sets it), the nearest to the antenna first. The
   screen says how many it holds, and if the network spreads over more than it may hold.
-- A player may have **4 working loaders** (the server sets it; operators are exempt). Further
+- A player may have **4 working loaders** (the server sets it; operators are exempt, online or not). Further
   ones pause, and the screen says so.
 - Switch it on and off with the button in the antenna's screen, or from a program:
 
@@ -1780,7 +1795,7 @@ events.run()                                        # until events.stop() or Ctr
 |---|---|
 | `events.every(seconds, function)` | Runs the function every so many seconds, starting that many seconds from now. Returns a timer; `timer.cancel()` stops it |
 | `events.after(seconds, function)` | Runs the function once, so many seconds from now. Returns a timer |
-| `events.on_pin(pin, what, function)` | Runs the function when a Logic Pin sees `"rising"`, `"falling"`, `"change"` or `"block"` (section 6.10). The function gets an event with `.name`, `.event`, `.level` and `.block` |
+| `events.on_pin(pin, what, function)`, `events.on_pin(pin, function)` | Runs the function when a Logic Pin sees `"rising"`, `"falling"`, `"change"` or `"block"` (section 6.10). The function gets an event with `.name`, `.event`, `.level` and `.block` |
 | `events.on_change(device, function, what=None)` | Runs the function for each change to what a device holds (section 6.4b). `device` can also be a watch (a device's, or `env.watch()`) |
 | `events.on_message(function)` | Runs the function for each message from another computer: it gets `.sender` and `.data`. While `run()` is going, messages come here rather than to `network.receive()` |
 | `events.on_chat(chat, function)` | Runs the function for each message a player says in chat, as a Chat Interface hears it (section 6.11). It gets `.player` and `.message` |
@@ -2297,7 +2312,7 @@ Seeing isn't looking inside: `inspect` says a chest is a chest; `inventory.read(
 | Call | Does |
 |---|---|
 | `qbot.dig(side)` | Digs the block there, taking as long as a player would with the same tool, and returns what it got: `{"minecraft:cobblestone": 1}`. Every drop must fit in its inventory, or nothing is dug |
-| `qbot.place(side, item=None)` | Places a block from its inventory: the named one, or the first block it holds |
+| `qbot.place(side, item=None)` | Places a block from its inventory: the named one, or the first block it holds. Returns its name, or `False` if nothing was placed (it holds none, the space is taken, its owner may not build there); `qbot.why` then says which |
 | `qbot.use(side, item=None)` | Right-clicks there as a player would: with the named item from its inventory, else the tool in its hand, else an empty hand. Works on blocks (levers, doors, bone meal, a hoe on dirt) and creatures (shears on a sheep, a bucket on a cow); what that gives goes into its inventory |
 | `qbot.attack(side, wait=True)` | Attacks a creature there with the tool in its hand (or its fist), as a player swings: the tool's damage and enchantments count, and each swing waits for the tool's cooldown since the last (a sword about half a second). `wait=False` swings at once, as weakly as the cooldown leaves it |
 | `qbot.pump(side)` | Takes up a source of water or lava (1,000 mB) into a tank |
@@ -2326,7 +2341,7 @@ Qbot nobody owns (placed by a machine) can't change the world.
 | Call | Does |
 |---|---|
 | `inventory.list()` | `[{"slot": 0, "item": "minecraft:coal", "count": 12}, ...]` |
-| `inventory.count(item=None)` | How many of an item (or everything) |
+| `inventory.count(item=None)` | How many of an item (or everything). One exact name: a wildcard, tag or filter is an error (add up `inventory.list()` for those) |
 | `inventory.drop(side, item=None, count=None, face=None)` | Into the block there (a chest, a furnace); with nothing there that takes items, onto the ground. Returns how many went |
 | `inventory.suck(side, item=None, count=None, face=None)` | From the block there; with no container, picks up items lying there |
 | `inventory.insert(side, ...)`, `inventory.extract(side, ...)` | The same, but only with a container |
@@ -3087,7 +3102,10 @@ Its files are kept. You are told when you place one.
   you're below the new limit.
 
 **Starting up.** A computer that was on comes back on by itself when its area of the world
-loads, for example after the server restarts: its `startup.py` runs as usual. Computers come
+loads (you came back to it, or the server restarted): it starts as from new, and its
+`startup.sh` runs (or `startup.py`, section 1.1b). When its area unloads, the computer stops;
+a Chunk Loader Upgrade keeps it loaded and running. A computer nobody placed (a command or a
+structure put it there) stays off until a player right-clicks it and takes it on. Computers come
 back a few at a time (4 a tick by default): the Overworld first, players taking turns, those
 nearest the world's centre first.
 
@@ -3135,7 +3153,9 @@ even across restarts, until someone opens it again.
 | `transport.items_per_second` | 1024 | Items one antenna carries to and from other networks each second |
 | `transport.fluid_per_second` | 64000 | The same for fluid, in mB |
 | `transport.energy_per_second` | 2000000 | The same for energy, in FE |
-| `sensors.read_other_players_computers` | false | `true`: a Block Sensor's raw data (`details=True`) includes other players' computers, Qbots and antennas, with their owner, drive and password hash (for servers that teach security by letting players try to break in). `false`: a sensor reads that data only from its own owner's devices; for others `"data"` is `None` and `"data_private"` is `True` |
+| `sensors.read_other_players_computers` | false | `false`: sensors and Collectors keep to what their owner may change. A Block Sensor's raw data (`details=True`) leaves out other players' computers, Qbots and antennas, and any block on land the owner may not change (`"data"` is `None` and `"data_private"` is `True`); entity inventories and dropped items and experience are only reached on land the owner may change (land claims are respected). `true`: none of that is checked, and raw data includes other players' computers with their owner, drive and password hash (for servers that teach security by letting players try to break in) |
+| `chat_interfaces.enabled` | true | `false`: Chat Interfaces do nothing: they neither write to chat, run commands, nor hear chat |
+| `chat_interfaces.speak_as_owner` | true | `true`: what a Chat Interface writes is signed with its owner's name. `false`: with the interface's own name, which its owner chooses |
 | `sensors.attack_players` | false | `true`: an Entity Sensor's `attack()` may hit players (where the server allows PvP). `false`: it raises an error instead |
 
 ## 9c. Hard drives and the Drive Bay: moving files between computers

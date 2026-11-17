@@ -180,7 +180,7 @@ final class WorldPlateCalls {
         NameMatch<Item> match = wanted == null ? null : NetworkCalls.item(wanted);
         Integer asked = NetworkCalls.wholeNumber(args, 4, "count");
         boolean dispense = args.size() > 5 && !args.get(5).isJsonNull() ? args.get(5).getAsBoolean() : dropper.dispense();
-        int most = dispense ? 1 : Math.clamp(asked == null ? 1 : asked, 0, MOST_DROPPED);
+        int most = dispense ? 1 : Math.clamp(asked == null ? MOST_DROPPED : asked, 0, MOST_DROPPED);
         JsonObject answer = new JsonObject();
         answer.addProperty("dropped", 0);
         answer.add("item", JsonNull.INSTANCE);
@@ -346,10 +346,22 @@ final class WorldPlateCalls {
         }
     }
 
+    /** The answer when nothing was placed: {"placed": false, "why": the reason}. */
+    static JsonObject notPlaced(String why) {
+        JsonObject reply = new JsonObject();
+        reply.addProperty("placed", false);
+        reply.addProperty("why", why);
+        return reply;
+    }
+
     /** ["place", mac, sources, name or filter or null]: one item from the sources, placed as its owner would. */
     private static JsonObject place(ServerLevel level, CableNetwork network, CablePort placer, JsonArray args) {
         BlockPos target = loadedTarget(level, placer);
-        needsRoom(level, placer, target);
+        try {
+            needsRoom(level, placer, target);
+        } catch (CallError taken) {
+            return notPlaced(taken.getMessage());
+        }
         String wanted = NetworkCalls.string(args, 3);
         NameMatch<Item> match = wanted == null ? null : NetworkCalls.item(wanted);
         for (End end : NetworkCalls.asMedium(NetworkCalls.ends(network, args.get(2), "source"), Medium.ITEM)) {
@@ -386,15 +398,14 @@ final class WorldPlateCalls {
                     }
                 }
                 if (!placed) {
-                    throw new CallError("The placer couldn't place " + name
-                            + " there: it can't stand there, or its owner may not build here.");
+                    return notPlaced("The placer couldn't place " + name + " there: it can't stand there, or its owner may not build here.");
                 }
                 JsonObject reply = new JsonObject();
                 reply.addProperty("placed", name);
                 return reply;
             }
         }
-        throw new CallError(wanted == null ? "None of the sources holds a block to place." : "None of the sources holds " + wanted + " to place.");
+        return notPlaced(wanted == null ? "None of the sources holds a block to place." : "None of the sources holds " + wanted + " to place.");
     }
 
     /** ["pour", mac, sources, fluid name or filter or null]: a bucket's worth from the sources, poured as its owner would. */

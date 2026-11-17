@@ -54,7 +54,16 @@ public final class Limits {
             return false;
         }
         ServerPlayer online = server.getPlayerList().getPlayer(player);
-        return online != null && server.getPlayerList().isOp(online.nameAndId());
+        if (online != null) {
+            return server.getPlayerList().isOp(online.nameAndId());
+        }
+        // Away: by the server's list of operators, so an operator's devices don't switch off when they log out.
+        for (var entry : server.getPlayerList().getOps().getEntries()) {
+            if (entry.getUser() != null && player.equals(entry.getUser().id())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** True if one more active device of this type would keep the owner within their limit. */

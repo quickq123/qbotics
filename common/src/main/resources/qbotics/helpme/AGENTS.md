@@ -56,6 +56,7 @@ events.on_change(inbox, sort)      # run sort whenever the inbox changes
 events.run()                       # wait for events until Ctrl+C
 ```
 
+- With no count, `move` moves EVERYTHING that matches (give a count for fewer; in a crafting grid, `screen.put(slot, item, 1, sources=...)`).
 - `move(sources, destinations, what=None, count=None)` returns how many moved; nothing to
   move is not an error (section 6.4).
 - Names and filters: `"coal"`, `"*_log"`, `"#c:ingots"` (a tag), `"@create"` (a mod),

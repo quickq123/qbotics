@@ -131,9 +131,17 @@ def dig(side=Side.FRONT):
         time.sleep(min(reply["wait"] / 20, 0.1))
 
 
+why = None   # after place() answers False: the reason, in words
+
+
 def place(side=Side.FRONT, item=None):
-    """Places a block from its inventory on a side: the named one, or the first block it holds."""
-    return _q("qbot_place", side, item)["placed"]
+    """Places a block from its inventory on a side: the named one, or the first block it holds.
+    Returns its name, or False if nothing was placed (it holds none, the space is taken, its
+    owner may not build there): qbot.why then says which."""
+    global why
+    reply = _q("qbot_place", side, item)
+    why = reply.get("why")
+    return reply["placed"]
 
 
 def use(side=Side.FRONT, item=None):
@@ -219,7 +227,11 @@ class _Inventory:
         return _q("qbot_items")
 
     def count(self, item=None):
-        """How many of an item (or of everything) it holds."""
+        """How many of an item (or of everything) it holds. One exact name ("coal"): not a
+        wildcard, a tag or a filter."""
+        if item is not None and (not isinstance(item, str) or any(c in item for c in "*?#@$| =")):
+            raise QbotError("inventory.count() takes one exact item name (\"coal\"), not a wildcard, a tag or a "
+                            "filter: %r. Add up inventory.list() for those." % (item,))
         total = 0
         for stack in _q("qbot_items"):
             if item is None or stack["item"] == item or stack["item"] == "minecraft:" + item:

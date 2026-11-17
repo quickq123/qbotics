@@ -44,6 +44,16 @@ Put the sensor under the middle of a 9 x 9 field: farmland one block above it, w
 Make the farm look after itself: harvest each wheat the moment it ripens, with
 `events.on_change(farm, ripened, what="wheat age=7")`, and run it from startup (lesson 15).
 
+Check that it is grown before you harvest. Breaking ripe wheat is itself a change (it was
+ripe, and now it isn't), so `ripened` is called for that too:
+
+    def ripened(change):
+        if change.get("block") == "minecraft:wheat" and change["state"].get("age") == "7":
+            farm.break_block(change["pos"], destination=store)
+            farm.place(change["pos"], "wheat_seeds", store)
+
+`"7"` is in quotes because a block's state values are text, not numbers.
+
 ## New Python here
 
 - `(dx, dy, dz)` in round brackets is a **tuple**: a list that can't change, here a position.

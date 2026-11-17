@@ -81,12 +81,24 @@ public final class Checker {
      * @param modules the names each of the mod's modules has (logistics: move, Face, ...), to
      *                catch a misspelt import; empty to skip that
      */
+    private static final java.util.regex.Pattern ZERO_COUNT = java.util.regex.Pattern.compile("\\b(count\\s*=\\s*0)\\s*[,)]");
+
     public static List<Problem> check(List<String> lines, Map<String, Set<String>> modules) {
         Checker.Run run = new Checker.Run(lines, modules);
         run.tokenize();
         run.structure();
         if (!run.garbled) {
             run.names(); // unless a bracket or text in quotes left open has thrown the rest out of step
+        }
+        // count=0 written out: move() and its like refuse to move nothing.
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            int note = line.indexOf('#');
+            java.util.regex.Matcher zero = ZERO_COUNT.matcher(note < 0 ? line : line.substring(0, note));
+            while (zero.find()) {
+                run.problems.add(new Problem(i, zero.start(1), zero.end(1), Severity.WARNING,
+                        "A count of 0 is refused (\"The count must be 1 or more\"). Leave the call out when there is nothing to move."));
+            }
         }
         run.problems.sort((a, b) -> a.line != b.line ? Integer.compare(a.line, b.line) : Integer.compare(a.start, b.start));
         return run.problems;

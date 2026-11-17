@@ -322,6 +322,10 @@ public final class NetworkCalls {
                 if (name.isEmpty() && !wanted.isBlank()) {
                     throw new CallError("A name can use letters, digits, _ - and . (up to " + Addresses.MAX_NAME_LENGTH + " characters).");
                 }
+                if (!name.equals(wanted.strip())) {
+                    throw new CallError("A name can use letters, digits, _ - and . only (no spaces; up to " + Addresses.MAX_NAME_LENGTH
+                            + " characters), so '" + wanted + "' can't be one. Try '" + name + "'. Capitals count: Chest and chest are two names.");
+                }
                 device.setDeviceName(name);
                 return describe(level, network, device);
             }
@@ -340,7 +344,8 @@ public final class NetworkCalls {
                     return contents(own, details ? where : null);
                 }
                 if (device instanceof CablePort port && port.gives()) {
-                    // With no face named, a bus reads the whole container, not only what one face shows.
+                    // With no face named, a bus reads the whole container, not only what one face shows
+                    // (looking is of everything; moving, with no face named, goes through the bus's own face).
                     String faceWord = string(args, 2);
                     return contents(faceWord == null ? wholeTarget(where, port) : target(where, port, faceWord), details ? where : null);
                 }
@@ -1265,8 +1270,9 @@ public final class NetworkCalls {
             return own;
         }
         if (end.device() instanceof CablePort plate && plate.medium() == Medium.ITEM && plate.gives()) {
-            // With no face named, a source is the whole container, as contents() shows it.
-            return end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
+            // With no face named, a source is what the bus's own face shows, as a destination is; a slot
+            // by number is one of the whole container's.
+            return end.slot() >= 0 && end.face() == null ? wholeTarget(level, plate) : target(level, plate, end.face());
         }
         throw notASource(end);
     }
@@ -1453,7 +1459,7 @@ public final class NetworkCalls {
                     }
                 }
                 most = MAX_ITEMS_PER_CALL;
-                byDefault = match != null && match.single() != null ? 1 : most;
+                byDefault = most; // with no count, everything that fits (a plain name used to move just one)
                 step = (s, d, limit, simulate) -> {
                     int pair = s * destinations.size() + d;
                     return from.get(s) == to.get(d) ? 0 : ItemPort.move(fromPair.get(pair), sources.get(s).slot(),
@@ -1493,7 +1499,7 @@ public final class NetworkCalls {
                     }
                 }
                 most = MAX_FLUID_PER_CALL;
-                byDefault = match != null && match.single() != null ? FluidPort.BUCKET : most;
+                byDefault = most;
                 step = (s, d, limit, simulate) -> from.get(s) == to.get(d) ? 0 : FluidPort.move(from.get(s), sources.get(s).slot(),
                         to.get(d), destinations.get(d).slot(), passes.get(s * destinations.size() + d), (int) limit, simulate);
             }
@@ -2246,7 +2252,7 @@ public final class NetworkCalls {
     private static AccessFace face(String word) {
         AccessFace face = AccessFace.parse(word);
         if (face == null) {
-            throw new CallError("'" + word + "' isn't a face. Use near, far, top, bottom, left or right.");
+            throw new CallError("'" + word + "' isn't a face. Use near, far, top, bottom, left or right (or all, for the whole block).");
         }
         return face;
     }
@@ -2280,6 +2286,9 @@ public final class NetworkCalls {
 
     /** The container a bus points at, seen through a face. */
     static ItemPort target(ServerLevel level, CablePort port, String faceWord) {
+        if ("all".equals(faceWord)) {
+            return wholeTarget(level, port); // every slot, whichever face it would go in or out through
+        }
         AccessFace face = faceWord == null ? port.accessFace() : face(faceWord);
         BlockPos pos = port.targetPos();
         Direction side = face.resolve(port.pointing());

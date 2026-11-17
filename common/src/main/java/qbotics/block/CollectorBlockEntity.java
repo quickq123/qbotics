@@ -60,6 +60,9 @@ public class CollectorBlockEntity extends AreaBlockEntity implements Container, 
             if (looked++ >= MOST_AT_ONCE) {
                 break;
             }
+            if (!qbotics.network.Boundaries.mayReach(server, this, dropped.blockPosition())) {
+                continue; // lying on land its owner may not change (another player's claim)
+            }
             ItemStack stack = dropped.getItem();
             int put = into.insert(stack, stack.getCount(), false);
             if (put >= stack.getCount()) {
@@ -73,6 +76,9 @@ public class CollectorBlockEntity extends AreaBlockEntity implements Container, 
             return; // nowhere to keep experience: the orbs stay
         }
         for (ExperienceOrb orb : server.getEntitiesOfClass(ExperienceOrb.class, area(), orb -> orb.isAlive() && holds(orb))) {
+            if (!qbotics.network.Boundaries.mayReach(server, this, orb.blockPosition())) {
+                continue;
+            }
             long worth = Experience.orbPoints(orb);
             long left = worth;
             for (ExperienceInterfaceBlockEntity bank : banks) {

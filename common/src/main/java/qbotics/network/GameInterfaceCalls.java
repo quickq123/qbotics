@@ -60,33 +60,37 @@ public final class GameInterfaceCalls {
             }
             case "chat_say": {
                 need(device, Kind.CHAT, "Only a chat interface writes to chat");
+                chatOn();
                 ownersComputer(device, server);
-                Component line = line(device, text(args, 2));
+                Component line = line(server, device, text(args, 2));
                 written(device, level);
                 server.getPlayerList().broadcastSystemMessage(line, false);
                 return JsonNull.INSTANCE;
             }
             case "chat_tell": {
                 need(device, Kind.CHAT, "Only a chat interface writes to chat");
+                chatOn();
                 ownersComputer(device, server);
                 String name = NetworkCalls.string(args, 2);
                 ServerPlayer to = name == null ? null : server.getPlayerList().getPlayerByName(name);
                 if (to == null) {
                     throw new CallError("No player called '" + name + "' is online.");
                 }
-                Component line = line(device, text(args, 3));
+                Component line = line(server, device, text(args, 3));
                 written(device, level);
                 to.sendSystemMessage(line);
                 return JsonNull.INSTANCE;
             }
             case "chat_command": {
                 need(device, Kind.CHAT, "Only a chat interface runs commands for its owner");
+                chatOn();
                 ServerPlayer owner = ownersOnly(device, server);
                 Capture capture = new Capture(owner);
                 CommandSourceStack source = owner.createCommandSourceStack().withSource(capture);
                 return run(server, source, command(args), capture);
             }
             case "chat_listen": {
+                chatOn();
                 // ["chat_listen", mac, session]: this computer wants chat pushed to it as events.
                 need(device, Kind.CHAT, "Only a chat interface hears chat");
                 ownersComputer(device, server);
@@ -151,6 +155,9 @@ public final class GameInterfaceCalls {
      */
     public static void heard(MinecraftServer server, ServerPlayer player, String message) {
         ComputerManager computers = ComputerManager.get(server);
+        if (!qbotics.QboticsConfig.chatInterfaces) {
+            return;
+        }
         for (GameInterfaceBlockEntity device : GameInterfaceBlockEntity.hearing()) {
             JsonObject event = new JsonObject();
             event.addProperty("type", "chat");
@@ -163,9 +170,22 @@ public final class GameInterfaceCalls {
         }
     }
 
-    /** "[Chat Interface] text": who is writing, then what. */
-    private static Component line(GameInterfaceBlockEntity device, String text) {
+    private static void chatOn() {
+        if (!qbotics.QboticsConfig.chatInterfaces) {
+            throw new CallError("Chat Interfaces are switched off on this server.");
+        }
+    }
+
+    /**
+     * "[Steve] text": who is writing, then what. It is its owner's name, so a program can't pass for
+     * the server or another player; where the server says otherwise, the interface's own name.
+     */
+    private static Component line(MinecraftServer server, GameInterfaceBlockEntity device, String text) {
         String name = device.deviceName().isEmpty() ? "Chat Interface" : device.deviceName();
+        if (qbotics.QboticsConfig.chatSpeakAsOwner && device.owner() != null) {
+            String owner = RadioNetwork.playerName(server, device.owner());
+            name = owner == null ? name : owner;
+        }
         return Component.literal("[" + name + "] ").withStyle(ChatFormatting.AQUA).append(Component.literal(text).withStyle(ChatFormatting.RESET));
     }
 

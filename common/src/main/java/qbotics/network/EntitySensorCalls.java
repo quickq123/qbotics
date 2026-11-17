@@ -232,6 +232,9 @@ final class EntitySensorCalls {
         if (items == null) {
             throw new CallError("The " + name(entity) + " has no inventory to reach.");
         }
+        if (!Boundaries.mayReach(level, sensor, entity.blockPosition())) {
+            throw new CallError("The " + name(entity) + " is on land the sensor's owner may not change, so its inventory can't be reached.");
+        }
         return items;
     }
 
@@ -276,6 +279,12 @@ final class EntitySensorCalls {
 
     /** Takes one item that a name or filter (or anything, with none) passes, from the first source that has one. */
     static @Nullable Taken takeOne(ServerLevel level, CableNetwork network, JsonElement written, @Nullable String wanted) {
+        return takeOne(level, network, written, wanted, stack -> true);
+    }
+
+    /** The same, of the items that also pass a test (only blocks, say). */
+    static @Nullable Taken takeOne(ServerLevel level, CableNetwork network, JsonElement written, @Nullable String wanted,
+            java.util.function.Predicate<ItemStack> also) {
         NameMatch<Item> match = wanted == null ? null : NetworkCalls.item(wanted);
         for (End end : NetworkCalls.asMedium(NetworkCalls.ends(network, written, "source"), Medium.ITEM)) {
             if (end.device().medium() != Medium.ITEM) {
@@ -286,7 +295,7 @@ final class EntitySensorCalls {
             List<ItemStack> contents = port.contents();
             for (int slot = 0; slot < contents.size(); slot++) {
                 ItemStack stack = contents.get(slot);
-                if (!stack.isEmpty() && own.test(stack) && (match == null || match.testStack(stack)) && (end.slot() < 0 || slot == end.slot())
+                if (!stack.isEmpty() && own.test(stack) && also.test(stack) && (match == null || match.testStack(stack)) && (end.slot() < 0 || slot == end.slot())
                         && port.extractFrom(slot, stack, 1, false) == 1) {
                     return new Taken(stack.copyWithCount(1), port);
                 }
@@ -442,6 +451,7 @@ final class EntitySensorCalls {
         answer.addProperty("attacked", typeId(entity));
         answer.addProperty("alive", entity.isAlive());
         answer.addProperty("health", entity instanceof LivingEntity living ? round(Math.max(0, living.getHealth())) : 0);
+        answer.add("entity", entity.isAlive() ? describe(sensor, entity) : JsonNull.INSTANCE);
         if (weapon != null && back.getFirst().isEmpty()) {
             answer.addProperty("weapon_broke", NetworkCalls.itemId(weapon.stack().getItem()));
         }
@@ -620,6 +630,9 @@ final class EntitySensorCalls {
         long points = 0;
         long room = Math.min(MOST_COLLECTED, NetworkCalls.transportRoom(level)); // across antennas, their Transport rate
         for (Entity entity : targets) {
+            if (!Boundaries.mayReach(level, sensor, entity.blockPosition())) {
+                continue; // lying on land the sensor's owner may not change
+            }
             if (entity instanceof ItemEntity dropped && gathered < room) {
                 ItemStack stack = dropped.getItem().copy();
                 if (match != null && !match.testStack(stack)) {

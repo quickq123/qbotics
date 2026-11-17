@@ -53,6 +53,8 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue TRANSPORT_ENERGY;
     private static final ModConfigSpec.BooleanValue SENSORS_READ_OTHERS;
     private static final ModConfigSpec.BooleanValue SENSORS_ATTACK_PLAYERS;
+    private static final ModConfigSpec.BooleanValue CHAT_INTERFACES;
+    private static final ModConfigSpec.BooleanValue CHAT_AS_OWNER;
 
     static {
         BUILDER.push("limits");
@@ -166,12 +168,21 @@ final class QboticsServerConfig {
         BUILDER.pop();
 
         BUILDER.push("sensors");
-        SENSORS_READ_OTHERS = BUILDER.comment("true: a Block Sensor's raw data (data=True) includes other players' computers, Qbots and",
-                "antennas: their owner, drive and password hash. For servers that teach security by letting players try to",
-                "break in. false: a sensor reads that data only from its own owner's devices.")
+        SENSORS_READ_OTHERS = BUILDER.comment("false: sensors and Collectors keep to what their owner may change (land claims are respected):",
+                "a Block Sensor's raw data leaves out other players' computers and blocks the owner may not change, and",
+                "entity inventories and dropped items are only reached where the owner may build.",
+                "true: none of that is checked, and raw data includes other players' computers with their owner, drive and",
+                "password hash. For servers that teach security by letting players try to break in.")
                 .define("read_other_players_computers", false);
         SENSORS_ATTACK_PLAYERS = BUILDER.comment("true: an Entity Sensor's attack() may hit players (if the server allows PvP). false: it never does.")
                 .define("attack_players", false);
+        BUILDER.pop();
+
+        BUILDER.push("chat_interfaces");
+        CHAT_INTERFACES = BUILDER.comment("false: Chat Interfaces do nothing (they neither write to chat, run commands, nor hear chat).").define("enabled", true);
+        CHAT_AS_OWNER = BUILDER.comment("true: what a Chat Interface writes is signed with its owner's name, so nobody can pass for the server",
+                "or another player. false: it is signed with the interface's own name, which its owner chooses.")
+                .define("speak_as_owner", true);
         BUILDER.pop();
     }
 
@@ -226,5 +237,7 @@ final class QboticsServerConfig {
         QboticsConfig.transportEnergyPerSecond = TRANSPORT_ENERGY.get();
         QboticsConfig.sensorsReadOtherPlayers = SENSORS_READ_OTHERS.get();
         QboticsConfig.sensorsAttackPlayers = SENSORS_ATTACK_PLAYERS.get();
+        QboticsConfig.chatInterfaces = CHAT_INTERFACES.get();
+        QboticsConfig.chatSpeakAsOwner = CHAT_AS_OWNER.get();
     }
 }

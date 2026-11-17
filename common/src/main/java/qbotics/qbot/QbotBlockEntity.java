@@ -49,7 +49,7 @@ import qbotics.upgrade.UpgradeItem;
  * and two 4,000 mB tanks, so it can hold water and lava at once. There is no fuel: the cell
  * and tanks are things it carries, not what it runs on.
  */
-public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider {
+public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider, qbotics.block.StorageSnapshots {
     public static final int SLOTS = 16;
     public static final int ENERGY_CAPACITY = 1_000_000;
     public static final int TANKS = 2;
@@ -200,6 +200,22 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
         if (level != null && !level.isClientSide()) {
             level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
         }
+    }
+
+    // ---- for other mods' pipes and cables (a trial transfer may be taken back) --------------------
+
+    @Override
+    public Object takeSnapshot() {
+        return new Object[] {energy, fluids.clone(), amounts.clone()};
+    }
+
+    @Override
+    public void restoreSnapshot(Object snapshot) {
+        Object[] was = (Object[]) snapshot;
+        energy = (Integer) was[0];
+        System.arraycopy((Fluid[]) was[1], 0, fluids, 0, TANKS);
+        System.arraycopy((int[]) was[2], 0, amounts, 0, TANKS);
+        setChanged();
     }
 
     // ---- the energy cell ---------------------------------------------------------------------

@@ -36,6 +36,17 @@ Give the buses their filters once, then sort with a plain list:
     chests = [net.bus("ores"), net.bus("food"), net.bus("store")]
     move(net.bus("inbox"), chests)
 
+## Afterwards: taking a filter off
+
+A filter stays on its bus until you take it off, also after the program has ended. While it
+is there, anything else you try to move into that chest simply doesn't go (`move` gives 0, with
+no error). To take a filter off, set it with nothing in the brackets:
+
+    net.bus("ores").set_filter()
+    net.bus("food").set_filter()
+
+`print(net.bus("ores").filter)` shows the filter a bus has now.
+
 ## New Python here
 
 - A **list** is several values in square brackets: `["#c:ores", "#c:ingots"]`. Lists can hold

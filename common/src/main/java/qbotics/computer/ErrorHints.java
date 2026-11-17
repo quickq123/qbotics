@@ -85,7 +85,8 @@ public final class ErrorHints {
                     return "Text and numbers can't be joined with +. Use str(n), or print them with commas: print(\"Moved\", n)";
                 }
                 if (message.contains("unsupported types")) {
-                    return "Those two kinds of value can't be used together that way (a number and text, say). Print them to see what they are.";
+                    return "Those two kinds of value can't be used together that way (a number and text, say). Print them to see what they are.\n"
+                            + "A block's state values are text: int(state[\"age\"]) makes one a number, and state[\"lit\"] == \"true\" tests one.";
                 }
                 return null;
             }
@@ -136,6 +137,13 @@ public final class ErrorHints {
             }
             case "RecursionError" -> {
                 return "A function keeps calling itself without stopping.";
+            }
+            case "NetworkError", "QbotError" -> {
+                if (message.contains("count must be 1 or more")) {
+                    return "A count of 0 (or less) was asked for on " + at + ". When the number is worked out, check it first:\n"
+                            + "if n > 0:";
+                }
+                return null;
             }
             default -> {
                 return null;

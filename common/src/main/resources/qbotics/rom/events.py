@@ -99,6 +99,9 @@ def on_pin(pin, what="change", function=None):
     "falling" (goes off), "change" (its level changes at all) or "block" (the block it
     points at changes, as an observer would see). The function gets an Event.
     pin is a pin from net.pin(), or its name or address."""
+    if callable(what):
+        # events.on_pin(pin, pressed): the function given where the kind of change goes means any change.
+        what, function = "change", what
     if function is None:
         return lambda f: (on_pin(pin, what, f), f)[1]
     if what not in ("rising", "falling", "change", "block"):

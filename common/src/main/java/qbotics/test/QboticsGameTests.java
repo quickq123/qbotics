@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -99,6 +99,8 @@ public final class QboticsGameTests {
             Map.entry("qbot_equip", QboticsGameTests::qbotEquip),
             Map.entry("review_fixes", QboticsGameTests::reviewFixes),
             Map.entry("laptop_events", QboticsGameTests::laptopEvents),
+            Map.entry("qbot_hopper", QboticsGameTests::qbotHopper),
+            Map.entry("computer_access", QboticsGameTests::computerAccess),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
             Map.entry("agent_tools", QboticsGameTests::agentTools),
@@ -381,7 +383,7 @@ public final class QboticsGameTests {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> {
-            assertScreen(helper, computer, "['greet.py'] hi qbot", "File \"boom.py\", line 2", "ZeroDivisionError");
+            assertScreen(helper, computer, "['greet.py', 'startup.sh'] hi qbot", "File \"boom.py\", line 2", "ZeroDivisionError");
             helper.assertTrue(java.nio.file.Files.isRegularFile(folder.resolve("greet.py")),
                     "greet.py should be a real file in " + folder);
             // Break the block: the item that drops must carry the drive.
@@ -1345,7 +1347,7 @@ public final class QboticsGameTests {
                 "store = net.interface()",
                 // By hand: two planks, one above the other, make four sticks.
                 "screen = table.open_screen()",
-                "print(len(screen.slots()), screen.put(Slot(1), 'oak_planks', sources=store), screen.put(Slot(4), 'oak_planks', sources=store))",
+                "print(len(screen.slots()), screen.put(Slot(1), 'oak_planks', 1, sources=store), screen.put(Slot(4), 'oak_planks', 1, sources=store))",
                 "print(sorted((e['slot'], e['item'], e['count']) for e in screen.contents()))",
                 "print(screen.take(Slot(0), store), store.count('stick'), store.count('oak_planks'))",
                 // Left in the grid when the screen closes: it comes back.
@@ -1427,16 +1429,16 @@ public final class QboticsGameTests {
                 "# Smithing table: template 0, base 1, addition 2, product 3.",
                 "with net.bus('smith').open_screen() as s:",
                 "    print('smith slots', s.slots())",
-                "    s.put(Slot(0), 'netherite_upgrade_smithing_template', sources=stock)",
-                "    s.put(Slot(1), 'diamond_sword', sources=stock)",
-                "    s.put(Slot(2), 'netherite_ingot', sources=stock)",
+                "    s.put(Slot(0), 'netherite_upgrade_smithing_template', 1, sources=stock)",
+                "    s.put(Slot(1), 'diamond_sword', 1, sources=stock)",
+                "    s.put(Slot(2), 'netherite_ingot', 1, sources=stock)",
                 "    print('smith made', s.take(Slot(3), stock))",
                 "",
                 "# Grindstone: two inputs, 0 and 1, product 2. Two swords make one.",
                 "with net.bus('grind').open_screen() as s:",
                 "    print('grind slots', s.slots())",
-                "    s.put(Slot(0), 'iron_sword', sources=stock)",
-                "    s.put(Slot(1), 'iron_sword', sources=stock)",
+                "    s.put(Slot(0), 'iron_sword', 1, sources=stock)",
+                "    s.put(Slot(1), 'iron_sword', 1, sources=stock)",
                 "    print('grind made', s.take(Slot(2), stock))",
                 "",
                 "# Stonecutter: input 0, product 1; the choice is a button, found by trying.",
@@ -1454,8 +1456,8 @@ public final class QboticsGameTests {
                 "# Loom: banner 0, dye 1, pattern item 2, product 3; patterns are buttons.",
                 "with net.bus('loom').open_screen() as s:",
                 "    print('loom slots', s.slots())",
-                "    s.put(Slot(0), 'white_banner', sources=stock)",
-                "    s.put(Slot(1), 'red_dye', sources=stock)",
+                "    s.put(Slot(0), 'white_banner', 1, sources=stock)",
+                "    s.put(Slot(1), 'red_dye', 1, sources=stock)",
                 "    print('loom pressed', s.press(1))",
                 "    print('loom made', s.take(Slot(3), stock))",
                 "",
@@ -1541,8 +1543,8 @@ public final class QboticsGameTests {
                 "    return levels * levels + 6 * levels    # the game's rule up to level 16",
                 "",
                 "with net.bus('anvil').open_screen() as s:",
-                "    s.put(Slot(0), 'iron_sword', sources=store)",
-                "    s.put(Slot(1), 'iron_sword', sources=store)",
+                "    s.put(Slot(0), 'iron_sword', 1, sources=store)",
+                "    s.put(Slot(1), 'iron_sword', 1, sources=store)",
                 "    cost = s.cost()",
                 "    print('anvil cost', cost > 0)",
                 "    try:",
@@ -1648,10 +1650,7 @@ public final class QboticsGameTests {
                 "print('pulse over', lamp.wait_for('block', 60), lit())",
                 "",
                 "print(placer.place('cobblestone', sources=store), placer.target)",
-                "try:",
-                "    placer.place('cobblestone', sources=store)",
-                "except NetworkError as e:",
-                "    print('taken:', e)",
+                "print('taken:', placer.place('cobblestone', sources=store), placer.why)",
                 "print('broke', breaker.break_block(store))",
                 "print('poured', placer.pour('water', sources=tanks), placer.block()['fluid'])",
                 "print('took', breaker.break_block(tanks), tanks.amount('water'))",
@@ -1672,7 +1671,7 @@ public final class QboticsGameTests {
             helper.assertTrue(!screen.contains("Traceback"), "the program failed:\n" + screen);
             assertScreen(helper, computer, "sensor input 15\n", "lamp on true output 15\n", "lamp off false\n", "pulse true\n",
                     "pulse over True false\n", "minecraft:cobblestone minecraft:cobblestone\n",
-                    "taken: The space in front of the placer is taken by minecraft:cobblestone", "broke {'minecraft:cobblestone': 1}\n",
+                    "taken: False The space in front of the placer is taken by minecraft:cobblestone", "broke {'minecraft:cobblestone': 1}\n",
                     "poured minecraft:water minecraft:water\n", "took {'minecraft:water': 1000} 2000\n",
                     "nothing: There is nothing in front of the breaker to break.", "stone 4\n");
         });
@@ -1914,6 +1913,7 @@ public final class QboticsGameTests {
         BlockPos atC = new BlockPos(2, 1, 2);
         helper.setBlock(atC, QboticsContent.COMPUTER_BLOCK.get());
         ComputerBlockEntity c = helper.getBlockEntity(atC, ComputerBlockEntity.class);
+        c.onPlaced(UUID.randomUUID()); // a player's: nobody's computer doesn't come on by itself
         c.setOn(true);
         manager.queueBoot(level, c);
         helper.assertTrue(manager.computer(c.deviceId()) == null, "it waits in the queue for the next tick");
@@ -3964,7 +3964,7 @@ public final class QboticsGameTests {
             String screen = screen(computer);
             if (step[0] == 0) {
                 assertScreen(helper, computer, "GUIDE\n=====", "Some bold and code and a link (https://x.y).", "File  What\n----  ------------",
-                        "a.py  Does a", "b.py  Does b | or c", "-- more: Enter, or q to stop");
+                        "a.py  Does a", "b.py  Does b | or c", "-- more: Enter for more, q to stop");
                 helper.assertTrue(!screen.contains("- point 9\n"), "it stops after a screenful: " + screen);
                 computer.submitLine("");
                 step[0] = 1;
@@ -4070,8 +4070,8 @@ public final class QboticsGameTests {
                 "store = net.interface()",
                 "print('smelted', move(net.bus('furnace').source(face=Face.BOTTOM), store))",
                 "with net.bus('table').open_screen() as s:",
-                "    s.put(Slot(1), 'oak_planks', sources=store)",
-                "    s.put(Slot(4), 'oak_planks', sources=store)",
+                "    s.put(Slot(1), 'oak_planks', 1, sources=store)",
+                "    s.put(Slot(4), 'oak_planks', 1, sources=store)",
                 "    print('sticks', s.take(Slot(0), store))",
                 "with net.bus('cutter').open_screen() as s:",
                 "    s.put(Slot(0), 'stone', 1, sources=store)",
@@ -4476,6 +4476,72 @@ public final class QboticsGameTests {
         helper.assertTrue(qbotics.ide.Docs.moduleExports().containsKey("env"), "the editor knows the env module");
 
         helper.succeedWhen(() -> assertScreen(helper, computer, "timer fired\n", "run ended\n"));
+    }
+
+    /**
+     * A Qbot parked over a hopper: the hopper takes what it carries, as from a chest (a Qbot
+     * used to show other mods' pipes and hoppers nothing).
+     */
+    private static void qbotHopper(GameTestHelper helper) {
+        BlockPos at = new BlockPos(1, 2, 1);
+        BlockPos below = new BlockPos(1, 1, 1);
+        helper.setBlock(below, Blocks.HOPPER);
+        helper.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(at, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        qbot.items().setItem(0, new ItemStack(Items.DIAMOND, 3));
+        helper.succeedWhen(() -> {
+            net.minecraft.world.level.block.entity.HopperBlockEntity hopper =
+                    helper.getBlockEntity(below, net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+            helper.assertTrue(hopper.countItem(Items.DIAMOND) == 3 && qbot.items().isEmpty(),
+                    "the hopper should have taken the Qbot's 3 diamonds, not " + hopper.countItem(Items.DIAMOND));
+        });
+    }
+
+    /**
+     * Who may open a computer: its owner; nobody else until its "open" setting says so (public
+     * here); and the setting is on its settings page, where a wrong word is refused. A new
+     * computer has a startup.sh of notes, and the computer nobody placed doesn't come on by itself.
+     */
+    private static void computerAccess(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos at = new BlockPos(1, 1, 1);
+        helper.setBlock(at, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity computer = helper.getBlockEntity(at, ComputerBlockEntity.class);
+        UUID owner = UUID.randomUUID();
+        computer.onPlaced(owner);
+        net.minecraft.server.level.ServerPlayer visitor = helper.makeMockServerPlayerInLevel();
+        boolean operator = level.getServer().getPlayerList().isOp(visitor.nameAndId());
+        helper.assertTrue(computer.mayOpen(visitor) == operator, "a visitor may not open someone else's computer (an operator may)");
+        String page = qbotics.computer.ComputerSettings.read(level, computer);
+        helper.assertTrue(page.contains("\"open\": \"owner\""), "the settings page shows who may open it: " + page);
+        helper.assertTrue(qbotics.computer.ComputerSettings.write(level, computer, page.replace("\"open\": \"owner\"", "\"open\": \"everyone\"")) != null,
+                "a wrong word is refused");
+        helper.assertTrue(qbotics.computer.ComputerSettings.write(level, computer, page.replace("\"open\": \"owner\"", "\"open\": \"public\"")) == null,
+                "public is saved");
+        helper.assertTrue(computer.mayOpen(visitor), "anyone may open a public computer");
+        computer.onPlaced(visitor.getUUID());
+        computer.setOpens(qbotics.network.RadioNetwork.Access.PRIVATE);
+        helper.assertTrue(computer.mayOpen(visitor), "its owner may always open it");
+
+        ServerComputer running = ComputerManager.get(level.getServer()).getOrStart(computer);
+        // Nobody's computer (a command or a structure put it there) doesn't come on by itself.
+        BlockPos other = new BlockPos(2, 1, 2);
+        helper.setBlock(other, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity nobodys = helper.getBlockEntity(other, ComputerBlockEntity.class);
+        nobodys.setOn(true);
+        ComputerManager.get(level.getServer()).queueBoot(level, nobodys);
+        helper.succeedWhen(() -> {
+            try {
+                String startup = new String(running.drive().call(qbotics.engine.HostFileSystem.READ, "/startup.sh", new byte[0]),
+                        java.nio.charset.StandardCharsets.UTF_8);
+                helper.assertTrue(startup.startsWith("# startup.sh runs by itself"), "a new computer has a startup.sh of notes: " + startup);
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                helper.fail("a new computer should have a startup.sh (error " + e.errno + ")");
+            }
+            helper.assertTrue(helper.getTick() > 40, "waiting to see that nobody's computer stays off");
+            helper.assertTrue(ComputerManager.get(level.getServer()).computer(nobodys.deviceId()) == null, "nobody's computer stays off");
+        });
     }
 
     /**
@@ -5386,19 +5452,25 @@ public final class QboticsGameTests {
                 "d.drop_xp(points=1000, sources=bank)")) {
             computer.submitLine(line);
         }
+        // What lies in front of it is watched as it goes, and the most seen is what counts: a
+        // neighbouring test's Collector or sensor may pick things up afterwards (the tests stand close).
+        net.minecraft.world.phys.AABB around = new net.minecraft.world.phys.AABB(helper.absolutePos(new BlockPos(1, 1, 0))).inflate(12);
+        int[] most = new int[3]; // cobblestone, arrows flying, points of orbs
+        helper.onEachTick(() -> {
+            int cobble = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around).stream()
+                    .filter(e -> e.getItem().is(Items.COBBLESTONE)).mapToInt(e -> e.getItem().getCount()).sum();
+            most[0] = Math.max(most[0], cobble);
+            most[1] = Math.max(most[1], helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.projectile.arrow.AbstractArrow.class, around).size());
+            most[2] = Math.max(most[2], helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.ExperienceOrb.class, around).stream()
+                    .mapToInt(net.minecraft.world.entity.ExperienceOrb::getValue).sum());
+        });
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "mode False dropper\n", "thrown 16 4\n", "fired 2 2 True\n", "meal 0 3\n",
                     "once 3 True\n", "none 0\n", "xp 1395 605\n", "The sources hold 605 points of experience; 1000 were asked for.",
                     "still 605\n", "The sources hold 605 points of experience; 1000 were asked for.");
-            net.minecraft.world.phys.AABB around = new net.minecraft.world.phys.AABB(helper.absolutePos(new BlockPos(1, 1, 0))).inflate(12);
-            List<net.minecraft.world.entity.item.ItemEntity> thrown = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around);
-            int cobble = thrown.stream().filter(e -> e.getItem().is(Items.COBBLESTONE)).mapToInt(e -> e.getItem().getCount()).sum();
-            helper.assertTrue(cobble == 19, "19 cobblestone should lie in front of the dropper, not " + cobble);
-            helper.assertTrue(!helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.projectile.arrow.AbstractArrow.class, around).isEmpty(),
-                    "the dispensed arrows should be flying arrows, not items");
-            int orbs = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.ExperienceOrb.class, around).stream()
-                    .mapToInt(net.minecraft.world.entity.ExperienceOrb::getValue).sum();
-            helper.assertTrue(orbs == 1395, "1395 points of orbs should lie in front of the dropper, not " + orbs);
+            helper.assertTrue(most[0] == 19, "19 cobblestone should have lain in front of the dropper, not " + most[0]);
+            helper.assertTrue(most[1] > 0, "the dispensed arrows should be flying arrows, not items");
+            helper.assertTrue(most[2] == 1395, "1395 points of orbs should have lain in front of the dropper, not " + most[2]);
         });
     }
 

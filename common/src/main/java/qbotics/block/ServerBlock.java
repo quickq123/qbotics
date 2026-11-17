@@ -65,7 +65,11 @@ public class ServerBlock extends ComputerBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (player.isSecondaryUseActive() && !ProbeItem.heldBy(player)) {
-            if (!level.isClientSide() && level.getBlockEntity(pos) instanceof ServerBlockEntity server) {
+            if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof ServerBlockEntity server) {
+                if (!server.mayOpen(serverPlayer)) {
+                    serverPlayer.sendOverlayMessage(ComputerBlockEntity.refusal());
+                    return InteractionResult.SUCCESS;
+                }
                 player.openMenu(server);
             }
             return InteractionResult.SUCCESS;

@@ -39,6 +39,17 @@ public final class ServerComputer {
     private static final String STARTUP_FILE = "/startup.py";
     /** A shell script run when the computer starts, before startup.py. */
     private static final String STARTUP_SCRIPT = "/startup.sh";
+    /** What a new computer's startup.sh holds: notes that say what the file is for, and no commands. */
+    public static final String STARTUP_TEMPLATE = String.join("\n",
+            "# startup.sh runs by itself every time this computer starts",
+            "# (when it is switched on, and when you come back to this part of the world).",
+            "#",
+            "# Put commands here, one on each line, just as you would type them. For example:",
+            "#   run /myprogram.py",
+            "#",
+            "# Lines that start with # are notes: they do nothing.",
+            "# With no commands here, startup.py is run instead, if there is one.",
+            "");
 
     // ---- a Qbot's program: Run, Pause and Stop (design doc §8) ------------------------------
 
@@ -548,6 +559,9 @@ public final class ServerComputer {
 
     /** The editor's Run button: run a Python file, as if "run file" had been typed. */
     public void submitRunFile(String path) {
+        if (running && sshRemote == null) {
+            return; // something is running: Run does nothing, and nothing is kept to run later
+        }
         jobs.offer(new RunFile(path));
     }
 
@@ -906,10 +920,10 @@ public final class ServerComputer {
                         } else {
                             unattendedSince = qbotics.lesson.Lessons.tick();
                             try {
-                                if (exists(STARTUP_SCRIPT)) {
+                                // startup.sh if it has commands; else startup.py.
+                                if (hasCommands(STARTUP_SCRIPT)) {
                                     runScript(computer, STARTUP_SCRIPT);
-                                }
-                                if (exists(STARTUP_FILE)) {
+                                } else if (exists(STARTUP_FILE)) {
                                     runPython(computer, startProgram("/", STARTUP_FILE) + "execfile(" + pyString(STARTUP_FILE) + ")");
                                 }
                             } finally {
@@ -1391,7 +1405,7 @@ public final class ServerComputer {
             "         mkdir [-p] <folder>   rm [-r] <path>   mv <from> <to>   cp <from> <to>",
             "Python:  run <file.py>      run a program (python <file.py> also works)",
             "Scripts: run <file.sh>      run a file of commands, one a line (sh <file> too); echo <text>; sleep <seconds>",
-            "         startup.sh and startup.py, at the top of the drive, run when the computer starts",
+            "         startup.sh, at the top of the drive, runs when the computer starts (startup.py, if it has no commands)",
             "         python             the Python prompt; exit() comes back here",
             "Editor:  edit <file>        open a file in the editor",
             "         settings           this computer's name, remote login and antenna",
@@ -1601,6 +1615,20 @@ public final class ServerComputer {
      * folder. Blank lines and # comments are skipped. The first command that fails stops it.
      * Each command is shown as it runs, after a +. Afterwards the shell is back in its folder.
      */
+    /** True if a script exists and has a line that is a command (not blank, not a # note). */
+    private boolean hasCommands(String path) {
+        try {
+            for (String line : new String(drive.call(HostFileSystem.READ, path, new byte[0]), StandardCharsets.UTF_8).split("\n")) {
+                if (!line.isBlank() && !line.strip().startsWith("#")) {
+                    return true;
+                }
+            }
+        } catch (FsException e) {
+            // No such file.
+        }
+        return false;
+    }
+
     private boolean runScript(Computer computer, String path) throws InterruptedException {
         String file = Paths.resolve(cwd, path);
         String text;
@@ -1744,9 +1772,15 @@ public final class ServerComputer {
         int page = Terminal.ROWS - 1;
         for (int i = 0; i < lines.size(); i++) {
             if (paging && i > 0 && i % page == 0) {
-                terminal.write("-- more: Enter, or q to stop (" + (i * 100 / lines.size()) + "%) -- ");
+                terminal.write("-- more: Enter for more, q to stop, or type a command (" + (i * 100 / lines.size()) + "%) -- ");
                 String answer = readInputLine();
-                if (answer == null || answer.strip().toLowerCase(java.util.Locale.ROOT).startsWith("q")) {
+                String typed = answer == null ? "q" : answer.strip();
+                if (typed.equalsIgnoreCase("q") || typed.equalsIgnoreCase("quit")) {
+                    return;
+                }
+                if (!typed.isEmpty()) {
+                    // A command typed here (the one just read about, say) is what was meant: reading stops and it runs.
+                    jobs.offer(new Line(typed));
                     return;
                 }
             }

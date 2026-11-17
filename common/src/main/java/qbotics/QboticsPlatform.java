@@ -61,6 +61,11 @@ public interface QboticsPlatform {
     /** True if protection (a land claim, spawn protection) lets this player break the block at a position. */
     boolean mayBreak(ServerLevel level, net.minecraft.server.level.ServerPlayer player, BlockPos pos);
 
+    /** True if a teams mod (FTB Teams) is installed and has these two players in one team. */
+    default boolean sameModTeam(java.util.UUID one, java.util.UUID other) {
+        return false;
+    }
+
     /**
      * Places something by running {@code place}, then asks protection whether this player may
      * have placed it; if not, puts back what was there and returns false.

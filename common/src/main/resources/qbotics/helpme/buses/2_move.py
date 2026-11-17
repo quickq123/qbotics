@@ -9,13 +9,13 @@ store = net.bus("store")
 
 # move(from, to, what, count) returns how many moved. Nothing to move is not an error: it is 0.
 
-# One named item: with no count, just 1.
-print("1 cobblestone:", move(inbox, store, "cobblestone"))
+# One of a named item: give the count. (With no count, ALL of it moves.)
+print("1 cobblestone:", move(inbox, store, "cobblestone", 1))
 
 # A number of them. Fewer move if there aren't that many.
 print("Up to 10 more:", move(inbox, store, "cobblestone", 10))
 
-# A filter instead of a name: with no count, ALL that match. "#minecraft:logs" is a tag:
+# A filter instead of a name. "#minecraft:logs" is a tag:
 # every kind of log.
 print("Every log:", move(inbox, store, "#minecraft:logs"))
 

@@ -1,6 +1,7 @@
 # Lesson 2: Who's There?
 
-**Earns:** *Who's There?*. **You need:** a computer, a cable, and one Item Serial Bus on a chest.
+**Earns:** *Who's There?*. **You need:** a computer, a cable, one Item Serial Bus on a chest,
+and a **Network Probe** (to give the bus its name).
 
 ## The idea
 

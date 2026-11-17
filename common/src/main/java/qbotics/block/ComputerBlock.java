@@ -86,9 +86,17 @@ public class ComputerBlock extends BaseEntityBlock {
             return InteractionResult.PASS; // the probe reads this device instead
         }
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof ComputerBlockEntity computer) {
+            if (computer.owner() == null && !computer.bricked()) {
+                // Nobody placed it (a command, a structure): inert until a player takes it on, within their limit.
+                computer.setBricked(true);
+            }
             if (computer.bricked()) {
                 // Inert: right-clicking asks for it to come back on (design doc §5.3).
                 serverPlayer.sendOverlayMessage(qbotics.limits.Limits.tryActivate(serverPlayer.level(), computer, serverPlayer));
+                return InteractionResult.SUCCESS;
+            }
+            if (!computer.mayOpen(serverPlayer)) {
+                serverPlayer.sendOverlayMessage(ComputerBlockEntity.refusal());
                 return InteractionResult.SUCCESS;
             }
             ComputerManager.get(serverPlayer.level().getServer()).openTerminal(serverPlayer, computer);

@@ -14,7 +14,7 @@ print("Threw", spout.drop("cobblestone", 16, sources=store), "cobblestone")
 # As a dispenser, this once: arrows fly, bone meal grows the crop in front. What it hands
 # back (an empty bucket) or had no use for goes back to the store.
 print("Fired", spout.drop("arrow", 3, sources=store, dispense=True), "arrows")
-print("Used", spout.drop("bone_meal", sources=store, dispense=True), "bone meal")
+print("Used", spout.drop("bone_meal", 1, sources=store, dispense=True), "bone meal")
 
 # spout.dispense = True     # from now on fire things as a dispenser does; the plate keeps it
 

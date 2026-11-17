@@ -69,9 +69,31 @@ class Face:
     BOTTOM = "bottom"
     LEFT = "left"
     RIGHT = "right"
+    ALL = "all"        # the whole block, whichever face each slot is reached through
 
 
-_FACES = (Face.NEAR, Face.FAR, Face.TOP, Face.BOTTOM, Face.LEFT, Face.RIGHT)
+_FACES = (Face.NEAR, Face.FAR, Face.TOP, Face.BOTTOM, Face.LEFT, Face.RIGHT, Face.ALL)
+
+
+def _number(count, call):
+    # A store or a bus given where a count goes: said in words, not left to fail deeper in.
+    if count is not None and (isinstance(count, bool) or not isinstance(count, int)):
+        raise NetworkError("%s: the count must be a whole number, not %r. To say where items come from, "
+                           "write sources=..." % (call, count))
+
+
+def _one(to, destination, call):
+    # Where things go, under either name: destination= everywhere, to= as it was first called.
+    if to is not None and destination is not None:
+        raise NetworkError("%s: give destination= once (to= is its older name)." % call)
+    return destination if destination is not None else to
+
+
+def _exact(item, call):
+    # A count worked out here, by name alone: a filter would quietly count nothing.
+    if item is not None and (not isinstance(item, str) or any(c in item for c in "*?#@$| =")):
+        raise NetworkError("%s takes one exact item name (\"coal\"), not a wildcard, a tag or a filter: %r. "
+                           "Add up list() for those." % (call, item))
 
 
 class Slot:
@@ -309,8 +331,8 @@ def move(sources, destinations, what=None, count=None, need=None, wait=False):
     move whatever the sources and destinations allow. For energy and experience leave
     it out and give only an amount.
 
-    count moves up to that many; fewer (even 0) is not an error. Without it, one of a
-    named item (one bucket of a named fluid) moves, or everything for a filter.
+    count moves up to that many; fewer moving is not an error. Without it, everything
+    that fits moves (up to 576 items in one call).
 
     need moves exactly that many or nothing at all, and raises NetworkError if that
     many can't be moved right now. With wait=True it waits until they can instead
@@ -685,7 +707,7 @@ class Screen:
     Use it in a with block, so it is closed even if the program stops with an error:
 
         with table.open_screen() as screen:
-            screen.put(Slot(1), "oak_planks", sources=store)
+            screen.put(Slot(1), "oak_planks", 1, sources=store)
             screen.take(Slot(0), store)
 
     Items exist in a screen only while it is open. When it closes, whatever the block hands
@@ -736,6 +758,7 @@ class Screen:
         what, count, need and wait mean what they do in move()."""
         if sources is None:
             raise NetworkError("put() needs sources= to say where the items come from.")
+        _number(count, "put()")
         return move(sources, self.destination(slot), what, count, need, wait)
 
     def take(self, slot, destinations, what=None, count=None):
@@ -1304,10 +1327,14 @@ class Placer(_WorldPlate):
     def place(self, what=None, sources=None):
         """Takes one item from sources (one source or a list) and places it. what is a
         name or filter; left out, the first block found is placed. Returns the item's
-        name. Items the owner couldn't place there go back where they came from."""
+        name, or False if nothing was placed (the space is taken, the sources hold none, the
+        owner may not build there): placer.why then says which. An item that wasn't placed
+        goes back where it came from."""
         if sources is None:
             raise NetworkError("place() needs sources= to say where the block comes from.")
-        return _call("place", self.mac, _ends(sources, Source), what)["placed"]
+        reply = _call("place", self.mac, _ends(sources, Source), what)
+        self.why = reply.get("why")
+        return reply["placed"]
 
     def pour(self, fluid=None, sources=None):
         """Takes a bucket's worth (1000 mB) of fluid from sources and pours it as a source
@@ -1339,15 +1366,19 @@ class Dropper(_WorldPlate):
     def dispense(self, fire):
         _call("dropper_set", self.mac, bool(fire))
 
-    def drop(self, what=None, count=1, sources=None, dispense=None):
+    def drop(self, what=None, count=None, sources=None, dispense=None):
         """Takes items from sources (one source or a list) and sends them out; returns how many
-        went. what is a name or filter; left out, whatever comes first. Up to count go: as a
+        went. what is a name or filter; left out, whatever comes first. Up to count go; with no
+        count, everything that matches (up to 576 in one call), as move() does: as a
         dropper, up to 64 of one kind a tick; as a dispenser, one item a tick. dispense= True or
         False does it that way this once, whatever the setting. An item the dispenser can't use
         (bone meal with nothing to grow) goes back, and so does what it hands back (an empty
         bucket); then it stops."""
         if sources is None:
             raise NetworkError("drop() needs sources= to say where the items come from.")
+        _number(count, "drop()")
+        if count is None:
+            count = 576
         ends = _ends(sources, Source)
         sent = 0
         while sent < count:
@@ -1434,6 +1465,13 @@ class Entity:
             reply = _call("sensor_attack", self._sensor.mac, self.uuid, None if sources is None else _ends(sources, Source),
                           weapon, None if destination is None else _ends(destination, Destination), bool(wait))
             if "wait" not in reply:
+                # Its health (and the rest) as it is after the hit: zombie.health goes down, and
+                # alive is False once it is dead.
+                if reply.get("entity"):
+                    self._update(reply["entity"])
+                else:
+                    self.data["health"] = reply.get("health", 0)
+                self.data["alive"] = reply.get("alive", False)
                 return reply
             time.sleep(reply["wait"] / 20)
 
@@ -1448,15 +1486,22 @@ class Entity:
         """Makes an offer (its index, or the dict from offers()) up to times times, as the
         sensor's owner: the price is taken from sources, checked before anything moves; what it
         sells goes to destination, or back to the sources. Stops early when it runs out or the price
-        can't be paid. Returns how many trades were made."""
+        can't be paid. Returns how many trades were made: 0 if the price couldn't be paid,
+        and -1 if none were made because the offer is sold out (it restocks when the villager works)."""
         index = offer["index"] if isinstance(offer, dict) else offer
         reply = _call("sensor_trade", self._sensor.mac, self.uuid, index, _ends(sources, Source),
                       None if destination is None else _ends(destination, Destination), times)
+        if reply["traded"] == 0 and reply.get("stopped") == "out of stock":
+            return -1
         return reply["traded"]
 
-    def collect(self, to):
+    def collect(self, to=None, destination=None):
         """Picks it up, if it is a dropped item (into item destinations) or an experience orb
-        (into an Experience Interface among them). Returns {"items": n, "points": p}."""
+        (into an Experience Interface among them). destination is where it goes (to= is its
+        older name). Returns {"items": n, "points": p}."""
+        to = _one(to, destination, "collect()")
+        if to is None:
+            raise NetworkError("collect() needs destination= to say where it goes.")
         return _call("sensor_collect", self._sensor.mac, self.uuid, _ends(to, Destination), None)
 
     # Its inventory, for an entity that has one (data["slots"] > 0): a minecart's or boat's
@@ -1471,6 +1516,7 @@ class Entity:
         """How many of an item (a name or filter) it holds; of everything, with none. A dropped
         item holds the stack lying there: item.count() is how many."""
         if not self.data.get("slots") and "count" in self.data:
+            _exact(item, "A dropped item's count()")
             named = None if item is None else (item if ":" in item else "minecraft:" + item)
             return self.data["count"] if named is None or named == self.data.get("item") else 0
         if isinstance(slot, Slot):
@@ -1544,8 +1590,10 @@ class BlockSensor(Device, _Watches):
         farm = net.block_sensor()
         farm.set_area(x=(-4, 4), y=(1, 1), z=(-4, 4))     # a 9 x 9 field on its level, above it
         for change in farm.watch("wheat age=7"):          # sleeps until wheat ripens
-            farm.break_block(change["pos"], to=store)
-            farm.place(change["pos"], "wheat_seeds", store)
+            # harvesting it is a change too: act only on what is ripe now ("7" is text)
+            if change.get("block") == "minecraft:wheat" and change["state"].get("age") == "7":
+                farm.break_block(change["pos"], destination=store)
+                farm.place(change["pos"], "wheat_seeds", store)
 
     Watching costs nothing while nothing changes: the game itself tells the sensor of each
     change in its box."""
@@ -1584,11 +1632,12 @@ class BlockSensor(Device, _Watches):
         or False. A waxed sign can't be changed. Returns the block, as block() does."""
         return _call("bsensor_sign", self.mac, list(pos), list(lines), bool(back), color, glowing)
 
-    def break_block(self, pos, to=None):
+    def break_block(self, pos, to=None, destination=None):
         """Breaks the block at an offset as its owner would with the right netherite tool,
-        taking as long as that does (crops give way at once). The drops go to to (one
-        destination or a list), all or nothing; with none, they fall where the block was.
-        Returns what it got: {name: count}."""
+        taking as long as that does (crops give way at once). The drops go to destination (one
+        destination or a list; to= is its older name), all or nothing; with none, they fall
+        where the block was. Returns what it got: {name: count}."""
+        to = _one(to, destination, "break_block()")
         ends = None if to is None else _ends(to, Destination)
         while True:
             reply = _call("bsensor_break", self.mac, list(pos), ends)
@@ -1597,11 +1646,15 @@ class BlockSensor(Device, _Watches):
             time.sleep(reply["wait"] / 20)
 
     def place(self, pos, item=None, sources=None):
-        """Places one item (a name or filter) from sources at an offset, as its owner would:
-        a block, or seeds onto farmland. Returns True if it went there; if not, it goes back."""
+        """Places one item (a name or filter; with none, the first block or seeds found) from
+        sources at an offset, as its owner would: a block, or seeds onto farmland. Returns
+        True if it went there, False if not (the spot is taken, the sources hold none, it can't
+        go there): sensor.why then says which, and the item goes back."""
         if sources is None:
             raise NetworkError("place() needs sources= to say where the item comes from.")
-        return _call("bsensor_place", self.mac, list(pos), _ends(sources, Source), item)["placed"]
+        reply = _call("bsensor_place", self.mac, list(pos), _ends(sources, Source), item)
+        self.why = reply.get("why")
+        return reply["placed"]
 
     def use(self, pos, item=None, sources=None, destination=None):
         """Right-clicks the block at an offset as its owner, holding one item from sources (or
@@ -1674,10 +1727,13 @@ class Breaker(_WorldPlate):
     breaks and NetworkError names it. A container breaks with its contents, which count
     as drops. Pointed at a fluid's source, it takes it up into a fluid store instead."""
 
-    def break_block(self, to):
+    def break_block(self, to=None, destination=None):
         """Breaks the block in front, waiting as long as breaking it takes, and returns
-        what it got: {name: count}. to is one destination or a list: interfaces
-        or buses for items, fluid ones for fluid (a USB is both)."""
+        what it got: {name: count}. destination (to= is its older name) is one destination
+        or a list: interfaces or buses for items, fluid ones for fluid (a USB is both)."""
+        to = _one(to, destination, "break_block()")
+        if to is None:
+            raise NetworkError("break_block() needs destination= to say where the drops go.")
         ends = _ends(to, Destination)
         while True:
             reply = _call("break", self.mac, ends)

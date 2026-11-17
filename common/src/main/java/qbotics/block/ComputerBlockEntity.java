@@ -69,6 +69,34 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
     }
 
     private RemoteLogin remoteLogin = RemoteLogin.OWNER;
+    /** Who may open it by right-clicking it: its owner only, the owner's team, or anyone. */
+    private qbotics.network.RadioNetwork.Access opens = qbotics.network.RadioNetwork.Access.PRIVATE;
+
+    public qbotics.network.RadioNetwork.Access opens() {
+        return opens;
+    }
+
+    public void setOpens(qbotics.network.RadioNetwork.Access access) {
+        opens = access;
+        setChanged();
+    }
+
+    /**
+     * True if this player may open it (its terminal, files and settings; a Qbot's or Server's
+     * screen): its owner, an operator, and whoever its "open" setting lets in. What is typed
+     * there runs as the owner, so by default only the owner may.
+     */
+    public boolean mayOpen(net.minecraft.server.level.ServerPlayer player) {
+        var server = player.level().getServer();
+        return owner == null || owner.equals(player.getUUID()) || server.getPlayerList().isOp(player.nameAndId())
+                || qbotics.network.RadioNetwork.allowed(server, opens, owner, player.getUUID());
+    }
+
+    /** What a player who may not open it is told. */
+    public static net.minecraft.network.chat.Component refusal() {
+        return net.minecraft.network.chat.Component.literal(
+                "This isn't yours to open. Its owner can let their team or everyone in: its settings page, \"open\".");
+    }
     /** The password is not kept: only a scrambled form that a guess can be checked against. Empty for none. */
     private String passwordHash = "";
     private String passwordSalt = "";
@@ -287,6 +315,7 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
         output.putString("name", name);
         output.putInt("host", hostNumber);
         output.putString("remote_login", remoteLogin.word);
+        output.putString("open", opens.word);
         output.putString("password_hash", passwordHash);
         output.putString("password_salt", passwordSalt);
         output.putBoolean("bricked", bricked);
@@ -332,6 +361,8 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
         hostNumber = input.getIntOr("host", 0);
         RemoteLogin saved = RemoteLogin.parse(input.getStringOr("remote_login", ""));
         remoteLogin = saved == null ? RemoteLogin.OWNER : saved;
+        qbotics.network.RadioNetwork.Access open = qbotics.network.RadioNetwork.Access.parse(input.getStringOr("open", ""));
+        opens = open == null ? qbotics.network.RadioNetwork.Access.PRIVATE : open;
         passwordHash = input.getStringOr("password_hash", "");
         passwordSalt = input.getStringOr("password_salt", "");
         bricked = input.getBooleanOr("bricked", false);

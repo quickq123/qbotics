@@ -104,4 +104,8 @@ public final class QboticsConfig {
     public static volatile boolean sensorsReadOtherPlayers = false;
     /** Whether an Entity Sensor's attack() may hit players. */
     public static volatile boolean sensorsAttackPlayers = false;
+    /** Whether Chat Interfaces work at all. */
+    public static volatile boolean chatInterfaces = true;
+    /** Whether what a Chat Interface writes is signed with its owner's name (else the interface's own name). */
+    public static volatile boolean chatSpeakAsOwner = true;
 }

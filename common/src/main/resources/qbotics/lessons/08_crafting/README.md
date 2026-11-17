@@ -23,8 +23,8 @@ A `Recipe` writes a crafting job down once, so it can be crafted again and again
     store = net.bus("store")
 
     with net.bus("crafter").open_screen() as screen:
-        screen.put(Slot(2), "coal", sources=store)      # coal on top
-        screen.put(Slot(5), "stick", sources=store)     # a stick below
+        screen.put(Slot(2), "coal", 1, sources=store)      # coal on top
+        screen.put(Slot(5), "stick", 1, sources=store)     # a stick below
         print("Made", screen.take(Slot(0), store), "torches")
 
 ## Your turn: a Recipe

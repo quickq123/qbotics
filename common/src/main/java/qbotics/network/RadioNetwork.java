@@ -215,7 +215,8 @@ public final class RadioNetwork {
             String callerName = playerName(server, caller);
             var mine = ownerName == null ? null : server.getScoreboard().getPlayersTeam(ownerName);
             var theirs = callerName == null ? null : server.getScoreboard().getPlayersTeam(callerName);
-            return mine != null && mine == theirs;
+            // Or a team of a teams mod (FTB Teams), where one is installed.
+            return (mine != null && mine == theirs) || qbotics.Qbotics.platform().sameModTeam(owner, caller);
         }
         return false;
     }

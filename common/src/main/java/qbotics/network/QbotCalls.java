@@ -388,7 +388,7 @@ final class QbotCalls {
         }
         int slot = slotOf(qbot, wanted, stack -> stack.getItem() instanceof BlockItem);
         if (slot < 0) {
-            throw new CallError(wanted == null ? "The Qbot holds no block to place." : "The Qbot holds no " + wanted + ".");
+            return WorldPlateCalls.notPlaced(wanted == null ? "The Qbot holds no block to place." : "The Qbot holds no " + wanted + ".");
         }
         ItemStack one = qbot.items().getItem(slot).copyWithCount(1);
         String name = NetworkCalls.itemId(one.getItem());
@@ -400,7 +400,7 @@ final class QbotCalls {
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
         boolean placed = !(left.getCount() == 1 && ItemStack.isSameItemSameComponents(left, one));
         if (!placed) {
-            throw new CallError("The Qbot couldn't place " + name + " there: it can't stand there, or its owner may not build here.");
+            return WorldPlateCalls.notPlaced("The Qbot couldn't place " + name + " there: it can't stand there, or its owner may not build here.");
         }
         qbot.items().removeItem(slot, 1);
         giveBack(level, qbot, left, -1);

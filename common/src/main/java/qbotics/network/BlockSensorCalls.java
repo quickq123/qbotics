@@ -176,6 +176,12 @@ final class BlockSensorCalls {
             info.addProperty("data_private", true);
             return;
         }
+        // Any block's data (a chest's contents, a machine's settings) on land the owner may not change.
+        if (!Boundaries.mayReach(level, sensor, pos)) {
+            info.add("data", JsonNull.INSTANCE);
+            info.addProperty("data_private", true);
+            return;
+        }
         net.minecraft.nbt.CompoundTag tag = entity.saveWithoutMetadata(level.registryAccess());
         JsonElement json = new com.mojang.serialization.Dynamic<>(net.minecraft.nbt.NbtOps.INSTANCE, tag)
                 .convert(com.mojang.serialization.JsonOps.INSTANCE).getValue();
@@ -380,13 +386,15 @@ final class BlockSensorCalls {
         BlockPos pos = at(sensor, args, 2);
         BlockState there = level.getBlockState(pos);
         if (!there.canBeReplaced() || there.getFluidState().isSource()) {
-            throw new CallError("The spot is taken by " + blockId(there) + ".");
+            return WorldPlateCalls.notPlaced("The spot is taken by " + blockId(there) + ".");
         }
         String wanted = NetworkCalls.string(args, 4);
         ServerPlayer player = standIn(level, sensor); // before anything is taken: a sensor with no owner takes nothing
-        EntitySensorCalls.Taken taken = EntitySensorCalls.takeOne(level, network, args.get(3), wanted);
+        // With nothing named, a block (or seeds), as a Placer takes: not a bucket or bone meal that happens to come first.
+        EntitySensorCalls.Taken taken = EntitySensorCalls.takeOne(level, network, args.get(3), wanted,
+                wanted != null ? stack -> true : stack -> stack.getItem() instanceof net.minecraft.world.item.BlockItem);
         if (taken == null) {
-            throw new CallError("The sources hold no " + (wanted == null ? "items" : wanted) + " to place.");
+            return WorldPlateCalls.notPlaced("The sources hold no " + (wanted == null ? "block" : wanted) + " to place.");
         }
         EntitySensorCalls.emptyHands(player);
         player.setItemInHand(InteractionHand.MAIN_HAND, taken.stack().copy());

@@ -69,6 +69,10 @@ public class QbotBlock extends ComputerBlock {
         // screen, with its storage and its Run, Pause and Stop buttons. Programs come from a Programmer.
         if (!ProbeItem.heldBy(player) && level.getBlockEntity(pos) instanceof QbotBlockEntity qbot && !qbot.bricked()) {
             if (player instanceof ServerPlayer serverPlayer) {
+                if (!qbot.mayOpen(serverPlayer)) {
+                    serverPlayer.sendOverlayMessage(qbotics.block.ComputerBlockEntity.refusal());
+                    return InteractionResult.SUCCESS;
+                }
                 serverPlayer.openMenu(qbot);
             }
             return InteractionResult.SUCCESS;

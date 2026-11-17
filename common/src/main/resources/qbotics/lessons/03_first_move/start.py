@@ -5,7 +5,7 @@ from logistics import network, move
 
 FROM = "inbox"     # CHANGE ME: the bus on the chest to take from
 TO = "store"       # CHANGE ME: the bus on the chest to put into
-WHAT = None        # CHANGE ME: an item, like "cobblestone"; None: everything
+WHAT = None        # CHANGE ME: an item, like "cobblestone" (all of it); None: everything
 
 net = network()
 source = net.bus(FROM)

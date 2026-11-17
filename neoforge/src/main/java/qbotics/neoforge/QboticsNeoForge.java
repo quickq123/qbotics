@@ -462,6 +462,11 @@ public final class QboticsNeoForge {
             // The fluid and energy stores are ordinary tanks and batteries to other mods' pipes and cables.
             event.registerBlockEntity(Capabilities.Fluid.BLOCK, FLUID_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
             event.registerBlockEntity(Capabilities.Energy.BLOCK, ENERGY_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
+            // A Qbot parked by a hopper, pipe or cable: its 16 slots, two tanks and energy cell are theirs to
+            // fill and empty, from any side, as a chest's, a tank's and a battery's are.
+            event.registerBlockEntity(Capabilities.Item.BLOCK, QBOT_BLOCK_ENTITY.get(), (qbot, side) -> VanillaContainerWrapper.of(qbot.items()));
+            event.registerBlockEntity(Capabilities.Fluid.BLOCK, QBOT_BLOCK_ENTITY.get(), (qbot, side) -> MediaHandlers.tanksOf(qbot));
+            event.registerBlockEntity(Capabilities.Energy.BLOCK, QBOT_BLOCK_ENTITY.get(), (qbot, side) -> MediaHandlers.cellOf(qbot));
             // A bus that is one end of a tunnel offers, on its face, the container behind the other end.
             event.registerBlockEntity(Capabilities.Item.BLOCK, PORT_BLOCK_ENTITY.get(), TunnelHandlers::items);
             event.registerBlockEntity(Capabilities.Fluid.BLOCK, PORT_BLOCK_ENTITY.get(), TunnelHandlers::fluid);
@@ -710,6 +715,11 @@ public final class QboticsNeoForge {
                 if (standIn instanceof StandIn player) {
                     player.charge(ticks);
                 }
+            }
+
+            @Override
+            public boolean sameModTeam(java.util.UUID one, java.util.UUID other) {
+                return FtbTeams.sameTeam(one, other);
             }
 
             @Override

@@ -151,12 +151,20 @@ public final class ComputerManager {
         ResourceKey<Level> dimension = block.getLevel().dimension();
         BlockPos pos = block.getBlockPos().immutable();
         UUID computerId = block.deviceId();
+        boolean newDrive = !java.nio.file.Files.exists(driveFolder(block.driveId())) && !(block instanceof qbotics.qbot.QbotBlockEntity);
         ServerComputer computer = new ServerComputer(block.deviceId(), block.driveId(), driveFolder(block.driveId()), cpu, listener,
                 worldCalls(computerId, computerId, dimension, pos), block instanceof qbotics.qbot.QbotBlockEntity,
                 block instanceof qbotics.qbot.QbotBlockEntity qbot && qbot.programRunning(),
                 block instanceof qbotics.block.ServerBlockEntity ? qbotics.block.ServerBlockEntity.HEAP_BYTES : ServerComputer.BASIC_HEAP_BYTES,
                 block instanceof qbotics.block.ServerBlockEntity ? qbotics.block.ServerBlockEntity.DRIVE_BYTES : ServerComputer.DRIVE_QUOTA_BYTES);
         computer.lessonOwner = block.owner();
+        if (newDrive) {
+            try {
+                computer.drive().call(HostFileSystem.WRITE, "/startup.sh", ServerComputer.STARTUP_TEMPLATE.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (HostFileSystem.FsException e) {
+                // It starts without the example file.
+            }
+        }
         computers.put(block.deviceId(), computer);
         places.put(block.deviceId(), new Viewing(block.deviceId(), dimension, pos));
         if (block instanceof qbotics.qbot.QbotBlockEntity qbot && block.getLevel() != null && block.getLevel().getServer() != null) {
@@ -394,6 +402,9 @@ public final class ComputerManager {
      */
     public void queueBoot(net.minecraft.server.level.ServerLevel level, ComputerBlockEntity block) {
         UUID id = block.deviceId();
+        if (block.owner() == null && !(block instanceof qbotics.qbot.QbotBlockEntity)) {
+            return; // nobody placed it (a command, a structure): it waits for a player to take it on
+        }
         if (!computers.containsKey(id)) {
             booting.put(id, new Boot(id, level.dimension(), block.getBlockPos().immutable(), String.valueOf(block.owner())));
         }
@@ -461,6 +472,28 @@ public final class ComputerManager {
             }
             getOrStart(block);
             started++;
+        }
+    }
+
+    /**
+     * A computer whose part of the world is no longer loaded is stopped. Its block still says it
+     * was on, so when that part loads again it starts as from new and runs its startup file.
+     * (Left running, its program would fail at its first call on the world, and nothing would
+     * start it again.)
+     */
+    private void stopUnloaded(MinecraftServer server) {
+        java.util.List<UUID> gone = new java.util.ArrayList<>();
+        for (Map.Entry<UUID, Viewing> entry : places.entrySet()) {
+            Viewing place = entry.getValue();
+            net.minecraft.server.level.ServerLevel level = server.getLevel(place.dimension());
+            if (level == null || !level.isLoaded(place.pos())) {
+                gone.add(entry.getKey());
+            }
+        }
+        for (UUID id : gone) {
+            places.remove(id);
+            viewers.values().removeIf(viewing -> viewing.deviceId().equals(id));
+            remove(id);
         }
     }
 
@@ -599,7 +632,11 @@ public final class ComputerManager {
             } else if (request.op() == IdePayloads.FileRequest.READ) {
                 reply(playerId, request, 0, ComputerSettings.read(player.level(), block).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             } else if (request.op() == IdePayloads.FileRequest.WRITE) {
-                String problem = ComputerSettings.write(player.level(), block, new String(request.data(), java.nio.charset.StandardCharsets.UTF_8));
+                // Its settings (who may open it, its password) are its owner's to change, not a guest's.
+                boolean owners = block.owner() == null || block.owner().equals(player.getUUID())
+                        || player.level().getServer().getPlayerList().isOp(player.nameAndId());
+                String problem = !owners ? "Only this computer's owner changes its settings."
+                        : ComputerSettings.write(player.level(), block, new String(request.data(), java.nio.charset.StandardCharsets.UTF_8));
                 // A refusal carries its reason, which the editor shows.
                 reply(playerId, request, problem == null ? 0 : HostFileSystem.EINVAL,
                         problem == null ? new byte[0] : problem.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -821,6 +858,9 @@ public final class ComputerManager {
             message.accept(server);
         }
         bootSome(server);
+        if (server.getTickCount() % 20 == 0) {
+            stopUnloaded(server);
+        }
         qbotics.laptop.Laptops.tick(server);
         qbotics.display.Displays.tick(server);
         if (server.getTickCount() % 10 == 0) {

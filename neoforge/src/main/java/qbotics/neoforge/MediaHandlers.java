@@ -188,6 +188,114 @@ final class MediaHandlers {
         }
     }
 
+    // A Qbot has both a cell and tanks: one handler of each, kept as long as the Qbot is where it is.
+    private static final Map<BlockEntity, QbotTanks> QBOT_TANKS = new WeakHashMap<>();
+    private static final Map<BlockEntity, QbotCell> QBOT_CELLS = new WeakHashMap<>();
+
+    static ResourceHandler<FluidResource> tanksOf(qbotics.qbot.QbotBlockEntity qbot) {
+        synchronized (QBOT_TANKS) {
+            return QBOT_TANKS.computeIfAbsent(qbot, q -> new QbotTanks(qbot));
+        }
+    }
+
+    static EnergyHandler cellOf(qbotics.qbot.QbotBlockEntity qbot) {
+        synchronized (QBOT_CELLS) {
+            return QBOT_CELLS.computeIfAbsent(qbot, q -> new QbotCell(qbot));
+        }
+    }
+
+    /** A Qbot's two tanks, to another mod's pipes. */
+    private static final class QbotTanks extends Journal implements ResourceHandler<FluidResource> {
+        private final qbotics.qbot.QbotBlockEntity qbot;
+
+        QbotTanks(qbotics.qbot.QbotBlockEntity qbot) {
+            super(qbot);
+            this.qbot = qbot;
+        }
+
+        @Override
+        public int size() {
+            return qbot.fluidPort().tanks().size();
+        }
+
+        @Override
+        public FluidResource getResource(int index) {
+            FluidPort.Tank tank = qbot.fluidPort().tanks().get(index);
+            return tank.amount() == 0 || tank.fluid() == null ? FluidResource.EMPTY : FluidResource.of(tank.fluid());
+        }
+
+        @Override
+        public long getAmountAsLong(int index) {
+            return qbot.fluidPort().tanks().get(index).amount();
+        }
+
+        @Override
+        public long getCapacityAsLong(int index, FluidResource resource) {
+            return qbot.fluidPort().tanks().get(index).capacity();
+        }
+
+        @Override
+        public boolean isValid(int index, FluidResource resource) {
+            return !resource.isEmpty() && resource.isComponentsPatchEmpty(); // plain fluids only
+        }
+
+        @Override
+        public int insert(int index, FluidResource resource, int amount, TransactionContext transaction) {
+            if (!isValid(index, resource) || qbot.fluidPort().insertInto(index, resource.getFluid(), amount, true) == 0) {
+                return 0;
+            }
+            updateSnapshots(transaction);
+            return qbot.fluidPort().insertInto(index, resource.getFluid(), amount, false);
+        }
+
+        @Override
+        public int extract(int index, FluidResource resource, int amount, TransactionContext transaction) {
+            if (!isValid(index, resource) || qbot.fluidPort().extractFrom(index, resource.getFluid(), amount, true) == 0) {
+                return 0;
+            }
+            updateSnapshots(transaction);
+            return qbot.fluidPort().extractFrom(index, resource.getFluid(), amount, false);
+        }
+    }
+
+    /** A Qbot's energy cell, to another mod's cables. */
+    private static final class QbotCell extends Journal implements EnergyHandler {
+        private final qbotics.qbot.QbotBlockEntity qbot;
+
+        QbotCell(qbotics.qbot.QbotBlockEntity qbot) {
+            super(qbot);
+            this.qbot = qbot;
+        }
+
+        @Override
+        public long getAmountAsLong() {
+            return qbot.energyPort().stored();
+        }
+
+        @Override
+        public long getCapacityAsLong() {
+            return qbot.energyPort().capacity();
+        }
+
+        @Override
+        public int insert(int amount, TransactionContext transaction) {
+            if (qbot.energyPort().insert(amount, true) == 0) {
+                return 0;
+            }
+            updateSnapshots(transaction);
+            return qbot.energyPort().insert(amount, false);
+        }
+
+        @Override
+        public int extract(int amount, TransactionContext transaction) {
+            if (qbot.energyPort().extract(amount, true) == 0) {
+                return 0;
+            }
+            updateSnapshots(transaction);
+            return qbot.energyPort().extract(amount, false);
+        }
+    }
+
     /** The Fluid Interface's four tanks. */
     private static final class FluidStore extends Journal implements ResourceHandler<FluidResource> {
         private final FluidInterfaceBlockEntity tanks;

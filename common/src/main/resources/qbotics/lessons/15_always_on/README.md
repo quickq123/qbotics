@@ -12,7 +12,10 @@ someone breaks and replaces the computer. Two files at the top of the drive do t
 | File | Runs when the computer starts |
 |---|---|
 | `/startup.sh` | Shell commands, one a line: `run /lessons/05_events/start.py` |
-| `/startup.py` | A Python program |
+| `/startup.py` | A Python program. Only run if `startup.sh` has no commands in it |
+
+Every computer starts with a `startup.sh` that holds only notes (lines starting with `#`),
+which do nothing.
 
 ## Try it
 
@@ -29,8 +32,9 @@ itself, and keeps going while nobody looks.
 
 ## Your turn
 
-Leave it running for a game day: one sunrise to the next. The advancement comes up when it
-has run that long without stopping.
+Leave it running for a game day: one sunrise to the next (20 minutes). The advancement comes
+up when it has run that long without stopping. It is 20 minutes of real time: sleeping in a
+bed doesn't shorten it, and it must be the program that started by itself.
 
 ## New Python here
 
@@ -49,7 +53,8 @@ has run that long without stopping.
   handler with it. `/helpme/buses/factory/safely.py` shows how to print the error and carry on.
 - **The area must stay loaded** for the computer to run. A Chunk Loader Upgrade in its antenna
   keeps it loaded (manual 7.3b).
-- Ctrl+C at the terminal stops what startup started; `run /lessons/05_events/start.py` starts it again.
+- Ctrl+C at the terminal stops what startup started; `run /lessons/05_events/start.py` starts it
+  again. For the advancement it has to start by itself: `shutdown`, then right-click the computer.
 
 **Next:** `cd /lessons/16_radio`. **More:** `/helpme/buses/factory` (a program made to run for ever).
 **Manual:** section 1.1b.

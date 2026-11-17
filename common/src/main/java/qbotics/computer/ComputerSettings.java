@@ -44,6 +44,10 @@ public final class ComputerSettings {
         page.addProperty("ip", computer.ip());
         page.addProperty("_ip", "Given by the network; it can't be changed here.");
 
+        page.addProperty("open", computer.opens() == RadioNetwork.Access.PRIVATE ? "owner" : computer.opens().word);
+        page.addProperty("_open", "Who may open this computer by right-clicking it: \"owner\" (only you), \"team\" (your team: "
+                + "FTB Teams, or the game's /team), or \"public\" (anyone). Whoever opens it works as you: your files, your devices.");
+
         JsonObject remote = new JsonObject();
         remote.addProperty("allow", computer.remoteLogin().word);
         remote.addProperty("_allow", "Who may log in with ssh: \"owner\" (only the owner's own computers), "
@@ -91,6 +95,13 @@ public final class ComputerSettings {
             return "The name can use letters, digits, _ - and . only.";
         }
 
+        String open = text(page, "open");
+        RadioNetwork.Access opens = open == null ? computer.opens()
+                : open.equals("owner") ? RadioNetwork.Access.PRIVATE : RadioNetwork.Access.parse(open);
+        if (opens == null) {
+            return "\"open\" must be \"owner\", \"team\" or \"public\", not \"" + open + "\".";
+        }
+
         JsonObject remote = page.has("remote_login") && page.get("remote_login").isJsonObject() ? page.getAsJsonObject("remote_login") : new JsonObject();
         String allow = text(remote, "allow");
         ComputerBlockEntity.RemoteLogin login = allow == null ? computer.remoteLogin() : ComputerBlockEntity.RemoteLogin.parse(allow);
@@ -128,6 +139,7 @@ public final class ComputerSettings {
             computer.setDeviceName(name);
         }
         computer.setRemoteLogin(login);
+        computer.setOpens(opens);
         if (!keeps) {
             computer.setPassword(password);
         }
