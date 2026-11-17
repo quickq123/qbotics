@@ -1678,7 +1678,7 @@ drops them.
 | Takes upgrades | Sockets | Which |
 |---|---|---|
 | An antenna (any tier) | 2 | A Transport and a Chunk Loader |
-| A Qbot | 4 (a 2x2 in its screen) | One of each kind, the Sense Upgrade too (section 7d) |
+| A Qbot | 4 (a 2x2 in its screen) | One of each kind, the Sense and Netherite Upgrades too (section 7d) |
 | A Server | 1 | A Chunk Loader Upgrade |
 
 | Upgrade | Does |
@@ -1686,6 +1686,7 @@ drops them.
 | **Transport Upgrade** | Lets programs use the devices behind another antenna (that also has one), and `move()` items, fluid and energy between the two networks. In a Qbot: between the Qbot itself and the network behind an antenna its radio reaches (below) |
 | **Chunk Loader Upgrade** | Keeps the chunks of the antenna's whole cable network loaded and working while nobody is near. A Server takes one too (section 7i) |
 | **Sense Upgrade** | A Qbot's only. The Qbot senses blocks up to 4 away in every direction (a ball 9 blocks across), not only the six touching it: `inspect.at()` and `inspect.scan()` (section 7d) |
+| **Netherite Upgrade** | A Qbot's only. With nothing in its hand (or a tool that can't harvest the block) it digs as netherite tools would, so obsidian and ancient debris too, and with Silk Touch on everything it digs. A tool in its hand that can harvest the block is used instead, as it is (its own level and enchantments). And the Qbot's item, broken with this upgrade in it, doesn't burn: dropped in lava or fire it floats, as netherite does (section 7d) |
 
 #### Transport
 
@@ -1767,7 +1768,8 @@ switching it off lets the chunks go within a second.
 **Recipes (placeholders):** Transport Upgrade: `EHE` / `RMR` / `GGG` (ender pearls and a hopper,
 redstone, an integrated circuit, gold nuggets). Chunk Loader Upgrade: `OYO` / `RMR` / `GGG` (obsidian and
 an eye of ender over the same). Sense Upgrade: `ASA` / `RMR` / `GGG` (amethyst shards and a spyglass
-over the same).
+over the same). Netherite Upgrade: ` P ` / `RMR` / `GBG` (a netherite pickaxe over redstone and an
+integrated circuit; gold nuggets either side of an enchanted book with Silk Touch, and nothing else on it).
 
 ### 7.4 Remote login: `ssh`
 
@@ -2304,8 +2306,12 @@ selects everything), then **Ctrl+C** or **Copy selected**. With nothing selected
 - **Placing it:** it faces you, like a computer.
 - **Right-click:** its screen: inventory, hand and upgrade slots, gauges for its cell and
   tanks, and Run, Pause and Stop with what its program printed.
-- **Breaking it:** its items fall out. Its files (its drive), name, energy and fluid stay with
-  the item.
+- **Breaking it:** everything stays with the item, as a shulker box keeps its things: its
+  inventory, the tool in its hand, its upgrades, its files (its drive), name, energy and fluid.
+  Placed again, it has them all. An explosion doesn't destroy it. A Qbot item carrying things
+  can't go into a Qbot, a shulker box or a bundle (an empty one can). Broken in creative mode, it
+  still drops itself if it carries anything. What resets: its owner (whoever places it), its
+  address, its password and who may open or log in to it, and it is placed switched off.
 - It is a computer on the network (cables and devices beside it join it), and counts against
   `limits.qbots_per_player` (5), not the computer limit. A machine-placed Qbot is inactive
   until someone claims it, and the Programmer programs Qbots like computers.
@@ -2358,7 +2364,10 @@ Seeing isn't looking inside: `inspect` says a chest is a chest; `inventory.read(
 iron pickaxe for stone, an iron axe for wood), so it can dig iron, gold, diamond and redstone ore
 but not obsidian or ancient debris. **A tool in its hand** is used when it does better: its
 level and speed count, and enchantments that change what drops (Fortune, Silk Touch) work as
-they would for a player. (Efficiency doesn't speed it up yet.)
+they would for a player. (Efficiency doesn't speed it up yet.) **With a Netherite Upgrade** its
+empty hand digs as netherite tools would, with Silk Touch (obsidian comes up as obsidian, glass
+as glass, grass as grass blocks); a tool in its hand that can harvest the block still wins, so
+hold a Fortune pickaxe for ores.
 
 **Tools wear** like a player's. When one breaks, what the Qbot was doing is done and
 `ToolBrokenError` is raised (a kind of `QbotError`).

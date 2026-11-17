@@ -361,10 +361,14 @@ final class QbotCalls {
             throw new CallError(blockId(state) + " can't be broken.");
         }
         ItemStack equipped = qbot.tool();
-        ItemStack builtIn = qbot.tier().toolFor(state);
+        // A Netherite Upgrade: with nothing in its hand that does the job, it digs as netherite tools
+        // would, with silk touch. A tool in its hand that can harvest the block is used instead, as it is.
+        boolean netherite = qbot.hasUpgrade(qbotics.upgrade.UpgradeItem.Kind.NETHERITE);
+        ItemStack builtIn = netherite ? silkTouched(level, qbotics.qbot.QbotTier.toolFor(qbotics.qbot.QbotTier.NETHERITE_TOOLS, state))
+                : qbot.tier().toolFor(state);
         boolean useEquipped;
         if (!equipped.isEmpty() && equipped.isCorrectToolForDrops(state)) {
-            useEquipped = !builtIn.isCorrectToolForDrops(state) || equipped.getDestroySpeed(state) >= builtIn.getDestroySpeed(state);
+            useEquipped = netherite || !builtIn.isCorrectToolForDrops(state) || equipped.getDestroySpeed(state) >= builtIn.getDestroySpeed(state);
         } else {
             useEquipped = false;
         }
@@ -404,6 +408,9 @@ final class QbotCalls {
         // Every drop must fit, or nothing is dug.
         SimpleCheck room = new SimpleCheck(qbot);
         for (ItemStack drop : drops) {
+            if (!QbotBlockEntity.mayHold(drop)) {
+                throw new CallError(blockId(state) + " has things in it, and a Qbot can't carry a Qbot that carries things, so it wasn't dug.");
+            }
             if (!room.take(drop)) {
                 throw new CallError("No room in the Qbot for " + drop.getCount() + " " + NetworkCalls.itemId(drop.getItem())
                         + " from " + blockId(state) + ", so it wasn't dug.");
@@ -440,6 +447,14 @@ final class QbotCalls {
             reply.addProperty("tool_broke", broke);
         }
         return reply;
+    }
+
+    /** A copy of a built-in tool with silk touch on it (none: still none, and the drops are a hand's). */
+    private static ItemStack silkTouched(ServerLevel level, ItemStack tool) {
+        ItemStack silk = tool.isEmpty() ? new ItemStack(net.minecraft.world.item.Items.NETHERITE_PICKAXE) : tool.copy();
+        level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
+                .get(net.minecraft.world.item.enchantment.Enchantments.SILK_TOUCH).ifPresent(enchantment -> silk.enchant(enchantment, 1));
+        return silk;
     }
 
     /** Tries drops into a copy of the Qbot's inventory, to see whether they all fit before anything moves. */

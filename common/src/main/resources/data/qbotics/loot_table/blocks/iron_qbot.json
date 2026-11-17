@@ -3,11 +3,6 @@
   "pools": [
     {
       "bonus_rolls": 0.0,
-      "conditions": [
-        {
-          "condition": "minecraft:survives_explosion"
-        }
-      ],
       "entries": [
         {
           "type": "minecraft:item",
@@ -18,7 +13,9 @@
               "include": [
                 "qbotics:drive_id",
                 "minecraft:custom_name",
-                "minecraft:custom_data"
+                "minecraft:custom_data",
+                "minecraft:container",
+                "minecraft:damage_resistant"
               ],
               "source": "block_entity"
             }

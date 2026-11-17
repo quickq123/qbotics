@@ -19,7 +19,6 @@ import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ProblemReporter;
-import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -27,6 +26,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
@@ -60,6 +60,11 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
 
     private final SimpleContainer items = new SimpleContainer(SLOTS) {
         @Override
+        public boolean canPlaceItem(int slot, ItemStack stack) {
+            return mayHold(stack);
+        }
+
+        @Override
         public void setChanged() {
             super.setChanged();
             QbotBlockEntity.this.setChanged();
@@ -70,6 +75,11 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
         @Override
         public int getMaxStackSize() {
             return 1;
+        }
+
+        @Override
+        public boolean canPlaceItem(int slot, ItemStack stack) {
+            return mayHold(stack);
         }
 
         @Override
@@ -205,6 +215,24 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
 
     public ItemStack tool() {
         return hand.getItem(0);
+    }
+
+    /**
+     * Whether a Qbot may carry a stack: anything but a Qbot that has things in it (as a shulker box
+     * can't go in a shulker box), so Qbots don't nest inside Qbots.
+     */
+    public static boolean mayHold(ItemStack stack) {
+        return !(stack.getItem() instanceof net.minecraft.world.item.BlockItem block && block.getBlock() instanceof QbotBlock && carriesThings(stack));
+    }
+
+    /** Whether a Qbot's item has anything in it: items, a tool, upgrades. */
+    public static boolean carriesThings(ItemStack stack) {
+        return stack.getOrDefault(DataComponents.CONTAINER, ItemContainerContents.EMPTY).nonEmptyItems().iterator().hasNext();
+    }
+
+    /** Whether it has nothing in its inventory, hand or sockets. */
+    public boolean carriesNothing() {
+        return items.isEmpty() && hand.isEmpty() && upgrades.isEmpty();
     }
 
     public boolean hasUpgrade(UpgradeItem.Kind kind) {
@@ -446,14 +474,11 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
         return list;
     }
 
-    /** Broken (not stepping): what it carries falls out; its energy and fluid stay in the item. */
+    /** Broken (not stepping): what it carries, its energy and its fluid all stay in the item it drops. */
     @Override
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
         if (!moving && level instanceof ServerLevel serverLevel) {
-            Containers.dropContents(serverLevel, pos, items);
-            Containers.dropContents(serverLevel, pos, hand);
-            Containers.dropContents(serverLevel, pos, upgrades);
             qbotics.upgrade.ChunkLoaders.release(serverLevel, pos);
         }
     }
@@ -564,11 +589,24 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
         return ClientboundBlockEntityDataPacket.create(this);
     }
 
-    // Its energy and fluid stay with it when it is broken and picked up (its items fall out).
+    // Everything stays with it when it is broken and picked up: its inventory, hand and upgrades
+    // (one container: the 16 slots, then the hand, then the 4 sockets), its energy and its fluid.
+    // With a Netherite Upgrade the item doesn't burn, as netherite doesn't.
 
     @Override
     protected void collectImplicitComponents(DataComponentMap.Builder components) {
         super.collectImplicitComponents(components);
+        if (!carriesNothing()) {
+            List<ItemStack> all = new ArrayList<>(items.getItems());
+            all.addAll(hand.getItems());
+            all.addAll(upgrades.getItems());
+            components.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(all));
+        }
+        if (hasUpgrade(UpgradeItem.Kind.NETHERITE) && level != null) {
+            level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
+                    .get(net.minecraft.tags.DamageTypeTags.IS_FIRE)
+                    .ifPresent(fire -> components.set(DataComponents.DAMAGE_RESISTANT, new net.minecraft.world.item.component.DamageResistant(fire)));
+        }
         if (energy > 0 || amounts[0] > 0 || amounts[1] > 0) {
             CompoundTag tag = new CompoundTag();
             tag.putInt("energy", energy);
@@ -583,6 +621,19 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
     @Override
     protected void applyImplicitComponents(DataComponentGetter components) {
         super.applyImplicitComponents(components);
+        ItemContainerContents carried = components.get(DataComponents.CONTAINER);
+        if (carried != null) {
+            List<ItemStack> all = carried.allItemsCopyStream().toList();
+            for (int slot = 0; slot < SLOTS; slot++) {
+                items.setItem(slot, slot < all.size() ? all.get(slot) : ItemStack.EMPTY);
+            }
+            hand.setItem(0, SLOTS < all.size() ? all.get(SLOTS) : ItemStack.EMPTY);
+            for (int socket = 0; socket < UPGRADE_SLOTS; socket++) {
+                int at = SLOTS + 1 + socket;
+                upgrades.setItem(socket, at < all.size() ? all.get(at) : ItemStack.EMPTY);
+            }
+        }
+        components.get(DataComponents.DAMAGE_RESISTANT); // read, so the block doesn't keep it: it is worked out from its upgrades
         CustomData data = components.get(DataComponents.CUSTOM_DATA);
         if (data != null) {
             CompoundTag tag = data.copyTag();

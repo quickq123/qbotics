@@ -20,7 +20,9 @@ public class UpgradeItem extends Item {
         /** Keeps the chunks of the device's network loaded (a Qbot: the chunks it is in). */
         CHUNK_LOADER("chunk_loader"),
         /** A Qbot's only: it senses blocks up to 4 away in every direction, not just the six touching it. */
-        SENSE("sense");
+        SENSE("sense"),
+        /** A Qbot's only: with nothing in its hand it digs as netherite tools would, with silk touch; broken, it doesn't burn. */
+        NETHERITE("netherite");
 
         /** The word programs use. */
         public final String word;

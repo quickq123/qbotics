@@ -50,7 +50,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -102,6 +102,7 @@ public final class QboticsGameTests {
             Map.entry("qbot_hopper", QboticsGameTests::qbotHopper),
             Map.entry("qbot_transport", QboticsGameTests::qbotTransport),
             Map.entry("qbot_sense", QboticsGameTests::qbotSense),
+            Map.entry("qbot_netherite", QboticsGameTests::qbotNetherite),
             Map.entry("computer_access", QboticsGameTests::computerAccess),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
             Map.entry("compile_check", QboticsGameTests::compileCheck),
@@ -4588,6 +4589,93 @@ public final class QboticsGameTests {
                     helper.assertTrue(store.countItem(Items.COBBLESTONE) == 5 && store.countItem(Items.COAL) == 7, "the store has 5 cobblestone and 7 coal");
                 }
             }
+        });
+    }
+
+    /**
+     * The Netherite Upgrade, and a broken Qbot keeping what it holds. With an iron pickaxe in its hand
+     * and the upgrade in a socket: obsidian (which iron can't dig) is dug as netherite would, glass
+     * and grass with silk touch, and stone with the pickaxe in its hand (the tool wins: cobblestone).
+     * Broken, its item carries its inventory, hand and upgrade, and doesn't burn; placed again, it
+     * has them all back. A Qbot carrying things can't go into a Qbot. The recipe needs a Silk Touch book.
+     */
+    private static void qbotNetherite(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos at = new BlockPos(1, 1, 1);
+        helper.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH));
+        qbotics.qbot.QbotBlockEntity qbot = helper.getBlockEntity(at, qbotics.qbot.QbotBlockEntity.class);
+        qbot.onPlaced(UUID.randomUUID());
+        // Facing north: its front is -z, its right is +x, its left -x.
+        helper.setBlock(new BlockPos(1, 1, 0), Blocks.OBSIDIAN);
+        helper.setBlock(new BlockPos(1, 2, 1), Blocks.GLASS);
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.GRASS_BLOCK);
+        helper.setBlock(new BlockPos(0, 1, 1), Blocks.STONE);
+        net.minecraft.world.item.Item netherite = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("netherite_upgrade"));
+        qbot.upgrades().setItem(0, new ItemStack(netherite));
+        qbot.hand().setItem(0, new ItemStack(Items.IRON_PICKAXE));
+
+        // The recipe: a netherite pickaxe over the circuit, a Silk Touch book under it (another book won't do).
+        ItemStack silkBook = new ItemStack(Items.ENCHANTED_BOOK);
+        net.minecraft.world.item.enchantment.ItemEnchantments.Mutable silk = new net.minecraft.world.item.enchantment.ItemEnchantments.Mutable(
+                net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY);
+        silk.set(level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
+                .getOrThrow(net.minecraft.world.item.enchantment.Enchantments.SILK_TOUCH), 1);
+        silkBook.set(net.minecraft.core.component.DataComponents.STORED_ENCHANTMENTS, silk.toImmutable());
+        ItemStack circuit = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(qbotics.Qbotics.id("integrated_circuit")));
+        ItemStack r = new ItemStack(Items.REDSTONE);
+        ItemStack g = new ItemStack(Items.GOLD_NUGGET);
+        ItemStack made = craft(helper, ItemStack.EMPTY, new ItemStack(Items.NETHERITE_PICKAXE), ItemStack.EMPTY, r, circuit, r, g, silkBook, g);
+        helper.assertTrue(made.is(netherite), "a netherite pickaxe and a Silk Touch book make a Netherite Upgrade, not " + made);
+        helper.assertTrue(craft(helper, ItemStack.EMPTY, new ItemStack(Items.NETHERITE_PICKAXE), ItemStack.EMPTY, r, circuit, r, g,
+                new ItemStack(Items.BOOK), g).isEmpty(), "a plain book doesn't");
+
+        ServerComputer bot = ComputerManager.get(level.getServer()).getOrStart(qbot);
+        String program = String.join("\n",
+                "import qbot",
+                "from qbot import Side",
+                "print('obsidian', qbot.dig())",
+                "print('glass', qbot.dig(Side.TOP))",
+                "print('grass', qbot.dig(Side.RIGHT))",
+                "print('stone', qbot.dig(Side.LEFT))",
+                "print('ran')",
+                "");
+        try {
+            bot.drive().call(qbotics.engine.HostFileSystem.WRITE, "/n.py", program.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        bot.submitLine("run /n.py");
+        helper.succeedWhen(() -> {
+            assertScreen(helper, bot, "obsidian {'minecraft:obsidian': 1}\n", "glass {'minecraft:glass': 1}\n",
+                    "grass {'minecraft:grass_block': 1}\n", "stone {'minecraft:cobblestone': 1}\n", "ran\n");
+
+            // Broken: one item, carrying everything, that lava doesn't burn.
+            BlockState state = helper.getBlockState(at);
+            List<ItemStack> drops = net.minecraft.world.level.block.Block.getDrops(state, level, helper.absolutePos(at), qbot);
+            helper.assertTrue(drops.size() == 1, "a broken Qbot drops only itself: " + drops);
+            ItemStack item = drops.get(0);
+            helper.assertTrue(!item.canBeHurtBy(level.damageSources().lava()) && !item.canBeHurtBy(level.damageSources().inFire()),
+                    "with a Netherite Upgrade in it, its item doesn't burn");
+            helper.assertTrue(!qbotics.qbot.QbotBlockEntity.mayHold(item) && !qbot.items().canPlaceItem(0, item),
+                    "a Qbot carrying things can't go into a Qbot");
+            helper.assertTrue(!item.getItem().canFitInsideContainerItems(item), "nor into a shulker box or bundle");
+
+            // Placed again (here a second Qbot from the same item): everything is back.
+            BlockPos again = new BlockPos(3, 1, 3);
+            helper.setBlock(again, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState());
+            qbotics.qbot.QbotBlockEntity placed = helper.getBlockEntity(again, qbotics.qbot.QbotBlockEntity.class);
+            placed.applyComponentsFromItemStack(item);
+            int count = 0;
+            for (int slot = 0; slot < qbotics.qbot.QbotBlockEntity.SLOTS; slot++) {
+                count += placed.items().getItem(slot).getCount();
+            }
+            helper.assertTrue(count == 4 && placed.tool().is(Items.IRON_PICKAXE) && placed.hasUpgrade(qbotics.upgrade.UpgradeItem.Kind.NETHERITE),
+                    "placed again, it holds its 4 blocks, its pickaxe and its upgrade: " + count + " " + placed.tool());
+
+            // Without the upgrade, its item burns as any other.
+            placed.upgrades().setItem(0, ItemStack.EMPTY);
+            ItemStack plain = net.minecraft.world.level.block.Block.getDrops(helper.getBlockState(again), level, helper.absolutePos(again), placed).get(0);
+            helper.assertTrue(plain.canBeHurtBy(level.damageSources().lava()), "without a Netherite Upgrade, its item burns");
         });
     }
 

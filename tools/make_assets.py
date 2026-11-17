@@ -212,6 +212,9 @@ write_json("assets/qbotics/lang/en_us.json", {
     "item.qbotics.transport_upgrade.fits": "Fits an antenna or a Qbot (right-click it)",
     "item.qbotics.chunk_loader_upgrade.fits": "Fits an antenna, a Qbot or a Server (right-click it)",
     "item.qbotics.sense_upgrade.fits": "Fits a Qbot (right-click it)",
+    "item.qbotics.netherite_upgrade": "Netherite Upgrade",
+    "item.qbotics.netherite_upgrade.tooltip": "With an empty hand, a Qbot digs as netherite with silk touch; broken, it doesn't burn",
+    "item.qbotics.netherite_upgrade.fits": "Fits a Qbot (right-click it)",
     "screen.qbotics.antenna.upgrades": "Upgrades",
     "screen.qbotics.antenna.chunks": "Chunk loading:",
     "screen.qbotics.antenna.loading_on": "Chunk loading: On",
@@ -461,7 +464,7 @@ def shaped(pattern, key, result, count=1):
     }
 
 
-def drops_itself(name, copy_components=None):
+def drops_itself(name, copy_components=None, even_exploded=False):
     entry = {"type": "minecraft:item", "name": name}
     if copy_components:
         entry["functions"] = [{
@@ -473,7 +476,7 @@ def drops_itself(name, copy_components=None):
         "type": "minecraft:block",
         "pools": [{
             "bonus_rolls": 0.0,
-            "conditions": [{"condition": "minecraft:survives_explosion"}],
+            **({} if even_exploded else {"conditions": [{"condition": "minecraft:survives_explosion"}]}),
             "entries": [entry],
             "rolls": 1.0,
         }],
@@ -1528,8 +1531,19 @@ for (x, y) in ((6, 7), (8, 7), (7, 6), (7, 8)):
     SENSE_MARK[(x, y)] = (60, 150, 200)
 write_png("assets/qbotics/textures/item/transport_upgrade.png", upgrade_card(TRANSPORT_MARK))
 write_png("assets/qbotics/textures/item/chunk_loader_upgrade.png", upgrade_card(CHUNK_MARK))
+NETHERITE_MARK = {}
+for (x, y) in ((5, 4), (6, 4), (7, 4), (8, 4), (9, 4), (4, 5), (10, 5), (4, 6), (10, 6)):   # a pickaxe's head
+    NETHERITE_MARK[(x, y)] = (98, 84, 92)
+for (x, y) in ((6, 5), (7, 5), (8, 5)):
+    NETHERITE_MARK[(x, y)] = (150, 130, 140)
+for y in range(5, 11):                                                                  # its handle
+    NETHERITE_MARK[(7, y + 1 if y > 5 else 5)] = (120, 80, 40)
+NETHERITE_MARK[(7, 5)] = (150, 130, 140)
+for (x, y) in ((10, 9), (11, 8), (11, 10)):                                             # a glint: silk touch
+    NETHERITE_MARK[(x, y)] = (200, 140, 255)
 write_png("assets/qbotics/textures/item/sense_upgrade.png", upgrade_card(SENSE_MARK))
-for upgrade in ("transport_upgrade", "chunk_loader_upgrade", "sense_upgrade"):
+write_png("assets/qbotics/textures/item/netherite_upgrade.png", upgrade_card(NETHERITE_MARK))
+for upgrade in ("transport_upgrade", "chunk_loader_upgrade", "sense_upgrade", "netherite_upgrade"):
     write_json("assets/qbotics/models/item/%s.json" % upgrade, {
         "parent": "minecraft:item/generated",
         "textures": {"layer0": "qbotics:item/%s" % upgrade},
@@ -1758,7 +1772,9 @@ write_json("data/qbotics/recipe/iron_qbot.json", shaped(
     ["III", "ICI", "IHI"], {"I": "minecraft:iron_ingot", "C": "qbotics:computer", "H": "minecraft:chest"}, "qbotics:iron_qbot"))
 # A broken Qbot keeps its drive (files), name, and its energy and fluid (custom data); its items fall out.
 write_json("data/qbotics/loot_table/blocks/iron_qbot.json",
-           drops_itself("qbotics:iron_qbot", copy_components=["qbotics:drive_id", "minecraft:custom_name", "minecraft:custom_data"]))
+           drops_itself("qbotics:iron_qbot", copy_components=["qbotics:drive_id", "minecraft:custom_name", "minecraft:custom_data",
+                                                              "minecraft:container", "minecraft:damage_resistant"],
+                        even_exploded=True))  # it carries everything it holds: an explosion mustn't lose it
 # Placeholders: upgrades are an integrated circuit with what they do. Transport: ender pearls (things cross a
 # distance) and a hopper; Chunk Loader: an eye of ender over obsidian.
 write_json("data/qbotics/recipe/transport_upgrade.json", shaped(
@@ -1768,6 +1784,13 @@ write_json("data/qbotics/recipe/transport_upgrade.json", shaped(
 write_json("data/qbotics/recipe/sense_upgrade.json", shaped(
     ["ASA", "RMR", "GGG"], {"A": "minecraft:amethyst_shard", "S": "minecraft:spyglass", "R": "minecraft:redstone",
                             "M": "qbotics:integrated_circuit", "G": "minecraft:gold_nugget"}, "qbotics:sense_upgrade"))
+# Netherite: a netherite pickaxe over the circuit, a Silk Touch book under it.
+write_json("data/qbotics/recipe/netherite_upgrade.json", shaped(
+    [" P ", "RMR", "GBG"], {"P": "minecraft:netherite_pickaxe", "R": "minecraft:redstone", "M": "qbotics:integrated_circuit",
+                            "G": "minecraft:gold_nugget",
+                            "B": {"neoforge:ingredient_type": "neoforge:components", "items": "minecraft:enchanted_book",
+                                  "components": {"minecraft:stored_enchantments": {"minecraft:silk_touch": 1}}}},
+    "qbotics:netherite_upgrade"))
 write_json("data/qbotics/recipe/chunk_loader_upgrade.json", shaped(
     ["OYO", "RMR", "GGG"], {"O": "minecraft:obsidian", "Y": "minecraft:ender_eye", "R": "minecraft:redstone",
                             "M": "qbotics:integrated_circuit", "G": "minecraft:gold_nugget"}, "qbotics:chunk_loader_upgrade"))

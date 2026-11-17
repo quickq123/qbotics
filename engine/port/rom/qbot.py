@@ -123,7 +123,8 @@ def facing():
 def dig(side=Side.FRONT):
     """Digs the block on a side, as long as a player with the same tool would take, and
     returns what it got: {name: count}. Every drop must fit in its inventory, or nothing is
-    dug. It digs as its tier's tools would unless the tool in its hand does better."""
+    dug. It digs as its tier's tools would unless the tool in its hand does better
+    (with a Netherite Upgrade: as netherite, with silk touch, unless a tool in its hand can)."""
     while True:
         reply = _q("qbot_dig", side)
         if "wait" not in reply:

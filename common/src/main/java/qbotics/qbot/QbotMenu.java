@@ -152,13 +152,23 @@ public class QbotMenu extends AbstractContainerMenu {
         items.startOpen(inventory.player);
         for (int row = 0; row < 4; row++) {
             for (int col = 0; col < 4; col++) {
-                addSlot(new Slot(items, row * 4 + col, GRID_X + col * 18, GRID_Y + row * 18));
+                addSlot(new Slot(items, row * 4 + col, GRID_X + col * 18, GRID_Y + row * 18) {
+                    @Override
+                    public boolean mayPlace(ItemStack stack) {
+                        return QbotBlockEntity.mayHold(stack); // not a Qbot with things in it
+                    }
+                });
             }
         }
         addSlot(new Slot(hand, 0, HAND_X, HAND_Y) {
             @Override
             public int getMaxStackSize() {
                 return 1;
+            }
+
+            @Override
+            public boolean mayPlace(ItemStack stack) {
+                return QbotBlockEntity.mayHold(stack);
             }
         });
         for (int socket = 0; socket < QbotBlockEntity.UPGRADE_SLOTS; socket++) {

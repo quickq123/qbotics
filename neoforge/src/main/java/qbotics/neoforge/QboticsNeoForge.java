@@ -114,7 +114,13 @@ public final class QboticsNeoForge {
     // Qbots (design doc §8): drawn by their renderer, so they can step, turn and swing.
     private static final DeferredBlock<qbotics.qbot.QbotBlock> IRON_QBOT = BLOCKS.registerBlock("iron_qbot", qbotics.qbot.QbotBlock::iron,
             properties -> properties.mapColor(MapColor.METAL).strength(2.5f).sound(SoundType.METAL).noOcclusion());
-    private static final DeferredItem<BlockItem> IRON_QBOT_ITEM = ITEMS.registerSimpleBlockItem(IRON_QBOT);
+    /** A Qbot's item carries what it held, so (as a shulker box) one that carries things doesn't go in a shulker box or bundle. */
+    private static final DeferredItem<BlockItem> IRON_QBOT_ITEM = ITEMS.registerItem("iron_qbot", properties -> new BlockItem(IRON_QBOT.get(), properties) {
+        @Override
+        public boolean canFitInsideContainerItems(net.minecraft.world.item.ItemStack stack) {
+            return qbotics.qbot.QbotBlockEntity.mayHold(stack);
+        }
+    }, net.minecraft.world.item.Item.Properties::useBlockDescriptionPrefix);
     /** The Server (design doc §3.4): the late-game computer, 2 MB, with its own drives and uplink. */
     private static final DeferredBlock<qbotics.block.ServerBlock> SERVER = BLOCKS.registerBlock("server", qbotics.block.ServerBlock::new,
             properties -> properties.mapColor(MapColor.COLOR_BLACK).strength(3.0f).sound(SoundType.NETHERITE_BLOCK));
@@ -138,6 +144,8 @@ public final class QboticsNeoForge {
             properties -> new qbotics.upgrade.UpgradeItem(qbotics.upgrade.UpgradeItem.Kind.CHUNK_LOADER, properties.stacksTo(1)));
     private static final DeferredItem<qbotics.upgrade.UpgradeItem> SENSE_UPGRADE = ITEMS.registerItem("sense_upgrade",
             properties -> new qbotics.upgrade.UpgradeItem(qbotics.upgrade.UpgradeItem.Kind.SENSE, properties.stacksTo(1)));
+    private static final DeferredItem<qbotics.upgrade.UpgradeItem> NETHERITE_UPGRADE = ITEMS.registerItem("netherite_upgrade",
+            properties -> new qbotics.upgrade.UpgradeItem(qbotics.upgrade.UpgradeItem.Kind.NETHERITE, properties.stacksTo(1).fireResistant()));
     /**
      * The tickets Chunk Loader Upgrades hold chunks with. When a world loads, they are handed
      * to ChunkLoaders, which lets go of any whose antenna doesn't turn up within a few seconds
@@ -341,6 +349,7 @@ public final class QboticsNeoForge {
                         output.accept(TRANSPORT_UPGRADE.get());
                         output.accept(CHUNK_LOADER_UPGRADE.get());
                         output.accept(SENSE_UPGRADE.get());
+                        output.accept(NETHERITE_UPGRADE.get());
                         output.accept(LIQUID_CRYSTAL_PANEL.get());
                         output.accept(LCD_SCREEN.get());
                         output.accept(LIGHT_EMITTING_DIODE.get());

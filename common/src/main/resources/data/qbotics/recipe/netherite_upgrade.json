@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "P": "minecraft:netherite_pickaxe",
+    "R": "minecraft:redstone",
+    "M": "qbotics:integrated_circuit",
+    "G": "minecraft:gold_nugget",
+    "B": {
+      "neoforge:ingredient_type": "neoforge:components",
+      "items": "minecraft:enchanted_book",
+      "components": {
+        "minecraft:stored_enchantments": {
+          "minecraft:silk_touch": 1
+        }
+      }
+    }
+  },
+  "pattern": [
+    " P ",
+    "RMR",
+    "GBG"
+  ],
+  "result": {
+    "id": "qbotics:netherite_upgrade"
+  }
+}

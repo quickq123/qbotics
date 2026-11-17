@@ -79,4 +79,20 @@ public class QbotBlock extends ComputerBlock {
         }
         return super.useWithoutItem(state, level, pos, player, hit);
     }
+
+    /**
+     * Broken in creative mode, nothing drops, so (as a shulker box does) a Qbot carrying things
+     * drops itself with them, rather than they vanish.
+     */
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        if (!level.isClientSide() && player.preventsBlockDrops() && level.getBlockEntity(pos) instanceof QbotBlockEntity qbot && !qbot.carriesNothing()) {
+            net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(this);
+            stack.applyComponents(qbot.collectComponents());
+            net.minecraft.world.entity.item.ItemEntity entity = new net.minecraft.world.entity.item.ItemEntity(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, stack);
+            entity.setDefaultPickUpDelay();
+            level.addFreshEntity(entity);
+        }
+        return super.playerWillDestroy(level, pos, state, player);
+    }
 }
