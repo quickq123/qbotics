@@ -205,9 +205,13 @@ write_json("assets/qbotics/lang/en_us.json", {
     "screen.qbotics.qbot.upgrade": "Upgrade",
     "screen.qbotics.qbot.energy": "Energy: %s / %s FE",
     "item.qbotics.chunk_loader_upgrade": "Chunk Loader Upgrade",
-    "item.qbotics.transport_upgrade.tooltip": "Carries items, fluid and energy to other networks",
+    "item.qbotics.transport_upgrade.tooltip": "Carries items, fluid and energy to other networks (both ends need one)",
     "item.qbotics.chunk_loader_upgrade.tooltip": "Keeps its network's chunks loaded",
-    "item.qbotics.upgrade.fits": "Fits an antenna (right-click it); a Chunk Loader also fits a Qbot",
+    "item.qbotics.sense_upgrade": "Sense Upgrade",
+    "item.qbotics.sense_upgrade.tooltip": "A Qbot senses blocks up to 4 away in every direction",
+    "item.qbotics.transport_upgrade.fits": "Fits an antenna or a Qbot (right-click it)",
+    "item.qbotics.chunk_loader_upgrade.fits": "Fits an antenna, a Qbot or a Server (right-click it)",
+    "item.qbotics.sense_upgrade.fits": "Fits a Qbot (right-click it)",
     "screen.qbotics.antenna.upgrades": "Upgrades",
     "screen.qbotics.antenna.chunks": "Chunk loading:",
     "screen.qbotics.antenna.loading_on": "Chunk loading: On",
@@ -1514,9 +1518,18 @@ for y in range(4, 11):                      # a square of chunks, the middle one
             CHUNK_MARK[(x, y)] = (180, 180, 190)
 for (x, y) in ((5, 5), (6, 5), (5, 6), (6, 6)):
     CHUNK_MARK[(x + 3, y + 3)] = (90, 230, 120)
+SENSE_MARK = {}
+SENSE_RING = (120, 220, 255)
+for (x, y) in ((6, 4), (7, 4), (8, 4), (5, 5), (9, 5), (4, 6), (10, 6), (4, 7), (10, 7), (4, 8), (10, 8),
+               (5, 9), (9, 9), (6, 10), (7, 10), (8, 10)):          # a ring: how far it senses
+    SENSE_MARK[(x, y)] = SENSE_RING
+SENSE_MARK[(7, 7)] = (255, 255, 255)        # the Qbot in the middle
+for (x, y) in ((6, 7), (8, 7), (7, 6), (7, 8)):
+    SENSE_MARK[(x, y)] = (60, 150, 200)
 write_png("assets/qbotics/textures/item/transport_upgrade.png", upgrade_card(TRANSPORT_MARK))
 write_png("assets/qbotics/textures/item/chunk_loader_upgrade.png", upgrade_card(CHUNK_MARK))
-for upgrade in ("transport_upgrade", "chunk_loader_upgrade"):
+write_png("assets/qbotics/textures/item/sense_upgrade.png", upgrade_card(SENSE_MARK))
+for upgrade in ("transport_upgrade", "chunk_loader_upgrade", "sense_upgrade"):
     write_json("assets/qbotics/models/item/%s.json" % upgrade, {
         "parent": "minecraft:item/generated",
         "textures": {"layer0": "qbotics:item/%s" % upgrade},
@@ -1751,6 +1764,10 @@ write_json("data/qbotics/loot_table/blocks/iron_qbot.json",
 write_json("data/qbotics/recipe/transport_upgrade.json", shaped(
     ["EHE", "RMR", "GGG"], {"E": "minecraft:ender_pearl", "H": "minecraft:hopper", "R": "minecraft:redstone",
                             "M": "qbotics:integrated_circuit", "G": "minecraft:gold_nugget"}, "qbotics:transport_upgrade"))
+# Sense: a spyglass (seeing further) between amethyst (what sculk sensors are tuned with).
+write_json("data/qbotics/recipe/sense_upgrade.json", shaped(
+    ["ASA", "RMR", "GGG"], {"A": "minecraft:amethyst_shard", "S": "minecraft:spyglass", "R": "minecraft:redstone",
+                            "M": "qbotics:integrated_circuit", "G": "minecraft:gold_nugget"}, "qbotics:sense_upgrade"))
 write_json("data/qbotics/recipe/chunk_loader_upgrade.json", shaped(
     ["OYO", "RMR", "GGG"], {"O": "minecraft:obsidian", "Y": "minecraft:ender_eye", "R": "minecraft:redstone",
                             "M": "qbotics:integrated_circuit", "G": "minecraft:gold_nugget"}, "qbotics:chunk_loader_upgrade"))

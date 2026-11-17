@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "A": "minecraft:amethyst_shard",
+    "S": "minecraft:spyglass",
+    "R": "minecraft:redstone",
+    "M": "qbotics:integrated_circuit",
+    "G": "minecraft:gold_nugget"
+  },
+  "pattern": [
+    "ASA",
+    "RMR",
+    "GGG"
+  ],
+  "result": {
+    "id": "qbotics:sense_upgrade"
+  }
+}

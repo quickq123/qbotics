@@ -189,10 +189,28 @@ class Block:
 
 
 class _Inspect:
-    """Looks at the six sides. Seeing isn't looking inside: inventory.read() does that."""
+    """Looks at the six sides, and at any block within its reach: 1 block away (the six
+    touching it), or with a Sense Upgrade in one of its sockets, 4 blocks away in every
+    direction. Seeing isn't looking inside: inventory.read() does that."""
 
     def side(self, side):
         return Block(_q("qbot_inspect", side))
+
+    def at(self, forward=0, up=0, right=0):
+        """The block that many blocks forward, up and to the right of it (negative numbers
+        are back, down and left): inspect.at(forward=3, up=1). It must be within reach."""
+        return Block(_q("qbot_at", forward, up, right))
+
+    def scan(self, what=None):
+        """Every block within reach that isn't air, nearest first: a list of {"forward",
+        "up", "right", "distance", "id", "fluid"}. what is a name or filter, to find only
+        those: inspect.scan("#c:ores"), inspect.scan("diamond_ore | deepslate_diamond_ore")."""
+        return _q("qbot_scan", what)
+
+    @property
+    def reach(self):
+        """How many blocks away it senses: 1, or 4 with a Sense Upgrade."""
+        return _q("qbot_info").get("reach", 1)
 
     def front(self):
         return self.side(Side.FRONT)

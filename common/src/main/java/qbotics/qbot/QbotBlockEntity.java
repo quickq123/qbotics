@@ -78,6 +78,14 @@ public class QbotBlockEntity extends ComputerBlockEntity implements MenuProvider
             QbotBlockEntity.this.handChanged();
         }
     };
+    /** How far it senses (inspect.at, inspect.scan), in blocks: the blocks touching it, or with a Sense Upgrade a sphere of 4. */
+    public static final int SENSE_REACH = 1;
+    public static final int SENSE_REACH_UPGRADED = 4;
+
+    public int senseReach() {
+        return hasUpgrade(UpgradeItem.Kind.SENSE) ? SENSE_REACH_UPGRADED : SENSE_REACH;
+    }
+
     /** How many upgrades it takes: a 2x2 of sockets. */
     public static final int UPGRADE_SLOTS = 4;
 

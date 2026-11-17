@@ -30,8 +30,8 @@ public class AntennaBlockEntity extends DeviceBlockEntity implements qbotics.lim
         @Override
         public boolean canPlaceItem(int slot, net.minecraft.world.item.ItemStack stack) {
             qbotics.upgrade.UpgradeItem.Kind kind = qbotics.upgrade.UpgradeItem.kindOf(stack);
-            if (kind == null) {
-                return false;
+            if (kind != qbotics.upgrade.UpgradeItem.Kind.TRANSPORT && kind != qbotics.upgrade.UpgradeItem.Kind.CHUNK_LOADER) {
+                return false; // not an upgrade, or one only a Qbot takes (Sense)
             }
             for (int other = 0; other < getContainerSize(); other++) {
                 if (other != slot && qbotics.upgrade.UpgradeItem.kindOf(getItem(other)) == kind) {

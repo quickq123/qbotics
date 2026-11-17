@@ -85,6 +85,8 @@ final class QbotCalls {
             case "qbot_move" -> move(level, qbot, NetworkCalls.string(args, 1));
             case "qbot_turn" -> turn(level, qbot, args.get(1).getAsBoolean());
             case "qbot_inspect" -> inspect(level, qbot, side(qbot, args));
+            case "qbot_at" -> see(level, sensed(level, qbot, args));
+            case "qbot_scan" -> scan(level, qbot, NetworkCalls.string(args, 1));
             case "qbot_dig" -> dig(level, qbot, side(qbot, args));
             case "qbot_place" -> place(level, qbot, side(qbot, args), NetworkCalls.string(args, 2));
             case "qbot_use" -> use(level, qbot, side(qbot, args), NetworkCalls.string(args, 2));
@@ -162,6 +164,7 @@ final class QbotCalls {
         info.addProperty("z", qbot.getBlockPos().getZ());
         info.addProperty("energy", qbot.energy());
         info.addProperty("energy_capacity", QbotBlockEntity.ENERGY_CAPACITY);
+        info.addProperty("reach", qbot.senseReach());
         if (qbot.getLevel() != null && qbot.getLevel().getServer() != null) {
             info.addProperty("address", qbot.radioAddress(qbot.getLevel().getServer()));
         }
@@ -226,7 +229,97 @@ final class QbotCalls {
 
     /** What is on one side: the block (its ID, state and tags), any fluid, and any creatures or items there. */
     private static JsonObject inspect(ServerLevel level, QbotBlockEntity qbot, Direction side) {
-        BlockPos target = loaded(level, qbot, side);
+        return see(level, loaded(level, qbot, side));
+    }
+
+    /** The place a number of blocks forward, up and to the right of the Qbot (each may be negative). */
+    private static BlockPos offset(QbotBlockEntity qbot, int forward, int up, int right) {
+        Direction facing = qbot.facing();
+        Direction rightwards = facing.getClockWise();
+        return qbot.getBlockPos().offset(facing.getStepX() * forward + rightwards.getStepX() * right, up,
+                facing.getStepZ() * forward + rightwards.getStepZ() * right);
+    }
+
+    /**
+     * ["qbot_at", forward, up, right]: the place that far from the Qbot, which must be within what it
+     * senses: 1 block (the six touching it), or 4 in every direction with a Sense Upgrade.
+     */
+    private static BlockPos sensed(ServerLevel level, QbotBlockEntity qbot, JsonArray args) {
+        int forward = whole(args, 1);
+        int up = whole(args, 2);
+        int right = whole(args, 3);
+        int reach = qbot.senseReach();
+        if (forward * forward + up * up + right * right > reach * reach) {
+            throw new CallError("(" + forward + ", " + up + ", " + right + ") is further than this Qbot senses: " + reach + (reach == 1
+                    ? " block (the six touching it). A Sense Upgrade in one of its sockets reaches " + QbotBlockEntity.SENSE_REACH_UPGRADED + "."
+                    : " blocks in every direction."));
+        }
+        BlockPos target = offset(qbot, forward, up, right);
+        if (!level.isLoaded(target)) {
+            throw new CallError("That part of the world isn't loaded.");
+        }
+        return target;
+    }
+
+    /** A whole number of blocks, which may be 0 or negative (back, down, left); nothing given is 0. */
+    private static int whole(JsonArray args, int index) {
+        if (index >= args.size() || args.get(index).isJsonNull()) {
+            return 0;
+        }
+        com.google.gson.JsonElement given = args.get(index);
+        if (!given.isJsonPrimitive() || !given.getAsJsonPrimitive().isNumber() || given.getAsDouble() != Math.rint(given.getAsDouble())
+                || Math.abs(given.getAsDouble()) > 64) {
+            throw new CallError("forward, up and right are whole numbers of blocks (negative for back, down and left), not " + given + ".");
+        }
+        return given.getAsInt();
+    }
+
+    /**
+     * ["qbot_scan", name or filter or null]: every block within what the Qbot senses that isn't air
+     * (or that passes the filter), nearest first: [{"forward", "up", "right", "distance", "id", "fluid"}].
+     */
+    private static JsonArray scan(ServerLevel level, QbotBlockEntity qbot, String wanted) {
+        NameMatch<net.minecraft.world.level.block.Block> match = wanted == null ? null : NetworkCalls.block(wanted);
+        int reach = qbot.senseReach();
+        record Found(int forward, int up, int right, int far, BlockState state) {
+        }
+        List<Found> found = new java.util.ArrayList<>();
+        for (int forward = -reach; forward <= reach; forward++) {
+            for (int up = -reach; up <= reach; up++) {
+                for (int right = -reach; right <= reach; right++) {
+                    int far = forward * forward + up * up + right * right;
+                    if (far == 0 || far > reach * reach) {
+                        continue;
+                    }
+                    BlockPos target = offset(qbot, forward, up, right);
+                    if (!level.isLoaded(target)) {
+                        continue;
+                    }
+                    BlockState state = level.getBlockState(target);
+                    if (match == null ? !state.isAir() : match.testState(state)) {
+                        found.add(new Found(forward, up, right, far, state));
+                    }
+                }
+            }
+        }
+        found.sort(java.util.Comparator.comparingInt(Found::far));
+        JsonArray list = new JsonArray();
+        for (Found each : found) {
+            JsonObject seen = new JsonObject();
+            seen.addProperty("forward", each.forward());
+            seen.addProperty("up", each.up());
+            seen.addProperty("right", each.right());
+            seen.addProperty("distance", Math.round(Math.sqrt(each.far()) * 10) / 10.0);
+            seen.addProperty("id", blockId(each.state()));
+            FluidState fluid = each.state().getFluidState();
+            seen.addProperty("fluid", fluid.isEmpty() ? null : fluidId(fluid.getType()));
+            list.add(seen);
+        }
+        return list;
+    }
+
+    /** What is at a place: the block, its state and tags, its fluid, and the creatures and items there. */
+    private static JsonObject see(ServerLevel level, BlockPos target) {
         BlockState state = level.getBlockState(target);
         JsonObject seen = new JsonObject();
         seen.addProperty("id", blockId(state));

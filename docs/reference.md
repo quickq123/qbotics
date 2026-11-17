@@ -1677,14 +1677,15 @@ drops them.
 
 | Takes upgrades | Sockets | Which |
 |---|---|---|
-| An antenna (any tier) | 2 | One of each kind |
-| A Qbot | 4 (a 2x2 in its screen) | One of each kind (section 7d) |
+| An antenna (any tier) | 2 | A Transport and a Chunk Loader |
+| A Qbot | 4 (a 2x2 in its screen) | One of each kind, the Sense Upgrade too (section 7d) |
 | A Server | 1 | A Chunk Loader Upgrade |
 
 | Upgrade | Does |
 |---|---|
 | **Transport Upgrade** | Lets programs use the devices behind another antenna (that also has one), and `move()` items, fluid and energy between the two networks. In a Qbot: between the Qbot itself and the network behind an antenna its radio reaches (below) |
 | **Chunk Loader Upgrade** | Keeps the chunks of the antenna's whole cable network loaded and working while nobody is near. A Server takes one too (section 7i) |
+| **Sense Upgrade** | A Qbot's only. The Qbot senses blocks up to 4 away in every direction (a ball 9 blocks across), not only the six touching it: `inspect.at()` and `inspect.scan()` (section 7d) |
 
 #### Transport
 
@@ -1765,7 +1766,8 @@ switching it off lets the chunks go within a second.
 
 **Recipes (placeholders):** Transport Upgrade: `EHE` / `RMR` / `GGG` (ender pearls and a hopper,
 redstone, an integrated circuit, gold nuggets). Chunk Loader Upgrade: `OYO` / `RMR` / `GGG` (obsidian and
-an eye of ender over the same).
+an eye of ender over the same). Sense Upgrade: `ASA` / `RMR` / `GGG` (amethyst shards and a spyglass
+over the same).
 
 ### 7.4 Remote login: `ssh`
 
@@ -2332,6 +2334,9 @@ inventory.drop(Side.BOTTOM, "cobblestone")      # into a chest below
 | `qbot.facing()` | `"north"`, `"east"`, `"south"` or `"west"` |
 | `qbot.info()` | All at once: tier, facing, position, energy, tanks, tool |
 | `inspect.front()`, `back()`, `left()`, `right()`, `top()`, `bottom()` | What is on that side: `.id`, `.air`, `.state` (its properties), `.tags`, `.fluid`, `.source`, `.entities` (creatures and items there, by name) |
+| `inspect.at(forward=0, up=0, right=0)` | The block that many blocks forward, up and to the right of the Qbot (negative numbers are back, down and left), with the same attributes: `inspect.at(forward=3, up=1).id`. It must be within the Qbot's reach: 1 block (the six touching it), or 4 with a Sense Upgrade; further is an error that says so |
+| `inspect.scan(what=None)` | Every block within reach that isn't air, nearest first: a list of `{"forward", "up", "right", "distance", "id", "fluid"}`. `what` is a block name or filter, to find only those: `inspect.scan("#c:ores")`. With a Sense Upgrade that is every block within 4: a Qbot can find ore behind a wall and dig to it |
+| `inspect.reach` | How many blocks away it senses: 1, or 4 with a Sense Upgrade |
 
 **Sides** are `Side.FRONT`, `BACK`, `LEFT`, `RIGHT`, `TOP`, `BOTTOM` (or those words in lower
 case), as the Qbot faces. Every call below that takes a side defaults to the front.

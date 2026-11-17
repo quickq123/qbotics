@@ -18,7 +18,9 @@ public class UpgradeItem extends Item {
         /** Carries items, fluid and energy between this network and others (both ends need one). */
         TRANSPORT("transport"),
         /** Keeps the chunks of the device's network loaded (a Qbot: the chunks it is in). */
-        CHUNK_LOADER("chunk_loader");
+        CHUNK_LOADER("chunk_loader"),
+        /** A Qbot's only: it senses blocks up to 4 away in every direction, not just the six touching it. */
+        SENSE("sense");
 
         /** The word programs use. */
         public final String word;
@@ -48,6 +50,6 @@ public class UpgradeItem extends Item {
     public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display,
             Consumer<Component> lines, TooltipFlag flag) {
         lines.accept(Component.translatable("item.qbotics." + kind.word + "_upgrade.tooltip").withStyle(ChatFormatting.GRAY));
-        lines.accept(Component.translatable("item.qbotics.upgrade.fits").withStyle(ChatFormatting.DARK_GRAY));
+        lines.accept(Component.translatable("item.qbotics." + kind.word + "_upgrade.fits").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

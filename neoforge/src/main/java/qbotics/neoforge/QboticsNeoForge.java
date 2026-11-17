@@ -136,6 +136,8 @@ public final class QboticsNeoForge {
             properties -> new qbotics.upgrade.UpgradeItem(qbotics.upgrade.UpgradeItem.Kind.TRANSPORT, properties.stacksTo(1)));
     private static final DeferredItem<qbotics.upgrade.UpgradeItem> CHUNK_LOADER_UPGRADE = ITEMS.registerItem("chunk_loader_upgrade",
             properties -> new qbotics.upgrade.UpgradeItem(qbotics.upgrade.UpgradeItem.Kind.CHUNK_LOADER, properties.stacksTo(1)));
+    private static final DeferredItem<qbotics.upgrade.UpgradeItem> SENSE_UPGRADE = ITEMS.registerItem("sense_upgrade",
+            properties -> new qbotics.upgrade.UpgradeItem(qbotics.upgrade.UpgradeItem.Kind.SENSE, properties.stacksTo(1)));
     /**
      * The tickets Chunk Loader Upgrades hold chunks with. When a world loads, they are handed
      * to ChunkLoaders, which lets go of any whose antenna doesn't turn up within a few seconds
@@ -338,6 +340,7 @@ public final class QboticsNeoForge {
                         output.accept(TABLET_ITEM.get());
                         output.accept(TRANSPORT_UPGRADE.get());
                         output.accept(CHUNK_LOADER_UPGRADE.get());
+                        output.accept(SENSE_UPGRADE.get());
                         output.accept(LIQUID_CRYSTAL_PANEL.get());
                         output.accept(LCD_SCREEN.get());
                         output.accept(LIGHT_EMITTING_DIODE.get());
