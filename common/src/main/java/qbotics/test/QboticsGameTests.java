@@ -32,6 +32,7 @@ import qbotics.network.NetworkDevice;
 import qbotics.network.RadioNetwork;
 import qbotics.computer.ComputerManager;
 import qbotics.computer.ServerComputer;
+import qbotics.computer.StartHere;
 import qbotics.computer.Terminal;
 import qbotics.net.TerminalInputPayload;
 import qbotics.net.TerminalStatePayload;
@@ -50,7 +51,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -105,6 +106,7 @@ public final class QboticsGameTests {
             Map.entry("qbot_netherite", QboticsGameTests::qbotNetherite),
             Map.entry("ssh_editor", QboticsGameTests::sshEditor),
             Map.entry("cone_view", QboticsGameTests::coneView),
+            Map.entry("start_here", QboticsGameTests::startHere),
             Map.entry("qbot_view", QboticsGameTests::qbotView),
             Map.entry("computer_access", QboticsGameTests::computerAccess),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
@@ -4723,6 +4725,66 @@ public final class QboticsGameTests {
         drop.discard();
         pig.discard();
         helper.succeed();
+    }
+
+    /**
+     * start_here.py: the first editor of their own a player opens gets it, written and opened; a
+     * second computer of theirs and another player's computer don't. Then it runs as its notes
+     * say: two storage chests and a crafting table, and torches crafted into storage_1.
+     */
+    private static void startHere(GameTestHelper helper) {
+        net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        ComputerManager manager = ComputerManager.get(helper.getLevel().getServer());
+        // Computers placed by a player (onPlaced gives a new device, so it comes before starting).
+        java.util.function.BiFunction<BlockPos, UUID, ComputerBlockEntity> place = (pos, owner) -> {
+            helper.setBlock(pos, QboticsContent.COMPUTER_BLOCK.get());
+            ComputerBlockEntity placed = helper.getBlockEntity(pos, ComputerBlockEntity.class);
+            placed.onPlaced(owner);
+            return placed;
+        };
+        ComputerBlockEntity block = place.apply(new BlockPos(0, 1, 0), player.getUUID());
+        ServerComputer computer = manager.getOrStart(block);
+        setPort(helper, new BlockPos(1, 1, 0), Kind.BUS, Direction.SOUTH);
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.CHEST);
+        setPort(helper, new BlockPos(2, 1, 0), Kind.BUS, Direction.SOUTH);
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.CHEST);
+        setPort(helper, new BlockPos(0, 1, 1), Kind.BUS, Direction.SOUTH);
+        helper.setBlock(new BlockPos(0, 1, 2), Blocks.CRAFTING_TABLE);
+        String[] names = {"storage_1", "storage_2", "crafter"};
+        BlockPos[] ports = {new BlockPos(1, 1, 0), new BlockPos(2, 1, 0), new BlockPos(0, 1, 1)};
+        for (int i = 0; i < 3; i++) {
+            qbotics.block.ProbeItem.rename(helper.getLevel(), null,
+                    new qbotics.net.ProbePayloads.Rename(helper.absolutePos(ports[i]), Direction.SOUTH.get3DDataValue(), names[i]));
+        }
+        helper.getBlockEntity(new BlockPos(0, 1, 1), PortBlockEntity.class).port(Direction.SOUTH).onPlaced(player.getUUID());
+        helper.getBlockEntity(new BlockPos(1, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class).setItem(0, new ItemStack(Items.COAL, 2));
+        helper.getBlockEntity(new BlockPos(2, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class).setItem(0, new ItemStack(Items.STICK, 3));
+        // A second computer of theirs, and another player's.
+        ComputerBlockEntity secondBlock = place.apply(new BlockPos(2, 2, 2), player.getUUID());
+        ServerComputer second = manager.getOrStart(secondBlock);
+        ComputerBlockEntity othersBlock = place.apply(new BlockPos(0, 2, 2), UUID.randomUUID());
+        ServerComputer others = manager.getOrStart(othersBlock);
+        java.util.function.Predicate<ServerComputer> holds = c -> {
+            try {
+                c.drive().call(qbotics.engine.HostFileSystem.STAT, StartHere.PATH, new byte[0]);
+                return true;
+            } catch (qbotics.engine.HostFileSystem.FsException missing) {
+                return false;
+            }
+        };
+        manager.openTerminal(player, othersBlock);
+        helper.assertTrue(!holds.test(others), "another player's computer doesn't get it");
+        manager.openTerminal(player, block);
+        helper.assertTrue(holds.test(computer) && StartHere.given(helper.getLevel().getServer(), player.getUUID()),
+                "the first computer of their own does");
+        manager.openTerminal(player, secondBlock);
+        helper.assertTrue(!holds.test(second), "and only the first");
+        computer.submitLine("run /start_here.py");
+        helper.succeedWhen(() -> {
+            String screen = screen(computer);
+            helper.assertTrue(!screen.contains("Traceback"), "no errors: " + screen);
+            assertScreen(helper, computer, "coal: 2  sticks: 3", "made {'minecraft:torch': 8}", "torches in storage_1: 8");
+        });
     }
 
     /**

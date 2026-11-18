@@ -1,5 +1,6 @@
 AGENTS.md
 README.md
+start_here.py
 REFERENCE.md
 basics/README.md
 basics/devices.py

@@ -7,6 +7,9 @@ When the mod brings new examples, `git pull` (in this folder) fetches them. If y
 files, it asks first: `git status` shows what you changed, and `git pull --force` puts the
 originals back.
 
+**Already a programmer?** `start_here.py` is a short program that crafts torches from two
+chests: devices by name, a storage, moves, faces, slots, filters and a crafting table's screen.
+
 Each folder is one topic, with a README of its own saying what each example does and which
 blocks it needs. Go to a folder and run an example:
 

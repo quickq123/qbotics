@@ -2702,6 +2702,13 @@ Long-range Antenna, over an integrated circuit.
 repositories always go to the top of the drive, wherever they are cloned from, and `git clone`
 ends with where to start: `Start with:  cd /lessons    then:  read README.md`.
 
+**start_here.py, for programmers.** The first time a player opens the editor of a computer,
+server or laptop of their own (not a Qbot, and not someone else's), `/start_here.py` is put on
+its drive and opened: a short program that crafts torches from two storage chests, showing
+devices by name, a storage, moves, faces, slots, filters and a crafting table's screen. Each
+player gets it once (a file of that name already there is kept); `git clone helpme` brings it
+again on any computer.
+
 **Examples that come with the mod.** `git clone helpme` copies a set of examples onto the
 computer's drive, in `/helpme`: no Uplink or internet needed. They are sorted by topic, each
 folder with a README saying what its examples do and which blocks they need:

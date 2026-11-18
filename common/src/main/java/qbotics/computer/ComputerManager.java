@@ -355,6 +355,7 @@ public final class ComputerManager {
         viewers.put(player.getUUID(), new Viewing(id, player.level().dimension(), player.blockPosition()));
         Qbotics.platform().sendToPlayer(player, editing(computer));
         Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(id, true, computer.asShown(computer.shownTerminal().full())));
+        StartHere.offer(player, computer, true); // a laptop is always its player's
     }
 
     // ---- the boot queue (design doc §6.3) ------------------------------------------------
@@ -735,6 +736,8 @@ public final class ComputerManager {
         viewers.put(player.getUUID(), new Viewing(deviceId, player.level().dimension(), block.getBlockPos()));
         Qbotics.platform().sendToPlayer(player, editing(computer));
         Qbotics.platform().sendToPlayer(player, new TerminalStatePayload(deviceId, true, computer.asShown(computer.shownTerminal().full())));
+        // The first editor of their own a player opens gets start_here.py (not a Qbot's: its programs move and dig).
+        StartHere.offer(player, computer, player.getUUID().equals(block.owner()) && !(block instanceof qbotics.qbot.QbotBlockEntity));
     }
 
     /** Which files a computer's editor shows: its own, or during an ssh session the other computer's. */
