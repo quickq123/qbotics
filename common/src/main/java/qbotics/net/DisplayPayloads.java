@@ -170,6 +170,7 @@ public final class DisplayPayloads {
             signed(buffer, s.dz());
             ByteBufCodecs.VAR_INT.encode(buffer, s.state());
             buffer.writeByte(s.faces());
+            ByteBufCodecs.VAR_INT.encode(buffer, s.fluid());
         }
         ByteBufCodecs.VAR_INT.encode(buffer, view.creatures().size());
         for (qbotics.camera.ConeView.Creature c : view.creatures()) {
@@ -180,6 +181,9 @@ public final class DisplayPayloads {
             buffer.writeFloat(c.height());
             buffer.writeFloat(c.depth());
             buffer.writeByte(c.kind());
+            ByteBufCodecs.VAR_INT.encode(buffer, c.type() + 1);
+            buffer.writeFloat(c.yaw());
+            buffer.writeBoolean(c.baby());
         }
     }
 
@@ -197,7 +201,7 @@ public final class DisplayPayloads {
         java.util.List<qbotics.camera.ConeView.Seen> seen = new java.util.ArrayList<>(blocks);
         for (int i = 0; i < blocks; i++) {
             seen.add(new qbotics.camera.ConeView.Seen(signed(buffer), signed(buffer), signed(buffer), ByteBufCodecs.VAR_INT.decode(buffer),
-                    buffer.readByte() & 0x3F));
+                    buffer.readByte() & 0x3F, ByteBufCodecs.VAR_INT.decode(buffer)));
         }
         int creatures = ByteBufCodecs.VAR_INT.decode(buffer);
         if (creatures < 0 || creatures > 256) {
@@ -206,7 +210,8 @@ public final class DisplayPayloads {
         java.util.List<qbotics.camera.ConeView.Creature> list = new java.util.ArrayList<>(creatures);
         for (int i = 0; i < creatures; i++) {
             list.add(new qbotics.camera.ConeView.Creature(buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat(),
-                    buffer.readFloat(), buffer.readFloat(), buffer.readByte()));
+                    buffer.readFloat(), buffer.readFloat(), buffer.readByte(), ByteBufCodecs.VAR_INT.decode(buffer) - 1, buffer.readFloat(),
+                    buffer.readBoolean()));
         }
         if (w < 1 || h < 1 || w > qbotics.camera.ConeView.MAX_WIDTH || h > qbotics.camera.ConeView.MAX_HEIGHT || facing.getAxis().isVertical()) {
             return null;

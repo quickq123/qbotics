@@ -453,6 +453,26 @@ public final class ScreenshotRun {
                 }
                 x += 2;
             }
+            // A calf, and a sheep turned side on; a stair with water in it, beside the pool.
+            for (var type : java.util.List.of(net.minecraft.world.entity.EntityType.COW, net.minecraft.world.entity.EntityType.SHEEP)) {
+                net.minecraft.world.entity.Entity mob = type.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+                if (mob instanceof net.minecraft.world.entity.Mob still) {
+                    still.setNoAi(true);
+                    still.setInvulnerable(true);
+                    still.setPersistenceRequired();
+                    boolean calf = type == net.minecraft.world.entity.EntityType.COW;
+                    if (calf && still instanceof net.minecraft.world.entity.AgeableMob young) {
+                        young.setAge(net.minecraft.world.entity.AgeableMob.BABY_START_AGE);
+                    }
+                    float yaw = calf ? 0 : 90;
+                    still.snapTo(o.getX() + (calf ? 6.5 : -0.5), o.getY() + 1, o.getZ() + (calf ? -8.5 : -15.5), yaw, 0);
+                    still.setYBodyRot(yaw);
+                    still.setYHeadRot(yaw);
+                    level.addFreshEntity(still);
+                }
+            }
+            level.setBlock(o.offset(0, 0, -12), Blocks.OAK_STAIRS.defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.StairBlock.WATERLOGGED, true), Block.UPDATE_ALL);
         }));
         // Once the water has run: what the Qbot's view shows, and the game's own picture from its eye.
         then(60, minecraft -> onServer(minecraft, player -> {

@@ -31,7 +31,10 @@ import qbotics.camera.View;
  * game's own models and textures) and each creature as a box in its kind's colour, seen from the
  * Qbot's eye, nearest in front. Blocks the game draws with code (chests, signs, beds...) are drawn
  * from its entity models ({@link EntityBlockModels}). Even light (night vision); faces shaded by the way they face, as
- * the game shades them. See-through pixels (glass, leaves) are left out, not blended. Runs on the
+ * the game shades them. See-through pixels (glass, leaves) are left out, not blended.
+ * Water and lava slope as the game draws them (the server sends their corners' heights);
+ * creatures are drawn with the game's own models ({@link CreatureModels}), or as boxes in their
+ * kind's colour if one can't be. Runs on the
  * web panels' worker, off the render thread.
  */
 public final class ConeRenderer {
@@ -41,8 +44,14 @@ public final class ConeRenderer {
     private static final int SKY_TOP = 0x79A6FF;
     private static final int SKY_HORIZON = 0xC0D6FF;
 
-    /** A face ready to draw: its corners (x, y, z, u, v each), texture (width x height), tint and shade. */
-    private record Face(double[][] corners, int[] pixels, int width, int height, int tint, float shade) {
+    /**
+     * A face ready to draw: its corners (x, y, z, u, v each), texture (width x height), tint, shade,
+     * and how far it is brought forward (blocks) so a layer drawn over the same shape shows.
+     */
+    private record Face(double[][] corners, int[] pixels, int width, int height, int tint, float shade, float forward) {
+        Face(double[][] corners, int[] pixels, int width, int height, int tint, float shade) {
+            this(corners, pixels, width, height, tint, shade, 0);
+        }
     }
 
     /** Today's picture of the same view, coloured as players' games colour it, to compare. */
@@ -82,6 +91,26 @@ public final class ConeRenderer {
             }
         }
         for (ConeView.Creature c : creatures) {
+            List<CreatureModels.Quad> model = CreatureModels.of(c.type(), c.baby());
+            if (!model.isEmpty()) {
+                // The game's own model, turned the way the creature faces and stood where it stands.
+                double turn = Math.toRadians(-c.yaw());
+                double cos = Math.cos(turn);
+                double sin = Math.sin(turn);
+                double cx = c.x() + c.width() / 2.0;
+                double cz = c.z() + c.depth() / 2.0;
+                for (CreatureModels.Quad q : model) {
+                    double[][] corners = new double[4][];
+                    for (int i = 0; i < 4; i++) {
+                        double[] p = q.corners()[i];
+                        corners[i] = new double[] {cx + p[0] * cos + p[2] * sin, c.y() + p[1], cz - p[0] * sin + p[2] * cos, p[3], p[4]};
+                    }
+                    PictureColors.Image t = q.texture();
+                    draw(new Face(corners, t.pixels(), t.width(), t.height(), q.tint(), q.shade(), q.layer() * 0.004f), basis, color, depth, width,
+                            height);
+                }
+                continue;
+            }
             int kind = switch (c.kind()) {
                 case Picture.MONSTER -> 0xB03A3A;
                 case Picture.ANIMAL -> 0x6DAA4F;
@@ -149,18 +178,24 @@ public final class ConeRenderer {
     private static List<Face> faces(BlockState state, ConeView.Seen block, BlockPos origin, Map<Long, Integer> tints) {
         List<Face> faces = new ArrayList<>();
         Minecraft minecraft = Minecraft.getInstance();
-        if (state.getBlock() instanceof LiquidBlock) {
+        if (block.fluid() != 0) {
+            // Water or lava (in a block of its own, or in a waterlogged one), its surface sloping as the game draws it.
             boolean water = state.getFluidState().is(FluidTags.WATER);
             int[] pixels = PictureColors.texture(Identifier.withDefaultNamespace(water ? "block/water_still" : "block/lava_still"));
-            if (pixels == null) {
-                return faces;
-            }
-            int size = (int) Math.sqrt(pixels.length);
-            for (Direction d : Direction.values()) {
-                if ((block.faces() & (1 << d.get3DDataValue())) != 0) {
-                    faces.add(new Face(cube(block, d, d == Direction.UP ? 0.875 : 1), pixels, size, size, water ? 0x3F76E4 : -1, shade(d)));
+            if (pixels != null) {
+                int size = (int) Math.sqrt(pixels.length);
+                double[] h = new double[4];
+                for (int i = 0; i < 4; i++) {
+                    h[i] = block.fluidHeight(i);
+                }
+                for (Direction d : Direction.values()) {
+                    if ((block.fluidFaces() & (1 << d.get3DDataValue())) != 0) {
+                        faces.add(new Face(fluid(block, d, h), pixels, size, size, water ? 0x3F76E4 : -1, shade(d)));
+                    }
                 }
             }
+        }
+        if (state.getBlock() instanceof LiquidBlock) {
             return faces;
         }
         BlockStateModel model = minecraft.getModelManager().getBlockStateModelSet().get(state);
@@ -231,23 +266,32 @@ public final class ConeRenderer {
         faces.add(new Face(corners, pixels, size, size, tint, quad.materialInfo().shade() ? shade(quad.direction()) : 1f));
     }
 
-    /** A whole cube's face (water, lava), its top at {@code top}. */
-    private static double[][] cube(ConeView.Seen b, Direction d, double top) {
+    /**
+     * A fluid's face (water, lava): its surface at heights {@code h} at the corners (north-west,
+     * north-east, south-east, south-west), the sides reaching up to it.
+     */
+    private static double[][] fluid(ConeView.Seen b, Direction d, double[] h) {
         double x = b.dx();
         double y = b.dy();
         double z = b.dz();
+        double nw = h[0];
+        double ne = h[1];
+        double se = h[2];
+        double sw = h[3];
         double[][] p = switch (d) {
-            case UP -> new double[][] {{0, top, 0}, {0, top, 1}, {1, top, 1}, {1, top, 0}};
+            case UP -> new double[][] {{0, nw, 0}, {0, sw, 1}, {1, se, 1}, {1, ne, 0}};
             case DOWN -> new double[][] {{0, 0, 1}, {0, 0, 0}, {1, 0, 0}, {1, 0, 1}};
-            case NORTH -> new double[][] {{1, top, 0}, {1, 0, 0}, {0, 0, 0}, {0, top, 0}};
-            case SOUTH -> new double[][] {{0, top, 1}, {0, 0, 1}, {1, 0, 1}, {1, top, 1}};
-            case WEST -> new double[][] {{0, top, 0}, {0, 0, 0}, {0, 0, 1}, {0, top, 1}};
-            case EAST -> new double[][] {{1, top, 1}, {1, 0, 1}, {1, 0, 0}, {1, top, 0}};
+            case NORTH -> new double[][] {{1, ne, 0}, {1, 0, 0}, {0, 0, 0}, {0, nw, 0}};
+            case SOUTH -> new double[][] {{0, sw, 1}, {0, 0, 1}, {1, 0, 1}, {1, se, 1}};
+            case WEST -> new double[][] {{0, nw, 0}, {0, 0, 0}, {0, 0, 1}, {0, sw, 1}};
+            case EAST -> new double[][] {{1, se, 1}, {1, 0, 1}, {1, 0, 0}, {1, ne, 0}};
         };
-        double[][] uv = {{0, 0}, {0, 1}, {1, 1}, {1, 0}};
+        boolean top = d == Direction.UP || d == Direction.DOWN;
         double[][] corners = new double[4][];
         for (int i = 0; i < 4; i++) {
-            corners[i] = new double[] {x + p[i][0], y + p[i][1], z + p[i][2], uv[i][0], uv[i][1]};
+            double u = top ? p[i][0] : (d.getAxis() == Direction.Axis.Z ? p[i][0] : p[i][2]);
+            double v = top ? p[i][2] : 1 - p[i][1]; // the sides' texture isn't stretched to the height
+            corners[i] = new double[] {x + p[i][0], y + p[i][1], z + p[i][2], u, v};
         }
         return corners;
     }
@@ -291,7 +335,7 @@ public final class ConeRenderer {
                     continue;
                 }
                 double inv = w0 * iz[0] + w1 * iz[1] + w2 * iz[2];
-                float z = (float) (1 / inv);
+                float z = (float) (1 / inv) - face.forward();
                 int i = py * w + px;
                 if (z >= depth[i]) {
                     continue;

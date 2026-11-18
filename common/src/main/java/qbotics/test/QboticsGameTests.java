@@ -3267,6 +3267,9 @@ public final class QboticsGameTests {
                 helper.setBlock(new BlockPos(x, y, 1), Blocks.STONE);
             }
         }
+        // The pig's place is in the test area's barrier ring: cleared, or the pig suffocates as the test runs.
+        helper.setBlock(new BlockPos(1, 1, 3), Blocks.AIR);
+        helper.setBlock(new BlockPos(1, 2, 3), Blocks.AIR);
         helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.PIG, new BlockPos(1, 1, 3));
         helper.setBlock(new BlockPos(2, 1, 5), QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
                 .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH));
@@ -3324,6 +3327,9 @@ public final class QboticsGameTests {
         for (int z = 2; z <= 4; z++) {
             helper.setBlock(new BlockPos(1, 0, z), Blocks.STONE); // a floor: the pig would fall out of sight between views
         }
+        // The pig's place is in the test area's barrier ring: cleared, or the pig suffocates as the test runs.
+        helper.setBlock(new BlockPos(1, 1, 3), Blocks.AIR);
+        helper.setBlock(new BlockPos(1, 2, 3), Blocks.AIR);
         helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.PIG, new BlockPos(1, 1, 3));
         helper.setBlock(new BlockPos(2, 1, 5), QboticsContent.WEB_PANEL_BLOCK.get().defaultBlockState()
                 .setValue(qbotics.block.DisplayBlock.FACING, Direction.SOUTH));
@@ -4669,7 +4675,8 @@ public final class QboticsGameTests {
      * The cone view (a proof of concept): only blocks with a face the Qbot could see are listed,
      * and only those faces. A stone 3 ahead shows just its south face; a gold block right behind
      * it shows nothing (that face is covered, the others turned away); a block behind the Qbot
-     * isn't in view at all.
+     * isn't in view at all. Water comes with its surface's heights, and a creature with its kind
+     * and the way it faces, for players' games to draw.
      */
     private static void coneView(GameTestHelper helper) {
         BlockPos at = new BlockPos(2, 2, 5);
@@ -4685,6 +4692,26 @@ public final class QboticsGameTests {
                 && stone.faces() == 1 << Direction.SOUTH.get3DDataValue(), "the stone, with only its south face: " + stone);
         helper.assertTrue(place.apply(0, -4) == null, "the gold block behind it can't be seen");
         helper.assertTrue(place.apply(0, 2) == null, "nor the block behind the Qbot");
+        // Water: a still pool's corners lie lower than a full block where it meets air; running water lower still.
+        helper.setBlock(new BlockPos(1, 2, 3), Blocks.WATER);
+        helper.setBlock(new BlockPos(3, 2, 3), Blocks.WATER.defaultBlockState().setValue(net.minecraft.world.level.block.LiquidBlock.LEVEL, 4));
+        net.minecraft.world.entity.Entity pig = helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.PIG, new BlockPos(2, 2, 3));
+        pig.setYRot(90);
+        ((net.minecraft.world.entity.LivingEntity) pig).yBodyRot = 90;
+        qbotics.camera.ConeView.Basis basis = qbotics.camera.ConeView.basis(Direction.NORTH, 0, 0.75);
+        List<qbotics.camera.ConeView.Seen> wet = qbotics.camera.ConeView.collect(helper.getLevel(), helper.absolutePos(at), basis);
+        java.util.function.IntFunction<qbotics.camera.ConeView.Seen> water = dx -> wet.stream()
+                .filter(s -> s.dx() == dx && s.dy() == 0 && s.dz() == -2).findFirst().orElse(null);
+        qbotics.camera.ConeView.Seen pool = water.apply(-1);
+        qbotics.camera.ConeView.Seen running = water.apply(1);
+        helper.assertTrue(pool != null && (pool.fluidFaces() & 1 << Direction.UP.get3DDataValue()) != 0 && pool.faces() == 0
+                && pool.fluidHeight(0) > 0.5 && pool.fluidHeight(0) < 0.95, "the pool's top, below a full block: " + pool);
+        helper.assertTrue(running != null && running.fluidHeight(2) < 0.5 && running.fluidHeight(2) > 0, "running water, lower: " + running);
+        List<qbotics.camera.ConeView.Creature> creatures = qbotics.camera.ConeView.creatures(helper.getLevel(), helper.absolutePos(at), basis);
+        int pigs = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getId(net.minecraft.world.entity.EntityType.PIG);
+        helper.assertTrue(creatures.stream().anyMatch(c -> c.type() == pigs && Math.abs(c.yaw() - 90) < 1 && !c.baby()),
+                "the pig, said to be a pig and which way it faces: " + creatures);
+        pig.discard();
         helper.succeed();
     }
 

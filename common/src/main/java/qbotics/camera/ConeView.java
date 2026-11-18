@@ -48,13 +48,43 @@ public final class ConeView {
 
     /**
      * A block it sees: where (blocks from the Qbot, along the world's axes), what (a block state
-     * ID), and which of its faces could be seen (a bit for each Direction's 3D data value).
+     * ID), which of its faces could be seen (a bit for each Direction's 3D data value), and the
+     * water or lava in it if any (see {@link #packFluid}; 0 for none).
      */
-    public record Seen(int dx, int dy, int dz, int state, int faces) {
+    public record Seen(int dx, int dy, int dz, int state, int faces, int fluid) {
+        public Seen(int dx, int dy, int dz, int state, int faces) {
+            this(dx, dy, dz, state, faces, 0);
+        }
+
+        /** The fluid's faces that could be seen (bits as {@link #faces}). */
+        public int fluidFaces() {
+            return fluid & 0x3F;
+        }
+
+        /** The height of the fluid's surface at a corner (0 north-west, 1 north-east, 2 south-east, 3 south-west), 0 to 1. */
+        public float fluidHeight(int corner) {
+            return ((fluid >>> (6 + corner * 6)) & 0x3F) / 32f;
+        }
     }
 
-    /** A creature in sight: its box (from the Qbot's block's corner, in blocks) and kind (Picture.MONSTER...). */
-    public record Creature(float x, float y, float z, float width, float height, float depth, int kind) {
+    /** Packs a fluid's faces and corner heights (north-west, north-east, south-east, south-west) for {@link Seen#fluid}. */
+    public static int packFluid(int faces, float[] heights) {
+        int packed = 1 << 30 | faces & 0x3F;
+        for (int i = 0; i < 4; i++) {
+            packed |= Math.clamp(Math.round(heights[i] * 32), 0, 32) << (6 + i * 6);
+        }
+        return packed;
+    }
+
+    /**
+     * A creature in sight: its box (from the Qbot's block's corner, in blocks), kind
+     * (Picture.MONSTER...), what it is (an entity type's ID, so players' games draw its model; -1 if
+     * not known), the way its body faces (degrees, as the game's yaw) and whether it is young.
+     */
+    public record Creature(float x, float y, float z, float width, float height, float depth, int kind, int type, float yaw, boolean baby) {
+        public Creature(float x, float y, float z, float width, float height, float depth, int kind) {
+            this(x, y, z, width, height, depth, kind, -1, 0, false);
+        }
     }
 
     /**
@@ -134,12 +164,17 @@ public final class ConeView {
                         continue; // nothing, or a block nobody sees (a barrier, light, structure void)
                     }
                     int faces = 0;
+                    int fluidFaces = 0;
+                    boolean liquid = state.getBlock() instanceof LiquidBlock;
+                    net.minecraft.world.level.material.FluidState fluid = state.getFluidState();
                     for (Direction face : Direction.values()) {
                         // Turned towards the eye: the eye is on the outside of the face's plane.
                         double fx = dx + 0.5 + face.getStepX() * 0.5 - b.eye().x;
                         double fy = dy + 0.5 + face.getStepY() * 0.5 - b.eye().y;
                         double fz = dz + 0.5 + face.getStepZ() * 0.5 - b.eye().z;
-                        if (fx * face.getStepX() + fy * face.getStepY() + fz * face.getStepZ() >= 0) {
+                        boolean turned = fx * face.getStepX() + fy * face.getStepY() + fz * face.getStepZ() < 0;
+                        // A fluid's top may be lower than its block's: kept either way, its height sorts it out.
+                        if (!turned && !(face == Direction.UP && !fluid.isEmpty())) {
                             continue;
                         }
                         beside.setWithOffset(pos, face);
@@ -147,21 +182,78 @@ public final class ConeView {
                         if (Camera.unseen(next)) {
                             next = Blocks.AIR.defaultBlockState(); // seen through, so it covers nothing
                         }
-                        boolean open = state.getBlock() instanceof LiquidBlock
-                                ? !next.getFluidState().getType().isSame(state.getFluidState().getType()) && Block.shouldRenderFace(state, next, face)
-                                : Block.shouldRenderFace(state, next, face);
-                        if (open) {
+                        if (!fluid.isEmpty() && !next.getFluidState().getType().isSame(fluid.getType())
+                                && (face == Direction.UP || !next.isSolidRender())) {
+                            fluidFaces |= 1 << face.get3DDataValue();
+                        }
+                        if (turned && !liquid && Block.shouldRenderFace(state, next, face)) {
                             faces |= 1 << face.get3DDataValue();
                         }
                     }
-                    if (faces != 0) {
-                        seen.add(new Seen(dx, dy, dz, Block.getId(state), faces));
+                    if (faces != 0 || fluidFaces != 0) {
+                        seen.add(new Seen(dx, dy, dz, Block.getId(state), faces,
+                                fluidFaces == 0 ? 0 : packFluid(fluidFaces, fluidHeights(level, pos.immutable(), fluid.getType()))));
                     }
                 }
             }
         }
         seen.sort(java.util.Comparator.comparingInt(s -> s.dx() * s.dx() + s.dy() * s.dy() + s.dz() * s.dz()));
         return seen;
+    }
+
+    /** A fluid's surface at its four corners (north-west, north-east, south-east, south-west), as the game draws it. */
+    static float[] fluidHeights(ServerLevel level, BlockPos pos, net.minecraft.world.level.material.Fluid type) {
+        float self = height(level, type, pos);
+        if (self >= 1) {
+            return new float[] {1, 1, 1, 1};
+        }
+        float north = height(level, type, pos.north());
+        float south = height(level, type, pos.south());
+        float east = height(level, type, pos.east());
+        float west = height(level, type, pos.west());
+        return new float[] {corner(level, type, self, north, west, pos.north().west()), corner(level, type, self, north, east, pos.north().east()),
+                corner(level, type, self, south, east, pos.south().east()), corner(level, type, self, south, west, pos.south().west())};
+    }
+
+    private static float corner(ServerLevel level, net.minecraft.world.level.material.Fluid type, float self, float a, float c, BlockPos cornerPos) {
+        if (a >= 1 || c >= 1) {
+            return 1;
+        }
+        float[] weighted = new float[2];
+        if (a > 0 || c > 0) {
+            float h = height(level, type, cornerPos);
+            if (h >= 1) {
+                return 1;
+            }
+            weigh(weighted, h);
+        }
+        weigh(weighted, self);
+        weigh(weighted, a);
+        weigh(weighted, c);
+        return weighted[0] / weighted[1];
+    }
+
+    private static void weigh(float[] weighted, float height) {
+        if (height >= 0.8f) {
+            weighted[0] += height * 10;
+            weighted[1] += 10;
+        } else if (height >= 0) {
+            weighted[0] += height;
+            weighted[1]++;
+        }
+    }
+
+    /** As the game: 1 under the same fluid, its own height, 0 beside air, -1 beside a solid block. */
+    private static float height(ServerLevel level, net.minecraft.world.level.material.Fluid type, BlockPos pos) {
+        if (!level.isLoaded(pos)) {
+            return 0;
+        }
+        BlockState state = level.getBlockState(pos);
+        if (type.isSame(state.getFluidState().getType())) {
+            BlockPos above = pos.above();
+            return level.isLoaded(above) && type.isSame(level.getFluidState(above).getType()) ? 1 : state.getFluidState().getOwnHeight();
+        }
+        return state.isSolid() ? -1 : 0;
     }
 
     /** The creatures in the cone (not hidden ones: the drawing's depth hides those), nearest first. */
@@ -180,8 +272,11 @@ public final class ConeView {
                     || v[2] > RANGE) {
                 continue;
             }
+            float yaw = entity instanceof net.minecraft.world.entity.LivingEntity living ? living.yBodyRot : entity.getYRot();
+            boolean baby = entity instanceof net.minecraft.world.entity.LivingEntity living && living.isBaby();
             list.add(new Creature((float) (box.minX - at.getX()), (float) (box.minY - at.getY()), (float) (box.minZ - at.getZ()),
-                    (float) box.getXsize(), (float) box.getYsize(), (float) box.getZsize(), kindOf(entity)));
+                    (float) box.getXsize(), (float) box.getYsize(), (float) box.getZsize(), kindOf(entity),
+                    BuiltInRegistries.ENTITY_TYPE.getId(entity.getType()), yaw, baby));
             if (list.size() >= MAX_CREATURES) {
                 break;
             }
@@ -235,7 +330,9 @@ public final class ConeView {
             int index = palette.computeIfAbsent(name, k -> palette.size()) + 1;
             List<AABB> boxes;
             if (state.getBlock() instanceof LiquidBlock) {
-                boxes = List.of(new AABB(0, 0, 0, 1, 0.875, 1));
+                float top = s.fluid() == 0 ? 0.875f
+                        : Math.max(0.05f, (s.fluidHeight(0) + s.fluidHeight(1) + s.fluidHeight(2) + s.fluidHeight(3)) / 4);
+                boxes = List.of(new AABB(0, 0, 0, 1, top, 1));
             } else {
                 pos.set(at.getX() + s.dx(), at.getY() + s.dy(), at.getZ() + s.dz());
                 boxes = state.getShape(level, pos).toAabbs();
@@ -244,7 +341,7 @@ public final class ConeView {
                 }
             }
             for (AABB box : boxes) {
-                drawBox(b, box.move(s.dx(), s.dy(), s.dz()), s.faces(), index, which, depth, w, h);
+                drawBox(b, box.move(s.dx(), s.dy(), s.dz()), s.faces() | s.fluidFaces(), index, which, depth, w, h);
             }
         }
         for (Creature c : view.creatures()) {
