@@ -58,11 +58,6 @@ public final class ConeRenderer {
         }
     }
 
-    /** Today's picture of the same view, coloured as players' games colour it, to compare. */
-    public static BufferedImage oldPicture(Picture picture) {
-        return PictureColors.colorize(picture);
-    }
-
     public static BufferedImage render(View shot) {
         return render(shot.blocks(), shot.creatures(), shot.origin(), shot.facing(), shot.pitch(), shot.width(), shot.height());
     }

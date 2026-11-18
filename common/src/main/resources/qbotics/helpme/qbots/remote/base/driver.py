@@ -40,10 +40,10 @@ ORDERS = {
 }
 
 # ---- what it sees -----------------------------------------------------------------------
-# A Qbot takes one picture a second at most: snapshot() waits until it may take the next.
+# A Qbot takes four pictures a second at most: view() waits until it may take the next.
 
 def picture():
-    return qbot.snapshot(96, 64)
+    return qbot.view(192, 128)          # the shape of the picture on the page (.cam in style.css)
 
 # ---- obeying ----------------------------------------------------------------------------
 

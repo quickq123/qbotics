@@ -92,14 +92,7 @@ public final class DisplayPayloads {
                         ByteBufCodecs.VAR_INT.encode(buffer, payload.images().size());
                         payload.images().forEach((name, shot) -> {
                             ByteBufCodecs.stringUtf8(64).encode(buffer, name);
-                            if (shot instanceof qbotics.camera.Picture picture) {
-                                buffer.writeByte(0);
-                                ByteBufCodecs.VAR_INT.encode(buffer, picture.width());
-                                ByteBufCodecs.VAR_INT.encode(buffer, picture.height());
-                                BlockPos.STREAM_CODEC.encode(buffer, picture.origin());
-                                ByteBufCodecs.BYTE_ARRAY.encode(buffer, picture.data());
-                            } else if (shot instanceof qbotics.camera.View view) {
-                                buffer.writeByte(1);
+                            if (shot instanceof qbotics.camera.View view) {
                                 writeView(buffer, view);
                             }
                         });
@@ -118,19 +111,9 @@ public final class DisplayPayloads {
                         images = new java.util.LinkedHashMap<>();
                         for (int i = 0; i < count; i++) {
                             String name = ByteBufCodecs.stringUtf8(64).decode(buffer);
-                            if (buffer.readByte() == 1) {
-                                qbotics.camera.View view = readView(buffer);
-                                if (i < 16 && view != null) {
-                                    images.put(name, view);
-                                }
-                                continue;
-                            }
-                            int w = ByteBufCodecs.VAR_INT.decode(buffer);
-                            int h = ByteBufCodecs.VAR_INT.decode(buffer);
-                            BlockPos at = BlockPos.STREAM_CODEC.decode(buffer);
-                            byte[] data = ByteBufCodecs.BYTE_ARRAY.decode(buffer);
-                            if (i < 16 && w > 0 && h > 0 && data.length == w * h * qbotics.camera.Picture.BYTES_PER_PIXEL) {
-                                images.put(name, new qbotics.camera.Picture(w, h, at, data));
+                            qbotics.camera.View view = readView(buffer);
+                            if (i < 16 && view != null) {
+                                images.put(name, view);
                             }
                         }
                     }

@@ -214,7 +214,6 @@ public final class ScreenshotRun {
     // ---- the cone view proof of concept (camera.ConeView): the same view three ways ----------------
 
     private static volatile java.util.List<qbotics.camera.ConeView.Seen> coneSeen;
-    private static volatile qbotics.camera.Picture conePicture;
     private static volatile BlockPos coneAt;
 
     private static void cone() {
@@ -307,16 +306,9 @@ public final class ScreenshotRun {
                 }
                 computer.submitLine("run /look.py");
             }
-            // Today's camera and the cone list, timed (a few times each, after a first warm-up).
-            qbotics.camera.Camera.snapshot(level, at, Direction.NORTH, 128, 96, 0);
-            long t0 = System.nanoTime();
-            int id = 0;
-            for (int i = 0; i < 5; i++) {
-                id = qbotics.camera.Camera.snapshot(level, at, Direction.NORTH, 128, 96, 0).get("id").getAsInt();
-            }
-            long camera = (System.nanoTime() - t0) / 5;
+            // The view's list, timed (a few times, after a first warm-up).
             qbotics.camera.ConeView.collect(level, at, Direction.NORTH, 0.75);
-            t0 = System.nanoTime();
+            long t0 = System.nanoTime();
             java.util.List<qbotics.camera.ConeView.Seen> seen = null;
             for (int i = 0; i < 5; i++) {
                 seen = qbotics.camera.ConeView.collect(level, at, Direction.NORTH, 0.75);
@@ -324,9 +316,8 @@ public final class ScreenshotRun {
             long cone = (System.nanoTime() - t0) / 5;
             java.util.Set<Integer> kinds = new java.util.HashSet<>();
             seen.forEach(s -> kinds.add(s.state()));
-            Qbotics.LOGGER.info("Screenshot run: CONE camera 128x96 {} us; cone list {} us: {} blocks, {} kinds, about {} bytes to send",
-                    camera / 1000, cone / 1000, seen.size(), kinds.size(), seen.size() * 4 + kinds.size() * 3);
-            conePicture = qbotics.camera.Camera.get(id);
+            Qbotics.LOGGER.info("Screenshot run: CONE list {} us: {} blocks, {} kinds, about {} bytes to send",
+                    cone / 1000, seen.size(), kinds.size(), seen.size() * 4 + kinds.size() * 3);
             coneSeen = seen;
         }));
         then(10, minecraft -> {
@@ -340,7 +331,6 @@ public final class ScreenshotRun {
             Qbotics.LOGGER.info("Screenshot run: CONE drawn at 256x192 in {} us the first time, {} us after", drawn, (System.nanoTime() - t1) / 5000);
             saveScaled(minecraft, "cone-new-256x192", made, 3);
             saveScaled(minecraft, "cone-new-128x96", qbotics.client.display.ConeRenderer.render(coneSeen, coneAt, Direction.NORTH, 128, 96), 6);
-            saveScaled(minecraft, "cone-old-128x96", qbotics.client.display.ConeRenderer.oldPicture(conePicture), 6);
         });
         // The game's own view from the Qbot's eye, for reference (the game's field of view differs a little).
         then(2, minecraft -> minecraft.options.fov().set(70));
@@ -1353,7 +1343,7 @@ public final class ScreenshotRun {
     private static void showCamera(net.minecraft.server.level.ServerPlayer player) {
         if (player.level().getBlockEntity(base.offset(25, 1, -5)) instanceof qbotics.block.DisplayBlockEntity panel
                 && panel.content() instanceof qbotics.display.WebScreen web && player.level() instanceof net.minecraft.server.level.ServerLevel level) {
-            com.google.gson.JsonObject picture = qbotics.camera.Camera.snapshot(level, base.offset(9, 2, 5), Direction.NORTH, 96, 72, -12);
+            com.google.gson.JsonObject picture = qbotics.camera.ConeView.take(level, base.offset(9, 2, 5), Direction.NORTH, 256, 192, -12);
             com.google.gson.JsonArray page = new com.google.gson.JsonArray();
             page.add("<html><body style='margin: 6px'><div style='color: #ffb347; font-size: 15px; margin-bottom: 4px'>Qbot camera</div>"
                     + "<img src='image:cam' style='width: 244px; height: 183px; border: 1px solid #3a5068'></body></html>");
@@ -1499,8 +1489,8 @@ public final class ScreenshotRun {
         tablets.setTitle(app, "Qbot");
         var c = tablets.use(app, "web_panel");
         draw(c, "page", page);
-        var picture = qbotics.camera.Camera.snapshot((net.minecraft.server.level.ServerLevel) player.level(), player.blockPosition().above(),
-                Direction.NORTH, 96, 64, -10);
+        var picture = qbotics.camera.ConeView.take((net.minecraft.server.level.ServerLevel) player.level(), player.blockPosition().above(),
+                Direction.NORTH, 192, 128, -10);
         draw(c, "image", "cam", picture.get("id").getAsInt());
         com.google.gson.JsonObject state = new com.google.gson.JsonObject();
         state.addProperty("said", "moved forward");

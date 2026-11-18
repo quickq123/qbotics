@@ -459,7 +459,7 @@ class WebPanel(_Display):
         self.state._values = {}
 
     def image(self, name, picture):
-        """Puts a picture (a Qbot's snapshot()) on the panel as <img src="image:name">.
+        """Puts a picture (a Qbot's view()) on the panel as <img src="image:name">.
         A picture's number (picture.id) works too, so a Qbot can send it in a message for
         another computer to show. None takes it off. A panel holds up to 8 pictures."""
         _draw(self, "image", name, None if picture is None else picture if isinstance(picture, int) else picture.id)

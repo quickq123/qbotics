@@ -9,13 +9,14 @@ web = network().web_panel()
 web.html('<body style="margin: 0"><img src="image:cam" style="width: 100%; height: 100%"></body>')
 
 while True:
-    picture = qbot.snapshot(96, 64)      # up to 128 x 96 pixels, one a second
-    web.image("cam", picture)            # players see it in the blocks' real colours
+    picture = qbot.view()                # 256 x 192 pixels (the most), up to four a second
+    web.image("cam", picture)            # players' games draw it with the game's own blocks
     seen = picture.counts()
     seen.pop(None, None)                 # the sky
     if seen:
         most = max(seen, key=seen.get)
         print("Mostly", most, "- and", len(seen) - 1, "other things")
-    if picture.block_at(48, 32) in ("monster", "player", "animal"):
-        print("Something is right in front of me!")
+    middle = picture.creature_at(128, 96) # the creature in the middle, if any: "minecraft:cow"...
+    if middle:
+        print("A", middle.split(":")[-1], "is right in front of me!")
     time.sleep(3)

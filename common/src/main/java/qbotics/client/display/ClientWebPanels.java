@@ -233,9 +233,7 @@ public final class ClientWebPanels {
             Map<String, qbotics.camera.View> views = new HashMap<>();
             Map<String, BufferedImage> shown = view.pictures;
             payload.images().forEach((name, shot) -> {
-                if (shot instanceof qbotics.camera.Picture picture) {
-                    pictures.put(name, PictureColors.colorize(picture));
-                } else if (shot instanceof qbotics.camera.View seen) {
+                if (shot instanceof qbotics.camera.View seen) {
                     views.put(name, seen);
                     if (shown.containsKey(name)) {
                         pictures.put(name, shown.get(name)); // the last one stays up until the new one is drawn

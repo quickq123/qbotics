@@ -51,14 +51,7 @@ final class QbotCalls {
     private QbotCalls() {
     }
 
-    /** When each Qbot last took a picture (game time): one a second each. */
-    private static final java.util.Map<java.util.UUID, Long> LAST_PICTURE = new java.util.HashMap<>();
-
-    /**
-     * A picture of what is in front of it (design doc §8): see qbotics.camera.Camera. One a second
-     * of game time: too soon, it is {"wait": ticks} for a program that waits, else an error. (A
-     * program can't time it by the clock: a busy server's second is longer than a real one.)
-     */
+    /** When each Qbot last took a view (game time). */
     private static final java.util.Map<java.util.UUID, Long> LAST_VIEW = new java.util.HashMap<>();
     /** Game ticks between a Qbot's views: four a second. */
     public static final int VIEW_TICKS = 5;
@@ -66,7 +59,8 @@ final class QbotCalls {
     /**
      * What it sees (qbotics.camera.ConeView): drawn in each player's game from the faces it can
      * see, so the server lists them instead of tracing a ray a pixel. Four a second of game time:
-     * too soon, it is {"wait": ticks} for a program that waits, else an error.
+     * too soon, it is {"wait": ticks} for a program that waits, else an error. (A program can't
+     * time it by the clock: a busy server's second is longer than a real one.) snapshot() is this too.
      */
     private static JsonElement view(ServerLevel level, QbotBlockEntity qbot, int width, int height, double pitch, boolean wait) {
         long now = level.getGameTime();
@@ -77,33 +71,14 @@ final class QbotCalls {
                 reply.addProperty("wait", VIEW_TICKS - (now - last));
                 return reply;
             }
-            throw new CallError("A Qbot takes four views a second; wait a moment.");
+            throw new CallError("A Qbot takes four pictures a second; wait a moment.");
         }
         if (width < 1 || height < 1 || width > qbotics.camera.ConeView.MAX_WIDTH || height > qbotics.camera.ConeView.MAX_HEIGHT) {
-            throw new CallError("A view is 1 to " + qbotics.camera.ConeView.MAX_WIDTH + " pixels wide and 1 to "
+            throw new CallError("A picture is 1 to " + qbotics.camera.ConeView.MAX_WIDTH + " pixels wide and 1 to "
                     + qbotics.camera.ConeView.MAX_HEIGHT + " high.");
         }
         LAST_VIEW.put(qbot.deviceId(), now);
         return qbotics.camera.ConeView.take(level, qbot.getBlockPos(), qbot.facing(), width, height, pitch);
-    }
-
-    private static JsonElement snapshot(ServerLevel level, QbotBlockEntity qbot, int width, int height, double pitch, boolean wait) {
-        long now = level.getGameTime();
-        Long last = LAST_PICTURE.get(qbot.deviceId());
-        if (last != null && now - last < 20 && now >= last) {
-            if (wait) {
-                JsonObject reply = new JsonObject();
-                reply.addProperty("wait", 20 - (now - last));
-                return reply;
-            }
-            throw new CallError("A Qbot takes one picture a second; wait a moment.");
-        }
-        if (width < 1 || height < 1 || width > qbotics.camera.Camera.MAX_WIDTH || height > qbotics.camera.Camera.MAX_HEIGHT) {
-            throw new CallError("A picture is 1 to " + qbotics.camera.Camera.MAX_WIDTH + " pixels wide and 1 to "
-                    + qbotics.camera.Camera.MAX_HEIGHT + " high.");
-        }
-        LAST_PICTURE.put(qbot.deviceId(), now);
-        return qbotics.camera.Camera.snapshot(level, qbot.getBlockPos(), qbot.facing(), width, height, pitch);
     }
 
     static JsonElement call(String method, ServerLevel level, BlockPos computerPos, JsonArray args) {
@@ -135,8 +110,6 @@ final class QbotCalls {
                     args.get(4).getAsBoolean(), NetworkCalls.string(args, 5));
             case "qbot_pump" -> pump(level, qbot, side(qbot, args));
             case "qbot_pour" -> pour(level, qbot, side(qbot, args), NetworkCalls.string(args, 2));
-            case "qbot_snapshot" -> snapshot(level, qbot, NetworkCalls.wholeNumber(args, 1, "width"), NetworkCalls.wholeNumber(args, 2, "height"),
-                    args.get(3).getAsDouble(), args.size() > 4 && !args.get(4).isJsonNull() && args.get(4).getAsBoolean());
             case "qbot_view" -> view(level, qbot, NetworkCalls.wholeNumber(args, 1, "width"), NetworkCalls.wholeNumber(args, 2, "height"),
                     args.get(3).getAsDouble(), args.size() > 4 && !args.get(4).isJsonNull() && args.get(4).getAsBoolean());
             default -> throw new CallError("This computer doesn't know the call '" + method + "'.");

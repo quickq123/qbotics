@@ -3300,13 +3300,13 @@ public final class QboticsGameTests {
         }
         computer.submitLine("run /cam.py");
         helper.succeedWhen(() -> {
-            assertScreen(helper, computer, "pic 32 24", "middle animal", "stone True pig True", "again: A Qbot takes one picture a second",
+            assertScreen(helper, computer, "pic 32 24", "middle animal", "stone True pig True", "again: A Qbot takes four pictures a second",
                     "waited 8", "shown");
             qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(2, 1, 5), qbotics.block.DisplayBlockEntity.class);
             qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();
-            qbotics.camera.Picture picture = (qbotics.camera.Picture) web.images().get("cam");
-            helper.assertTrue(picture != null && picture.width() == 32 && picture.data().length == 32 * 24 * qbotics.camera.Picture.BYTES_PER_PIXEL,
-                    "the picture is on the panel");
+            // snapshot() takes a view (since 2026-11-18): players' games draw it.
+            helper.assertTrue(web.images().get("cam") instanceof qbotics.camera.View view && view.width() == 32 && view.height() == 24,
+                    "the picture is on the panel, as a view");
         });
     }
 
@@ -3362,7 +3362,7 @@ public final class QboticsGameTests {
         }
         computer.submitLine("run /view.py");
         helper.succeedWhen(() -> {
-            assertScreen(helper, computer, "view 64 48", "middle animal", "stone True pig True", "which animal minecraft:pig None", "again: A Qbot takes four views a second",
+            assertScreen(helper, computer, "view 64 48", "middle animal", "stone True pig True", "which animal minecraft:pig None", "again: A Qbot takes four pictures a second",
                     "waited 8", "big 256 192 True 49152", "shown");
             qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(2, 1, 5), qbotics.block.DisplayBlockEntity.class);
             qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();

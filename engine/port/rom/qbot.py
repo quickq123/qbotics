@@ -376,11 +376,11 @@ tanks = _Tanks()
 
 
 class Picture:
-    """A picture the Qbot took (snapshot() or view()): .width and .height in pixels. block_at(x, y)
+    """A picture the Qbot took (view() or snapshot()): .width and .height in pixels. block_at(x, y)
     says what a pixel shows: a block's id ("minecraft:stone"), "monster", "animal", "player"
-    or "creature" for a creature, or None for the sky. On a view(), creature_at(x, y) says which
-    creature ("minecraft:cow") and item_at(x, y) which item lies there or hangs in a frame. Show
-    it on a web panel with web.image("name", picture) and <img src="image:name">."""
+    or "creature" for a creature, or None for the sky. creature_at(x, y) says which creature
+    ("minecraft:cow") and item_at(x, y) which item lies there or hangs in a frame. Show it on a
+    web panel with web.image("name", picture) and <img src="image:name">."""
 
     def __init__(self, info):
         self.id = info["id"]
@@ -406,7 +406,7 @@ class Picture:
 
     def creature_at(self, x, y):
         """Which creature a pixel shows: "minecraft:cow", "minecraft:player", "minecraft:item" for
-        an item on the ground... or None if it shows no creature (or the picture is a snapshot())."""
+        an item on the ground... or None if it shows no creature."""
         name = self._name(x, y)
         return name.split("|")[0] if name in self._kinds else None
 
@@ -433,12 +433,13 @@ class Picture:
 
 
 def view(width=256, height=192, pitch=0, wait=True):
-    """What it sees ahead, up to 32 blocks away, drawn with the game's own blocks: sharper
-    and quicker than snapshot(). Each player's game draws it from the faces the Qbot can
-    see, in even light (a Qbot sees in the dark). pitch tilts it up (positive) or down, in
-    degrees. At most 256 x 192 pixels, four views a second: asked sooner, it waits until it
-    may (wait=False raises QbotError instead). Gives a Picture: show it with
-    web.image("name", view), and block_at(x, y) and counts() work as on a snapshot."""
+    """A picture of what it sees ahead, up to 32 blocks away: blocks, water, creatures and items,
+    drawn in each player's game with the game's own models, in even light (a Qbot sees in the
+    dark). pitch tilts it up (positive) or down, in degrees. At most 256 x 192 pixels (past
+    128 x 96 each name block_at gives covers 2 x 2 pixels), four pictures a second: asked
+    sooner, it waits until it may (wait=False raises QbotError instead). Gives a Picture: show
+    it with web.image("name", pic), and ask it what it shows with block_at, creature_at,
+    item_at and counts."""
     while True:
         reply = _q("qbot_view", width, height, pitch, bool(wait))
         if "wait" not in reply:
@@ -446,13 +447,8 @@ def view(width=256, height=192, pitch=0, wait=True):
         time.sleep(reply["wait"] / 20)
 
 
-def snapshot(width=64, height=48, pitch=0, wait=True):
-    """Takes a picture of what is in front of it, up to 32 blocks away: blocks, fluids and
-    creatures. pitch tilts the camera up (positive) or down, in degrees. At most 128 x 96
-    pixels, and one picture a second of game time: asked sooner, it waits until it may
-    (wait=False raises QbotError instead)."""
-    while True:
-        reply = _q("qbot_snapshot", width, height, pitch, bool(wait))
-        if "wait" not in reply:
-            return Picture(reply)
-        time.sleep(reply["wait"] / 20)
+def snapshot(width=256, height=192, pitch=0, wait=True):
+    """Takes a picture of what is in front of it: the same as view() (one name for the other)."""
+    return view(width, height, pitch, wait)
+
+
