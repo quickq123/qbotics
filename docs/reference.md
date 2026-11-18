@@ -153,6 +153,7 @@ run /factory/report.py
 | Ctrl+S | Saves |
 | Ctrl+F, Ctrl+H | Find; find and replace. F3 and Shift+F3 step through matches |
 | Ctrl+Space | Suggests completions. Inside the text a finder is given, `net.bus("`, `net.pin('`, `net.storage("` and the like, the suggestions are the names of the devices of that kind on this computer's network, each with what it points at, and the address of any without a name yet. They come as soon as the quote is typed |
+| Ctrl+click | On a device in the code, shows the block it works over the editor (below) |
 | Ctrl+/ | Comments or uncomments the selected lines |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
 | Ctrl+W | Closes the tab |
@@ -163,6 +164,23 @@ run /factory/report.py
 | Esc | Closes the screen (nothing is lost) |
 
 Resting the mouse on a function name shows how to call it and what it does.
+
+**Seeing a device without leaving the editor.** Ctrl+click a device in the code: the call that
+finds it (`net.bus("crafter")`) or a name set from one (`craft` anywhere after
+`craft = net.bus("crafter")`). Over the editor comes the block that device works, as a player
+sees its screen, with what its slots held at that moment:
+
+- each slot's number as a program writes it, in yellow (the same numbers the probe's Slots mode shows);
+- the slots nothing can be put in (a product) in red;
+- beside it, the face the bus works through and the slots each face of the block reaches (a
+  furnace: top slot 0, sides slot 1, bottom slots 2 and 1).
+
+An interface, Collector or Player Interface shows its own slots; a fluid or energy bus, the
+tanks or energy it reaches. It is only a picture: nothing can be moved in it, and a click or Esc
+closes it. A bus opens its block's screen for a moment to see it, as `open_screen()` does, so
+it needs an owner (a bus placed by a player has one). Another mod's screen that can't be drawn
+here shows as plain slots in the same places, still numbered. The name must be written in the
+code as text: one worked out while the program runs can't be followed.
 
 ### 1.2b Mistakes, marked as you type
 

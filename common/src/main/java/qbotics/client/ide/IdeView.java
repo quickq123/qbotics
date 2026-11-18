@@ -52,6 +52,10 @@ final class IdeView {
         /** The Chat panel: a message (or a /command) to the game's chat, as the chat box sends it. */
         default void sendChat(String text) {
         }
+
+        /** Ctrl+click on a device in the code: the inspect call's answer, shown over the editor. */
+        default void showDevice(com.google.gson.JsonObject look) {
+        }
     }
 
     private static final int TITLE_H = 16;
@@ -206,6 +210,40 @@ final class IdeView {
                 return; // not a list: keep what was known
             }
             session.devices = java.util.List.copyOf(found);
+        });
+    }
+
+    /**
+     * Ctrl+click: the device the code names here (net.bus("chest"), or a name set from one) is
+     * asked about on this computer's network, and shown over the editor.
+     */
+    void lookAt(qbotics.ide.TextBuffer buffer, int line, int column) {
+        java.util.List<String> lines = new java.util.ArrayList<>(buffer.lineCount());
+        for (int i = 0; i < buffer.lineCount(); i++) {
+            lines.add(buffer.line(i));
+        }
+        qbotics.ide.DeviceAt.Found found = qbotics.ide.DeviceAt.at(lines, line, column);
+        if (found == null) {
+            toast("Ctrl+click a device to see it: net.bus(\"chest\") and the like, or a name set from one.", false);
+            return;
+        }
+        com.google.gson.JsonArray asked = new com.google.gson.JsonArray();
+        asked.add(found.kind());
+        asked.add(found.name());
+        backend.file(FileRequest.INSPECT, asked.toString(), new byte[0], (errno, data) -> {
+            com.google.gson.JsonObject reply;
+            try {
+                reply = errno != 0 ? null : com.google.gson.JsonParser.parseString(new String(data, StandardCharsets.UTF_8)).getAsJsonObject();
+            } catch (RuntimeException e) {
+                reply = null;
+            }
+            if (reply == null) {
+                toast("Couldn't look at it from here.", true);
+            } else if (reply.has("e")) {
+                toast(reply.get("e").getAsString(), true);
+            } else if (reply.has("r") && reply.get("r").isJsonObject()) {
+                host.showDevice(reply.getAsJsonObject("r"));
+            }
         });
     }
 
@@ -2059,6 +2097,10 @@ final class IdeView {
     static final int MIDDLE_BUTTON = 2;
 
     void mouseClicked(double x, double y, int button, boolean shift, boolean doubleClick) {
+        mouseClicked(x, y, button, shift, doubleClick, false);
+    }
+
+    void mouseClicked(double x, double y, int button, boolean shift, boolean doubleClick, boolean ctrl) {
         blink = 0;
         if (ui == null) {
             return; // nothing has been drawn yet, so there is nothing to click
@@ -2130,7 +2172,11 @@ final class IdeView {
         } else if (editorRect.contains(x, y)) {
             session.focus = Focus.EDITOR;
             Tab tab = session.active();
-            if (button == LEFT_BUTTON && tab != null && tab.view != null) {
+            if (button == LEFT_BUTTON && ctrl && tab != null && tab.view != null && tab.view.language == Language.PYTHON) {
+                drag = Drag.NONE;
+                int[] at = tab.view.textAt(x, y);
+                lookAt(tab.view.buffer, at[0], at[1]);
+            } else if (button == LEFT_BUTTON && tab != null && tab.view != null) {
                 tab.find.focused = false; // typing goes to the text again; the find bar stays open
                 tab.view.mouseDown(x, y, shift, doubleClick);
             }

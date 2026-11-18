@@ -561,6 +561,11 @@ final class CodeView {
         scrollLine = (int) Math.round(Math.clamp(position, 0.0, 1.0) * maxScrollLine());
     }
 
+    /** The line and column of the character under a point (not the gap the cursor would take). */
+    int[] textAt(double x, double y) {
+        return new int[] {lineAt(y), scrollColumn + (int) Math.floor((x - textLeft) / Ui.CELL_W)};
+    }
+
     void mouseDown(double x, double y, boolean shift, boolean doubleClick) {
         hoverHidden = true;
         completion = null;

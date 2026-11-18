@@ -371,6 +371,8 @@ public final class NetworkCalls {
                 }
                 throw new CallError("Only an interface or a bus can list contents; this is " + article(device) + ".");
             }
+            case "inspect":
+                return inspect(level, network, computerPos, args);
             case "slots": {
                 // ["slots", mac, face]: every slot, empty ones too, with whether anything may be put in it.
                 NetworkDevice device = byMac(network, args, 1);
@@ -2488,6 +2490,128 @@ public final class NetworkCalls {
     }
 
     /** What a container holds, slot by slot; with a level to read registries from, each stack's details as well. */
+    /**
+     * ["inspect", key, kind]: what the editor shows when a device's name is Ctrl+clicked. The
+     * device as the devices call describes it; for one holding items its slots; for a bus or USB
+     * also the block it works ("block", "title"), the face it uses ("face"), which slots each
+     * face of the block reaches ("faces"), and the block's screen as a player would see it
+     * ("screen": its menu type, slot count and each of its own slots with its place, number,
+     * item and whether it takes anything), opened for a moment as open_screen() does. Fluid
+     * and energy show their tanks or store. Only looks: nothing is moved.
+     */
+    private static JsonObject inspect(ServerLevel level, CableNetwork network, BlockPos computerPos, JsonArray args) {
+        NetworkDevice device = find(network, string(args, 1), string(args, 2));
+        ServerLevel where = levelOf(device, level);
+        JsonObject look = describe(where, network, device);
+        if (ownItems(device) instanceof ItemPort own) {
+            look.add("slots", slotList(own));
+            return look;
+        }
+        if (!(device instanceof CablePort port) || !port.gives()) {
+            return look;
+        }
+        BlockPos pos = port.targetPos();
+        if (!where.isLoaded(pos)) {
+            throw new CallError(notLoaded(port));
+        }
+        net.minecraft.world.level.block.state.BlockState state = where.getBlockState(pos);
+        look.addProperty("block", BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+        look.addProperty("title", state.getBlock().getName().getString());
+        look.addProperty("face", port.accessFace().word());
+        if (port.medium() == Medium.FLUID || port.medium() == Medium.UNIVERSAL) {
+            try {
+                look.add("tanks", tanks(fluidSource(where, device, null)));
+            } catch (CallError e) {
+                // holds no fluid
+            }
+        }
+        if (port.medium() == Medium.ENERGY || port.medium() == Medium.UNIVERSAL) {
+            try {
+                JsonArray ask = new JsonArray();
+                ask.add("energy");
+                ask.add(device.mac());
+                look.add("energy", run(level, network, computerPos, ask));
+            } catch (CallError e) {
+                // holds no energy
+            }
+        }
+        if (port.medium() != Medium.ITEM && port.medium() != Medium.UNIVERSAL) {
+            return look;
+        }
+        ItemPort whole = null;
+        try {
+            whole = wholeTarget(where, port);
+            look.add("slots", slotList(whole));
+        } catch (CallError e) {
+            // holds no items of its own (a crafting table): its screen may still have slots
+        }
+        JsonArray faces = new JsonArray();
+        net.minecraft.world.level.block.entity.BlockEntity entity = where.getBlockEntity(pos);
+        for (AccessFace face : AccessFace.values()) {
+            Direction side = face.resolve(port.pointing());
+            ItemPort through = Qbotics.platform().itemPort(where, pos, side);
+            JsonObject reach = new JsonObject();
+            reach.addProperty("face", face.word());
+            reach.addProperty("side", side.getSerializedName());
+            reach.addProperty("count", through == null ? 0 : through.contents().size());
+            if (through != null && entity instanceof net.minecraft.world.WorldlyContainer sided) {
+                JsonArray numbers = new JsonArray();
+                for (int slot : sided.getSlotsForFace(side)) {
+                    numbers.add(slot);
+                }
+                reach.add("slots", numbers);
+            }
+            faces.add(reach);
+        }
+        if (whole != null) {
+            look.add("faces", faces);
+        }
+        if (port.owner() != null) {
+            ScreenSessions.Session had = ScreenSessions.of(where, port);
+            ScreenSessions.Session session = had != null ? had : ScreenSessions.open(where, port, port.owner());
+            if (session != null) {
+                try {
+                    look.add("screen", screenLayout(session));
+                } finally {
+                    if (had == null) {
+                        ScreenSessions.close(where.getServer(), port.deviceId(), whole == null ? List.of() : List.of(whole));
+                    }
+                }
+            }
+        }
+        return look;
+    }
+
+    /** A screen's layout for the editor to draw it: as the probe numbers its slots (SlotLabels). */
+    private static JsonObject screenLayout(ScreenSessions.Session session) {
+        net.minecraft.world.inventory.AbstractContainerMenu menu = session.menu;
+        JsonObject screen = new JsonObject();
+        try {
+            screen.addProperty("type", BuiltInRegistries.MENU.getKey(menu.getType()).toString());
+        } catch (UnsupportedOperationException e) {
+            // a menu with no type of its own: drawn as plain slots
+        }
+        screen.addProperty("total", menu.slots.size());
+        java.util.Set<net.minecraft.world.Container> inventories = new java.util.HashSet<>();
+        for (net.minecraft.world.inventory.Slot slot : menu.slots) {
+            if (!(slot.container instanceof net.minecraft.world.entity.player.Inventory)) {
+                inventories.add(slot.container);
+            }
+        }
+        boolean byScreen = inventories.size() > 1 && !(menu instanceof qbotics.block.InterfaceMenu);
+        ItemPort port = session.port();
+        JsonArray slots = new JsonArray();
+        for (net.minecraft.world.inventory.Slot slot : session.slots()) {
+            JsonObject entry = slotEntry(byScreen ? slot.index : slot.getContainerSlot(), slot.getItem(), port.acceptsAny(slot.index));
+            entry.addProperty("i", slot.index);
+            entry.addProperty("x", slot.x);
+            entry.addProperty("y", slot.y);
+            slots.add(entry);
+        }
+        screen.add("slots", slots);
+        return screen;
+    }
+
     /**
      * Every slot, empty ones too, as slots() gives them: {"slot", "item" (null when empty),
      * "count", "accepts"}, the same for a bus's container, an interface, a screen and an entity.

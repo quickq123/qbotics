@@ -51,7 +51,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -107,6 +107,7 @@ public final class QboticsGameTests {
             Map.entry("ssh_editor", QboticsGameTests::sshEditor),
             Map.entry("cone_view", QboticsGameTests::coneView),
             Map.entry("start_here", QboticsGameTests::startHere),
+            Map.entry("device_look", QboticsGameTests::deviceLook),
             Map.entry("qbot_view", QboticsGameTests::qbotView),
             Map.entry("computer_access", QboticsGameTests::computerAccess),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
@@ -4732,6 +4733,83 @@ public final class QboticsGameTests {
      * second computer of theirs and another player's computer don't. Then it runs as its notes
      * say: two storage chests and a crafting table, and torches crafted into storage_1.
      */
+    /**
+     * The editor's Ctrl+click (design doc §17.1): the device a place in the code names, read from
+     * the text, and what the inspect call tells of it: a crafting table's screen laid out as a
+     * player sees it (opened for a moment and closed again), a furnace's slots and what each face
+     * reaches, and an interface's slots.
+     */
+    private static void deviceLook(GameTestHelper helper) {
+        java.util.List<String> code = java.util.List.of(
+                "from logistics import network",
+                "net = network()",
+                "craft = net.bus(\"table\")",
+                "print(craft.count(), net.bus('oven').size())",
+                "store = net.interface()",
+                "craft = 3");
+        qbotics.ide.DeviceAt.Found named = qbotics.ide.DeviceAt.at(code, 3, 8);
+        helper.assertTrue(named != null && named.kind().equals("bus") && "table".equals(named.name()), "a name set from net.bus: " + named);
+        qbotics.ide.DeviceAt.Found call = qbotics.ide.DeviceAt.at(code, 3, 25);
+        helper.assertTrue(call != null && "oven".equals(call.name()), "the call itself: " + call);
+        qbotics.ide.DeviceAt.Found only = qbotics.ide.DeviceAt.at(code, 4, 1);
+        helper.assertTrue(only != null && only.kind().equals("interface") && only.name() == null, "the only one of a kind: " + only);
+        helper.assertTrue(qbotics.ide.DeviceAt.at(code, 1, 1) == null, "net is no device");
+        helper.assertTrue(qbotics.ide.DeviceAt.at(code, 5, 1) != null, "a later craft = 3 is not a device, but the earlier setting is found");
+
+        ServerLevel level = helper.getLevel();
+        startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        store.setFilter(0, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "coal"));
+        store.setItem(0, new ItemStack(Items.COAL, 5));
+        setPort(helper, new BlockPos(1, 1, 1), Kind.BUS, Direction.EAST);
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.CRAFTING_TABLE);
+        setPort(helper, new BlockPos(1, 1, 2), Kind.BUS, Direction.EAST);
+        helper.setBlock(new BlockPos(2, 1, 2), Blocks.FURNACE);
+        helper.getBlockEntity(new BlockPos(2, 1, 2), net.minecraft.world.level.block.entity.FurnaceBlockEntity.class).setItem(1, new ItemStack(Items.COAL, 7));
+        CablePort table = helper.getBlockEntity(new BlockPos(1, 1, 1), PortBlockEntity.class).port(Direction.EAST);
+        table.onPlaced(UUID.randomUUID());
+        table.setDeviceName("table");
+        helper.getBlockEntity(new BlockPos(1, 1, 2), PortBlockEntity.class).port(Direction.EAST).setDeviceName("oven");
+        BlockPos computerAt = helper.absolutePos(new BlockPos(0, 1, 0));
+        java.util.function.Function<String, com.google.gson.JsonObject> inspect = asked -> {
+            com.google.gson.JsonObject reply = com.google.gson.JsonParser.parseString(
+                    qbotics.network.NetworkCalls.handle(level.getServer(), level.dimension(), computerAt, asked)).getAsJsonObject();
+            helper.assertTrue(reply.has("r"), "inspect answered " + reply);
+            return reply.getAsJsonObject("r");
+        };
+
+        com.google.gson.JsonObject crafting = inspect.apply("[\"inspect\",\"table\",\"bus\"]");
+        helper.assertTrue(crafting.get("block").getAsString().equals("minecraft:crafting_table"), "the block: " + crafting);
+        com.google.gson.JsonObject screen = crafting.getAsJsonObject("screen");
+        helper.assertTrue(screen != null && screen.get("type").getAsString().equals("minecraft:crafting") && screen.get("total").getAsInt() == 46,
+                "the crafting screen: " + screen);
+        com.google.gson.JsonArray grid = screen.getAsJsonArray("slots");
+        com.google.gson.JsonObject product = grid.get(0).getAsJsonObject();
+        helper.assertTrue(grid.size() == 10 && product.get("slot").getAsInt() == 0 && !product.get("accepts").getAsBoolean()
+                && product.get("x").getAsInt() == 124 && grid.get(1).getAsJsonObject().get("accepts").getAsBoolean(), "its slots: " + grid);
+        helper.assertTrue(qbotics.network.ScreenSessions.of(level, table) == null, "the screen opened to look is closed again");
+
+        com.google.gson.JsonObject oven = inspect.apply("[\"inspect\",\"oven\",\"bus\"]");
+        helper.assertTrue(!oven.has("screen"), "a bus nobody owns opens no screen: " + oven);
+        com.google.gson.JsonArray slots = oven.getAsJsonArray("slots");
+        helper.assertTrue(slots.size() == 3 && slots.get(1).getAsJsonObject().get("count").getAsInt() == 7
+                && !slots.get(2).getAsJsonObject().get("accepts").getAsBoolean(), "the furnace's slots: " + slots);
+        java.util.Map<String, String> reach = new java.util.HashMap<>();
+        for (com.google.gson.JsonElement face : oven.getAsJsonArray("faces")) {
+            com.google.gson.JsonObject f = face.getAsJsonObject();
+            reach.put(f.get("face").getAsString(), f.has("slots") ? f.get("slots").toString() : "-");
+        }
+        helper.assertTrue(reach.get("top").equals("[0]") && reach.get("bottom").equals("[2,1]") && reach.get("near").equals("[1]"),
+                "what each face reaches: " + reach);
+
+        com.google.gson.JsonObject inbox = inspect.apply("[\"inspect\",null,\"interface\"]");
+        com.google.gson.JsonArray own = inbox.getAsJsonArray("slots");
+        helper.assertTrue(own.size() == 9 && own.get(0).getAsJsonObject().get("count").getAsInt() == 5
+                && !own.get(1).getAsJsonObject().get("accepts").getAsBoolean(), "the interface's slots: " + own);
+        helper.succeed();
+    }
+
     private static void startHere(GameTestHelper helper) {
         net.minecraft.server.level.ServerPlayer player = helper.makeMockServerPlayerInLevel();
         ComputerManager manager = ComputerManager.get(helper.getLevel().getServer());

@@ -602,6 +602,25 @@ public final class ComputerManager {
             reply(playerId, request, 0, listed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             return;
         }
+        if (request.op() == IdePayloads.FileRequest.INSPECT) {
+            // On the server thread, as DEVICES: the device by name on the computer's cables, only looked at.
+            Viewing at = computer == null ? null : places.get(computer.deviceId());
+            String answer = "{\"e\":\"This computer has no cables to look along (a laptop has none).\"}";
+            if (at != null) {
+                try {
+                    com.google.gson.JsonArray asked = com.google.gson.JsonParser.parseString(request.path()).getAsJsonArray();
+                    com.google.gson.JsonArray call = new com.google.gson.JsonArray();
+                    call.add("inspect");
+                    call.add(asked.get(1));
+                    call.add(asked.get(0));
+                    answer = qbotics.network.NetworkCalls.handle(player.level().getServer(), at.dimension(), at.pos(), call.toString());
+                } catch (RuntimeException e) {
+                    answer = "{\"e\":\"The editor asked in a way the server doesn't understand.\"}";
+                }
+            }
+            reply(playerId, request, 0, answer.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return;
+        }
         if (request.op() == IdePayloads.FileRequest.CHECK) {
             // Only for someone with this editor open; the drive isn't touched.
             if (computer == null && viewedDrive(player, request.deviceId()) == null) {

@@ -20,6 +20,8 @@ public class IdeScreen extends Screen implements IdeView.Host {
     private static boolean crisp = !Boolean.getBoolean("qbotics.idePixelFont");
 
     private final IdeView view;
+    /** A device Ctrl+clicked in the code, shown over the editor until a click or Esc. */
+    private DeviceLook look;
     /** Editor units to Minecraft GUI units. */
     private float scale = 1;
 
@@ -85,9 +87,31 @@ public class IdeScreen extends Screen implements IdeView.Host {
         updateScale();
         graphics.pose().pushMatrix();
         graphics.pose().scale(scale, scale);
+        boolean looking = look != null;
         view.render(new GameUi(graphics, this.font, pixelSize(), crisp),
-                (int) Math.ceil(this.width / scale), (int) Math.ceil(this.height / scale), mouseX / scale, mouseY / scale);
+                (int) Math.ceil(this.width / scale), (int) Math.ceil(this.height / scale), looking ? -1 : mouseX / scale, looking ? -1 : mouseY / scale);
         graphics.pose().popMatrix();
+        if (looking) {
+            look.render(graphics, mouseX, mouseY, partialTick);
+        }
+    }
+
+    @Override
+    public void showDevice(com.google.gson.JsonObject device) {
+        look = new DeviceLook(device, this.width, this.height);
+    }
+
+    /** What the device shown over the editor says beside its picture, or null; for the screenshots. */
+    public java.util.List<String> deviceTextForShots() {
+        return look == null ? null : look.text();
+    }
+
+    @Override
+    public void resize(int width, int height) {
+        super.resize(width, height);
+        if (look != null) {
+            look.resize(width, height);
+        }
     }
 
     // ---- IdeView.Host ------------------------------------------------------------
@@ -161,12 +185,21 @@ public class IdeScreen extends Screen implements IdeView.Host {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
+        if (look != null) {
+            return true;
+        }
         view.charTyped(event.codepoint());
         return true;
     }
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (look != null) {
+            if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+                look = null;
+            }
+            return true; // only a picture: keys don't reach the editor under it
+        }
         if (!view.keyPressed(event)) {
             this.onClose();
         }
@@ -175,7 +208,11 @@ public class IdeScreen extends Screen implements IdeView.Host {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        view.mouseClicked(event.x() / scale, event.y() / scale, event.button(), event.hasShiftDown(), doubleClick);
+        if (look != null) {
+            look = null; // a click closes the picture, and does nothing else
+            return true;
+        }
+        view.mouseClicked(event.x() / scale, event.y() / scale, event.button(), event.hasShiftDown(), doubleClick, event.hasControlDown());
         return true;
     }
 
@@ -193,6 +230,9 @@ public class IdeScreen extends Screen implements IdeView.Host {
 
     @Override
     public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+        if (look != null) {
+            return true;
+        }
         view.mouseScrolled(x / scale, y / scale, scrollX, scrollY, this.minecraft.hasShiftDown());
         return true;
     }

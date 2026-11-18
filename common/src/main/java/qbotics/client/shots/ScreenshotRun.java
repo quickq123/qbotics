@@ -66,7 +66,7 @@ public final class ScreenshotRun {
 
     /** The sections of the script, in the order they run. */
     public static final java.util.List<String> SECTIONS = java.util.List.of(
-            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "agent", "night", "stage", "items", "interfaces", "cone", "viewblocks");
+            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "devicelook", "agent", "night", "stage", "items", "interfaces", "cone", "viewblocks");
     /** The sections asked for (-Pshots=a,b), or every section. */
     private static final java.util.Set<String> WANTED = wanted();
     /** Whether the section being planned is wanted: steps of other sections are left out. */
@@ -957,6 +957,7 @@ public final class ScreenshotRun {
         then(30, minecraft -> shot(minecraft, "19c-laptop-paused"));
 
         editor();
+        deviceLook();
         agent();
         cone();
         viewBlocks();
@@ -1202,6 +1203,70 @@ public final class ScreenshotRun {
                 ide.setZoomForShots(0); // back to the size the window chooses
             }
         });
+    }
+
+    /** What the inspect call told of the devicelook section's furnace and crafting table. */
+    private static final com.google.gson.JsonObject[] LOOKS = new com.google.gson.JsonObject[2];
+
+    /**
+     * The devicelook section: Ctrl+click on a device in the editor's code shows the block it
+     * works over the editor: a furnace (its screen, what it holds, what each face reaches) and a
+     * crafting table (its screen's numbers, the product slot marked).
+     */
+    private static void deviceLook() {
+        section("devicelook");
+        then(10, minecraft -> onServer(minecraft, player -> {
+            ServerLevel level = player.level();
+            BlockPos at = player.blockPosition().offset(3, 0, 3);
+            level.setBlock(at.offset(1, 0, 0), Blocks.FURNACE.defaultBlockState(), Block.UPDATE_ALL);
+            if (level.getBlockEntity(at.offset(1, 0, 0)) instanceof net.minecraft.world.level.block.entity.FurnaceBlockEntity furnace) {
+                furnace.setItem(0, new ItemStack(net.minecraft.world.item.Items.RAW_IRON, 12));
+                furnace.setItem(1, new ItemStack(net.minecraft.world.item.Items.COAL, 7));
+                furnace.setItem(2, new ItemStack(net.minecraft.world.item.Items.IRON_INGOT, 5));
+            }
+            level.setBlock(at.offset(1, 0, 1), Blocks.CRAFTING_TABLE.defaultBlockState(), Block.UPDATE_ALL);
+            String[] names = {"oven", "crafter"};
+            for (int i = 0; i < 2; i++) {
+                level.setBlock(at.offset(0, 0, i), QboticsContent.CABLE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+                qbotics.block.CablePort bus = CableBlock.attach(level, at.offset(0, 0, i), Kind.BUS, qbotics.network.Medium.ITEM, Direction.EAST);
+                bus.onPlaced(player.getUUID());
+                bus.setDeviceName(names[i]);
+            }
+            for (int i = 0; i < 2; i++) {
+                com.google.gson.JsonObject reply = com.google.gson.JsonParser.parseString(qbotics.network.NetworkCalls.handle(level.getServer(),
+                        level.dimension(), at, "[\"inspect\",\"" + names[i] + "\",\"bus\"]")).getAsJsonObject();
+                LOOKS[i] = reply.has("r") ? reply.getAsJsonObject("r") : null;
+                Qbotics.LOGGER.info("Screenshot run: inspect {} -> {}", names[i], reply);
+            }
+            player.getInventory().setItem(player.getInventory().getSelectedSlot(), new ItemStack(QboticsContent.LAPTOP_ITEM.get()));
+            qbotics.computer.ServerComputer laptop = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player);
+            try {
+                laptop.drive().call(qbotics.engine.HostFileSystem.WRITE, "/smelt.py", String.join("\n",
+                        "from logistics import network, move",
+                        "net = network()",
+                        "oven = net.bus(\"oven\")",
+                        "craft = net.bus(\"crafter\")",
+                        "move(oven.source(face=\"bottom\"), craft, \"iron_ingot\")",
+                        "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (qbotics.engine.HostFileSystem.FsException e) {
+                throw new IllegalStateException(e);
+            }
+            qbotics.laptop.Laptops.open(player, player.getMainHandItem());
+        }));
+        then(40, minecraft -> onServer(minecraft, player ->
+                qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player).submitLine("edit smelt.py")));
+        then(60, minecraft -> { });
+        String[] shots = {"ide-look-furnace", "ide-look-crafting"};
+        for (int i = 0; i < 2; i++) {
+            int which = i;
+            then(10, minecraft -> {
+                if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide && LOOKS[which] != null) {
+                    ide.showDevice(LOOKS[which]);
+                    Qbotics.LOGGER.info("Screenshot run: device look says {}", ide.deviceTextForShots());
+                }
+            });
+            then(5, minecraft -> shot(minecraft, shots[which]));
+        }
     }
 
     /**
