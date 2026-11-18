@@ -610,6 +610,16 @@ public final class ComputerManager {
             reply(playerId, request, 0, listed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             return;
         }
+        if (request.op() == IdePayloads.FileRequest.VALUE) {
+            // Answered by the program's own thread while it is held (stepping); none otherwise.
+            if (computer == null) {
+                reply(playerId, request, 0, "!none".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                return;
+            }
+            computer.valueOf(request.path()).thenAccept(text ->
+                    reply(playerId, request, 0, text.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            return;
+        }
         if (request.op() == IdePayloads.FileRequest.INSPECT) {
             // On the server thread, as DEVICES: the device by name on the computer's cables, only looked at.
             Viewing at = computer == null ? null : places.get(computer.deviceId());

@@ -51,6 +51,8 @@ public final class IdePayloads {
          * as JSON (name null for the only one); the answer is the inspect call's reply, {"r": ...} or {"e": why}.
          */
         public static final byte INSPECT = 10;
+        /** A name's value in the program held on a step (path: the name), for the editor's hover. */
+        public static final byte VALUE = 11;
 
         public static final Type<FileRequest> TYPE = new Type<>(Qbotics.id("ide_file_request"));
         public static final StreamCodec<ByteBuf, FileRequest> STREAM_CODEC = StreamCodec.composite(

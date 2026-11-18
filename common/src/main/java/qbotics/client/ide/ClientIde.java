@@ -58,6 +58,9 @@ public final class ClientIde {
         session.traceFile = trace.file();
         session.traceLine = trace.line();
         session.tracePaused = trace.paused();
+        if (newlyPaused || !trace.paused()) {
+            session.traceStep++;
+        }
         if (newlyPaused && Minecraft.getInstance().screen instanceof IdeScreen screen && screen.session() == session) {
             screen.showLine(trace.file(), trace.line()); // bring the line it stopped on into view
         }

@@ -51,7 +51,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("dry_run", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("dry_run", 200_000), Map.entry("step_values", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -109,6 +109,7 @@ public final class QboticsGameTests {
             Map.entry("start_here", QboticsGameTests::startHere),
             Map.entry("device_look", QboticsGameTests::deviceLook),
             Map.entry("dry_run", QboticsGameTests::dryRun),
+            Map.entry("step_values", QboticsGameTests::stepValues),
             Map.entry("qbot_view", QboticsGameTests::qbotView),
             Map.entry("computer_access", QboticsGameTests::computerAccess),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
@@ -4901,6 +4902,70 @@ public final class QboticsGameTests {
             helper.assertFalse(screen(computer).contains("not reached"), "the program stops where it would change the world");
             helper.assertTrue(countIn(helper, new BlockPos(2, 1, 0), Items.COAL) == 5 && countIn(helper, new BlockPos(2, 1, 1), Items.COAL) == 0,
                     "a dry run moves nothing");
+        });
+    }
+
+    /**
+     * Values while held on a step (the editor's hover): the file's top-level variables, a function's
+     * parameters while inside it, its other variables said to be its own, and nothing for a name
+     * the program doesn't have. Not held: no value.
+     */
+    private static void stepValues(GameTestHelper helper) {
+        ServerComputer computer = placeAndStart(helper);
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/vals.py", String.join("\n",
+                    "count = 3",
+                    "names = ['a', 'b']",
+                    "def add(n, extra):",
+                    "    total = n + extra",
+                    "    return total",
+                    "x = add(count, 4)",
+                    "print('done', x)",
+                    "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        ServerComputer watchedOne = computer;
+        helper.onEachTick(() -> watchedOne.setWatched(true));
+        helper.assertTrue("!none".equals(computer.valueOf("count").join()), "nothing is held: no value");
+        computer.step("/vals.py"); // F8 with nothing running: held at its first line
+        int[] step = {0};
+        java.util.Map<String, String> seen = new java.util.HashMap<>();
+        helper.succeedWhen(() -> {
+            ServerComputer.Trace now = computer.trace();
+            switch (step[0]) {
+                case 0 -> {
+                    // Stepped down to line 6 (x = add(...)): the top-level names are set.
+                    if (now.paused() && now.line() == 6) {
+                        seen.put("count", computer.valueOf("count").join());
+                        seen.put("names", computer.valueOf("names").join());
+                        seen.put("nothing", computer.valueOf("nothing_here").join());
+                        computer.step();
+                        step[0] = 1;
+                    } else if (now.paused() && now.line() > 0 && now.line() < 6) {
+                        computer.step();
+                    }
+                }
+                case 1 -> {
+                    // Inside add(), on its first line.
+                    if (now.paused() && now.line() == 4) {
+                        seen.put("n", computer.valueOf("n").join());
+                        seen.put("extra", computer.valueOf("extra").join());
+                        seen.put("count in add", computer.valueOf("count").join());
+                        seen.put("total", computer.valueOf("total").join());
+                        computer.togglePause(); // Ctrl+Z: carry on
+                        step[0] = 2;
+                    }
+                }
+                default -> {
+                }
+            }
+            helper.assertTrue(step[0] == 2, "still stepping: " + seen + " at " + now);
+            helper.assertTrue("int: 3".equals(seen.get("count")) && "list: ['a', 'b']".equals(seen.get("names"))
+                    && "!none".equals(seen.get("nothing")), "top-level values: " + seen);
+            helper.assertTrue("int: 3".equals(seen.get("n")) && "int: 4".equals(seen.get("extra")) && "int: 3".equals(seen.get("count in add"))
+                    && "!local".equals(seen.get("total")), "inside the function: " + seen);
+            assertScreen(helper, computer, "done 7");
         });
     }
 

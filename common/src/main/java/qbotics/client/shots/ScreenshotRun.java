@@ -1404,6 +1404,53 @@ public final class ScreenshotRun {
             }
         });
         then(20, minecraft -> shot(minecraft, "ide-ctrl-click-storage"));
+        // Held on a step (F8): resting the mouse on a variable shows its value.
+        then(5, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.closeLooksForShots();
+            }
+            onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(lookScene.offset(-1, 0, 0)) instanceof ComputerBlockEntity computer) {
+                    qbotics.computer.ServerComputer running = ComputerManager.get(player.level().getServer()).getOrStart(computer);
+                    try {
+                        running.drive().call(qbotics.engine.HostFileSystem.WRITE, "/count.py", String.join("\n",
+                                "names = ['coal', 'charcoal']", "count = len(names) * 3", "print(count)", "")
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    } catch (qbotics.engine.HostFileSystem.FsException e) {
+                        throw new IllegalStateException(e);
+                    }
+                    running.submitLine("edit count.py");
+                }
+            });
+        });
+        for (int i = 0; i < 3; i++) {
+            boolean first = i == 0;
+            then(30, minecraft -> onServer(minecraft, player -> {
+                if (player.level().getBlockEntity(lookScene.offset(-1, 0, 0)) instanceof ComputerBlockEntity computer) {
+                    qbotics.computer.ServerComputer running = ComputerManager.get(player.level().getServer()).getOrStart(computer);
+                    if (first) {
+                        running.step("/count.py"); // held at its first line
+                    } else {
+                        running.step(); // down to line 3: names and count are set
+                    }
+                }
+            }));
+        }
+        then(30, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                double[] at = ide.pointForShots(0, 2); // "names" on line 1
+                if (at != null) {
+                    var window = minecraft.getWindow();
+                    org.lwjgl.glfw.GLFW.glfwSetCursorPos(window.handle(), at[0] * window.getGuiScale(), at[1] * window.getGuiScale());
+                }
+            }
+        });
+        then(30, minecraft -> shot(minecraft, "ide-step-value"));
+        then(5, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(lookScene.offset(-1, 0, 0)) instanceof ComputerBlockEntity computer) {
+                ComputerManager.get(player.level().getServer()).getOrStart(computer).togglePause(); // carry on to its end
+            }
+        }));
     }
 
     /**

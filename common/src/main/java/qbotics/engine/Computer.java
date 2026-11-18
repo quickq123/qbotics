@@ -43,6 +43,17 @@ public final class Computer {
     private final ExportFunction replNeedsMore;
     /** Where the player's own code is running (vm_split.c), for the editor's current-line display. */
     private final ExportFunction where;
+    /** A name's value where the program is held on a step (the editor's hover); null in an older engine. */
+    private final ExportFunction value;
+    private static final int VALUE_CAP = 700;
+
+    /** A value the editor asked for, answered by the program's own thread while it is held. */
+    private record ValueAsk(String name, CompletableFuture<String> answer) {
+    }
+
+    private final java.util.concurrent.ConcurrentLinkedQueue<ValueAsk> valueAsks = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    /** Showing a value: Python may run (a __repr__), and must neither step nor hold on its lines. */
+    private volatile boolean showingValue;
     private int whereBuf;
     private static final int WHERE_CAP = 256;
     /**
@@ -193,6 +204,56 @@ public final class Computer {
         waiter = Thread.currentThread();
     }
 
+    /**
+     * The value of a name in the program held on a step (F8), for the editor's hover: "type: repr",
+     * or "!none" (no such name there, or not held on a step), "!local" (a function's local
+     * variable, which the engine keeps by number, not by name). Answered by the program's thread.
+     */
+    public CompletableFuture<String> valueOf(String name) {
+        CompletableFuture<String> answer = new CompletableFuture<>();
+        if (value == null || !paused || !stepping || name.isEmpty() || name.length() > 100) {
+            answer.complete("!none");
+            return answer;
+        }
+        valueAsks.add(new ValueAsk(name, answer));
+        wake();
+        return answer.completeOnTimeout("!none", 2, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    /** Answers the values asked for, on this (the program's) thread, while it is held. */
+    private void answerValues(boolean cpuGivenUp) {
+        if (valueAsks.isEmpty()) {
+            return;
+        }
+        if (cpuGivenUp) {
+            acquireCpu();
+        }
+        try {
+            for (ValueAsk ask; (ask = valueAsks.poll()) != null; ) {
+                byte[] name = ask.name().getBytes(StandardCharsets.UTF_8);
+                int namePtr = (int) alloc.apply(name.length + 1)[0];
+                int buf = (int) alloc.apply(VALUE_CAP)[0];
+                showingValue = true;
+                try {
+                    instance.memory().write(namePtr, name);
+                    int n = (int) value.apply(namePtr, name.length, buf, VALUE_CAP)[0];
+                    ask.answer().complete(n == -2 ? "!local" : n < 0 ? "!none"
+                            : new String(instance.memory().readBytes(buf, n), StandardCharsets.UTF_8));
+                } catch (RuntimeException e) {
+                    ask.answer().complete("!none");
+                } finally {
+                    showingValue = false;
+                    free.apply(namePtr);
+                    free.apply(buf);
+                }
+            }
+        } finally {
+            if (cpuGivenUp) {
+                releaseCpu();
+            }
+        }
+    }
+
     /** Waits while paused (or until stopped). With the CPU held, it is given up while waiting. */
     private void holdWhilePaused(boolean holdingCpu) {
         waiting();
@@ -211,6 +272,7 @@ public final class Computer {
         }
         try {
             while ((paused || held) && stop == StopMode.NONE) {
+                answerValues(holdingCpu);
                 parkFor(WAIT_NANOS);
             }
         } catch (InterruptedException e) {
@@ -293,6 +355,7 @@ public final class Computer {
         heapUsed = instance.export("mpy_heap_used");
         replNeedsMore = instance.export("mpy_repl_needs_more");
         where = optionalExport(instance, "mpy_where");
+        value = optionalExport(instance, "mpy_value");
         long rc = instance.export("mpy_init").apply(heapBytes)[0];
         if (rc != 0) {
             throw new IllegalStateException("mpy_init failed: " + rc + " " + takeOutput());
@@ -458,7 +521,7 @@ public final class Computer {
                                 // Watched or stepping, the engine runs its traced loop (vm_split.c);
                                 // otherwise its plain one, which costs nothing extra.
                                 watchSent = watched;
-                                return new long[] {sliceBudget | (stepping ? STEP_BIT : 0) | (watched ? WATCH_BIT : 0)};
+                                return new long[] {sliceBudget | (stepping && !showingValue ? STEP_BIT : 0) | (watched ? WATCH_BIT : 0)};
                         }
                     }),
             new HostFunction("host", "submit", FunctionType.of(List.of(I32, I32), List.of(I32)),
@@ -529,6 +592,9 @@ public final class Computer {
                     }),
             new HostFunction("host", "line", FunctionType.of(List.of(I32), List.of(I32)),
                     (inst, args) -> {
+                        if (showingValue) {
+                            return new long[] {0}; // a value's __repr__ running while held: it isn't stepped
+                        }
                         // Stepping, and the program reached a new line of the player's code: hold it there.
                         if (stepping && stop == StopMode.NONE) {
                             paused = true;

@@ -135,6 +135,13 @@ final class CodeView {
     /** The line the program is on (0-based), marked green while it runs and amber while paused; -1 for none. */
     int runLine = -1;
     boolean runPaused;
+    /** Which pause this is: values are asked again for each step. */
+    int runStep;
+    /** Asks a name's value in the program held on a step; the answer comes later ("!none", "!local" or "type: repr"). */
+    java.util.function.BiConsumer<String, java.util.function.Consumer<String>> valueAsker;
+    /** Values asked for during this pause, by name ("" while the answer is on its way). */
+    private final java.util.Map<String, String> values = new java.util.concurrent.ConcurrentHashMap<>();
+    private int valuesStep = -1;
 
     /** Scrolls so a line (0-based) is in view. */
     void reveal(int line) {
@@ -452,6 +459,9 @@ final class CodeView {
                 return;
             }
         }
+        if (renderValue(ui, line, column, screenRight, screenBottom)) {
+            return;
+        }
         boolean sameWord = hover != null && line == hoverLine && column >= hover.start() && column < hover.end();
         if (hoverVersion != buffer.version() || !(sameWord || (line == hoverLine && column == hoverColumn))) {
             Docs.Hint found = Docs.lookup(buffer, line, column);
@@ -501,6 +511,71 @@ final class CodeView {
         for (int i = 0; i < rows.size(); i++) {
             ui.mono(rows.get(i), x + 6, y + 3 + i * Ui.CELL_H, isSignature.get(i) ? Ui.SYN_FUNCTION : Ui.TEXT);
         }
+    }
+
+    /**
+     * Held on a step (F8): the value of the variable under the mouse, asked of the program
+     * ("count = int: 12"). Functions, modules and classes show their help instead. True if
+     * a box was drawn.
+     */
+    private boolean renderValue(Ui ui, int line, int column, int screenRight, int screenBottom) {
+        if (!runPaused || runLine < 0 || valueAsker == null || line < 0 || line >= buffer.lineCount()) {
+            return false;
+        }
+        if (valuesStep != runStep) {
+            values.clear();
+            valuesStep = runStep;
+        }
+        String text = buffer.line(line);
+        if (column < 0 || column >= text.length() || !(Character.isLetterOrDigit(text.charAt(column)) || text.charAt(column) == '_')) {
+            return false;
+        }
+        int start = column;
+        int end = column;
+        while (start > 0 && (Character.isLetterOrDigit(text.charAt(start - 1)) || text.charAt(start - 1) == '_')) {
+            start--;
+        }
+        while (end < text.length() && (Character.isLetterOrDigit(text.charAt(end)) || text.charAt(end) == '_')) {
+            end++;
+        }
+        String name = text.substring(start, end);
+        if (Character.isDigit(name.charAt(0)) || (start > 0 && text.charAt(start - 1) == '.')) {
+            return false; // a number, or an attribute (obj.name): not a variable of its own
+        }
+        String known = values.get(name);
+        if (known == null) {
+            values.put(name, "");
+            valueAsker.accept(name, answer -> values.put(name, answer));
+            return false;
+        }
+        if (known.isEmpty() || known.equals("!none") || known.startsWith("function: ") || known.startsWith("module: ")
+                || known.startsWith("type: ") || known.startsWith("bound_method: ")) {
+            return false; // not a variable with a value to show (or still asking): its help, if any
+        }
+        List<String> rows = new ArrayList<>();
+        if (known.equals("!local")) {
+            rows.addAll(Docs.wrap(name + ": a variable of this function. Only its parameters and the file's top-level "
+                    + "variables can be shown while it is held.", HOVER_COLUMNS));
+        } else {
+            rows.addAll(Docs.wrap(name + " = " + known, HOVER_COLUMNS));
+        }
+        int longest = 0;
+        for (String row : rows) {
+            longest = Math.max(longest, row.length());
+        }
+        int width = longest * Ui.CELL_W + 12;
+        int height = rows.size() * Ui.CELL_H + 6;
+        int wordX = textLeft + (start - scrollColumn) * Ui.CELL_W - 5;
+        int x = Math.max(2, Math.min(wordX, screenRight - width - 4));
+        int lineY = area.y() + (line - scrollLine) * Ui.CELL_H;
+        int y = lineY + Ui.CELL_H + 2 + height <= screenBottom ? lineY + Ui.CELL_H + 2 : Math.max(2, lineY - height - 2);
+        ui.fill(x + 2, y + 2, width, height, Ui.SHADOW);
+        ui.fill(x, y, width, height, Ui.MENU_BG);
+        ui.outline(x, y, width, height, Ui.STATUS_BG);
+        for (int i = 0; i < rows.size(); i++) {
+            ui.mono(rows.get(i), x + 6, y + 3 + i * Ui.CELL_H, i == 0 && !known.equals("!local") ? Ui.SYN_KEY : Ui.TEXT);
+        }
+        return true;
     }
 
     /** The box saying what is wrong, under the marked code. */
@@ -566,6 +641,11 @@ final class CodeView {
         double range = Math.max(1, area.height() - thumb.height());
         double position = (y - area.y() - thumb.height() / 2.0) / range;
         scrollLine = (int) Math.round(Math.clamp(position, 0.0, 1.0) * maxScrollLine());
+    }
+
+    /** For the screenshot run: the middle of a character, in editor units. */
+    double[] pointFor(int line, int column) {
+        return new double[] {textLeft + (column - scrollColumn) * Ui.CELL_W + Ui.CELL_W / 2.0, area.y() + (line - scrollLine) * Ui.CELL_H + Ui.CELL_H / 2.0};
     }
 
     /** The line and column of the character under a point (not the gap the cursor would take). */

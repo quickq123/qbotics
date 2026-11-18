@@ -1191,6 +1191,100 @@ static MP_NOINLINE void vm_trace(mp_code_state_t *cs, const byte *at) {
     }
 }
 
+// ---- values while held (the editor's hover, stepping) --------------------------------
+
+// Printing a value for the editor: at most this many bytes are kept (a long list is cut short).
+#define VALUE_CAP 600
+
+typedef struct {
+    vstr_t *out;
+} capped_t;
+
+static void capped_strn(void *env, const char *str, size_t len) {
+    vstr_t *out = ((capped_t *)env)->out;
+    if (out->len < VALUE_CAP) {
+        vstr_add_strn(out, str, len < VALUE_CAP - out->len ? len : VALUE_CAP - out->len);
+    }
+}
+
+// "type: repr" of a value, into buf; its length.
+static int32_t value_text(mp_obj_t value, char *buf, int32_t cap) {
+    vstr_t out;
+    vstr_init(&out, 64);
+    capped_t env = {&out};
+    mp_print_t print = {&env, capped_strn};
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) {
+        mp_printf(&print, "%s: ", mp_obj_get_type_str(value));
+        mp_obj_print_helper(&print, value, PRINT_REPR);
+        nlr_pop();
+    } else {
+        out.len = 0;
+        vstr_add_str(&out, "(its value raised an error when shown)");
+    }
+    int32_t n = (int32_t)(out.len < (size_t)cap ? out.len : (size_t)cap);
+    memcpy(buf, out.buf, n);
+    vstr_clear(&out);
+    return n;
+}
+
+// The value of a name where the program is held on a step: a parameter of the function it is
+// in, else a name of that function's module (its top-level variables, functions, imports).
+// Writes "type: repr" into buf and returns its length; -1 if no such name is there now; -2 if
+// it is a local variable of a function (MicroPython keeps those by number, not by name).
+int32_t mpy_value_now(const char *name, size_t len, char *buf, int32_t cap) {
+    qstr q = qstr_find_strn(name, len);
+    if (q == MP_QSTRnull) {
+        return -1; // not a name the program has
+    }
+    mp_code_state_t *cs = step_cs;
+    mp_obj_dict_t *globals = mp_globals_get();
+    bool in_function = false;
+    if (cs != NULL) {
+        const mp_obj_fun_bc_t *fun = cs->fun_bc;
+        globals = fun->context->module.globals;
+        const byte *ip = fun->bytecode;
+        MP_BC_PRELUDE_SIG_DECODE(ip);
+        MP_BC_PRELUDE_SIZE_DECODE(ip);
+        (void)n_exc_stack; (void)n_def_pos_args; (void)scope_flags;
+        // After the name and line table: the numbers of the locals kept in cells (a variable a
+        // nested function also uses), one byte each.
+        const byte *cells = ip + n_info;
+        #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+        qstr block = fun->context->constants.qstr_table[mp_decode_uint(&ip)];
+        #else
+        qstr block = mp_decode_uint(&ip);
+        #endif
+        in_function = block != MP_QSTR__lt_module_gt_;
+        for (size_t i = 0; i < n_pos_args + n_kwonly_args; ++i) {
+            #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+            qstr arg = fun->context->constants.qstr_table[mp_decode_uint(&ip)];
+            #else
+            qstr arg = mp_decode_uint(&ip);
+            #endif
+            if (arg == q) {
+                mp_obj_t value = cs->state[n_state - 1 - i];
+                if (value == MP_OBJ_NULL) {
+                    return -1;
+                }
+                for (size_t c = 0; c < n_cell; ++c) {
+                    if (cells[c] == i) {
+                        value = mp_obj_cell_get(value);
+                        break;
+                    }
+                }
+                return value_text(value, buf, cap);
+            }
+        }
+    }
+    mp_map_elem_t *found = mp_map_lookup(&globals->map, MP_OBJ_NEW_QSTR(q), MP_MAP_LOOKUP);
+    if (found != NULL) {
+        return value_text(found->value, buf, cap);
+    }
+    // Held inside a function (not at the top of the file): a name it sets is a local of it.
+    return in_function ? -2 : -1;
+}
+
 // Where the program is, for the host: the last line of the player's own code, and its file.
 int32_t mpy_where_now(qstr *file) {
     *file = mpy_where_file;

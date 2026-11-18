@@ -571,6 +571,16 @@ public final class ServerComputer {
         }
     }
 
+    /** A name's value in the program held on a step, for the editor's hover (engine.Computer.valueOf). */
+    public CompletableFuture<String> valueOf(String name) {
+        ServerComputer remote = sshRemote;
+        if (remote != null) {
+            return remote.valueOf(name);
+        }
+        Computer current = vm;
+        return current == null ? CompletableFuture.completedFuture("!none") : current.valueOf(name);
+    }
+
     /** The editor's Run button: run a Python file, as if "run file" had been typed. */
     public void submitRunFile(String path) {
         submitRunFile(path, false);

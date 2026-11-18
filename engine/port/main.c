@@ -127,6 +127,15 @@ WASM_EXPORT("mpy_where") int32_t mpy_where(char *buf, int32_t cap) {
     return line;
 }
 
+// The value of a name where the program is held on a step (see vm_split.c), for the editor's
+// hover: "type: repr" into buf (up to cap bytes). Its length; -1 no such name there; -2 a
+// local variable of a function, which isn't kept by name.
+extern int32_t mpy_value_now(const char *name, size_t len, char *buf, int32_t cap);
+
+WASM_EXPORT("mpy_value") int32_t mpy_value(const char *name, int32_t len, char *buf, int32_t cap) {
+    return mpy_value_now(name, (size_t)len, buf, cap);
+}
+
 WASM_EXPORT("mpy_gc_collect") void mpy_gc_collect(void) {
     gc_collect();
 }

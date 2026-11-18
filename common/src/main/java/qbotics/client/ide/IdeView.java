@@ -1313,6 +1313,11 @@ final class IdeView {
             boolean here = session.traceLine > 0 && session.traceFile.equals(tab.path);
             tab.view.runLine = here ? session.traceLine - 1 : -1;
             tab.view.runPaused = session.tracePaused;
+            tab.view.runStep = session.traceStep;
+            if (tab.view.valueAsker == null) {
+                tab.view.valueAsker = (name, answer) -> backend.file(FileRequest.VALUE, name, new byte[0],
+                        (errno, data) -> answer.accept(errno == 0 ? new String(data, StandardCharsets.UTF_8) : "!none"));
+            }
             tab.view.render(ui, r, session.focus == Focus.EDITOR && dialog == null && !typingInFind, cursorOn);
             if (tab.find.open) {
                 drawFindBar(ui, tab, cursorOn);
@@ -1758,6 +1763,12 @@ final class IdeView {
                 return;
             }
         }
+    }
+
+    /** For the screenshot run: where a character of the open file is, in editor units (null if none is open). */
+    double[] pointForShots(int line, int column) {
+        Tab tab = session.active();
+        return tab == null || tab.view == null ? null : tab.view.pointFor(line, column);
     }
 
     /** For the screenshot run: Ctrl+click at a place in the open file, as the mouse would. */

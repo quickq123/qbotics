@@ -91,6 +91,8 @@ final class IdeSession {
     /** Where the program is (sent while the editor is open): its file, line (1-based, 0 none) and whether paused. */
     String traceFile = "";
     int traceLine;
+    /** Counts the pauses seen, so values shown for one step aren't shown for the next. */
+    int traceStep;
     boolean tracePaused;
 
     // Explorer

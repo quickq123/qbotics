@@ -273,6 +273,12 @@ still moving, a `time.sleep`), the marked line is the one that called it.
   come round again each turn, and stepping goes into your own functions. F8 while it runs
   stops it at the next line. Ctrl+Z carries on at full speed.
 - Ctrl+C still stops it at any time.
+- **While it is held on a step**, rest the mouse on a variable in the code to see its value:
+  `count = int: 6`, `names = list: ['coal', 'charcoal']` (a long one is cut short). That works
+  for the file's top-level variables, and for a function's parameters while the program is
+  inside it. A function's other variables can't be shown: Python on the computer keeps those
+  by number, not by name, so the box says so. Functions, modules and classes show their help
+  as usual.
 
 Watching costs nothing to programs nobody has open. A program whose editor is open runs a
 little slower (for typical programs, which mostly wait on the world, not noticeably; tight

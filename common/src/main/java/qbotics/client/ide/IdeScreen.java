@@ -165,6 +165,12 @@ public class IdeScreen extends Screen implements IdeView.Host {
         view.clickNetworkForShots(name);
     }
 
+    /** For the screenshot run: where a character of the open file is drawn, in GUI units. */
+    public double[] pointForShots(int line, int column) {
+        double[] at = view.pointForShots(line, column);
+        return at == null ? null : new double[] {at[0] * scale, at[1] * scale};
+    }
+
     public void ctrlClickForShots(int line, int column) {
         view.ctrlClickForShots(line, column);
     }
