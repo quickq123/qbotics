@@ -53,25 +53,30 @@ final class QbotCalls {
 
     /** When each Qbot last took a view (game time). */
     private static final java.util.Map<java.util.UUID, Long> LAST_VIEW = new java.util.HashMap<>();
-    /** Game ticks between a Qbot's views: four a second. */
-    public static final int VIEW_TICKS = 5;
+    /** Game ticks between a Qbot's views, from the server's setting (5 a second unless changed: 4 ticks). */
+    static int viewTicks() {
+        int rate = Math.clamp(qbotics.QboticsConfig.qbotViewsPerSecond, 1, 10);
+        return (20 + rate - 1) / rate;
+    }
 
     /**
      * What it sees (qbotics.camera.ConeView): drawn in each player's game from the faces it can
-     * see, so the server lists them instead of tracing a ray a pixel. Four a second of game time:
+     * see, so the server lists them instead of tracing a ray a pixel. As many a second of game time
+     * as the server's setting allows (qbots.views_per_second, 5 unless changed):
      * too soon, it is {"wait": ticks} for a program that waits, else an error. (A program can't
      * time it by the clock: a busy server's second is longer than a real one.) snapshot() is this too.
      */
     private static JsonElement view(ServerLevel level, QbotBlockEntity qbot, int width, int height, double pitch, boolean wait) {
         long now = level.getGameTime();
         Long last = LAST_VIEW.get(qbot.deviceId());
-        if (last != null && now - last < VIEW_TICKS && now >= last) {
+        int ticks = viewTicks();
+        if (last != null && now - last < ticks && now >= last) {
             if (wait) {
                 JsonObject reply = new JsonObject();
-                reply.addProperty("wait", VIEW_TICKS - (now - last));
+                reply.addProperty("wait", ticks - (now - last));
                 return reply;
             }
-            throw new CallError("A Qbot takes four pictures a second; wait a moment.");
+            throw new CallError("A Qbot takes up to " + qbotics.QboticsConfig.qbotViewsPerSecond + " pictures a second here; wait a moment.");
         }
         if (width < 1 || height < 1 || width > qbotics.camera.ConeView.MAX_WIDTH || height > qbotics.camera.ConeView.MAX_HEIGHT) {
             throw new CallError("A picture is 1 to " + qbotics.camera.ConeView.MAX_WIDTH + " pixels wide and 1 to "

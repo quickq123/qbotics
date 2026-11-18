@@ -9,7 +9,7 @@ web = network().web_panel()
 web.html('<body style="margin: 0"><img src="image:cam" style="width: 100%; height: 100%"></body>')
 
 while True:
-    picture = qbot.view()                # 256 x 192 pixels (the most), up to four a second
+    picture = qbot.view()                # 256 x 192 pixels (the most), up to 5 a second
     web.image("cam", picture)            # players' games draw it with the game's own blocks
     seen = picture.counts()
     seen.pop(None, None)                 # the sky

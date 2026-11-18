@@ -436,8 +436,8 @@ def view(width=256, height=192, pitch=0, wait=True):
     """A picture of what it sees ahead, up to 32 blocks away: blocks, water, creatures and items,
     drawn in each player's game with the game's own models, in even light (a Qbot sees in the
     dark). pitch tilts it up (positive) or down, in degrees. At most 256 x 192 pixels (past
-    128 x 96 each name block_at gives covers 2 x 2 pixels), four pictures a second: asked
-    sooner, it waits until it may (wait=False raises QbotError instead). Gives a Picture: show
+    128 x 96 each name block_at gives covers 2 x 2 pixels), 5 pictures a second (a server may allow up
+    to 10): asked sooner, it waits until it may (wait=False raises QbotError instead). Gives a Picture: show
     it with web.image("name", pic), and ask it what it shows with block_at, creature_at,
     item_at and counts."""
     while True:

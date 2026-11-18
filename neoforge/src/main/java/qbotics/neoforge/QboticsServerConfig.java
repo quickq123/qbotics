@@ -53,6 +53,7 @@ final class QboticsServerConfig {
     private static final ModConfigSpec.IntValue TRANSPORT_ENERGY;
     private static final ModConfigSpec.BooleanValue SENSORS_READ_OTHERS;
     private static final ModConfigSpec.BooleanValue SENSORS_ATTACK_PLAYERS;
+    private static final ModConfigSpec.IntValue QBOT_VIEWS;
     private static final ModConfigSpec.BooleanValue CHAT_INTERFACES;
     private static final ModConfigSpec.BooleanValue CHAT_AS_OWNER;
 
@@ -178,6 +179,13 @@ final class QboticsServerConfig {
                 .define("attack_players", false);
         BUILDER.pop();
 
+        BUILDER.push("qbots");
+        QBOT_VIEWS = BUILDER.comment("Pictures (qbot.view()) each Qbot may take a second of game time. Each costs the server a few",
+                "milliseconds and sends a few KB to every player near the screen showing it. Screens update players at most",
+                "10 times a second, so that is the most. A program asking sooner waits its turn.")
+                .defineInRange("views_per_second", 5, 1, 10);
+        BUILDER.pop();
+
         BUILDER.push("chat_interfaces");
         CHAT_INTERFACES = BUILDER.comment("false: Chat Interfaces do nothing (they neither write to chat, run commands, nor hear chat).").define("enabled", true);
         CHAT_AS_OWNER = BUILDER.comment("true: what a Chat Interface writes is signed with its owner's name, so nobody can pass for the server",
@@ -237,6 +245,7 @@ final class QboticsServerConfig {
         QboticsConfig.transportEnergyPerSecond = TRANSPORT_ENERGY.get();
         QboticsConfig.sensorsReadOtherPlayers = SENSORS_READ_OTHERS.get();
         QboticsConfig.sensorsAttackPlayers = SENSORS_ATTACK_PLAYERS.get();
+        QboticsConfig.qbotViewsPerSecond = QBOT_VIEWS.get();
         QboticsConfig.chatInterfaces = CHAT_INTERFACES.get();
         QboticsConfig.chatSpeakAsOwner = CHAT_AS_OWNER.get();
     }

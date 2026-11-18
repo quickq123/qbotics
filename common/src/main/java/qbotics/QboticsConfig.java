@@ -104,6 +104,15 @@ public final class QboticsConfig {
     public static volatile boolean sensorsReadOtherPlayers = false;
     /** Whether an Entity Sensor's attack() may hit players. */
     public static volatile boolean sensorsAttackPlayers = false;
+    // ---- [qbots] -------------------------------------------------------------------------------
+
+    /**
+     * Pictures (view()) each Qbot may take a second of game time, 1 to 10. Each costs the server
+     * a few milliseconds and sends a few KB to each player near the screen showing it; screens
+     * update players at most 10 times a second, so more would never be seen.
+     */
+    public static volatile int qbotViewsPerSecond = 5;
+
     /** Whether Chat Interfaces work at all. */
     public static volatile boolean chatInterfaces = true;
     /** Whether what a Chat Interface writes is signed with its owner's name (else the interface's own name). */

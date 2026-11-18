@@ -2455,7 +2455,7 @@ web.image("cam", pic)                # players see the picture, drawn with the g
 
 | Call | Does |
 |---|---|
-| `qbot.view(width=256, height=192, pitch=0, wait=True)` | A picture of what is in front of it, up to 32 blocks away. `pitch` tilts it up (positive) or down, in degrees. At most 256 x 192, **four a second** of game time: asked sooner, it waits until it may (`wait=False` raises `QbotError` instead). Don't time pictures by the clock: a busy server's second is longer than a real one. Even light everywhere: a Qbot sees in the dark |
+| `qbot.view(width=256, height=192, pitch=0, wait=True)` | A picture of what is in front of it, up to 32 blocks away. `pitch` tilts it up (positive) or down, in degrees. At most 256 x 192, **5 a second** of game time (the server's `views_per_second` setting, 1 to 10): asked sooner, it waits until it may (`wait=False` raises `QbotError` instead). Don't time pictures by the clock: a busy server's second is longer than a real one. Even light everywhere: a Qbot sees in the dark |
 | `qbot.snapshot(width=256, height=192, pitch=0, wait=True)` | The same as `view()` (another name for it) |
 | `pic.width`, `pic.height` | Its size in pixels |
 | `pic.block_at(x, y)` | What a pixel shows: a block's id, `"monster"`, `"animal"`, `"player"` or `"creature"`, or `None` for the sky (0, 0 is the top left). Past 128 x 96, each name covers a 2 x 2 square of pixels |
@@ -3263,6 +3263,7 @@ even across restarts, until someone opens it again.
 | `chat_interfaces.enabled` | true | `false`: Chat Interfaces do nothing: they neither write to chat, run commands, nor hear chat |
 | `chat_interfaces.speak_as_owner` | true | `true`: what a Chat Interface writes is signed with its owner's name. `false`: with the interface's own name, which its owner chooses |
 | `sensors.attack_players` | false | `true`: an Entity Sensor's `attack()` may hit players (where the server allows PvP). `false`: it raises an error instead |
+| `qbots.views_per_second` | 5 | Pictures (`qbot.view()`) each Qbot may take a second of game time, 1 to 10. Each costs the server a few milliseconds and sends a few KB to each player near the screen showing it; screens update players at most 10 times a second |
 
 ## 9c. Hard drives and the Drive Bay: moving files between computers
 

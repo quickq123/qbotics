@@ -3302,7 +3302,7 @@ public final class QboticsGameTests {
         }
         computer.submitLine("run /cam.py");
         helper.succeedWhen(() -> {
-            assertScreen(helper, computer, "pic 32 24", "middle animal", "stone True pig True", "again: A Qbot takes four pictures a second",
+            assertScreen(helper, computer, "pic 32 24", "middle animal", "stone True pig True", "again: A Qbot takes up to 5 pictures a second",
                     "waited 8", "shown");
             qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(2, 1, 5), qbotics.block.DisplayBlockEntity.class);
             qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();
@@ -3314,7 +3314,7 @@ public final class QboticsGameTests {
 
     /**
      * A Qbot's view (qbot.view(), beside snapshot()): a stone wall with a pig before it, what its
-     * pixels show, four views a second, and the view on a web panel, sent to players' games whole.
+     * pixels show, five views a second (the server's setting), and the view on a web panel, sent to players' games whole.
      */
     private static void qbotView(GameTestHelper helper) {
         BlockPos start = new BlockPos(1, 1, 5);
@@ -3364,7 +3364,7 @@ public final class QboticsGameTests {
         }
         computer.submitLine("run /view.py");
         helper.succeedWhen(() -> {
-            assertScreen(helper, computer, "view 64 48", "middle animal", "stone True pig True", "which animal minecraft:pig None", "again: A Qbot takes four pictures a second",
+            assertScreen(helper, computer, "view 64 48", "middle animal", "stone True pig True", "which animal minecraft:pig None", "again: A Qbot takes up to 5 pictures a second",
                     "waited 8", "big 256 192 True 49152", "shown");
             qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(2, 1, 5), qbotics.block.DisplayBlockEntity.class);
             qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();
