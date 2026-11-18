@@ -109,6 +109,16 @@ public class IdeScreen extends Screen implements IdeView.Host {
                 ? new StorageLook(device, this.width, this.height) : new DeviceLook(device, this.width, this.height, fromStorage));
     }
 
+    /** Whether a device or storage is shown over the editor (its items' tooltips then show names and tags). */
+    public boolean looking() {
+        return !looks.isEmpty();
+    }
+
+    /** Where the first item of what is shown over the editor was drawn, or null; for the screenshots. */
+    public int[] firstItemForShots() {
+        return looks.isEmpty() ? null : looks.peek().firstItem();
+    }
+
     /** What the device shown over the editor says beside its picture, or null; for the screenshots. */
     public java.util.List<String> deviceTextForShots() {
         return looks.isEmpty() ? null : looks.peek().text();

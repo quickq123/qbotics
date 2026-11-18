@@ -13,6 +13,11 @@ interface Look {
     /** What it says, for the screenshots and tests. */
     List<String> text();
 
+    /** Where its first item was drawn (GUI units), or null; for the screenshots to hover it. */
+    default int @Nullable [] firstItem() {
+        return null;
+    }
+
     /** A click on something in it that opens another look: {kind, address}; null if the click closes it. */
     default String @Nullable [] clicked(double mouseX, double mouseY) {
         return null;

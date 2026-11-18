@@ -1304,6 +1304,17 @@ public final class ScreenshotRun {
                 }
             });
             then(5, minecraft -> shot(minecraft, shots[which]));
+            if (which == 2) {
+                // The mouse over the storage's first item: its tooltip lists its name and tags.
+                then(2, minecraft -> {
+                    if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide && ide.firstItemForShots() != null) {
+                        var window = minecraft.getWindow();
+                        int[] at = ide.firstItemForShots();
+                        org.lwjgl.glfw.GLFW.glfwSetCursorPos(window.handle(), at[0] * window.getGuiScale(), at[1] * window.getGuiScale());
+                    }
+                });
+                then(5, minecraft -> shot(minecraft, "ide-look-storage-tags"));
+            }
         }
     }
 

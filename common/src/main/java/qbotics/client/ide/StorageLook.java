@@ -51,6 +51,7 @@ final class StorageLook implements Look {
     private final List<Long> heldCounts = new ArrayList<>();
     private int kinds;
     private final List<Row> rows = new ArrayList<>();
+    private int @Nullable [] firstItem;
     private int width;
     private int height;
 
@@ -176,6 +177,9 @@ final class StorageLook implements Look {
             int iy = y + (i / ICONS_PER_ROW) * ICON;
             graphics.fill(ix, iy, ix + 17, iy + 17, BAR_BACK);
             graphics.item(held.get(i), ix, iy);
+            if (i == 0) {
+                firstItem = new int[] {ix + 8, iy + 8};
+            }
             graphics.text(font, shortCount(heldCounts.get(i)), ix + 20, iy + 5, TEXT, false);
             if (mouseX >= ix && mouseX < ix + 17 && mouseY >= iy && mouseY < iy + 17) {
                 hovered = held.get(i);
@@ -205,6 +209,11 @@ final class StorageLook implements Look {
             parts.add(m.strays() + " stray" + (m.strays() == 1 ? "" : "s"));
         }
         return String.join("   ", parts);
+    }
+
+    @Override
+    public int @Nullable [] firstItem() {
+        return firstItem;
     }
 
     @Override

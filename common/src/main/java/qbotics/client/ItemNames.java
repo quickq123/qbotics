@@ -16,6 +16,8 @@ import qbotics.block.ProbeItem;
  * name); Ctrl+C copies that name, and holding Shift lists the item's tags, which are what
  * a filter such as "#minecraft:logs" tests, the short data words that hold for that stack
  * (enchant=mending) and, for a stack with data, the exact filter naming it, which Ctrl+Shift+C copies.
+ * The same lines, tags and all without Shift, show on the items of a device or storage Ctrl+clicked
+ * in the editor (no probe needed there: looking up names is what that view is for).
  */
 public final class ItemNames {
     private static final int KEY_C = 67;
@@ -42,9 +44,15 @@ public final class ItemNames {
         return minecraft.player != null && minecraft.player.getMainHandItem().getItem() instanceof ProbeItem;
     }
 
+    /** A device or storage shown over the editor (Ctrl+click): its items show their names and tags. */
+    private static boolean editorLook() {
+        return Minecraft.getInstance().screen instanceof qbotics.client.ide.IdeScreen ide && ide.looking();
+    }
+
     /** Adds the lines to an item's tooltip. Called whenever a tooltip is made. */
     public static void tooltip(ItemStack stack, List<Component> lines) {
-        if (stack.isEmpty() || !probeInHand()) {
+        boolean look = editorLook();
+        if (stack.isEmpty() || !(look || probeInHand())) {
             return;
         }
         long now = System.currentTimeMillis();
@@ -58,7 +66,7 @@ public final class ItemNames {
             lines.add(Component.translatable("tooltip.qbotics.probe.fluid", Component.literal(fluid).withStyle(ChatFormatting.YELLOW))
                     .withStyle(ChatFormatting.GRAY));
         }
-        if (Minecraft.getInstance().hasShiftDown()) {
+        if (look || Minecraft.getInstance().hasShiftDown()) {
             // What sets this stack apart from its kind: the short filter words, and a filter naming exactly it.
             List<String> words = qbotics.network.ItemData.words(stack);
             if (!words.isEmpty()) {
@@ -86,7 +94,7 @@ public final class ItemNames {
             }
         }
         boolean justCopied = (name.equals(copied) || (!exact.isEmpty() && exact.equals(copied))) && now - copiedAt < COPIED_MS;
-        lines.add(Component.translatable(justCopied ? "tooltip.qbotics.probe.copied" : "tooltip.qbotics.probe.hint")
+        lines.add(Component.translatable(justCopied ? "tooltip.qbotics.probe.copied" : look ? "tooltip.qbotics.look.hint" : "tooltip.qbotics.probe.hint")
                 .withStyle(justCopied ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
     }
 
@@ -94,7 +102,7 @@ public final class ItemNames {
     public static void keyPressed(int key) {
         Minecraft minecraft = Minecraft.getInstance();
         long now = System.currentTimeMillis();
-        if (key == KEY_C && minecraft.hasControlDown() && probeInHand() && now - hoveredAt < HOVER_MS && !hovered.isEmpty()) {
+        if (key == KEY_C && minecraft.hasControlDown() && (probeInHand() || editorLook()) && now - hoveredAt < HOVER_MS && !hovered.isEmpty()) {
             // With Shift too, the exact filter (data and all) of a stack that has data.
             String text = minecraft.hasShiftDown() && !exact.isEmpty() && exactFor.equals(hovered) ? exact : hovered;
             minecraft.keyboardHandler.setClipboard(text);

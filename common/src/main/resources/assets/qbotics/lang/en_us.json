@@ -139,6 +139,7 @@
   "tooltip.qbotics.probe.name": "Name in programs: %s",
   "tooltip.qbotics.probe.fluid": "Fluid inside: %s",
   "tooltip.qbotics.probe.hint": "Ctrl+C copies the name. Hold Shift for its tags and data.",
+  "tooltip.qbotics.look.hint": "Ctrl+C copies the name.",
   "tooltip.qbotics.probe.words": "Data words: %s",
   "tooltip.qbotics.probe.exact": "Exactly this (Ctrl+Shift+C): %s",
   "tooltip.qbotics.probe.copied": "Copied",
