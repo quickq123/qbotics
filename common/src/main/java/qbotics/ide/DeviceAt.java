@@ -15,8 +15,14 @@ public final class DeviceAt {
     private DeviceAt() {
     }
 
-    /** A device by kind ("bus") and name (null: the network's only one of that kind). */
-    public record Found(String kind, @Nullable String name) {
+    /**
+     * A device by kind ("bus") and name (null: the network's only one of that kind); or, for
+     * kind "storage", the names and patterns a storage is made of, in group.
+     */
+    public record Found(String kind, @Nullable String name, List<String> group) {
+        public Found(String kind, @Nullable String name) {
+            this(kind, name, List.of());
+        }
     }
 
     /** The network's finders that name one device. */
@@ -25,6 +31,9 @@ public final class DeviceAt {
             + "|programmer|drive_bay|pin|placer|breaker|dropper";
     /** .bus("name"), .bus('name') or .bus(). */
     private static final Pattern FINDER = Pattern.compile("\\.(" + KINDS + ")\\(\\s*(?:([\"'])([^\"']*)\\2)?\\s*\\)");
+    /** .storage(...): its values, which may hold one level of brackets (net.bus("chest-d")). */
+    private static final Pattern STORAGE = Pattern.compile("\\.storage\\(((?:[^()]|\\([^()]*\\))*)\\)");
+    private static final Pattern QUOTED = Pattern.compile("([\"'])([^\"']*)\\1");
 
     /** The device named at this place (0-based line and column), or null if none is. */
     public static @Nullable Found at(List<String> lines, int line, int column) {
@@ -43,25 +52,55 @@ public final class DeviceAt {
                 return found(call);
             }
         }
+        Matcher group = STORAGE.matcher(text);
+        while (group.find()) {
+            int start = group.start();
+            while (start > 0 && isNameChar(text.charAt(start - 1))) {
+                start--;
+            }
+            if (column >= start && column <= group.end()) {
+                return storage(group.group(1));
+            }
+        }
         String word = wordAt(text, column);
         if (word == null) {
             return null;
         }
         Pattern assigned = Pattern.compile("^\\s*" + Pattern.quote(word) + "\\s*=(?!=)[^#]*?" + FINDER.pattern());
+        Pattern assignedGroup = Pattern.compile("^\\s*" + Pattern.quote(word) + "\\s*=(?!=)[^#]*?" + STORAGE.pattern());
         // The nearest setting at or above the click, else the first one below it.
         for (int i = line; i >= 0; i--) {
-            Matcher m = assigned.matcher(lines.get(i));
-            if (m.find()) {
-                return found(m, m.groupCount() - 2);
+            Found found = setting(assigned, assignedGroup, lines.get(i));
+            if (found != null) {
+                return found;
             }
         }
         for (int i = line + 1; i < lines.size(); i++) {
-            Matcher m = assigned.matcher(lines.get(i));
-            if (m.find()) {
-                return found(m, m.groupCount() - 2);
+            Found found = setting(assigned, assignedGroup, lines.get(i));
+            if (found != null) {
+                return found;
             }
         }
         return null;
+    }
+
+    private static @Nullable Found setting(Pattern assigned, Pattern assignedGroup, String text) {
+        Matcher m = assigned.matcher(text);
+        if (m.find()) {
+            return found(m, m.groupCount() - 2);
+        }
+        m = assignedGroup.matcher(text);
+        return m.find() ? storage(m.group(m.groupCount())) : null;
+    }
+
+    /** A storage from the text of its values: the names and patterns written in it. */
+    private static @Nullable Found storage(String values) {
+        List<String> names = new java.util.ArrayList<>();
+        Matcher quoted = QUOTED.matcher(values);
+        while (quoted.find()) {
+            names.add(quoted.group(2));
+        }
+        return names.isEmpty() ? null : new Found("storage", null, List.copyOf(names));
     }
 
     private static Found found(Matcher call) {

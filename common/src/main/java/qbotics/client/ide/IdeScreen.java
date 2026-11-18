@@ -20,8 +20,11 @@ public class IdeScreen extends Screen implements IdeView.Host {
     private static boolean crisp = !Boolean.getBoolean("qbotics.idePixelFont");
 
     private final IdeView view;
-    /** A device Ctrl+clicked in the code, shown over the editor until a click or Esc. */
-    private DeviceLook look;
+    /**
+     * What was Ctrl+clicked in the code, shown over the editor until a click or Esc: a device, or
+     * a storage with one of its containers opened over it (Esc goes back a step).
+     */
+    private final java.util.ArrayDeque<Look> looks = new java.util.ArrayDeque<>();
     /** Editor units to Minecraft GUI units. */
     private float scale = 1;
 
@@ -87,29 +90,34 @@ public class IdeScreen extends Screen implements IdeView.Host {
         updateScale();
         graphics.pose().pushMatrix();
         graphics.pose().scale(scale, scale);
-        boolean looking = look != null;
+        boolean looking = !looks.isEmpty();
         view.render(new GameUi(graphics, this.font, pixelSize(), crisp),
                 (int) Math.ceil(this.width / scale), (int) Math.ceil(this.height / scale), looking ? -1 : mouseX / scale, looking ? -1 : mouseY / scale);
         graphics.pose().popMatrix();
         if (looking) {
-            look.render(graphics, mouseX, mouseY, partialTick);
+            looks.peek().render(graphics, mouseX, mouseY, partialTick);
         }
     }
 
     @Override
     public void showDevice(com.google.gson.JsonObject device) {
-        look = new DeviceLook(device, this.width, this.height);
+        boolean fromStorage = !looks.isEmpty() && looks.peek() instanceof StorageLook;
+        if (!fromStorage) {
+            looks.clear();
+        }
+        looks.push("storage".equals(device.has("kind") ? device.get("kind").getAsString() : "")
+                ? new StorageLook(device, this.width, this.height) : new DeviceLook(device, this.width, this.height, fromStorage));
     }
 
     /** What the device shown over the editor says beside its picture, or null; for the screenshots. */
     public java.util.List<String> deviceTextForShots() {
-        return look == null ? null : look.text();
+        return looks.isEmpty() ? null : looks.peek().text();
     }
 
     @Override
     public void resize(int width, int height) {
         super.resize(width, height);
-        if (look != null) {
+        for (Look look : looks) {
             look.resize(width, height);
         }
     }
@@ -185,7 +193,7 @@ public class IdeScreen extends Screen implements IdeView.Host {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
-        if (look != null) {
+        if (!looks.isEmpty()) {
             return true;
         }
         view.charTyped(event.codepoint());
@@ -194,9 +202,9 @@ public class IdeScreen extends Screen implements IdeView.Host {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
-        if (look != null) {
+        if (!looks.isEmpty()) {
             if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
-                look = null;
+                looks.pop();
             }
             return true; // only a picture: keys don't reach the editor under it
         }
@@ -208,8 +216,13 @@ public class IdeScreen extends Screen implements IdeView.Host {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (look != null) {
-            look = null; // a click closes the picture, and does nothing else
+        if (!looks.isEmpty()) {
+            String[] opens = looks.peek().clicked(event.x(), event.y());
+            if (opens != null) {
+                view.lookAtDevice(opens[0], opens[1]); // a storage's container: shown over the list
+            } else {
+                looks.pop(); // a click closes the picture (or goes back a step), and does nothing else
+            }
             return true;
         }
         view.mouseClicked(event.x() / scale, event.y() / scale, event.button(), event.hasShiftDown(), doubleClick, event.hasControlDown());
@@ -230,7 +243,7 @@ public class IdeScreen extends Screen implements IdeView.Host {
 
     @Override
     public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
-        if (look != null) {
+        if (!looks.isEmpty()) {
             return true;
         }
         view.mouseScrolled(x / scale, y / scale, scrollX, scrollY, this.minecraft.hasShiftDown());

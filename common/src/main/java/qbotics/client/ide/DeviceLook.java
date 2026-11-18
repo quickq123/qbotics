@@ -27,7 +27,7 @@ import qbotics.Qbotics;
  * close it, and nothing moves. A screen that can't be made here (some mods' machines) is drawn
  * as plain slots in the same places.
  */
-final class DeviceLook {
+final class DeviceLook implements Look {
     private static final int LABEL = 0xFFFFE85C;
     private static final int TAKES_NOTHING = 0x60FF3030;
     private static final int PANEL = 0xF0101418;
@@ -42,6 +42,8 @@ final class DeviceLook {
     }
 
     private final Minecraft minecraft = Minecraft.getInstance();
+    /** Opened from a storage's list: Esc goes back to it. */
+    private final boolean fromStorage;
     private final List<Spot> spots = new ArrayList<>();
     private final List<String[]> lines = new ArrayList<>(); // {text, colour}
     private @Nullable AbstractContainerScreen<?> screen;
@@ -53,7 +55,8 @@ final class DeviceLook {
     private int width;
     private int height;
 
-    DeviceLook(JsonObject look, int width, int height) {
+    DeviceLook(JsonObject look, int width, int height, boolean fromStorage) {
+        this.fromStorage = fromStorage;
         JsonObject layout = look.has("screen") ? look.getAsJsonObject("screen") : null;
         if (layout != null) {
             for (JsonElement e : layout.getAsJsonArray("slots")) {
@@ -145,6 +148,7 @@ final class DeviceLook {
                 int count = face.get("count").getAsInt();
                 String reach = count == 0 ? "nothing"
                         : face.has("slots") ? "slot" + (face.getAsJsonArray("slots").size() == 1 ? " " : "s ") + join(face.getAsJsonArray("slots"))
+                        : look.has("slots") && count == look.getAsJsonArray("slots").size() ? "all " + count + " slots"
                         : count + " slot" + (count == 1 ? "" : "s");
                 add(String.format("  %-6s (%s)  %s", face.get("face").getAsString(), face.get("side").getAsString(), reach),
                         face.get("face").getAsString().equals(look.has("face") ? look.get("face").getAsString() : "") ? HEAD : TEXT);
@@ -172,7 +176,7 @@ final class DeviceLook {
             }
         }
         add("", TEXT);
-        add("As it was when clicked. Esc or a click closes it.", DIM);
+        add(fromStorage ? "As it was when clicked. Esc or a click goes back." : "As it was when clicked. Esc or a click closes it.", DIM);
     }
 
     private static String join(JsonArray numbers) {
@@ -185,7 +189,8 @@ final class DeviceLook {
         lines.add(new String[] {text, Integer.toString(colour)});
     }
 
-    void resize(int width, int height) {
+    @Override
+    public void resize(int width, int height) {
         this.width = width;
         this.height = height;
         if (screen != null) {
@@ -194,7 +199,8 @@ final class DeviceLook {
     }
 
     /** Drawn over the editor. */
-    void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    @Override
+    public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         Font font = minecraft.font;
         int textWidth = 0;
         for (String[] line : lines) {
@@ -261,7 +267,8 @@ final class DeviceLook {
     }
 
     /** The lines beside the picture, for the screenshots and tests. */
-    List<String> text() {
+    @Override
+    public List<String> text() {
         return lines.stream().map(l -> l[0]).toList();
     }
 }

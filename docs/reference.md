@@ -176,7 +176,12 @@ sees its screen, with what its slots held at that moment:
   furnace: top slot 0, sides slot 1, bottom slots 2 and 1).
 
 An interface, Collector or Player Interface shows its own slots; a fluid or energy bus, the
-tanks or energy it reaches. It is only a picture: nothing can be moved in it, and a click or Esc
+tanks or energy it reaches.
+
+A storage (`net.storage("storage_*")`, or a list of names) shows its containers in the order it
+fills them, each with how full it is, its bus's filter and any strays (things its filter doesn't
+let in), and below them what they hold between them, the most first. Click a container to see it
+as a device; Esc goes back to the list. Handy when a program puts things where you didn't expect. It is only a picture: nothing can be moved in it, and a click or Esc
 closes it. A bus opens its block's screen for a moment to see it, as `open_screen()` does, so
 it needs an owner (a bus placed by a player has one). Another mod's screen that can't be drawn
 here shows as plain slots in the same places, still numbered. The name must be written in the

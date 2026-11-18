@@ -229,7 +229,25 @@ final class IdeView {
         }
         com.google.gson.JsonArray asked = new com.google.gson.JsonArray();
         asked.add(found.kind());
-        asked.add(found.name());
+        if (found.kind().equals("storage")) {
+            com.google.gson.JsonArray group = new com.google.gson.JsonArray();
+            found.group().forEach(group::add);
+            asked.add(group);
+        } else {
+            asked.add(found.name());
+        }
+        inspect(asked);
+    }
+
+    /** One member of a storage shown over the editor, clicked: that device, by its address. */
+    void lookAtDevice(String kind, String address) {
+        com.google.gson.JsonArray asked = new com.google.gson.JsonArray();
+        asked.add(kind);
+        asked.add(address);
+        inspect(asked);
+    }
+
+    private void inspect(com.google.gson.JsonArray asked) {
         backend.file(FileRequest.INSPECT, asked.toString(), new byte[0], (errno, data) -> {
             com.google.gson.JsonObject reply;
             try {

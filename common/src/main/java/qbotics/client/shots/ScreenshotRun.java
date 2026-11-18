@@ -1206,7 +1206,7 @@ public final class ScreenshotRun {
     }
 
     /** What the inspect call told of the devicelook section's furnace and crafting table. */
-    private static final com.google.gson.JsonObject[] LOOKS = new com.google.gson.JsonObject[2];
+    private static final com.google.gson.JsonObject[] LOOKS = new com.google.gson.JsonObject[4];
 
     /**
      * The devicelook section: Ctrl+click on a device in the editor's code shows the block it
@@ -1232,11 +1232,48 @@ public final class ScreenshotRun {
                 bus.onPlaced(player.getUUID());
                 bus.setDeviceName(names[i]);
             }
-            for (int i = 0; i < 2; i++) {
+            // A storage of three: a chest of this and that, a barrel for cobblestone (with some dirt that
+            // strayed in), and a full chest.
+            net.minecraft.world.item.Item[] full = {net.minecraft.world.item.Items.STONE, net.minecraft.world.item.Items.ANDESITE,
+                net.minecraft.world.item.Items.GRANITE, net.minecraft.world.item.Items.DIORITE};
+            for (int i = 0; i < 3; i++) {
+                BlockPos chestAt = at.offset(1, 0, 2 + i);
+                level.setBlock(chestAt, (i == 1 ? Blocks.BARREL : Blocks.CHEST).defaultBlockState(), Block.UPDATE_ALL);
+                if (level.getBlockEntity(chestAt) instanceof net.minecraft.world.Container box) {
+                    if (i == 0) {
+                        box.setItem(0, new ItemStack(net.minecraft.world.item.Items.COAL, 64));
+                        box.setItem(1, new ItemStack(net.minecraft.world.item.Items.COAL, 40));
+                        box.setItem(2, new ItemStack(net.minecraft.world.item.Items.IRON_INGOT, 30));
+                        box.setItem(3, new ItemStack(net.minecraft.world.item.Items.OAK_LOG, 64));
+                        box.setItem(4, new ItemStack(net.minecraft.world.item.Items.STICK, 23));
+                        box.setItem(5, new ItemStack(net.minecraft.world.item.Items.REDSTONE, 64));
+                        box.setItem(6, new ItemStack(net.minecraft.world.item.Items.TORCH, 48));
+                    } else if (i == 1) {
+                        for (int slot = 0; slot < 10; slot++) {
+                            box.setItem(slot, new ItemStack(net.minecraft.world.item.Items.COBBLESTONE, 64));
+                        }
+                        box.setItem(10, new ItemStack(net.minecraft.world.item.Items.DIRT, 3));
+                    } else {
+                        for (int slot = 0; slot < 27; slot++) {
+                            box.setItem(slot, new ItemStack(full[slot % full.length], 64));
+                        }
+                    }
+                }
+                level.setBlock(at.offset(0, 0, 2 + i), QboticsContent.CABLE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+                qbotics.block.CablePort bus = CableBlock.attach(level, at.offset(0, 0, 2 + i), Kind.BUS, qbotics.network.Medium.ITEM, Direction.EAST);
+                bus.onPlaced(player.getUUID());
+                bus.setDeviceName("storage_" + (i + 1));
+                if (i == 1) {
+                    bus.setFilter(new qbotics.network.BusFilter(java.util.List.of("cobblestone"), false, false));
+                }
+            }
+            String[] asked = {"[\"inspect\",\"oven\",\"bus\"]", "[\"inspect\",\"crafter\",\"bus\"]",
+                "[\"inspect\",[\"storage_*\"],\"storage\"]", "[\"inspect\",\"storage_1\",\"bus\"]"};
+            for (int i = 0; i < asked.length; i++) {
                 com.google.gson.JsonObject reply = com.google.gson.JsonParser.parseString(qbotics.network.NetworkCalls.handle(level.getServer(),
-                        level.dimension(), at, "[\"inspect\",\"" + names[i] + "\",\"bus\"]")).getAsJsonObject();
+                        level.dimension(), at, asked[i])).getAsJsonObject();
                 LOOKS[i] = reply.has("r") ? reply.getAsJsonObject("r") : null;
-                Qbotics.LOGGER.info("Screenshot run: inspect {} -> {}", names[i], reply);
+                Qbotics.LOGGER.info("Screenshot run: {} -> {}", asked[i], reply);
             }
             player.getInventory().setItem(player.getInventory().getSelectedSlot(), new ItemStack(QboticsContent.LAPTOP_ITEM.get()));
             qbotics.computer.ServerComputer laptop = qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player);
@@ -1247,6 +1284,7 @@ public final class ScreenshotRun {
                         "oven = net.bus(\"oven\")",
                         "craft = net.bus(\"crafter\")",
                         "move(oven.source(face=\"bottom\"), craft, \"iron_ingot\")",
+                        "chests = net.storage(\"storage_*\")",
                         "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
             } catch (qbotics.engine.HostFileSystem.FsException e) {
                 throw new IllegalStateException(e);
@@ -1256,8 +1294,8 @@ public final class ScreenshotRun {
         then(40, minecraft -> onServer(minecraft, player ->
                 qbotics.computer.ComputerManager.get(player.level().getServer()).getOrStartLaptop(player).submitLine("edit smelt.py")));
         then(60, minecraft -> { });
-        String[] shots = {"ide-look-furnace", "ide-look-crafting"};
-        for (int i = 0; i < 2; i++) {
+        String[] shots = {"ide-look-furnace", "ide-look-crafting", "ide-look-storage", "ide-look-storage-chest"};
+        for (int i = 0; i < 4; i++) {
             int which = i;
             then(10, minecraft -> {
                 if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide && LOOKS[which] != null) {

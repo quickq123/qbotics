@@ -2500,6 +2500,23 @@ public final class NetworkCalls {
      * and energy show their tanks or store. Only looks: nothing is moved.
      */
     private static JsonObject inspect(ServerLevel level, CableNetwork network, BlockPos computerPos, JsonArray args) {
+        if ("storage".equals(string(args, 2))) {
+            // A storage: its containers in the order it fills them, and what they hold between them.
+            JsonObject spec = new JsonObject();
+            spec.add("group", args.get(1).isJsonArray() ? args.get(1) : new JsonArray());
+            spec.add("address", com.google.gson.JsonNull.INSTANCE);
+            spec.add("only", new JsonArray());
+            spec.add("without", new JsonArray());
+            JsonArray sources = new JsonArray();
+            sources.add(spec);
+            JsonArray ask = new JsonArray();
+            ask.add("stock");
+            ask.add(sources);
+            JsonObject look = run(level, network, computerPos, ask).getAsJsonObject();
+            look.addProperty("kind", "storage");
+            look.add("group", spec.get("group"));
+            return look;
+        }
         NetworkDevice device = find(network, string(args, 1), string(args, 2));
         ServerLevel where = levelOf(device, level);
         JsonObject look = describe(where, network, device);

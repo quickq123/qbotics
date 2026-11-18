@@ -4746,7 +4746,9 @@ public final class QboticsGameTests {
                 "craft = net.bus(\"table\")",
                 "print(craft.count(), net.bus('oven').size())",
                 "store = net.interface()",
-                "craft = 3");
+                "craft = 3",
+                "chests = net.storage('storage_*')",
+                "both = net.storage([\"oven\", net.bus(\"table\")])");
         qbotics.ide.DeviceAt.Found named = qbotics.ide.DeviceAt.at(code, 3, 8);
         helper.assertTrue(named != null && named.kind().equals("bus") && "table".equals(named.name()), "a name set from net.bus: " + named);
         qbotics.ide.DeviceAt.Found call = qbotics.ide.DeviceAt.at(code, 3, 25);
@@ -4755,6 +4757,12 @@ public final class QboticsGameTests {
         helper.assertTrue(only != null && only.kind().equals("interface") && only.name() == null, "the only one of a kind: " + only);
         helper.assertTrue(qbotics.ide.DeviceAt.at(code, 1, 1) == null, "net is no device");
         helper.assertTrue(qbotics.ide.DeviceAt.at(code, 5, 1) != null, "a later craft = 3 is not a device, but the earlier setting is found");
+        qbotics.ide.DeviceAt.Found chests = qbotics.ide.DeviceAt.at(code, 6, 2);
+        helper.assertTrue(chests != null && chests.kind().equals("storage") && chests.group().equals(List.of("storage_*")), "a storage by name: " + chests);
+        qbotics.ide.DeviceAt.Found both = qbotics.ide.DeviceAt.at(code, 7, 10);
+        helper.assertTrue(both != null && both.group().equals(List.of("oven", "table")), "a storage of a list: " + both);
+        qbotics.ide.DeviceAt.Found inner = qbotics.ide.DeviceAt.at(code, 7, 30);
+        helper.assertTrue(inner != null && inner.kind().equals("bus") && "table".equals(inner.name()), "a bus inside a storage's list: " + inner);
 
         ServerLevel level = helper.getLevel();
         startAt(helper, new BlockPos(0, 1, 0));
@@ -4803,6 +4811,11 @@ public final class QboticsGameTests {
         helper.assertTrue(reach.get("top").equals("[0]") && reach.get("bottom").equals("[2,1]") && reach.get("near").equals("[1]"),
                 "what each face reaches: " + reach);
 
+        com.google.gson.JsonObject group = inspect.apply("[\"inspect\",[\"oven\"],\"storage\"]");
+        com.google.gson.JsonArray members = group.getAsJsonArray("members");
+        helper.assertTrue(group.get("kind").getAsString().equals("storage") && members.size() == 1
+                && members.get(0).getAsJsonObject().get("free").getAsInt() == 2 && members.get(0).getAsJsonObject().get("slots").getAsInt() == 3
+                && group.getAsJsonArray("items").get(0).getAsJsonObject().get("item").getAsString().equals("minecraft:coal"), "a storage: " + group);
         com.google.gson.JsonObject inbox = inspect.apply("[\"inspect\",null,\"interface\"]");
         com.google.gson.JsonArray own = inbox.getAsJsonArray("slots");
         helper.assertTrue(own.size() == 9 && own.get(0).getAsJsonObject().get("count").getAsInt() == 5
