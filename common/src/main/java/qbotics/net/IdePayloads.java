@@ -53,6 +53,16 @@ public final class IdePayloads {
         public static final byte INSPECT = 10;
         /** A name's value in the program held on a step (path: the name), for the editor's hover. */
         public static final byte VALUE = 11;
+        /** Part of a file (data: where it starts, 8 bytes): up to MAX_FILE_BYTES from there; for files too big for READ. */
+        public static final byte READ_AT = 12;
+        /** Adds data to the end of a file: a file too big for one WRITE is sent in parts. */
+        public static final byte APPEND = 13;
+        /**
+         * git from the editor's Git panel: path is the call as the git module makes it (["git", op,
+         * dir, url or message, force]), run as the computer's own program would run it; or
+         * ["git_info"] for whether the player has a token and the server lets them push.
+         */
+        public static final byte GIT = 14;
 
         public static final Type<FileRequest> TYPE = new Type<>(Qbotics.id("ide_file_request"));
         public static final StreamCodec<ByteBuf, FileRequest> STREAM_CODEC = StreamCodec.composite(

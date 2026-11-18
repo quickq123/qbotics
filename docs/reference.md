@@ -199,6 +199,27 @@ or Esc closes it (or goes back a step). A bus opens its block's screen for a mom
 screen that can't be drawn here shows as plain slots in the same places, still numbered. The
 name must be written in the code as text: one worked out while the program runs can't be followed.
 
+**The Git panel** (Git at the top of the files, on the left; Files goes back) works on the
+folder chosen in Files, or the whole drive if none is. It has two modes:
+
+- **Simple: copies between the computer and your PC**, with no GitHub and no Uplink, so it
+  works on any server. *Save as .zip...* puts a copy of the folder on your PC, wherever you
+  choose (your Downloads, to start with). *Load a .zip...* or *Folder...* brings one from your
+  PC onto the computer, into a **new folder** at the top named after it (`/factory`,
+  `/factory_2` if that's taken): nothing on the drive is overwritten. Before anything is sent
+  you see how many files and how much, and what was left out. What comes from your PC is checked
+  first: every name must be one the drive allows, nothing may point outside the folder (`..`,
+  `C:\`, a path from the top of a disk), links aren't followed, at most 400 files and 2 MB
+  (a .zip is unpacked only that far, so one that would unpack into something huge can't), and
+  the clutter other systems add (`__MACOSX`, `.DS_Store`, `.git`) is left out. The server checks
+  every path again, and the drive's space.
+- **GitHub**: the same git as the `git` command (section 7h), with buttons. A cloned folder shows
+  its repository, branch and commit, and your changes since the last pull or push (`M` changed,
+  `A` new, `D` deleted), with **Pull**, **Push...** (asks for the commit's message) and
+  **Refresh**; *Pull, dropping my changes...* asks first. Any other folder offers **Clone into
+  here...**. Your **token**: *Set...* asks for it (Ctrl+V pastes; it shows as stars), *Forget*
+  drops it, and the panel says whether one is kept and whether this server lets you push.
+
 **The Network panel** (the Network button at the top right; it takes the place of the Chat
 and the scratchpad on the right) lists every device on this computer's cables, by kind: its name
 (or address, if it has none yet) and what it points at. Click one to see it over the editor, as
@@ -2860,7 +2881,7 @@ A call that can't be done raises `git.GitError`, saying why.
 - **Push** needs the server to allow it (`git.allow_push`, off unless the admin turns it on) and
   your **GitHub token**. If someone else pushed since your last pull, it refuses: copy your
   changes aside, pull, put them back, push.
-- **Your token:** `/qbotics git token` opens a screen to enter it. It is kept in the world's files
+- **Your token:** `/qbotics git token` opens a screen to enter it (or the editor's Git panel, section 1.2). It is kept in the world's files
   on the server (anyone who can read those can read it). No program can read it, and it is never
   sent to other players. Use a **fine-grained token** for only the repositories you push to, with
   *Contents: read and write* and an expiry date (github.com > Settings > Developer settings).

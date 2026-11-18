@@ -51,7 +51,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("dry_run", 200_000), Map.entry("step_values", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("dry_run", 200_000), Map.entry("step_values", 200_000), Map.entry("git_panel", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -110,6 +110,7 @@ public final class QboticsGameTests {
             Map.entry("device_look", QboticsGameTests::deviceLook),
             Map.entry("dry_run", QboticsGameTests::dryRun),
             Map.entry("step_values", QboticsGameTests::stepValues),
+            Map.entry("git_panel", QboticsGameTests::gitPanel),
             Map.entry("qbot_view", QboticsGameTests::qbotView),
             Map.entry("computer_access", QboticsGameTests::computerAccess),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
@@ -4966,6 +4967,68 @@ public final class QboticsGameTests {
             helper.assertTrue("int: 3".equals(seen.get("n")) && "int: 4".equals(seen.get("extra")) && "int: 3".equals(seen.get("count in add"))
                     && "!local".equals(seen.get("total")), "inside the function: " + seen);
             assertScreen(helper, computer, "done 7");
+        });
+    }
+
+    /**
+     * The editor's Git panel: what comes from the player's PC is checked before it is sent (no
+     * path outside its folder, names the drive allows, clutter left out, a .zip that unpacks huge
+     * read only so far, one top folder dropped); and git through the computer's own calls.
+     */
+    private static void gitPanel(GameTestHelper helper) {
+        List<String> why = new java.util.ArrayList<>();
+        helper.assertTrue(qbotics.client.ide.DriveTransferTestAccess.safeParts("../evil.py", why) == null && why.getLast().contains("outside"),
+                "a path out of its folder: " + why);
+        helper.assertTrue(qbotics.client.ide.DriveTransferTestAccess.safeParts("C:/Windows/x.py", why) == null, "a drive letter");
+        helper.assertTrue(qbotics.client.ide.DriveTransferTestAccess.safeParts("/etc/passwd", why) == null, "from the top of a disk");
+        helper.assertTrue(qbotics.client.ide.DriveTransferTestAccess.safeParts("bad/con.py", why) == null && why.getLast().contains("con.py"),
+                "a name Windows keeps: " + why);
+        int before = why.size();
+        helper.assertTrue(qbotics.client.ide.DriveTransferTestAccess.safeParts("__MACOSX/a/._x.py", why) == null && why.size() == before,
+                "clutter is left out quietly");
+        helper.assertTrue(List.of("lib", "util.py").equals(qbotics.client.ide.DriveTransferTestAccess.safeParts("lib\\util.py", why)),
+                "a Windows path is a path");
+        helper.assertTrue("my_factory".equals(qbotics.client.ide.DriveTransferTestAccess.folderName("my factory.zip")), "the new folder's name");
+        try {
+            java.nio.file.Path zip = java.nio.file.Files.createTempFile("qbotics-test", ".zip");
+            try (java.util.zip.ZipOutputStream out = new java.util.zip.ZipOutputStream(java.nio.file.Files.newOutputStream(zip))) {
+                for (String[] entry : new String[][] {{"factory/main.py", "print(1)"}, {"factory/lib/util.py", "x = 2"},
+                        {"factory/../../escape.py", "bad"}, {"factory/.DS_Store", "junk"}}) {
+                    out.putNextEntry(new java.util.zip.ZipEntry(entry[0]));
+                    out.write(entry[1].getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    out.closeEntry();
+                }
+                // Ten megabytes of nothing: a few KB packed, too much unpacked.
+                out.putNextEntry(new java.util.zip.ZipEntry("factory/huge.txt"));
+                byte[] zeros = new byte[1024 * 1024];
+                for (int i = 0; i < 10; i++) {
+                    out.write(zeros);
+                }
+                out.closeEntry();
+            }
+            var plan = qbotics.client.ide.DriveTransferTestAccess.fromZip(zip);
+            helper.assertTrue(plan.files().keySet().equals(java.util.Set.of("main.py", "lib/util.py")), "what loads: " + plan.files().keySet());
+            helper.assertTrue(plan.skipped().stream().anyMatch(w -> w.contains("outside")) && plan.skipped().stream().anyMatch(w -> w.contains("KB")),
+                    "what was left out: " + plan.skipped());
+            helper.assertTrue("qbotics-test".equals(plan.name().substring(0, 12)), "named after the .zip: " + plan.name());
+            java.nio.file.Files.delete(zip);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+
+        // git through the computer's own calls, as the panel makes them: status of a cloned folder.
+        ServerComputer computer = placeAndStart(helper);
+        computer.submitLine("git clone helpme");
+        java.util.concurrent.atomic.AtomicReference<String> status = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<String> none = new java.util.concurrent.atomic.AtomicReference<>();
+        helper.succeedWhen(() -> {
+            if (status.get() == null && screen(computer).contains("Start with:")) {
+                computer.worldCall("[\"git\",\"status\",\"/helpme\",null,false]").thenAccept(status::set);
+                computer.worldCall("[\"git\",\"status\",\"/\",null,false]").thenAccept(none::set);
+            }
+            helper.assertTrue(status.get() != null && status.get().contains("\"repo\"") && status.get().contains("\"branch\""),
+                    "status of /helpme: " + status.get());
+            helper.assertTrue(none.get() != null && none.get().contains("\"e\""), "the top isn't a repository: " + none.get());
         });
     }
 

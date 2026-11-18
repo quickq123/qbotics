@@ -1343,7 +1343,7 @@ public final class ScreenshotRun {
         then(2, minecraft -> {
             var window = minecraft.getWindow();
             // The mouse on the underlined name (line 7), for its message.
-            org.lwjgl.glfw.GLFW.glfwSetCursorPos(window.handle(), (160 + 4 + 4 * 6 + 4 + 18 * 6) * 2.0 * window.getScreenWidth() / window.getWidth(),
+            org.lwjgl.glfw.GLFW.glfwSetCursorPos(window.handle(), (184 + 4 + 4 * 6 + 4 + 18 * 6) * 2.0 * window.getScreenWidth() / window.getWidth(),
                     (16 + 15 + 6 * 10 + 5) * 2.0 * window.getScreenHeight() / window.getHeight());
         });
         then(20, minecraft -> shot(minecraft, "ide-device-warning"));
@@ -1451,6 +1451,60 @@ public final class ScreenshotRun {
                 ComputerManager.get(player.level().getServer()).getOrStart(computer).togglePause(); // carry on to its end
             }
         }));
+        // The Git panel, simple: the whole drive saved as a .zip and loaded back into a new folder,
+        // through the same requests a player's game makes.
+        java.nio.file.Path zip = net.minecraft.client.Minecraft.getInstance().gameDirectory.toPath().resolve("screenshots").resolve("qbotics-drive-test.zip");
+        then(30, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.gitForShots(true, "/");
+                ide.saveForShots(zip);
+            }
+        });
+        then(40, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                Qbotics.LOGGER.info("Screenshot run: save said {}", ide.transferForShots());
+                try (var in = new java.util.zip.ZipFile(zip.toFile())) {
+                    Qbotics.LOGGER.info("Screenshot run: the .zip holds {}", in.stream().map(java.util.zip.ZipEntry::getName).toList());
+                } catch (java.io.IOException e) {
+                    Qbotics.LOGGER.info("Screenshot run: the .zip couldn't be read: {}", e.toString());
+                }
+                ide.loadForShots(zip);
+            }
+        });
+        then(40, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                Qbotics.LOGGER.info("Screenshot run: load said {}", ide.transferForShots());
+            }
+        });
+        then(5, minecraft -> shot(minecraft, "ide-git-simple"));
+        // GitHub: helpme cloned (no Uplink needed for it), a file changed, and its status in the panel.
+        then(5, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(lookScene.offset(-1, 0, 0)) instanceof ComputerBlockEntity computer) {
+                ComputerManager.get(player.level().getServer()).getOrStart(computer).submitLine("git clone helpme");
+            }
+        }));
+        then(60, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(lookScene.offset(-1, 0, 0)) instanceof ComputerBlockEntity computer) {
+                try {
+                    var drive = ComputerManager.get(player.level().getServer()).getOrStart(computer).drive();
+                    drive.call(qbotics.engine.HostFileSystem.WRITE, "/helpme/README.md", "# My own notes\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    drive.call(qbotics.engine.HostFileSystem.WRITE, "/helpme/mine.py", "print('mine')\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } catch (qbotics.engine.HostFileSystem.FsException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        }));
+        then(10, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.reloadFilesForShots();
+            }
+        });
+        then(20, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.gitForShots(false, "/helpme");
+            }
+        });
+        then(30, minecraft -> shot(minecraft, "ide-git-github"));
     }
 
     /**

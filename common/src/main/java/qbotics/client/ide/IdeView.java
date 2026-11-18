@@ -63,7 +63,7 @@ final class IdeView {
     private static final int TAB_H = 15;
     private static final int HEADER_H = 14;
     private static final int ROW_H = 11;
-    private static final int EXPLORER_W = 160;
+    private static final int EXPLORER_W = 184;
     private static final int SCRATCH_W = 236;
     private static final int TERMINAL_H = HEADER_H + Terminal.ROWS * Ui.CELL_H + 6;
     private static final int MIN_TERMINAL_H = HEADER_H + 3 * Ui.CELL_H + 6;
@@ -117,6 +117,8 @@ final class IdeView {
         StringBuilder input;
         String confirmLabel;
         Consumer<String> onConfirm;
+        /** A secret (a token): shown as dots. */
+        boolean secret;
         /** An optional middle choice, such as "Don't Save". */
         String otherLabel;
         Runnable onOther;
@@ -514,7 +516,13 @@ final class IdeView {
     private void drawExplorer(Ui ui) {
         Rect r = explorerRect;
         ui.fill(r.x(), r.y(), r.width(), r.height(), Ui.SIDE_BG);
-        ui.text("EXPLORER", r.x() + 6, r.y() + 3, Ui.TEXT_DIM);
+        int tabX = button(ui, r.x() + 2, r.y() + 1, HEADER_H - 2, "Files", false, true, session.gitOpen ? Ui.SIDE_BG : Ui.ACCENT,
+                () -> session.gitOpen = false);
+        button(ui, tabX + 2, r.y() + 1, HEADER_H - 2, "Git", false, true, session.gitOpen ? Ui.ACCENT : Ui.SIDE_BG, this::openGit);
+        if (session.gitOpen) {
+            drawGit(ui);
+            return;
+        }
         int x = r.right() - 4 - (ui.textWidth("+ Folder") + 10);
         button(ui, x, r.y() + 1, HEADER_H - 2, "+ Folder", false, true, Ui.SIDE_BG, () -> promptNewFolder(folderForNew()));
         x -= ui.textWidth("+ File") + 10;
@@ -1710,6 +1718,345 @@ final class IdeView {
             }
         }
     }
+    // ---- the Git panel ---------------------------------------------------------------
+
+    private void openGit() {
+        session.gitOpen = true;
+        askGitInfo();
+        refreshGitStatus();
+    }
+
+    /** The folder the Git panel works on: the one chosen in Files (or the file's folder), else the whole drive. */
+    private String gitFolder() {
+        return folderForNew();
+    }
+
+    private void askGitInfo() {
+        backend.file(FileRequest.GIT, "[\"git_info\"]", new byte[0], (errno, data) -> {
+            com.google.gson.JsonObject reply = gitReply(errno, data);
+            if (reply != null && reply.has("r")) {
+                session.gitInfo = reply.getAsJsonObject("r");
+            }
+        });
+    }
+
+    private static com.google.gson.JsonObject gitReply(int errno, byte[] data) {
+        if (errno != 0) {
+            return null;
+        }
+        try {
+            return com.google.gson.JsonParser.parseString(new String(data, StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** git as the git module calls it: ["git", op, folder, extra, force]; then has the answer's "r", or why not. */
+    private void git(String op, String folder, String extra, boolean force, java.util.function.BiConsumer<com.google.gson.JsonElement, String> then) {
+        com.google.gson.JsonArray call = new com.google.gson.JsonArray();
+        call.add("git");
+        call.add(op);
+        call.add(folder);
+        call.add(extra);
+        call.add(force);
+        session.gitBusy = true;
+        backend.file(FileRequest.GIT, call.toString(), new byte[0], (errno, data) -> {
+            session.gitBusy = false;
+            com.google.gson.JsonObject reply = gitReply(errno, data);
+            if (reply == null) {
+                then.accept(null, "The server didn't answer.");
+            } else if (reply.has("e")) {
+                then.accept(null, reply.get("e").getAsString());
+            } else {
+                then.accept(reply.get("r"), null);
+            }
+        });
+    }
+
+    private void refreshGitStatus() {
+        String folder = gitFolder();
+        git("status", folder, null, false, (result, problem) -> {
+            session.gitStatusFor = folder;
+            session.gitStatus = result != null && result.isJsonObject() ? result.getAsJsonObject() : null;
+            session.gitProblem = problem == null ? "" : problem;
+        });
+    }
+
+    private void gitPull(boolean force) {
+        String folder = gitFolder();
+        git("pull", folder, null, force, (result, problem) -> {
+            if (problem != null) {
+                toast(problem, true);
+            } else {
+                com.google.gson.JsonObject r = result.getAsJsonObject();
+                toast(r.has("already") ? "Already up to date." : "Pulled " + r.get("files").getAsInt() + " files (" + r.get("commit").getAsString() + ").", false);
+                reloadFiles();
+            }
+            refreshGitStatus();
+        });
+    }
+
+    private void gitPush() {
+        String folder = gitFolder();
+        ask("Push to GitHub", "What these changes do (the commit's message)", "", "Push", message -> {
+            if (message.isBlank()) {
+                toast("A push needs a message saying what changed.", true);
+                return;
+            }
+            git("push", folder, message.strip(), false, (result, problem) -> {
+                toast(problem != null ? problem : "Pushed: " + result, problem != null);
+                refreshGitStatus();
+            });
+        });
+    }
+
+    private void gitClone() {
+        String folder = gitFolder();
+        ask("Clone from GitHub", "Its address (https://github.com/owner/repo, or .../tree/branch)", "", "Clone", url -> {
+            String address = url.strip();
+            String name = address.replaceAll("/+$", "").replaceAll("\\.git$", "");
+            name = name.contains("/tree/") ? name.substring(0, name.indexOf("/tree/")) : name;
+            name = name.substring(name.lastIndexOf('/') + 1);
+            String into = Paths.join(folder, name.isEmpty() ? "repo" : name);
+            git("clone", into, address, false, (result, problem) -> {
+                toast(problem != null ? problem : "Cloned into " + into + ".", problem != null);
+                if (problem == null) {
+                    session.selectedPath = into;
+                    session.expanded.add(folder);
+                    reloadFiles();
+                }
+                refreshGitStatus();
+            });
+        });
+    }
+
+    private void gitToken() {
+        ask("Your GitHub token", "A fine-grained token, Contents: read and write (Ctrl+V pastes it)", "", "Save", token -> {
+            if (!token.isBlank()) {
+                qbotics.Qbotics.platform().sendToServer(new qbotics.net.GitPayloads.SetToken(token.strip()));
+                toast("Token kept on the server, for you only.", false);
+                askGitInfoLater();
+            }
+        });
+        dialog.secret = true;
+    }
+
+    private void gitForgetToken() {
+        dialog = new Dialog();
+        dialog.title = "Forget your token?";
+        dialog.message = "The server forgets it; pushing needs it again.";
+        dialog.confirmLabel = "Forget";
+        dialog.onConfirm = ignored -> {
+            qbotics.Qbotics.platform().sendToServer(new qbotics.net.GitPayloads.SetToken(""));
+            askGitInfoLater();
+        };
+    }
+
+    /** The token is kept a moment after it is sent: ask again then. */
+    private void askGitInfoLater() {
+        session.gitInfo = null;
+        gitInfoAskAt = blink + 10;
+    }
+
+    private int gitInfoAskAt = -1;
+
+    /** Copies the Git panel's folder to the PC as a .zip, wherever the player chooses. */
+    private void saveToPc() {
+        String folder = gitFolder();
+        String name = (folder.equals("/") ? session.title.replaceAll("[^A-Za-z0-9_-]", "_") + "_drive" : folder.substring(folder.lastIndexOf('/') + 1)) + ".zip";
+        PcFiles.saveZip(name, path -> {
+            if (path == null) {
+                return;
+            }
+            java.nio.file.Path to = path.toString().toLowerCase(java.util.Locale.ROOT).endsWith(".zip") ? path : java.nio.file.Path.of(path + ".zip");
+            session.gitBusy = true;
+            session.transferSaid = "Copying " + folder + "...";
+            DriveTransfer.saveZip(backend, folder, to, said -> {
+                session.gitBusy = false;
+                session.transferSaid = said;
+            });
+        });
+    }
+
+    /** Loads a .zip or folder from the PC, checked, into a new folder; shown first, then copied on Load. */
+    private void loadFromPc(boolean zip) {
+        java.util.function.Consumer<java.nio.file.Path> chosen = path -> {
+            if (path == null) {
+                return;
+            }
+            DriveTransfer.Plan plan;
+            try {
+                plan = zip ? DriveTransfer.fromZip(path) : DriveTransfer.fromFolder(path);
+            } catch (java.io.IOException | RuntimeException e) {
+                session.transferSaid = "!Couldn't read " + path.getFileName() + ": " + e.getMessage();
+                return;
+            }
+            if (plan.files().isEmpty()) {
+                session.transferSaid = "!Nothing to load from " + path.getFileName()
+                        + (plan.skipped().isEmpty() ? "." : ": " + plan.skipped().getFirst());
+                return;
+            }
+            dialog = new Dialog();
+            dialog.title = "Load onto the computer?";
+            dialog.message = plan.files().size() + " files, " + Math.max(1, plan.bytes() / 1024) + " KB, into a new folder /" + plan.name()
+                    + (plan.skipped().isEmpty() ? "" : ". Left out: " + plan.skipped().size() + " (" + plan.skipped().getFirst() + ")");
+            dialog.confirmLabel = "Load";
+            dialog.onConfirm = ignored -> {
+                session.gitBusy = true;
+                session.transferSaid = "Loading " + plan.files().size() + " files...";
+                DriveTransfer.load(backend, plan, said -> {
+                    session.gitBusy = false;
+                    session.transferSaid = said;
+                    reloadFiles();
+                });
+            };
+        };
+        if (zip) {
+            PcFiles.openZip(chosen);
+        } else {
+            PcFiles.openFolder(chosen);
+        }
+    }
+
+    /** Writes words across the panel's width, a line at a time; returns where the next line goes. */
+    private int words(Ui ui, String text, int x, int y, int width, int color) {
+        StringBuilder line = new StringBuilder();
+        for (String word : text.split(" ")) {
+            String tried = line.isEmpty() ? word : line + " " + word;
+            if (ui.textWidth(tried) > width && !line.isEmpty()) {
+                ui.text(line.toString(), x, y, color);
+                y += 11;
+                line = new StringBuilder(word);
+            } else {
+                line = new StringBuilder(tried);
+            }
+        }
+        if (!line.isEmpty()) {
+            ui.text(line.toString(), x, y, color);
+            y += 11;
+        }
+        return y;
+    }
+
+    /**
+     * The Git panel, in place of the files: Simple (the chosen folder to a .zip on the PC, or a
+     * .zip or folder from the PC into a new folder) or GitHub (status, pull and push of a cloned
+     * folder, clone, and the player's token), all on the folder chosen in Files.
+     */
+    private void drawGit(Ui ui) {
+        Rect r = explorerRect;
+        int x = r.x() + 6;
+        int width = r.width() - 12;
+        int y = r.y() + HEADER_H + 2;
+        if (gitInfoAskAt >= 0 && blink >= gitInfoAskAt) {
+            gitInfoAskAt = -1;
+            askGitInfo();
+        }
+        int mx = button(ui, x - 2, y, 13, "Simple", false, true, session.gitSimple ? Ui.ACCENT : Ui.BAR_BG, () -> session.gitSimple = true);
+        button(ui, mx + 2, y, 13, "GitHub", false, true, session.gitSimple ? Ui.BAR_BG : Ui.ACCENT, () -> {
+            session.gitSimple = false;
+            refreshGitStatus();
+        });
+        y += 18;
+        String folder = gitFolder();
+        ui.text("Folder: " + ui.fit(folder, width - ui.textWidth("Folder: ")), x, y, Ui.TEXT_BRIGHT);
+        y += 11;
+        y = words(ui, "(choose another in Files)", x, y, width, Ui.TEXT_DIM) + 6;
+        boolean idle = !session.gitBusy;
+        if (session.gitSimple) {
+            ui.text("TO YOUR PC", x, y, Ui.TEXT_DIM);
+            y += 12;
+            button(ui, x - 2, y, 13, "Save as .zip...", false, idle, Ui.BAR_BG, this::saveToPc);
+            y += 18;
+            y = words(ui, "A copy of this folder, as a .zip wherever you choose on your PC.", x, y, width, Ui.TEXT_DIM) + 8;
+            ui.text("FROM YOUR PC", x, y, Ui.TEXT_DIM);
+            y += 12;
+            int lx = button(ui, x - 2, y, 13, "Load a .zip...", false, idle, Ui.BAR_BG, () -> loadFromPc(true));
+            button(ui, lx + 2, y, 13, "Folder...", false, idle, Ui.BAR_BG, () -> loadFromPc(false));
+            y += 18;
+            y = words(ui, "Goes into a new folder at the top: nothing here is overwritten. Checked first: names the drive allows, "
+                    + "nothing outside the folder, at most " + DriveTransfer.MOST_FILES + " files and " + DriveTransfer.MOST_BYTES / 1024
+                    + " KB, no links.", x, y, width, Ui.TEXT_DIM) + 8;
+            if (!session.transferSaid.isEmpty()) {
+                boolean error = session.transferSaid.startsWith("!");
+                words(ui, error ? session.transferSaid.substring(1) : session.transferSaid, x, y, width, error ? Ui.ERROR : Ui.OK_GREEN);
+            }
+            return;
+        }
+        // GitHub.
+        com.google.gson.JsonObject info = session.gitInfo;
+        if (info != null && info.has("enabled") && !info.get("enabled").getAsBoolean()) {
+            words(ui, "git is switched off on this server.", x, y, width, Ui.ERROR);
+            return;
+        }
+        boolean hasToken = info != null && info.get("hasToken").getAsBoolean();
+        ui.text("Token: " + (info == null ? "..." : hasToken ? "kept" : "none"), x, y + 3, hasToken ? Ui.OK_GREEN : Ui.TEXT_DIM);
+        int tx = x + ui.textWidth("Token: kept") + 8;
+        tx = button(ui, tx, y, 13, hasToken ? "Change..." : "Set...", false, true, Ui.BAR_BG, this::gitToken);
+        if (hasToken) {
+            button(ui, tx + 2, y, 13, "Forget", false, true, Ui.BAR_BG, this::gitForgetToken);
+        }
+        y += 18;
+        if (info != null && !info.get("pushAllowed").getAsBoolean()) {
+            y = words(ui, "Pushing is off on this server (git.allow_push).", x, y, width, Ui.TEXT_DIM) + 2;
+        }
+        y += 4;
+        com.google.gson.JsonObject status = folder.equals(session.gitStatusFor) ? session.gitStatus : null;
+        if (!folder.equals(session.gitStatusFor) && idle) {
+            refreshGitStatus();
+        }
+        if (status == null) {
+            if (session.gitProblem.contains("clone") || session.gitProblem.contains("isn't") || session.gitProblem.contains("not ")) {
+                y = words(ui, "This folder isn't a copy of a GitHub repository.", x, y, width, Ui.TEXT_DIM) + 4;
+            } else if (!session.gitProblem.isEmpty()) {
+                y = words(ui, session.gitProblem, x, y, width, Ui.ERROR) + 4;
+            }
+            button(ui, x - 2, y, 13, "Clone into here...", false, idle, Ui.BAR_BG, this::gitClone);
+            y += 18;
+            words(ui, "Copies a repository into a new folder here. A private one needs your token; an Uplink must be on the cables (a laptop has its own).",
+                    x, y, width, Ui.TEXT_DIM);
+            return;
+        }
+        ui.text(ui.fit(status.get("repo").getAsString(), width), x, y, Ui.TEXT_BRIGHT);
+        y += 11;
+        ui.text(status.get("branch").getAsString() + " @ " + status.get("commit").getAsString(), x, y, Ui.TEXT_DIM);
+        y += 14;
+        int bx = button(ui, x - 2, y, 13, "Pull", false, idle, Ui.BAR_BG, () -> gitPull(false));
+        bx = button(ui, bx + 2, y, 13, "Push...", false, idle && hasToken && info.get("pushAllowed").getAsBoolean(), Ui.BAR_BG, this::gitPush);
+        button(ui, bx + 2, y, 13, "Refresh", false, idle, Ui.BAR_BG, this::refreshGitStatus);
+        y += 18;
+        List<String> changes = new ArrayList<>();
+        for (String[] kind : new String[][] {{"modified", "M"}, {"added", "A"}, {"deleted", "D"}}) {
+            if (status.has(kind[0])) {
+                for (com.google.gson.JsonElement e : status.getAsJsonArray(kind[0])) {
+                    changes.add(kind[1] + "  " + e.getAsString());
+                }
+            }
+        }
+        ui.text(changes.isEmpty() ? "No changes since the last pull or push." : "YOUR CHANGES (" + changes.size() + ")", x, y, Ui.TEXT_DIM);
+        y += 12;
+        for (int i = 0; i < Math.min(changes.size(), 14) && y < r.bottom() - 30; i++) {
+            String change = changes.get(i);
+            int color = change.startsWith("M") ? Ui.SYN_FUNCTION : change.startsWith("A") ? Ui.OK_GREEN : Ui.ERROR;
+            ui.text(ui.fit(change, width), x, y, color);
+            y += 11;
+        }
+        if (changes.size() > 14) {
+            ui.text("and " + (changes.size() - 14) + " more", x, y, Ui.TEXT_DIM);
+            y += 11;
+        }
+        if (!changes.isEmpty()) {
+            y += 6;
+            button(ui, x - 2, y, 13, "Pull, dropping my changes...", false, idle, Ui.BAR_BG, () -> {
+                dialog = new Dialog();
+                dialog.title = "Drop your changes?";
+                dialog.message = "Your " + changes.size() + " changes in " + folder + " are replaced by the repository's files.";
+                dialog.confirmLabel = "Pull and drop";
+                dialog.onConfirm = ignored -> gitPull(true);
+            });
+        }
+    }
+
     // ---- the Network panel ---------------------------------------------------------
 
     /** A device's row in the Network panel, where it was drawn. */
@@ -1745,6 +2092,37 @@ final class IdeView {
         if (session.networkOpen) {
             askDevices(); // as it is now
         }
+    }
+
+    /** For the screenshot run: the Git panel open on a folder, in one of its modes. */
+    void gitForShots(boolean simple, String folder) {
+        session.gitOpen = true;
+        session.gitSimple = simple;
+        session.selectedPath = folder;
+        askGitInfo();
+        refreshGitStatus();
+    }
+
+    /** For the screenshot run: Save as .zip, to a file chosen here instead of in the PC's dialog. */
+    void saveForShots(java.nio.file.Path to) {
+        DriveTransfer.saveZip(backend, gitFolder(), to, said -> session.transferSaid = said);
+    }
+
+    /** For the screenshot run: Load a .zip, from a file chosen here, straight into a new folder. */
+    void loadForShots(java.nio.file.Path from) {
+        try {
+            DriveTransfer.load(backend, DriveTransfer.fromZip(from), said -> {
+                session.transferSaid = said;
+                reloadFiles();
+            });
+        } catch (java.io.IOException e) {
+            session.transferSaid = "!" + e.getMessage();
+        }
+    }
+
+    /** For the screenshot run: what the last copy said. */
+    String transferForShots() {
+        return session.transferSaid;
     }
 
     /** For the screenshot run: the Network panel open. */
@@ -2120,7 +2498,11 @@ final class IdeView {
         if (dialog.input != null) {
             ui.fill(r.x() + 10, y, r.width() - 20, 14, Ui.EDITOR_BG);
             ui.outline(r.x() + 10, y, r.width() - 20, 14, Ui.STATUS_BG);
-            String typed = dialog.input.toString();
+            String typed = dialog.secret ? "*".repeat(dialog.input.length()) : dialog.input.toString();
+            // A long entry (a web address) shows its end, where the typing is.
+            while (typed.length() > 1 && ui.textWidth(typed) > r.width() - 30) {
+                typed = typed.substring(1);
+            }
             ui.text(typed, r.x() + 14, y + 3, Ui.TEXT_BRIGHT);
             if (cursorOn) {
                 ui.fill(r.x() + 14 + ui.textWidth(typed), y + 2, 1, 10, Ui.TEXT_BRIGHT);
@@ -2167,7 +2549,7 @@ final class IdeView {
             return;
         }
         if (dialog != null) {
-            if (dialog.input != null && dialog.input.length() < 64) {
+            if (dialog.input != null && dialog.input.length() < 200) {
                 dialog.input.append((char) codepoint);
             }
             return;
@@ -2200,6 +2582,9 @@ final class IdeView {
                 confirmDialog();
             } else if (key == InputConstants.KEY_BACKSPACE && dialog.input != null && !dialog.input.isEmpty()) {
                 dialog.input.setLength(dialog.input.length() - 1);
+            } else if (control && key == InputConstants.KEY_V && dialog.input != null) {
+                String pasted = host.clipboard().replaceAll("[\\r\\n\\t]", "").strip();
+                dialog.input.append(pasted, 0, Math.min(pasted.length(), Math.max(0, 200 - dialog.input.length())));
             }
             return true;
         }
@@ -2354,6 +2739,9 @@ final class IdeView {
             drag = Drag.TEXT;
         }
 
+        if (explorerRect.contains(x, y) && session.gitOpen) {
+            return; // the Git panel: only its buttons, handled above
+        }
         if (explorerRect.contains(x, y)) {
             Node node = nodeAt(y);
             if (node != null) {
@@ -2484,7 +2872,7 @@ final class IdeView {
         }
         double vertical = shift ? 0 : amountY;
         double horizontal = shift ? amountY : amountX;
-        if (explorerRect.contains(x, y)) {
+        if (explorerRect.contains(x, y) && !session.gitOpen) {
             session.explorerScroll -= (int) Math.round(vertical * ROW_H * 3);
         } else if (editorRect.contains(x, y)) {
             Tab tab = session.active();

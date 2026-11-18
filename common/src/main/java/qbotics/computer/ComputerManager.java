@@ -610,6 +610,25 @@ public final class ComputerManager {
             reply(playerId, request, 0, listed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             return;
         }
+        if (request.op() == IdePayloads.FileRequest.GIT) {
+            // The Git panel: what the git module does, as this computer's program would do it.
+            String call = request.path();
+            if (call.equals("[\"git_info\"]")) {
+                com.google.gson.JsonObject info = new com.google.gson.JsonObject();
+                info.addProperty("hasToken", qbotics.uplink.GitTokens.has(player.level().getServer(), playerId));
+                info.addProperty("pushAllowed", qbotics.QboticsConfig.gitAllowPush);
+                info.addProperty("enabled", qbotics.QboticsConfig.gitEnabled);
+                reply(playerId, request, 0, ("{\"r\":" + info + "}").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                return;
+            }
+            if (computer == null || !call.startsWith("[\"git\",")) {
+                reply(playerId, request, HostFileSystem.EACCES, new byte[0]);
+                return;
+            }
+            computer.worldCall(call).thenAccept(answer ->
+                    reply(playerId, request, 0, answer.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            return;
+        }
         if (request.op() == IdePayloads.FileRequest.VALUE) {
             // Answered by the program's own thread while it is held (stepping); none otherwise.
             if (computer == null) {
@@ -720,6 +739,15 @@ public final class ComputerManager {
             }
             case IdePayloads.FileRequest.WRITE:
                 return drive.call(HostFileSystem.WRITE, path, request.data());
+            case IdePayloads.FileRequest.READ_AT: {
+                // A part of a file too big to send at once: the Git panel's copy to the player's PC.
+                byte[] whole = drive.call(HostFileSystem.READ, path, none);
+                long from = request.data().length == 8 ? java.nio.ByteBuffer.wrap(request.data()).getLong() : 0;
+                int start = (int) Math.clamp(from, 0, whole.length);
+                return java.util.Arrays.copyOfRange(whole, start, Math.min(whole.length, start + IdePayloads.MAX_FILE_BYTES));
+            }
+            case IdePayloads.FileRequest.APPEND:
+                return drive.call(HostFileSystem.APPEND, path, request.data());
             case IdePayloads.FileRequest.MKDIR:
                 return drive.call(HostFileSystem.MKDIR, path, none);
             case IdePayloads.FileRequest.DELETE:

@@ -571,6 +571,11 @@ public final class ServerComputer {
         }
     }
 
+    /** A world call made as this computer's programs make them (the editor's Git panel uses it). */
+    public CompletableFuture<String> worldCall(String call) {
+        return worldCalls.apply(call);
+    }
+
     /** A name's value in the program held on a step, for the editor's hover (engine.Computer.valueOf). */
     public CompletableFuture<String> valueOf(String name) {
         ServerComputer remote = sshRemote;

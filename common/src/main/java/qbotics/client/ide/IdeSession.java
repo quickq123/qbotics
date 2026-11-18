@@ -214,6 +214,20 @@ final class IdeSession {
     boolean chatOpen;
     /** The Network panel on the right (in place of the Chat and the scratchpad): the devices on the cables. */
     boolean networkOpen;
+    /** The Git panel on the left, in place of the files: copying to and from the PC, or GitHub. */
+    boolean gitOpen;
+    /** The Git panel's simple mode (a .zip to and from the PC); otherwise GitHub. */
+    boolean gitSimple = true;
+    /** What the server said of git for this player: a token kept, pushing allowed (null until asked). */
+    com.google.gson.JsonObject gitInfo;
+    /** git status of gitStatusFor (its "r", or null), or why it couldn't be had. */
+    com.google.gson.JsonObject gitStatus;
+    String gitStatusFor = "";
+    String gitProblem = "";
+    /** A git call or a copy under way: its buttons wait. */
+    boolean gitBusy;
+    /** What the last copy to or from the PC did (an error starts with "!"). */
+    String transferSaid = "";
     /** How many rows the Network panel is scrolled down. */
     int networkScroll;
     /** True: what is typed goes to the AI agent, with what is open in the editor; false: to the game's chat. */

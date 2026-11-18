@@ -157,6 +157,26 @@ public class IdeScreen extends Screen implements IdeView.Host {
         looks.clear();
     }
 
+    public void reloadFilesForShots() {
+        view.reloadFiles();
+    }
+
+    public void gitForShots(boolean simple, String folder) {
+        view.gitForShots(simple, folder);
+    }
+
+    public void saveForShots(java.nio.file.Path to) {
+        view.saveForShots(to);
+    }
+
+    public void loadForShots(java.nio.file.Path from) {
+        view.loadForShots(from);
+    }
+
+    public String transferForShots() {
+        return view.transferForShots();
+    }
+
     public void networkForShots() {
         view.networkForShots();
     }
