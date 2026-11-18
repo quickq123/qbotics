@@ -157,6 +157,18 @@ public class IdeScreen extends Screen implements IdeView.Host {
         looks.clear();
     }
 
+    public void networkForShots() {
+        view.networkForShots();
+    }
+
+    public void clickNetworkForShots(String name) {
+        view.clickNetworkForShots(name);
+    }
+
+    public void ctrlClickForShots(int line, int column) {
+        view.ctrlClickForShots(line, column);
+    }
+
     public void typeForShots(String text) {
         IdeSession.Tab tab = session().active();
         if (tab != null && tab.view != null) {

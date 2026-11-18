@@ -210,6 +210,10 @@ final class IdeSession {
 
     // The Chat panel (in the scratchpad's place): the game's chat, and the AI agent when there is one.
     boolean chatOpen;
+    /** The Network panel on the right (in place of the Chat and the scratchpad): the devices on the cables. */
+    boolean networkOpen;
+    /** How many rows the Network panel is scrolled down. */
+    int networkScroll;
     /** True: what is typed goes to the AI agent, with what is open in the editor; false: to the game's chat. */
     boolean chatToAi;
     /** Rows scrolled up from the newest; 0 follows new messages. */

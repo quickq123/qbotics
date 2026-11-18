@@ -1207,6 +1207,8 @@ public final class ScreenshotRun {
 
     /** What the inspect call told of the devicelook section's furnace and crafting table. */
     private static final com.google.gson.JsonObject[] LOOKS = new com.google.gson.JsonObject[5];
+    /** Where the devicelook section's furnace bus stands; the scene is built around it. */
+    private static BlockPos lookScene = BlockPos.ZERO;
 
     /**
      * The devicelook section: Ctrl+click on a device in the editor's code shows the block it
@@ -1218,6 +1220,7 @@ public final class ScreenshotRun {
         then(10, minecraft -> onServer(minecraft, player -> {
             ServerLevel level = player.level();
             BlockPos at = player.blockPosition().offset(3, 0, 3);
+            lookScene = at;
             level.setBlock(at.offset(1, 0, 0), Blocks.FURNACE.defaultBlockState(), Block.UPDATE_ALL);
             if (level.getBlockEntity(at.offset(1, 0, 0)) instanceof net.minecraft.world.level.block.entity.FurnaceBlockEntity furnace) {
                 furnace.setItem(0, new ItemStack(net.minecraft.world.item.Items.RAW_IRON, 12));
@@ -1350,6 +1353,57 @@ public final class ScreenshotRun {
             }
         });
         then(10, minecraft -> shot(minecraft, "ide-item-names"));
+        // A real computer on the same cables: its editor's Network panel, a device clicked there, and a
+        // Ctrl+click in its code, each asked of the server as a player's would be.
+        then(5, minecraft -> onServer(minecraft, player -> {
+            ServerLevel level = player.level();
+            BlockPos computerAt = lookScene.offset(-1, 0, 0);
+            level.setBlock(computerAt, QboticsContent.COMPUTER_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            if (level.getBlockEntity(computerAt) instanceof ComputerBlockEntity computer) {
+                computer.onPlaced(player.getUUID()); // as a player placing it: its owner, and a place on the network
+                try {
+                    ComputerManager.get(level.getServer()).getOrStart(computer).drive().call(qbotics.engine.HostFileSystem.WRITE, "/sort.py",
+                            String.join("\n", "from logistics import network, move", "net = network()",
+                                    "chests = net.storage(\"storage_*\")", "move(net.bus(\"oven\").source(face=\"bottom\"), chests, \"iron_ingot\")", "")
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } catch (qbotics.engine.HostFileSystem.FsException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        }));
+        then(10, minecraft -> minecraft.setScreen(null)); // the laptop's editor closed first, as a player would
+        then(30, minecraft -> onServer(minecraft, player -> {
+            BlockPos computerAt = lookScene.offset(-1, 0, 0);
+            if (player.level().getBlockEntity(computerAt) instanceof ComputerBlockEntity computer) {
+                // Within reach, as a player using it is: a viewer out of reach is let go.
+                player.teleportTo(computerAt.getX() - 1.5, computerAt.getY(), computerAt.getZ() + 0.5);
+                ComputerManager.get(player.level().getServer()).openTerminal(player, computer);
+            }
+        }));
+        then(30, minecraft -> onServer(minecraft, player -> {
+            if (player.level().getBlockEntity(lookScene.offset(-1, 0, 0)) instanceof ComputerBlockEntity computer) {
+                ComputerManager.get(player.level().getServer()).getOrStart(computer).submitLine("edit sort.py");
+            }
+        }));
+        then(40, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.networkForShots();
+            }
+        });
+        then(20, minecraft -> shot(minecraft, "ide-network"));
+        then(2, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.clickNetworkForShots("storage_2");
+            }
+        });
+        then(20, minecraft -> shot(minecraft, "ide-network-look"));
+        then(2, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.closeLooksForShots();
+                ide.ctrlClickForShots(2, 2); // "chests" on line 3
+            }
+        });
+        then(20, minecraft -> shot(minecraft, "ide-ctrl-click-storage"));
     }
 
     /**

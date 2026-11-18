@@ -320,7 +320,7 @@ final class IdeView {
         int bodyH = viewHeight - TITLE_H - STATUS_H;
         explorerRect = new Rect(0, bodyY, EXPLORER_W, bodyH);
         int centerX = EXPLORER_W + 1;
-        boolean right = session.scratchOpen || session.chatOpen;
+        boolean right = session.scratchOpen || session.chatOpen || session.networkOpen;
         int centerW = viewWidth - centerX - (right ? SCRATCH_W + 1 : 0);
         // The terminal's height can be changed by dragging the line above it.
         int wanted = session.terminalHeight > 0 ? session.terminalHeight : TERMINAL_H;
@@ -355,6 +355,8 @@ final class IdeView {
             drawScratch(ui, cursorOn);
         } else if (session.chatOpen) {
             drawChat(ui, cursorOn);
+        } else if (session.networkOpen) {
+            drawNetwork(ui);
         }
         drawTitleBar(ui);
         drawStatusBar(ui);
@@ -364,7 +366,7 @@ final class IdeView {
             boolean onEdge = drag == Drag.TERMINAL_EDGE || (dialog == null && menu == null && onTerminalEdge(mouseX, mouseY));
             ui.fill(terminalRect.x(), terminalRect.y() - 1, terminalRect.width(), onEdge ? 2 : 1, onEdge ? Ui.STATUS_BG : Ui.BORDER);
         }
-        if (session.scratchOpen || session.chatOpen) {
+        if (session.scratchOpen || session.chatOpen || session.networkOpen) {
             ui.fill(scratchRect.x() - 1, TITLE_H, 1, viewHeight - TITLE_H - STATUS_H, Ui.BORDER);
         }
         // The autocomplete list goes on top of the panels around the text it belongs to.
@@ -455,6 +457,11 @@ final class IdeView {
         String chatLabel = session.chatOpen ? "Hide Chat" : "Chat";
         x -= ui.textWidth(chatLabel) + 10 + 4;
         button(ui, x, 1, TITLE_H - 2, chatLabel, false, true, session.chatOpen ? Ui.ACCENT : Ui.BAR_BG, this::toggleChat);
+        if (!session.editOnly) {
+            String networkLabel = session.networkOpen ? "Hide Network" : "Network";
+            x -= ui.textWidth(networkLabel) + 10 + 4;
+            button(ui, x, 1, TITLE_H - 2, networkLabel, false, true, session.networkOpen ? Ui.ACCENT : Ui.BAR_BG, this::toggleNetwork);
+        }
         x -= ui.textWidth("Save") + 10 + 4;
         button(ui, x, 1, TITLE_H - 2, "Save", false, hasFile && tab.view.buffer.isDirty(), Ui.BAR_BG, this::saveActive);
         if (isJson) {
@@ -1698,11 +1705,135 @@ final class IdeView {
             }
         }
     }
+    // ---- the Network panel ---------------------------------------------------------
+
+    /** A device's row in the Network panel, where it was drawn. */
+    private record NetworkRow(Rect rect, qbotics.ide.Completer.Device device) {
+    }
+
+    private final List<NetworkRow> networkRows = new ArrayList<>();
+
+    /** The kinds in the order the panel lists them: what holds items first, the computers last. */
+    private static final List<String> NETWORK_ORDER = List.of("bus", "usb", "interface", "collector", "player_interface", "fluid_bus",
+            "fluid_interface", "energy_bus", "energy_interface", "experience_interface");
+
+    private static String kindHeading(String kind) {
+        return switch (kind) {
+            case "bus" -> "ITEM SERIAL BUSES";
+            case "usb" -> "USBS";
+            case "fluid_bus" -> "FLUID SERIAL BUSES";
+            case "energy_bus" -> "ENERGY SERIAL BUSES";
+            default -> kind.replace('_', ' ').toUpperCase(java.util.Locale.ROOT) + "S";
+        };
+    }
+
+    private static int kindRank(String kind) {
+        int at = NETWORK_ORDER.indexOf(kind);
+        return at >= 0 ? at : kind.equals("computer") ? 1000 : 100;
+    }
+
+    private void toggleNetwork() {
+        session.networkOpen = !session.networkOpen;
+        session.chatOpen = false;
+        session.scratchOpen = false;
+        session.focus = Focus.EDITOR;
+        if (session.networkOpen) {
+            askDevices(); // as it is now
+        }
+    }
+
+    /** For the screenshot run: the Network panel open. */
+    void networkForShots() {
+        session.networkOpen = true;
+        session.chatOpen = false;
+        session.scratchOpen = false;
+        askDevices();
+    }
+
+    /** For the screenshot run: a device's row in the Network panel clicked, as the mouse would. */
+    void clickNetworkForShots(String name) {
+        for (qbotics.ide.Completer.Device device : session.devices) {
+            if (device.name().equals(name)) {
+                lookAtDevice(null, device.ip());
+                return;
+            }
+        }
+    }
+
+    /** For the screenshot run: Ctrl+click at a place in the open file, as the mouse would. */
+    void ctrlClickForShots(int line, int column) {
+        Tab tab = session.active();
+        if (tab != null && tab.view != null) {
+            lookAt(tab.view.buffer, line, column);
+        }
+    }
+
+    /**
+     * The Network panel: every device on this computer's cables, by kind, each with its name (or
+     * address) and what it points at. A click shows it over the editor, as Ctrl+click in the code does.
+     */
+    private void drawNetwork(Ui ui) {
+        Rect r = scratchRect;
+        ui.fill(r.x(), r.y(), r.width(), r.height(), Ui.SIDE_BG);
+        ui.text("NETWORK", r.x() + 6, r.y() + 3, Ui.TEXT_BRIGHT);
+        int y = r.y() + HEADER_H;
+        button(ui, r.x() + 4, y, 13, "Refresh", false, true, Ui.SIDE_BG, this::askDevices);
+        List<qbotics.ide.Completer.Device> devices = new ArrayList<>(session.devices);
+        String count = devices.isEmpty() ? "" : devices.size() + (devices.size() == 1 ? " device" : " devices");
+        ui.text(count, r.right() - ui.textWidth(count) - 6, y + 3, Ui.TEXT_DIM);
+        y += 18;
+        networkRows.clear();
+        if (devices.isEmpty()) {
+            ui.text(session.laptop && session.filesLabel == null ? "A laptop has no cables." : "Nothing on the cables yet.", r.x() + 6, y, Ui.TEXT_DIM);
+            ui.text("Add devices, then Refresh.", r.x() + 6, y + 12, Ui.TEXT_DIM);
+            return;
+        }
+        ui.text("Click one to see what it holds.", r.x() + 6, y, Ui.TEXT_DIM);
+        y += 14;
+        devices.sort(java.util.Comparator.comparingInt((qbotics.ide.Completer.Device d) -> kindRank(d.kind()))
+                .thenComparing(qbotics.ide.Completer.Device::kind)
+                .thenComparing(d -> d.name().isEmpty() ? "~" + d.ip() : d.name()));
+        // Headings and rows, scrolled as one list.
+        List<Object> lines = new ArrayList<>();
+        String kind = null;
+        for (qbotics.ide.Completer.Device device : devices) {
+            if (!device.kind().equals(kind)) {
+                kind = device.kind();
+                lines.add(kindHeading(kind));
+            }
+            lines.add(device);
+        }
+        int rowH = 12;
+        int visible = Math.max(1, (r.bottom() - y - 4) / rowH);
+        session.networkScroll = Math.clamp(session.networkScroll, 0, Math.max(0, lines.size() - visible));
+        ui.clip(r.x(), y, r.width(), r.bottom() - y);
+        for (int i = session.networkScroll; i < lines.size() && y + rowH <= r.bottom(); i++) {
+            Object line = lines.get(i);
+            if (line instanceof String heading) {
+                ui.text(heading, r.x() + 6, y + 2, Ui.TEXT_DIM);
+            } else {
+                qbotics.ide.Completer.Device device = (qbotics.ide.Completer.Device) line;
+                Rect row = new Rect(r.x() + 2, y, r.width() - 4, rowH);
+                if (row.contains(mouseX, mouseY) && dialog == null && menu == null) {
+                    ui.fill(row.x(), row.y(), row.width(), row.height(), Ui.HOVER);
+                }
+                networkRows.add(new NetworkRow(row, device));
+                boolean named = !device.name().isEmpty();
+                ui.text(named ? device.name() : device.ip(), r.x() + 14, y + 2, named ? Ui.TEXT : Ui.TEXT_DIM);
+                String target = device.target().isEmpty() ? (named ? device.ip() : "") : "-> " + device.target().replace("minecraft:", "");
+                ui.text(target, r.right() - ui.textWidth(target) - 6, y + 2, Ui.TEXT_DIM);
+            }
+            y += rowH;
+        }
+        ui.unclip();
+    }
+
     // ---- scratchpad --------------------------------------------------------------
 
     private void toggleScratch() {
         session.scratchOpen = !session.scratchOpen;
         session.chatOpen = false;
+        session.networkOpen = false;
         session.focus = session.scratchOpen ? Focus.SCRATCH : Focus.EDITOR;
     }
 
@@ -1712,6 +1843,7 @@ final class IdeView {
     void chatForShots(boolean toAi, String text) {
         session.chatOpen = true;
         session.scratchOpen = false;
+        session.networkOpen = false;
         session.focus = Focus.CHAT;
         session.chatToAi = toAi;
         session.chatInput.buffer.replaceAll(text);
@@ -1723,6 +1855,7 @@ final class IdeView {
     private void toggleChat() {
         session.chatOpen = !session.chatOpen;
         session.scratchOpen = false;
+        session.networkOpen = false;
         session.chatScroll = 0;
         session.focus = session.chatOpen ? Focus.CHAT : Focus.EDITOR;
     }
@@ -2264,6 +2397,13 @@ final class IdeView {
             if (button == LEFT_BUTTON && chatInputRect.contains(x, y)) {
                 session.chatInput.mouseDown(x, y, shift, doubleClick);
             }
+        } else if (session.networkOpen && scratchRect.contains(x, y) && button == LEFT_BUTTON) {
+            for (NetworkRow row : networkRows) {
+                if (row.rect().contains(x, y)) {
+                    lookAtDevice(null, row.device().ip()); // by its address: names may be shared
+                    break;
+                }
+            }
         }
     }
 
@@ -2344,6 +2484,8 @@ final class IdeView {
             session.terminalScroll = Math.max(0, session.terminalScroll + (int) Math.round(vertical * 3));
         } else if (session.scratchOpen && scratchCodeRect.contains(x, y)) {
             session.scratch.scroll(vertical, horizontal);
+        } else if (session.networkOpen && scratchRect.contains(x, y)) {
+            session.networkScroll = Math.max(0, session.networkScroll - (int) Math.round(vertical * 3));
         } else if (session.chatOpen && chatTextRect.contains(x, y)) {
             session.chatScroll = Math.max(0, session.chatScroll + (int) Math.round(vertical * 3));
         }

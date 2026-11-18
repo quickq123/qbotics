@@ -199,6 +199,11 @@ or Esc closes it (or goes back a step). A bus opens its block's screen for a mom
 screen that can't be drawn here shows as plain slots in the same places, still numbered. The
 name must be written in the code as text: one worked out while the program runs can't be followed.
 
+**The Network panel** (the Network button at the top right; it takes the place of the Chat
+and the scratchpad on the right) lists every device on this computer's cables, by kind: its name
+(or address, if it has none yet) and what it points at. Click one to see it over the editor, as
+Ctrl+click in the code does. Refresh lists them again after the cables change.
+
 **A dry run** (Shift+F5, or the Dry run button beside Run) runs the open file changing nothing
 in the world. It reads the world as it likes; each `move()` is only tried, and says what it would
 have done, then the program carries on as if it had:
