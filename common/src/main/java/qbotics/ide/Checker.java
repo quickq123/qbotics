@@ -135,12 +135,13 @@ public final class Checker {
                 }
             }
         }
-        names.removeIf(name -> name.startsWith("_") || name.isEmpty());
+        // TYPE_CHECKING is for editors on a PC (logistics imports display for their hints), not programs.
+        names.removeIf(name -> name.startsWith("_") || name.isEmpty() || name.equals("TYPE_CHECKING"));
         return names;
     }
 
     /** The closest of some names to a misspelt one, or null if none is close. */
-    static String closest(String wrong, Iterable<String> names) {
+    public static String closest(String wrong, Iterable<String> names) {
         String best = null;
         int bestDistance = Integer.MAX_VALUE;
         String lower = wrong.toLowerCase(Locale.ROOT);

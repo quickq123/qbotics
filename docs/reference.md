@@ -20,6 +20,7 @@ Contents
    - [7c. Displays: Text Monitors and Control Panels](#7c-displays-text-monitors-and-control-panels)
    - [7d. Qbots: computers that move](#7d-qbots-computers-that-move)
    - [7l. Lessons: advancements for learning](#7l-lessons-advancements-for-learning)
+   - [7m. The devkit: writing programs on your PC, away from the game](#7m-the-devkit-writing-programs-on-your-pc-away-from-the-game)
 8. [The Network Probe](#8-the-network-probe)
 9. [Limits](#9-limits)
 10. [Errors](#10-errors)
@@ -3107,6 +3108,36 @@ counts, a helpme example too.
   `workstation`, `storage`, `monitor`, `panel`, `web`, `tablet`, `always_on`, `radio_message`,
   `radio_device`, `service`, `harvest`, `replant`, `rancher`, `qbot_move`, `qbot_dig` and
   `factory_craft`.
+
+## 7m. The devkit: writing programs on your PC, away from the game
+
+The **devkit** is a folder, *Qbotics Programs*, to open in VS Code on your PC. It comes with each
+version of the mod (`qbotics-devkit-<version>.zip`) and needs no game running:
+
+- **Hints as you type.** The computers' own modules (`qbot`, `logistics`, `display`, `events`
+  and the rest) are in the folder, so VS Code's Python extension lists every call with its help
+  (`net.` shows what a network can find; `net.bus("store").` what a bus can do). Names never
+  defined are underlined, and `time` hints show the computers' `time` (`ticks_ms`, no `time()`).
+- **Will it compile?** **Ctrl+Shift+B** runs the check on the open file: the in-game editor's
+  own checker (section 1.2b), then the computers' own Python compiler (the same engine, inside
+  the devkit), then whether what the program uses from a module is there on a computer
+  (`time.monotonic` isn't). A file that passes here passes in the game.
+- **Will it run?** The same check lists what the program needs in the game, read from its code:
+  the devices it finds by name (*an Item Serial Bus (or USB) named "store"*), or with no name
+  (*exactly one Text Monitor*), a Qbot (it imports `qbot`), an antenna (sending past the
+  network, `remote()`, with its Transport Upgrades), an Uplink (`requests`, `git`), and files and
+  modules it reads from the drive. A file of the program's own that it imports is checked too.
+  A name worked out as the program runs is reported as such, not guessed.
+
+Results show in VS Code's **Problems** panel: errors red, warnings amber, needs blue. From a
+terminal in the folder: `.\check mine.py` (Windows), `./check.sh mine.py` (Mac, Linux), or a
+folder name to check every program in it. Each line is `file:line:column: kind: message`.
+
+The check needs **Java 25**, and finds the one Minecraft's launcher, the CurseForge app or
+Prism Launcher brought (or `JAVA_HOME`, or `QBOTICS_JAVA`). The folder also holds `examples/`
+(the `/helpme` programs), this manual as `REFERENCE.md`, and `programs/` for your own. Take a
+program into the game by pasting it into the editor, over the SSH gateway (section 7f), or with
+git (section 7h).
 
 ## 8. The Network Probe
 

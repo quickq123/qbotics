@@ -1,0 +1,71 @@
+// The offline devkit: a folder to write Qbotics programs in outside the game, in VS Code.
+// It has the computers' own modules (for hints as you type) and a check command that runs the
+// in-game editor's checker and the computers' own Python compiler (the engine, inside the jar).
+// Build it with:  gradlew :devkit:devkit   (made in devkit/build/devkit, zipped in build/distributions)
+plugins {
+    id 'java'
+}
+
+// The engine and the editor's checker are plain Java in the common module: compiled here as they are.
+sourceSets.main {
+    java {
+        srcDir '../common/src/main/java'
+        include 'qbotics/engine/**', 'qbotics/ide/**', 'qbotics/devkit/**'
+    }
+    resources {
+        srcDir '../common/src/main/resources'
+        include 'qbotics/engine/micropython.wasm', 'qbotics/rom/**'
+    }
+}
+
+dependencies {
+    implementation "com.dylibso.chicory:runtime:${chicory_version}"
+    implementation "com.dylibso.chicory:compiler:${chicory_version}"
+    implementation "com.google.code.gson:gson:2.13.1"
+    compileOnly "org.jspecify:jspecify:1.0.0"
+    testImplementation platform("org.junit:junit-bom:5.13.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+    useJUnitPlatform()
+    testLogging { exceptionFormat = 'full' }
+}
+
+// One jar with everything in it: java -jar qcheck.jar mine.py
+def checkJar = tasks.register('checkJar', Jar) {
+    archiveFileName = 'qcheck.jar'
+    destinationDirectory = layout.buildDirectory.dir('jar')
+    manifest { attributes 'Main-Class': 'qbotics.devkit.Check' }
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/versions/**/module-info.class', 'module-info.class'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+def kitContents = copySpec {
+    from 'kit'
+    into('.qbotics') { from checkJar }
+    into('.qbotics/modules') { from '../common/src/main/resources/qbotics/rom' }
+    from('../docs/reference.md') { rename { 'REFERENCE.md' } }
+    into('examples') {
+        from '../common/src/main/resources/qbotics/helpme'
+        exclude 'files.txt'
+    }
+}
+
+tasks.register('devkit', Sync) {
+    description = 'Makes the offline devkit folder in devkit/build/devkit, and its zip.'
+    dependsOn test
+    into layout.buildDirectory.dir('devkit/Qbotics Programs')
+    with kitContents
+    finalizedBy 'devkitZip'
+}
+
+tasks.register('devkitZip', Zip) {
+    archiveFileName = "qbotics-devkit-${project.version}.zip"
+    destinationDirectory = rootProject.layout.buildDirectory.dir('distributions')
+    into('Qbotics Programs') { with kitContents }
+}

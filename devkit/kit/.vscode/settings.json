@@ -1,0 +1,20 @@
+{
+    // Hints as you type: the computers' own modules (qbot, logistics, display...) are in
+    // .qbotics/modules, so VS Code knows every call, its arguments and its help text.
+    "python.analysis.extraPaths": [".qbotics/modules"],
+    "python.analysis.stubPath": ".qbotics/typings",
+    // The modules are the game's: don't mark problems in them.
+    "python.analysis.ignore": [".qbotics"],
+    "python.analysis.autoImportCompletions": true,
+    // Hints and names never defined, but not strict type checking: some of the modules make
+    // their objects as the program runs, which stricter checking would mark wrongly. The
+    // check (Ctrl+Shift+B) finds the rest, in the game's words.
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.diagnosticSeverityOverrides": {
+        // Modules the computers have built in (micropython, vfs...) aren't on your PC.
+        "reportMissingModuleSource": "none"
+    },
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.eol": "\n"
+}

@@ -3,6 +3,7 @@ package qbotics.computer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import qbotics.engine.Computer;
+import qbotics.engine.SyntaxCheck;
 
 /**
  * Compiles a file the editor has open, without running it, to find what the engine itself
@@ -26,53 +27,15 @@ public final class CompileCheck {
                 python = new Computer(ComputerManager.engine(), HEAP_BYTES,
                         call -> CompletableFuture.failedFuture(new IllegalStateException("no world here")));
             }
-            python.takeOutput();
-            boolean ran = python.exec(String.join("\n",
-                    "import sys, io",
-                    "try:",
-                    "    compile(" + literal(new String(source, StandardCharsets.UTF_8)) + ", " + literal(path) + ", 'exec')",
-                    "except SyntaxError as e:",
-                    "    s = io.StringIO()",
-                    "    sys.print_exception(e, s)",
-                    "    print(s.getvalue())",
-                    "    del s",
-                    "e = None",
-                    ""));
-            String output = python.takeOutput();
-            if (!ran) {
+            String answer = SyntaxCheck.check(python, path, new String(source, StandardCharsets.UTF_8));
+            if (answer == null) {
                 python = null; // out of memory, say: start afresh next time
                 return "";
             }
-            // ... File "/a.py", line 3 ... SyntaxError: invalid syntax
-            java.util.regex.Matcher line = java.util.regex.Pattern.compile("File \"[^\"]*\", line (\\d+)[^\\n]*\\n(?:.*\\n)*?SyntaxError: (.*)")
-                    .matcher(output.substring(Math.max(0, output.indexOf("File \"" + path))));
-            return line.find() ? line.group(1) + "\t" + line.group(2).strip() : "";
+            return answer;
         } catch (RuntimeException e) {
             python = null;
             return "";
         }
-    }
-
-    /** A Python string literal holding the text exactly. */
-    private static String literal(String text) {
-        StringBuilder out = new StringBuilder(text.length() + 16).append('\'');
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            switch (c) {
-                case '\\' -> out.append("\\\\");
-                case '\'' -> out.append("\\'");
-                case '\n' -> out.append("\\n");
-                case '\r' -> out.append("\\r");
-                case '\t' -> out.append("\\t");
-                default -> {
-                    if (c < 0x20 || c == 0x7f) {
-                        out.append(String.format("\\x%02x", (int) c));
-                    } else {
-                        out.append(c);
-                    }
-                }
-            }
-        }
-        return out.append('\'').toString();
     }
 }

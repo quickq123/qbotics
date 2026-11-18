@@ -1,6 +1,7 @@
 # Keep LF everywhere: the engine build scripts run in Linux containers.
 * text=auto eol=lf
 *.bat text eol=crlf
+*.cmd text eol=crlf
 *.jar binary
 *.wasm binary
 *.png binary

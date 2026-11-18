@@ -1,0 +1,57 @@
+{
+    // Ctrl+Shift+B checks the file you're in. Terminal > Run Task... has the other one.
+    // Mistakes and what the program needs show in the Problems panel (Ctrl+Shift+M).
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Qbotics: check this program",
+            "type": "process",
+            "windows": { "command": "cmd.exe", "args": ["/d", "/c", ".\\check.cmd", "${relativeFile}"] },
+            "linux": { "command": "sh", "args": ["check.sh", "${relativeFile}"] },
+            "osx": { "command": "sh", "args": ["check.sh", "${relativeFile}"] },
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": { "kind": "build", "isDefault": true },
+            "presentation": { "reveal": "always", "clear": true, "showReuseMessage": false },
+            "problemMatcher": [
+                {
+                    "owner": "qbotics",
+                    "source": "Qbotics",
+                    "fileLocation": ["autoDetect", "${workspaceFolder}"],
+                    "pattern": { "regexp": "^(.+?):(\\d+):(\\d+): (error|warning): (.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 }
+                },
+                {
+                    "owner": "qbotics-needs",
+                    "source": "Qbotics: to run, it needs",
+                    "severity": "info",
+                    "fileLocation": ["autoDetect", "${workspaceFolder}"],
+                    "pattern": { "regexp": "^(.+?):(\\d+):(\\d+): needs: (.*)$", "file": 1, "line": 2, "column": 3, "message": 4 }
+                }
+            ]
+        },
+        {
+            "label": "Qbotics: check every program",
+            "type": "process",
+            "windows": { "command": "cmd.exe", "args": ["/d", "/c", ".\\check.cmd", "."] },
+            "linux": { "command": "sh", "args": ["check.sh", "."] },
+            "osx": { "command": "sh", "args": ["check.sh", "."] },
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": "build",
+            "presentation": { "reveal": "always", "clear": true, "showReuseMessage": false },
+            "problemMatcher": [
+                {
+                    "owner": "qbotics",
+                    "source": "Qbotics",
+                    "fileLocation": ["autoDetect", "${workspaceFolder}"],
+                    "pattern": { "regexp": "^(.+?):(\\d+):(\\d+): (error|warning): (.*)$", "file": 1, "line": 2, "column": 3, "severity": 4, "message": 5 }
+                },
+                {
+                    "owner": "qbotics-needs",
+                    "source": "Qbotics: to run, it needs",
+                    "severity": "info",
+                    "fileLocation": ["autoDetect", "${workspaceFolder}"],
+                    "pattern": { "regexp": "^(.+?):(\\d+):(\\d+): needs: (.*)$", "file": 1, "line": 2, "column": 3, "message": 4 }
+                }
+            ]
+        }
+    ]
+}

@@ -15,3 +15,5 @@ rootProject.name = 'qbotics'
 // engine/ holds the MicroPython -> Wasm build and its benchmark harness (a separate Gradle build).
 include 'common'
 include 'neoforge'
+// devkit:   the offline kit for writing programs outside the game (hints and a check command).
+include 'devkit'

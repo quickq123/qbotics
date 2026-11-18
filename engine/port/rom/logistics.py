@@ -33,6 +33,12 @@ import json
 import time
 import _host
 
+# For hints in editors on a PC (the devkit, VS Code): the display classes some lookups below
+# give. Editors read this as true; on a computer it is never run.
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    import display
+
 
 class NetworkError(Exception):
     """The network couldn't do what was asked. The message says why."""
@@ -1791,7 +1797,7 @@ _KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay,
           "entity_sensor": EntitySensor, "collector": Collector, "block_sensor": BlockSensor}
 
 
-def _wrap(info):
+def _wrap(info) -> "Device":
     if info["kind"] == "tablet":
         import display
         return display.Tablet(info)
@@ -1821,80 +1827,80 @@ class Network:
         """Every device on the network (or every one of a kind), in address order."""
         return [_wrap(i) for i in self._list() if kind is None or i["kind"] == kind]
 
-    def device(self, key):
+    def device(self, key) -> "Device":
         """A device by name, IP address or hardware address."""
         return self._find(key, None)
 
-    def interface(self, key=None):
+    def interface(self, key=None) -> "Interface":
         """An interface by name or address; with no argument, the network's only interface."""
         return self._find(key, "interface")
 
-    def bus(self, key=None):
+    def bus(self, key=None) -> "Bus":
         """An Item Serial Bus by name or address; with no argument, the network's only one.
         A USB counts too, working on items."""
         return self._find(key, "bus")
 
-    def usb(self, key=None):
+    def usb(self, key=None) -> "USB":
         """A Universal Serial Bus by name or address; with no argument, the network's only one."""
         return self._find(key, "usb")
 
-    def fluid_interface(self, key=None):
+    def fluid_interface(self, key=None) -> "FluidInterface":
         """A fluid interface by name or address; with no argument, the network's only one."""
         return self._find(key, "fluid_interface")
 
-    def fluid_bus(self, key=None):
+    def fluid_bus(self, key=None) -> "FluidBus":
         """A Fluid Serial Bus by name or address; with no argument, the network's only one.
         A USB counts too, working on fluid."""
         return self._find(key, "fluid_bus")
 
-    def energy_interface(self, key=None):
+    def energy_interface(self, key=None) -> "EnergyInterface":
         """An energy interface by name or address; with no argument, the network's only one."""
         return self._find(key, "energy_interface")
 
-    def energy_bus(self, key=None):
+    def energy_bus(self, key=None) -> "EnergyBus":
         """An Energy Serial Bus by name or address; with no argument, the network's only one.
         A USB counts too, working on energy."""
         return self._find(key, "energy_bus")
 
-    def experience_interface(self, key=None):
+    def experience_interface(self, key=None) -> "ExperienceInterface":
         """An experience interface by name or address; with no argument, the network's only one."""
         return self._find(key, "experience_interface")
 
-    def player_interface(self, key=None):
+    def player_interface(self, key=None) -> "PlayerInterface":
         """A player interface by name or address; with no argument, the network's only one."""
         return self._find(key, "player_interface")
 
-    def chat_interface(self, key=None):
+    def chat_interface(self, key=None) -> "ChatInterface":
         """A chat interface by name or address; with no argument, the network's only one."""
         return self._find(key, "chat_interface")
 
-    def command_interface(self, key=None):
+    def command_interface(self, key=None) -> "CommandInterface":
         """A command interface by name or address; with no argument, the network's only one."""
         return self._find(key, "command_interface")
 
-    def entity_sensor(self, key=None):
+    def entity_sensor(self, key=None) -> "EntitySensor":
         """An Entity Sensor by name or address; with no argument, the network's only one."""
         return self._find(key, "entity_sensor")
 
-    def collector(self, key=None):
+    def collector(self, key=None) -> "Collector":
         """A Collector by name or address; with no argument, the network's only one."""
         return self._find(key, "collector")
 
-    def block_sensor(self, key=None):
+    def block_sensor(self, key=None) -> "BlockSensor":
         """A Block Sensor by name or address; with no argument, the network's only one."""
         return self._find(key, "block_sensor")
 
-    def monitor(self, key=None):
+    def monitor(self, key=None) -> "display.Monitor":
         """A text monitor by name or address; with no argument, the network's only one.
         See the display module for what it can do."""
         return self._find(key, "monitor")
 
-    def panel(self, key=None):
+    def panel(self, key=None) -> "display.Panel":
         """A control panel by name or address; with no argument, the network's only one.
         See the display module for what it can do."""
         return self._find(key, "panel")
 
-    def web_panel(self, key=None):
+    def web_panel(self, key=None) -> "display.WebPanel":
         """A web panel by name or address; with no argument, the network's only one.
         See the display module for what it can do."""
         return self._find(key, "web_panel")
@@ -1903,7 +1909,7 @@ class Network:
         """Every web panel on the network."""
         return self.devices("web_panel")
 
-    def tablet(self, key=None):
+    def tablet(self, key=None) -> "display.Tablet":
         """A Tablet paired with this network's antenna: by the name of the player carrying
         it, its name or its address; with no argument, the only one paired. See the
         display module's Tablet."""
@@ -1921,27 +1927,27 @@ class Network:
         """Every control panel on the network."""
         return self.devices("panel")
 
-    def programmer(self, key=None):
+    def programmer(self, key=None) -> "Programmer":
         """A programmer by name or address; with no argument, the network's only one."""
         return self._find(key, "programmer")
 
-    def drive_bay(self, key=None):
+    def drive_bay(self, key=None) -> "DriveBay":
         """A drive bay by name or address; with no argument, the network's only one."""
         return self._find(key, "drive_bay")
 
-    def pin(self, key=None):
+    def pin(self, key=None) -> "Pin":
         """A logic pin by name or address; with no argument, the network's only one."""
         return self._find(key, "pin")
 
-    def placer(self, key=None):
+    def placer(self, key=None) -> "Placer":
         """A placer by name or address; with no argument, the network's only one."""
         return self._find(key, "placer")
 
-    def breaker(self, key=None):
+    def breaker(self, key=None) -> "Breaker":
         """A breaker by name or address; with no argument, the network's only one."""
         return self._find(key, "breaker")
 
-    def dropper(self, key=None):
+    def dropper(self, key=None) -> "Dropper":
         """A dropper plate by name or address; with no argument, the network's only one."""
         return self._find(key, "dropper")
 
