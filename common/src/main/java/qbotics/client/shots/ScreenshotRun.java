@@ -365,6 +365,8 @@ public final class ScreenshotRun {
         section("viewblocks");
         then(10, minecraft -> onServer(minecraft, player -> {
             net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) player.level();
+            // The run's world is Peaceful, which takes monsters away: Easy for this scene, so the zombie and spider stay.
+            command(player, "difficulty easy");
             BlockPos o = base.offset(110, 0, 0); // beside the cone scene
             for (int x = -14; x <= 14; x++) {
                 for (int z = -30; z <= 3; z++) {
@@ -474,8 +476,13 @@ public final class ScreenshotRun {
             level.setBlock(o.offset(0, 0, -12), Blocks.OAK_STAIRS.defaultBlockState()
                     .setValue(net.minecraft.world.level.block.StairBlock.WATERLOGGED, true), Block.UPDATE_ALL);
         }));
-        // Once the water has run: what the Qbot's view shows, and the game's own picture from its eye.
-        then(60, minecraft -> onServer(minecraft, player -> {
+        // The game's own picture from the Qbot's eye; then, with the player there so the scene has run (the water
+        // spread; nothing changes where no player is near), what the Qbot's view shows.
+        then(2, minecraft -> minecraft.options.fov().set(70));
+        view("view-blocks-game", new Vec3(110.5, 5.5, 0.8), new Vec3(110.5, 5.5 - 10 * Math.tan(Math.toRadians(30)), -9.2));
+        // (The player steps behind the Qbot first: standing at its eye, it would fill the view.)
+        then(2, minecraft -> onServer(minecraft, player -> player.teleportTo(110.5, 1, 8)));
+        then(40, minecraft -> onServer(minecraft, player -> {
             net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) player.level();
             qbotics.camera.ConeView.Basis b = qbotics.camera.ConeView.basis(Direction.NORTH, -30, 0.75);
             blocksSeen = qbotics.camera.ConeView.collect(level, blocksAt, b);
@@ -483,8 +490,7 @@ public final class ScreenshotRun {
         }));
         then(10, minecraft -> saveScaled(minecraft, "view-blocks", qbotics.client.display.ConeRenderer.render(blocksSeen, blocksCreatures, blocksAt,
                 Direction.NORTH, -30, 256, 192), 3));
-        then(2, minecraft -> minecraft.options.fov().set(70));
-        view("view-blocks-game", new Vec3(110.5, 5.5, 0.8), new Vec3(110.5, 5.5 - 10 * Math.tan(Math.toRadians(30)), -9.2));
+        then(2, minecraft -> onServer(minecraft, player -> command(player, "difficulty peaceful")));
     }
 
     private static void saveScaled(Minecraft minecraft, String name, java.awt.image.BufferedImage image, int scale) {

@@ -48,9 +48,13 @@ public final class ConeRenderer {
      * A face ready to draw: its corners (x, y, z, u, v each), texture (width x height), tint, shade,
      * and how far it is brought forward (blocks) so a layer drawn over the same shape shows.
      */
-    private record Face(double[][] corners, int[] pixels, int width, int height, int tint, float shade, float forward) {
+    private record Face(double[][] corners, int[] pixels, int width, int height, int tint, float shade, float forward, boolean solid) {
         Face(double[][] corners, int[] pixels, int width, int height, int tint, float shade) {
-            this(corners, pixels, width, height, tint, shade, 0);
+            this(corners, pixels, width, height, tint, shade, 0, false);
+        }
+
+        Face(double[][] corners, int[] pixels, int width, int height, int tint, float shade, float forward) {
+            this(corners, pixels, width, height, tint, shade, forward, false);
         }
     }
 
@@ -190,7 +194,8 @@ public final class ConeRenderer {
                 }
                 for (Direction d : Direction.values()) {
                     if ((block.fluidFaces() & (1 << d.get3DDataValue())) != 0) {
-                        faces.add(new Face(fluid(block, d, h), pixels, size, size, water ? 0x3F76E4 : -1, shade(d)));
+                        // Solid: water's texture is partly see-through, and what lies under it would show in patches.
+                        faces.add(new Face(fluid(block, d, h), pixels, size, size, water ? 0x3F76E4 : -1, shade(d), 0, true));
                     }
                 }
             }
@@ -345,7 +350,7 @@ public final class ConeRenderer {
                 int tx = Math.clamp((int) (u * face.width()), 0, face.width() - 1);
                 int ty = Math.clamp((int) (t * face.height()), 0, face.height() - 1);
                 int argb = face.pixels()[ty * face.width() + tx];
-                if ((argb >>> 24) < 128) {
+                if ((argb >>> 24) < 128 && !face.solid()) {
                     continue; // see-through: what is behind shows
                 }
                 int rgb = argb & 0xFFFFFF;
