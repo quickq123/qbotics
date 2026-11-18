@@ -2474,8 +2474,12 @@ trace rays: it lists the blocks ahead with a face turned towards the Qbot and no
 block beside it, and the creatures in sight (about 2 KB for a field). Each player's game draws
 those with the game's own models and textures, nearest in front, in the background so the game
 doesn't stutter; the last view stays up until the next is drawn. Creatures are boxes in their
-kind's colour. Blocks that draw themselves (chests, signs) don't show yet, and see-through
-pixels (glass, leaves) are left out rather than blended. `snapshot()` stays as it is for now.
+kind's colour. Blocks the game draws with code (chests, signs, beds, banners, heads, shulker
+boxes, pots, bells, conduits) are drawn from the game's own models for them, shut and without
+their text or patterns; any other block that has no model of its own (some from other mods) shows
+as a box of its outline. See-through pixels (glass, leaves) are left out rather than blended, so
+stained glass shows only its frame, and flowing water is drawn as level blocks. `snapshot()`
+stays as it is for now.
 
 ### 7d.3c Its radio: reached anywhere
 

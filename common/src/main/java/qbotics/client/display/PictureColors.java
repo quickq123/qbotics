@@ -154,6 +154,38 @@ final class PictureColors {
         }
     }
 
+    /** A whole texture file (ARGB pixels, row by row), as entity models use them. */
+    record Image(int[] pixels, int width, int height) {
+        /** One white pixel, for a flat colour by tint. */
+        static final Image SOLID = new Image(new int[] {0xFFFFFFFF}, 1, 1);
+    }
+
+    private static final Map<Identifier, Optional<Image>> IMAGES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** A texture file by its full path (textures/....png); null if it can't be read. Cached. */
+    static @Nullable Image image(Identifier file) {
+        return IMAGES.computeIfAbsent(file, name -> {
+            Optional<Resource> resource = Minecraft.getInstance().getResourceManager().getResource(name);
+            if (resource.isEmpty()) {
+                return Optional.empty();
+            }
+            try (InputStream in = resource.get().open(); NativeImage image = NativeImage.read(in)) {
+                int w = image.getWidth();
+                int h = image.getHeight();
+                int[] pixels = new int[w * h];
+                for (int y = 0; y < h; y++) {
+                    for (int x = 0; x < w; x++) {
+                        pixels[y * w + x] = image.getPixel(x, y);
+                    }
+                }
+                return Optional.of(new Image(pixels, w, h));
+            } catch (Exception e) {
+                Qbotics.LOGGER.debug("Couldn't read texture {} for a view", name, e);
+                return Optional.empty();
+            }
+        }).orElse(null);
+    }
+
     /** A texture's first frame (a square from its top), ARGB; null if it can't be read. Cached. */
     static int @Nullable [] texture(Identifier sprite) {
         return TEXTURES.computeIfAbsent(sprite, name -> {

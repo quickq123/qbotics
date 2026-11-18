@@ -66,7 +66,7 @@ public final class ScreenshotRun {
 
     /** The sections of the script, in the order they run. */
     public static final java.util.List<String> SECTIONS = java.util.List.of(
-            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "agent", "night", "stage", "items", "interfaces", "cone");
+            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "agent", "night", "stage", "items", "interfaces", "cone", "viewblocks");
     /** The sections asked for (-Pshots=a,b), or every section. */
     private static final java.util.Set<String> WANTED = wanted();
     /** Whether the section being planned is wanted: steps of other sections are left out. */
@@ -353,6 +353,118 @@ public final class ScreenshotRun {
             }
         }));
         view("cone-on-panel", new Vec3(70.5, 1.6, 3.4), new Vec3(70.5, 1.5, 1.5));
+    }
+
+    // ---- qbot.view() of what the game draws with code (chests, signs...), and of stained glass, water and creatures ----
+
+    private static volatile java.util.List<qbotics.camera.ConeView.Seen> blocksSeen;
+    private static volatile java.util.List<qbotics.camera.ConeView.Creature> blocksCreatures;
+    private static volatile BlockPos blocksAt;
+
+    private static void viewBlocks() {
+        section("viewblocks");
+        then(10, minecraft -> onServer(minecraft, player -> {
+            net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) player.level();
+            BlockPos o = base.offset(110, 0, 0); // beside the cone scene
+            for (int x = -14; x <= 14; x++) {
+                for (int z = -30; z <= 3; z++) {
+                    for (int y = -1; y <= 12; y++) {
+                        level.setBlock(o.offset(x, y, z), y < 0 ? Blocks.DIRT.defaultBlockState() : y == 0 ? Blocks.GRASS_BLOCK.defaultBlockState()
+                                : Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    }
+                }
+            }
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(20))) {
+                e.discard(); // left by a run before
+            }
+            Direction south = Direction.SOUTH;
+            var facing = net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING;
+            // Near row: one of each, all turned to the Qbot.
+            level.setBlock(o.offset(-3, 1, -4), Blocks.CHEST.defaultBlockState().setValue(facing, south), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-2, 1, -4), Blocks.ENDER_CHEST.defaultBlockState().setValue(facing, south), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-1, 1, -4), Blocks.OAK_SIGN.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(0, 1, -4), Blocks.SKELETON_SKULL.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(1, 1, -4), Blocks.RED_BANNER.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(2, 1, -4), Blocks.PURPLE_SHULKER_BOX.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(3, 1, -4), Blocks.DECORATED_POT.defaultBlockState().setValue(facing, south), Block.UPDATE_CLIENTS);
+            // Further: a double chest, a bed, a sign and a head on a wall, a bell, a hanging sign, a conduit.
+            level.setBlock(o.offset(-6, 1, -7), Blocks.CHEST.defaultBlockState().setValue(facing, south)
+                    .setValue(net.minecraft.world.level.block.ChestBlock.TYPE, net.minecraft.world.level.block.state.properties.ChestType.RIGHT), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-5, 1, -7), Blocks.CHEST.defaultBlockState().setValue(facing, south)
+                    .setValue(net.minecraft.world.level.block.ChestBlock.TYPE, net.minecraft.world.level.block.state.properties.ChestType.LEFT), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-3, 1, -8), Blocks.RED_BED.defaultBlockState().setValue(net.minecraft.world.level.block.BedBlock.FACING, south)
+                    .setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.HEAD), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-3, 1, -7), Blocks.RED_BED.defaultBlockState().setValue(net.minecraft.world.level.block.BedBlock.FACING, south)
+                    .setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.FOOT), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-1, 1, -8), Blocks.STONE_BRICKS.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-1, 2, -8), Blocks.STONE_BRICKS.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-1, 1, -7), Blocks.OAK_WALL_SIGN.defaultBlockState().setValue(net.minecraft.world.level.block.WallSignBlock.FACING, south),
+                    Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(-1, 2, -7), Blocks.CREEPER_WALL_HEAD.defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.WallSkullBlock.FACING, south), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(1, 1, -7), Blocks.BELL.defaultBlockState().setValue(net.minecraft.world.level.block.BellBlock.FACING, south),
+                    Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(3, 3, -7), Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(3, 2, -7), Blocks.OAK_HANGING_SIGN.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(5, 1, -7), Blocks.CONDUIT.defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.ConduitBlock.WATERLOGGED, false), Block.UPDATE_CLIENTS);
+            // Stained glass, a pane, and water: a pool and a spring that runs out over the grass.
+            var glass = java.util.List.of(Blocks.RED_STAINED_GLASS, Blocks.BLUE_STAINED_GLASS, Blocks.LIME_STAINED_GLASS);
+            for (int i = 0; i < 3; i++) {
+                for (int y = 1; y <= 2; y++) {
+                    level.setBlock(o.offset(-6 + i, y, -12), glass.get(i).defaultBlockState(), Block.UPDATE_CLIENTS);
+                }
+            }
+            level.setBlock(o.offset(-2, 1, -12), Blocks.LIGHT_BLUE_STAINED_GLASS_PANE.defaultBlockState(), Block.UPDATE_ALL);
+            level.setBlock(o.offset(-2, 2, -12), Blocks.LIGHT_BLUE_STAINED_GLASS_PANE.defaultBlockState(), Block.UPDATE_ALL);
+            for (int x = 1; x <= 5; x++) {
+                for (int z = -13; z <= -11; z++) {
+                    level.setBlock(o.offset(x, 0, z), Blocks.WATER.defaultBlockState(), Block.UPDATE_ALL);
+                }
+            }
+            level.setBlock(o.offset(3, 2, -15), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(o.offset(3, 3, -15), Blocks.WATER.defaultBlockState(), Block.UPDATE_ALL); // runs down and out
+            // Behind it all, a wall to see the glass against.
+            for (int x = -12; x <= 12; x++) {
+                for (int y = 1; y <= 4; y++) {
+                    level.setBlock(o.offset(x, y, -18), Blocks.WHITE_CONCRETE.defaultBlockState(), Block.UPDATE_CLIENTS);
+                }
+            }
+            // The Qbot on a pillar, looking down over it all.
+            for (int y = 1; y <= 4; y++) {
+                level.setBlock(o.offset(0, y, 1), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+            }
+            BlockPos at = o.offset(0, 5, 1);
+            level.setBlock(at, QboticsContent.IRON_QBOT_BLOCK.get().defaultBlockState().setValue(qbotics.block.ComputerBlock.FACING, Direction.NORTH),
+                    Block.UPDATE_ALL);
+            blocksAt = at;
+            // Creatures, standing still and turned to the Qbot.
+            var kinds = java.util.List.of(net.minecraft.world.entity.EntityType.COW, net.minecraft.world.entity.EntityType.CHICKEN,
+                    net.minecraft.world.entity.EntityType.ZOMBIE, net.minecraft.world.entity.EntityType.VILLAGER, net.minecraft.world.entity.EntityType.SPIDER);
+            int x = -5;
+            for (var type : kinds) {
+                net.minecraft.world.entity.Entity mob = type.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+                if (mob instanceof net.minecraft.world.entity.Mob still) {
+                    still.setNoAi(true);
+                    still.setInvulnerable(true);
+                    still.setPersistenceRequired();
+                    still.snapTo(o.getX() + x + 0.5, o.getY() + 1, o.getZ() - 10 + 0.5, 0, 0);
+                    level.addFreshEntity(still);
+                }
+                x += 2;
+            }
+        }));
+        // Once the water has run: what the Qbot's view shows, and the game's own picture from its eye.
+        then(60, minecraft -> onServer(minecraft, player -> {
+            net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) player.level();
+            qbotics.camera.ConeView.Basis b = qbotics.camera.ConeView.basis(Direction.NORTH, -30, 0.75);
+            blocksSeen = qbotics.camera.ConeView.collect(level, blocksAt, b);
+            blocksCreatures = qbotics.camera.ConeView.creatures(level, blocksAt, b);
+        }));
+        then(10, minecraft -> saveScaled(minecraft, "view-blocks", qbotics.client.display.ConeRenderer.render(blocksSeen, blocksCreatures, blocksAt,
+                Direction.NORTH, -30, 256, 192), 3));
+        then(2, minecraft -> minecraft.options.fov().set(70));
+        view("view-blocks-game", new Vec3(110.5, 5.5, 0.8), new Vec3(110.5, 5.5 - 10 * Math.tan(Math.toRadians(30)), -9.2));
     }
 
     private static void saveScaled(Minecraft minecraft, String name, java.awt.image.BufferedImage image, int scale) {
@@ -797,6 +909,7 @@ public final class ScreenshotRun {
         editor();
         agent();
         cone();
+        viewBlocks();
 
         section("night");
         if (!WANTED.contains("displays")) {

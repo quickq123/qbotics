@@ -29,7 +29,8 @@ import qbotics.camera.View;
 /**
  * Draws a Qbot's {@link View} in software, into an image: each listed block's model faces (the
  * game's own models and textures) and each creature as a box in its kind's colour, seen from the
- * Qbot's eye, nearest in front. Even light (night vision); faces shaded by the way they face, as
+ * Qbot's eye, nearest in front. Blocks the game draws with code (chests, signs, beds...) are drawn
+ * from its entity models ({@link EntityBlockModels}). Even light (night vision); faces shaded by the way they face, as
  * the game shades them. See-through pixels (glass, leaves) are left out, not blended. Runs on the
  * web panels' worker, off the render thread.
  */
@@ -40,8 +41,8 @@ public final class ConeRenderer {
     private static final int SKY_TOP = 0x79A6FF;
     private static final int SKY_HORIZON = 0xC0D6FF;
 
-    /** A face ready to draw: its corners (x, y, z, u, v each), texture, tint and shade. */
-    private record Face(double[][] corners, int[] pixels, int size, int tint, float shade) {
+    /** A face ready to draw: its corners (x, y, z, u, v each), texture (width x height), tint and shade. */
+    private record Face(double[][] corners, int[] pixels, int width, int height, int tint, float shade) {
     }
 
     /** Today's picture of the same view, coloured as players' games colour it, to compare. */
@@ -89,7 +90,7 @@ public final class ConeRenderer {
             };
             for (Direction d : Direction.values()) {
                 double[][] corners = box(c, d);
-                draw(new Face(corners, new int[] {0xFF000000 | kind}, 1, -1, shade(d)), basis, color, depth, width, height);
+                draw(new Face(corners, new int[] {0xFF000000 | kind}, 1, 1, -1, shade(d)), basis, color, depth, width, height);
             }
         }
         // A little haze far off, so distance reads.
@@ -157,7 +158,7 @@ public final class ConeRenderer {
             int size = (int) Math.sqrt(pixels.length);
             for (Direction d : Direction.values()) {
                 if ((block.faces() & (1 << d.get3DDataValue())) != 0) {
-                    faces.add(new Face(cube(block, d, d == Direction.UP ? 0.875 : 1), pixels, size, water ? 0x3F76E4 : -1, shade(d)));
+                    faces.add(new Face(cube(block, d, d == Direction.UP ? 0.875 : 1), pixels, size, size, water ? 0x3F76E4 : -1, shade(d)));
                 }
             }
             return faces;
@@ -165,17 +166,30 @@ public final class ConeRenderer {
         BlockStateModel model = minecraft.getModelManager().getBlockStateModelSet().get(state);
         List<BlockStateModelPart> parts = new ArrayList<>();
         model.collectParts(RandomSource.create(42L), parts);
+        boolean empty = true; // its model draws nothing at all (not just nothing on the faces seen)
         for (BlockStateModelPart part : parts) {
             for (Direction d : Direction.values()) {
+                empty &= part.getQuads(d).isEmpty();
                 if ((block.faces() & (1 << d.get3DDataValue())) != 0) {
                     for (BakedQuad quad : part.getQuads(d)) {
                         add(faces, quad, state, block, origin, tints);
                     }
                 }
             }
+            empty &= part.getQuads(null).isEmpty();
             for (BakedQuad quad : part.getQuads(null)) {
                 add(faces, quad, state, block, origin, tints);
             }
+        }
+        // What the game draws with code (chests, signs, beds...), or a box for a block that draws nothing.
+        for (EntityBlockModels.Quad quad : EntityBlockModels.of(state, empty)) {
+            double[][] corners = new double[4][];
+            for (int i = 0; i < 4; i++) {
+                double[] c = quad.corners()[i];
+                corners[i] = new double[] {block.dx() + c[0], block.dy() + c[1], block.dz() + c[2], c[3], c[4]};
+            }
+            PictureColors.Image t = quad.texture();
+            faces.add(new Face(corners, t.pixels(), t.width(), t.height(), quad.tint(), quad.shade()));
         }
         return faces;
     }
@@ -214,7 +228,7 @@ public final class ConeRenderer {
                 }
             });
         }
-        faces.add(new Face(corners, pixels, size, tint, quad.materialInfo().shade() ? shade(quad.direction()) : 1f));
+        faces.add(new Face(corners, pixels, size, size, tint, quad.materialInfo().shade() ? shade(quad.direction()) : 1f));
     }
 
     /** A whole cube's face (water, lava), its top at {@code top}. */
@@ -284,10 +298,9 @@ public final class ConeRenderer {
                 }
                 double u = (w0 * a[3] * iz[0] + w1 * b[3] * iz[1] + w2 * c[3] * iz[2]) / inv;
                 double t = (w0 * a[4] * iz[0] + w1 * b[4] * iz[1] + w2 * c[4] * iz[2]) / inv;
-                int size = face.size();
-                int tx = Math.clamp((int) (u * size), 0, size - 1);
-                int ty = Math.clamp((int) (t * size), 0, size - 1);
-                int argb = face.pixels()[ty * size + tx];
+                int tx = Math.clamp((int) (u * face.width()), 0, face.width() - 1);
+                int ty = Math.clamp((int) (t * face.height()), 0, face.height() - 1);
+                int argb = face.pixels()[ty * face.width() + tx];
                 if ((argb >>> 24) < 128) {
                     continue; // see-through: what is behind shows
                 }
