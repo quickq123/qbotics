@@ -50,5 +50,5 @@ Edit `/startup.py` (your copy), then press **Stop** and **Run** on the Qbot's sc
   to `ORDERS`, and a button to `index.html`: `<button data-event="around">Spin</button>`. For a
   page of your own, copy `index.html` and `style.css` next to your `/startup.py` and change
   `PAGE` to `"/index.html"`.
-- **A different picture:** `qbot.view(192, 128)` can take up to 256 x 192; change the size of
-  `.cam` in `style.css` to match its shape.
+- **A different picture:** `qbot.view(240, 160)` is the size of the `.cam` box in `style.css`,
+  a pixel for each CSS pixel. A Qbot takes up to 256 x 192; change the box to match.

@@ -1490,7 +1490,7 @@ public final class ScreenshotRun {
         var c = tablets.use(app, "web_panel");
         draw(c, "page", page);
         var picture = qbotics.camera.ConeView.take((net.minecraft.server.level.ServerLevel) player.level(), player.blockPosition().above(),
-                Direction.NORTH, 192, 128, -10);
+                Direction.NORTH, 240, 160, -10);
         draw(c, "image", "cam", picture.get("id").getAsInt());
         com.google.gson.JsonObject state = new com.google.gson.JsonObject();
         state.addProperty("said", "moved forward");

@@ -58,7 +58,7 @@ ORDERS = {
 # A Qbot takes four pictures a second at most: view() waits until it may take the next.
 
 def picture():
-    return qbot.view(192, 128)          # the shape of the picture on the page (.cam in style.css)
+    return qbot.view(240, 160)          # the size of the picture on the page (.cam in style.css)
 
 def show(said):
     # The picture, then the words under it: what it did, where it is, what is in front.
