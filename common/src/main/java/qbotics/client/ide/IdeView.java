@@ -160,6 +160,7 @@ final class IdeView {
                 }
                 tab.view = new CodeView(fresh, Language.forFile(Paths.name(tab.path)), true);
                 tab.view.devices = () -> session.devices;
+                tab.view.items = () -> session.items;
                 tab.view.compiler = backend;
                 tab.view.path = tab.path;
                 tab.revealLine = shown.buffer.cursorLine();
@@ -191,6 +192,9 @@ final class IdeView {
             askedDevices = true;
             askDevices();
         }
+        if (session.items.isEmpty()) {
+            session.items = ItemList.names(java.util.Map.of()); // item names need no network: a laptop has them too
+        }
     }
 
     /** Asks what is on this computer's network now, for the names the editor suggests in net.bus("..."). */
@@ -211,6 +215,33 @@ final class IdeView {
             }
             session.devices = java.util.List.copyOf(found);
         });
+        askHeld();
+    }
+
+    /**
+     * Every item and tag name (from this game), with how many of each the network holds (asked of
+     * the server, as a Ctrl+click on "*" asks): suggested inside the strings that name items.
+     */
+    private void askHeld() {
+        session.items = ItemList.names(java.util.Map.of());
+        backend.file(FileRequest.INSPECT, "[\"filter\",\"*\"]", new byte[0], (errno, data) -> {
+            if (errno != 0) {
+                return;
+            }
+            java.util.Map<String, Long> held = new java.util.HashMap<>();
+            try {
+                com.google.gson.JsonObject reply = com.google.gson.JsonParser.parseString(new String(data, StandardCharsets.UTF_8)).getAsJsonObject();
+                if (!reply.has("r")) {
+                    return;
+                }
+                for (com.google.gson.JsonElement e : reply.getAsJsonObject("r").getAsJsonArray("items")) {
+                    held.put(e.getAsJsonObject().get("item").getAsString(), e.getAsJsonObject().get("count").getAsLong());
+                }
+            } catch (RuntimeException e) {
+                return;
+            }
+            session.items = ItemList.names(held);
+        });
     }
 
     /**
@@ -223,8 +254,17 @@ final class IdeView {
             lines.add(buffer.line(i));
         }
         qbotics.ide.DeviceAt.Found found = qbotics.ide.DeviceAt.at(lines, line, column);
+        String filter = found == null ? qbotics.ide.WorldHints.filterAt(lines, line, column) : null;
+        if (filter != null) {
+            // An item name or filter: what it matches, and where the network holds them.
+            com.google.gson.JsonArray asked = new com.google.gson.JsonArray();
+            asked.add("filter");
+            asked.add(filter);
+            inspect(asked);
+            return;
+        }
         if (found == null) {
-            toast("Ctrl+click a device to see it: net.bus(\"chest\") and the like, or a name set from one.", false);
+            toast("Ctrl+click a device (net.bus(\"chest\"), or a name set from one), a storage, or an item name or filter in a string.", false);
             return;
         }
         com.google.gson.JsonArray asked = new com.google.gson.JsonArray();
@@ -915,6 +955,7 @@ final class IdeView {
                 // "edit new.py" in the terminal: start an empty file; saving creates it.
                 tab.view = new CodeView(new TextBuffer(""), Language.forFile(Paths.name(tab.path)), true);
                 tab.view.devices = () -> session.devices;
+                tab.view.items = () -> session.items;
                 tab.view.compiler = backend;
                 tab.view.path = tab.path;
             } else if (errno == HostFileSystem.EFBIG) {
@@ -924,6 +965,7 @@ final class IdeView {
             } else {
                 tab.view = new CodeView(new TextBuffer(new String(data, StandardCharsets.UTF_8)), Language.forFile(Paths.name(tab.path)), true);
                 tab.view.devices = () -> session.devices;
+                tab.view.items = () -> session.items;
                 tab.view.compiler = backend;
                 tab.view.path = tab.path;
             }

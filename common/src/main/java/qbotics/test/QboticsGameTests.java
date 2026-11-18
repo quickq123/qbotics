@@ -3281,15 +3281,15 @@ public final class QboticsGameTests {
                 "import qbot",
                 "from logistics import network",
                 "pic = qbot.snapshot(32, 24)",
+                "try:",
+                "    qbot.snapshot(wait=False)",
+                "except qbot.QbotError as e:",
+                "    print('again:', e)",
                 "print('pic', pic.width, pic.height)",
                 "print('middle', pic.block_at(16, 12))",
                 "print('top', pic.block_at(16, 0))",
                 "seen = pic.counts()",
                 "print('stone', seen.get('minecraft:stone', 0) > 100, 'pig', seen.get('animal', 0) > 0)",
-                "try:",
-                "    qbot.snapshot(wait=False)",
-                "except qbot.QbotError as e:",
-                "    print('again:', e)",
                 "print('waited', qbot.snapshot(8, 6).width)",
                 "web = network().web_panel()",
                 "web.html('<img src=\"image:cam\">')",
@@ -3341,15 +3341,15 @@ public final class QboticsGameTests {
                 "import qbot",
                 "from logistics import network",
                 "pic = qbot.view(64, 48)",
+                "try:",
+                "    qbot.view(wait=False)",
+                "except qbot.QbotError as e:",
+                "    print('again:', e)",
                 "print('view', pic.width, pic.height)",
                 "print('middle', pic.block_at(32, 24))",
                 "seen = pic.counts()",
                 "print('stone', seen.get('minecraft:stone', 0) > 300, 'pig', seen.get('animal', 0) > 0)",
                 "print('which', pic.block_at(32, 24), pic.creature_at(32, 24), pic.item_at(32, 24))",
-                "try:",
-                "    qbot.view(wait=False)",
-                "except qbot.QbotError as e:",
-                "    print('again:', e)",
                 "print('waited', qbot.view(8, 6).width)",
                 "big = qbot.view()",
                 "print('big', big.width, big.height, big.counts().get('animal', 0) > 0, sum(big.counts().values()))",
@@ -4765,6 +4765,37 @@ public final class QboticsGameTests {
         qbotics.ide.DeviceAt.Found inner = qbotics.ide.DeviceAt.at(code, 7, 30);
         helper.assertTrue(inner != null && inner.kind().equals("bus") && "table".equals(inner.name()), "a bus inside a storage's list: " + inner);
 
+        // Device names nothing on the network answers to are warned of as they are typed.
+        java.util.List<qbotics.ide.Completer.Device> devices = java.util.List.of(
+                new qbotics.ide.Completer.Device("table", "192.168.1.2", "bus", "minecraft:crafting_table"),
+                new qbotics.ide.Completer.Device("oven", "192.168.1.3", "bus", "minecraft:furnace"),
+                new qbotics.ide.Completer.Device("lamp", "192.168.1.4", "pin", "minecraft:redstone_lamp"),
+                new qbotics.ide.Completer.Device("", "192.168.1.9", "usb", "minecraft:chest"));
+        java.util.List<qbotics.ide.Checker.Problem> warned = qbotics.ide.WorldHints.deviceProblems(java.util.List.of(
+                "t = net.bus(\"tabel\")", "o = net.bus(\"oven\")", "p = net.bus(\"lamp\")", "s = net.storage(\"storage_*\")",
+                "# x = net.bus(\"nope\")", "u = net.bus(\"192.168.1.9\")", "both = net.storage([\"oven\", \"tabel\"])"), devices);
+        java.util.Map<Integer, String> byLine = new java.util.HashMap<>();
+        warned.forEach(w -> byLine.merge(w.line(), w.message(), (a, b) -> a + " / " + b));
+        helper.assertTrue(byLine.size() == 4 && byLine.get(0).contains("Did you mean \"table\"") && byLine.get(2).contains("is a pin, not a bus")
+                && byLine.get(3).contains("storage_*") && byLine.get(6).contains("tabel") && !byLine.get(6).contains("oven"), "the warnings: " + byLine);
+        helper.assertTrue(warned.get(0).start() == 13 && warned.get(0).end() == 18, "the warning underlines the name: " + warned.get(0));
+
+        // Item and tag names in the strings that name items, the network's own first.
+        java.util.List<qbotics.ide.WorldHints.ItemName> names = java.util.List.of(
+                new qbotics.ide.WorldHints.ItemName("minecraft:coal", 104), new qbotics.ide.WorldHints.ItemName("minecraft:charcoal", 0),
+                new qbotics.ide.WorldHints.ItemName("minecraft:cobblestone", 640), new qbotics.ide.WorldHints.ItemName("minecraft:coal_block", 0),
+                new qbotics.ide.WorldHints.ItemName("#minecraft:coals", 0), new qbotics.ide.WorldHints.ItemName("create:copper_sheet", 0));
+        qbotics.ide.Completer.Result moving = qbotics.ide.WorldHints.itemNames("move(a, b, \"co", names, false);
+        helper.assertTrue(moving != null && moving.items().equals(java.util.List.of("cobblestone", "coal", "coal_block", "create:copper_sheet"))
+                && moving.start() == 12 && moving.notes().get(0).contains("640"), "items in a move: " + moving);
+        helper.assertTrue(qbotics.ide.WorldHints.itemNames("x = \"co", names, true) == null, "a string that names no item: no suggestions");
+        qbotics.ide.Completer.Result alternative = qbotics.ide.WorldHints.itemNames("chest.count(\"coal | ch", names, false);
+        helper.assertTrue(alternative != null && alternative.items().equals(java.util.List.of("charcoal")), "after a |: " + alternative);
+        qbotics.ide.Completer.Result tags = qbotics.ide.WorldHints.itemNames("store.source(only=\"#minecraft:co", names, false);
+        helper.assertTrue(tags != null && tags.items().equals(java.util.List.of("#minecraft:coals")), "tags: " + tags);
+        helper.assertTrue("coal | charcoal".equals(qbotics.ide.WorldHints.filterAt(java.util.List.of("move(a, b, \"coal | charcoal\")"), 0, 15))
+                && qbotics.ide.WorldHints.filterAt(java.util.List.of("print(\"hello\")"), 0, 8) == null, "the filter Ctrl+clicked");
+
         ServerLevel level = helper.getLevel();
         startAt(helper, new BlockPos(0, 1, 0));
         helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
@@ -4817,6 +4848,11 @@ public final class QboticsGameTests {
         helper.assertTrue(group.get("kind").getAsString().equals("storage") && members.size() == 1
                 && members.get(0).getAsJsonObject().get("free").getAsInt() == 2 && members.get(0).getAsJsonObject().get("slots").getAsInt() == 3
                 && group.getAsJsonArray("items").get(0).getAsJsonObject().get("item").getAsString().equals("minecraft:coal"), "a storage: " + group);
+        com.google.gson.JsonObject coal = inspect.apply("[\"inspect\",\"coal\",\"filter\"]");
+        helper.assertTrue(coal.get("total").getAsInt() == 1 && coal.getAsJsonArray("where").size() == 2
+                && coal.getAsJsonArray("items").get(0).getAsJsonObject().get("count").getAsInt() == 12, "a filter: " + coal);
+        com.google.gson.JsonObject everything = inspect.apply("[\"inspect\",\"*\",\"filter\"]");
+        helper.assertTrue(!everything.has("matches") && everything.getAsJsonArray("items").size() == 1, "all the network holds: " + everything);
         com.google.gson.JsonObject inbox = inspect.apply("[\"inspect\",null,\"interface\"]");
         com.google.gson.JsonArray own = inbox.getAsJsonArray("slots");
         helper.assertTrue(own.size() == 9 && own.get(0).getAsJsonObject().get("count").getAsInt() == 5

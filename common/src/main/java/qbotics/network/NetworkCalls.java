@@ -2513,6 +2513,9 @@ public final class NetworkCalls {
      * and energy show their tanks or store. Only looks: nothing is moved.
      */
     private static JsonObject inspect(ServerLevel level, CableNetwork network, BlockPos computerPos, JsonArray args) {
+        if ("filter".equals(string(args, 2))) {
+            return inspectFilter(level, network, string(args, 1));
+        }
         if ("storage".equals(string(args, 2))) {
             // A storage: its containers in the order it fills them, and what they hold between them.
             JsonObject spec = new JsonObject();
@@ -2609,6 +2612,81 @@ public final class NetworkCalls {
                 }
             }
         }
+        return look;
+    }
+
+    /**
+     * ["inspect", filter, "filter"]: an item name or filter Ctrl+clicked in the code, or "*" for
+     * the editor's suggestions: the items it matches ("matches", at most 200, and "total"; none
+     * for "*"), and how many of them each device holding items on the network has ("where", most
+     * first) and in all by item ("items", most first). A container reached by two buses counts once.
+     */
+    private static JsonObject inspectFilter(ServerLevel level, CableNetwork network, String text) {
+        if (text == null || text.isBlank()) {
+            throw new CallError("An empty name matches nothing.");
+        }
+        boolean everything = text.strip().equals("*");
+        NameMatch<Item> match = everything ? null : item(text);
+        JsonObject look = new JsonObject();
+        look.addProperty("kind", "filter");
+        look.addProperty("filter", text);
+        if (!everything) {
+            JsonArray matches = new JsonArray();
+            int total = 0;
+            for (Item item : BuiltInRegistries.ITEM) {
+                if (item != net.minecraft.world.item.Items.AIR && match.testStack(new ItemStack(item))) {
+                    if (total++ < 200) {
+                        matches.add(itemId(item));
+                    }
+                }
+            }
+            look.add("matches", matches);
+            look.addProperty("total", total);
+        }
+        java.util.Map<String, Long> byItem = new java.util.HashMap<>();
+        List<JsonObject> where = new ArrayList<>();
+        java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+        for (NetworkDevice device : network.devices()) {
+            ItemPort port = ownItems(device);
+            if (port == null && device instanceof CablePort plate && plate.gives()
+                    && (plate.medium() == Medium.ITEM || plate.medium() == Medium.UNIVERSAL) && seen.add(plate.targetPos())) {
+                try {
+                    port = wholeTarget(levelOf(device, level), plate);
+                } catch (CallError e) {
+                    // holds no items, or not loaded
+                }
+            }
+            if (port == null) {
+                continue;
+            }
+            long count = 0;
+            for (ItemStack stack : port.contents()) {
+                if (!stack.isEmpty() && (match == null || match.testStack(stack))) {
+                    count += stack.getCount();
+                    byItem.merge(itemId(stack.getItem()), (long) stack.getCount(), Long::sum);
+                }
+            }
+            if (count > 0) {
+                JsonObject entry = new JsonObject();
+                entry.add("device", describe(levelOf(device, level), network, device));
+                entry.addProperty("count", count);
+                where.add(entry);
+            }
+        }
+        where.sort((a, b) -> Long.compare(b.get("count").getAsLong(), a.get("count").getAsLong()));
+        JsonArray places = new JsonArray();
+        where.forEach(places::add);
+        look.add("where", places);
+        List<java.util.Map.Entry<String, Long>> sorted = new ArrayList<>(byItem.entrySet());
+        sorted.sort(java.util.Map.Entry.<String, Long>comparingByValue().reversed().thenComparing(java.util.Map.Entry.comparingByKey()));
+        JsonArray items = new JsonArray();
+        for (java.util.Map.Entry<String, Long> entry : sorted) {
+            JsonObject one = new JsonObject();
+            one.addProperty("item", entry.getKey());
+            one.addProperty("count", entry.getValue());
+            items.add(one);
+        }
+        look.add("items", items);
         return look;
     }
 

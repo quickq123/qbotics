@@ -156,6 +156,11 @@ public final class Completer {
 
     /** The same, with the devices on the computer's network, for their names inside net.bus("..."). */
     public static Result complete(TextBuffer buffer, boolean asked, List<Device> devices) {
+        return complete(buffer, asked, devices, List.of());
+    }
+
+    /** The same, with item and tag names for the strings that name items (WorldHints.itemNames). */
+    public static Result complete(TextBuffer buffer, boolean asked, List<Device> devices, List<WorldHints.ItemName> itemNames) {
         if (buffer.hasSelection()) {
             return null;
         }
@@ -164,6 +169,10 @@ public final class Completer {
         Result names = deviceNames(text.substring(0, column), devices);
         if (names != null) {
             return names;
+        }
+        Result itemResult = WorldHints.itemNames(text.substring(0, column), itemNames, asked);
+        if (itemResult != null) {
+            return itemResult;
         }
         int start = column;
         while (start > 0 && isNameChar(text.charAt(start - 1))) {

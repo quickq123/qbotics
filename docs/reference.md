@@ -149,10 +149,11 @@ run /factory/report.py
 | Key | What it does |
 |---|---|
 | F5 | Saves and runs the open Python file |
+| Shift+F5 | A dry run: runs it changing nothing in the world (below) |
 | F8 | Steps the running program to the next line of your code and holds it there (section 1.3b) |
 | Ctrl+S | Saves |
 | Ctrl+F, Ctrl+H | Find; find and replace. F3 and Shift+F3 step through matches |
-| Ctrl+Space | Suggests completions. Inside the text a finder is given, `net.bus("`, `net.pin('`, `net.storage("` and the like, the suggestions are the names of the devices of that kind on this computer's network, each with what it points at, and the address of any without a name yet. They come as soon as the quote is typed |
+| Ctrl+Space | Suggests completions. Inside the text a finder is given, `net.bus("`, `net.pin('`, `net.storage("` and the like, the suggestions are the names of the devices of that kind on this computer's network, each with what it points at, and the address of any without a name yet. They come as soon as the quote is typed. Inside a string that names items (`move(a, b, "co`, `only="#c:`, `count("coal | ch`), item and tag names, those the network holds first, with how many |
 | Ctrl+click | On a device in the code, shows the block it works over the editor (below) |
 | Ctrl+/ | Comments or uncomments the selected lines |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
@@ -178,18 +179,38 @@ sees its screen, with what its slots held at that moment:
 An interface, Collector or Player Interface shows its own slots; a fluid or energy bus, the
 tanks or energy it reaches.
 
-A storage (`net.storage("storage_*")`, or a list of names) shows its containers in the order it
-fills them, each with how full it is, its bus's filter and any strays (things its filter doesn't
-let in), and below them what they hold between them, the most first. Click a container to see it
-as a device; Esc goes back to the list. Handy when a program puts things where you didn't expect.
+A **storage** (`net.storage("storage_*")`, or a list of names) shows its containers in the order
+it fills them, each with how full it is, its bus's filter and any strays (things its filter
+doesn't let in), and below them what they hold between them, the most first. Click a container
+to see it as a device; Esc goes back to the list. Handy when a program puts things where you
+didn't expect.
 
-In both, resting the mouse on an item shows the name programs use for it and its tags (what a
-filter such as `"#c:cobblestones"` tests), as the probe shows them with Shift held; no probe is
-needed here. Ctrl+C copies the name. It is only a picture: nothing can be moved in it, and a click or Esc
-closes it. A bus opens its block's screen for a moment to see it, as `open_screen()` does, so
-it needs an owner (a bus placed by a player has one). Another mod's screen that can't be drawn
-here shows as plain slots in the same places, still numbered. The name must be written in the
-code as text: one worked out while the program runs can't be followed.
+An **item name or filter** in a string (`"coal | charcoal"`, `"#c:ores"`, in a `move`, a
+`count`, an `only=` and the like) shows the items it matches and where on the network those are,
+so a filter can be tried without running anything. Click a place to see it.
+
+Resting the mouse on an item in any of these shows the name programs use for it and its tags
+(what a filter such as `"#c:cobblestones"` tests), as the probe shows them with Shift held; no
+probe is needed here. Ctrl+C copies the name.
+
+It is only a picture, as things were when you clicked: nothing can be moved in it, and a click
+or Esc closes it (or goes back a step). A bus opens its block's screen for a moment to see it, as
+`open_screen()` does, so it needs an owner (a bus placed by a player has one). Another mod's
+screen that can't be drawn here shows as plain slots in the same places, still numbered. The
+name must be written in the code as text: one worked out while the program runs can't be followed.
+
+**A dry run** (Shift+F5, or the Dry run button beside Run) runs the open file changing nothing
+in the world. It reads the world as it likes; each `move()` is only tried, and says what it would
+have done, then the program carries on as if it had:
+
+```
+[dry run] would move 32 coal: storage_1 -> oven (top)
+```
+
+Anything else that would change the world stops the program there and says what it was about to
+do: using a block's screen (crafting), a Qbot moving or digging, a Logic Pin, the chat, writing a
+file. Everything before that ran as a dry run; F5 runs it for real. (A move into or out of a
+screen stops it too: what a screen makes depends on what is really laid out in it.)
 
 ### 1.2b Mistakes, marked as you type
 
@@ -205,6 +226,12 @@ doesn't line up, `=` where `==` was meant, `else if` for `elif`, `print "x"`, a 
 modules don't have (`from logistics import mvoe`: did you mean `move`?), and names used but
 never defined (`cuont`). When it finds no error, the computer's own Python compiles the file
 too (without running it), so anything else it can't read is marked as well.
+
+It also knows the computer's network: a device the code names that nothing on the network
+answers to is underlined amber (`net.bus("chset")`: no bus named "chset" on this network now,
+did you mean "chest"?), as is a name that belongs to another kind of device (a pin, not a bus)
+and a `net.storage("storage_*")` pattern nothing matches. Files that reach other networks
+(`remote()`) aren't checked this way, and neither is a laptop with no cables.
 
 ### 1.3 Terminal mouse and keys
 

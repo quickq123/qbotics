@@ -1206,7 +1206,7 @@ public final class ScreenshotRun {
     }
 
     /** What the inspect call told of the devicelook section's furnace and crafting table. */
-    private static final com.google.gson.JsonObject[] LOOKS = new com.google.gson.JsonObject[4];
+    private static final com.google.gson.JsonObject[] LOOKS = new com.google.gson.JsonObject[5];
 
     /**
      * The devicelook section: Ctrl+click on a device in the editor's code shows the block it
@@ -1268,7 +1268,8 @@ public final class ScreenshotRun {
                 }
             }
             String[] asked = {"[\"inspect\",\"oven\",\"bus\"]", "[\"inspect\",\"crafter\",\"bus\"]",
-                "[\"inspect\",[\"storage_*\"],\"storage\"]", "[\"inspect\",\"storage_1\",\"bus\"]"};
+                "[\"inspect\",[\"storage_*\"],\"storage\"]", "[\"inspect\",\"storage_1\",\"bus\"]",
+                "[\"inspect\",\"coal | charcoal | #minecraft:logs\",\"filter\"]"};
             for (int i = 0; i < asked.length; i++) {
                 com.google.gson.JsonObject reply = com.google.gson.JsonParser.parseString(qbotics.network.NetworkCalls.handle(level.getServer(),
                         level.dimension(), at, asked[i])).getAsJsonObject();
@@ -1285,6 +1286,7 @@ public final class ScreenshotRun {
                         "craft = net.bus(\"crafter\")",
                         "move(oven.source(face=\"bottom\"), craft, \"iron_ingot\")",
                         "chests = net.storage(\"storage_*\")",
+                        "fuel = net.bus(\"ovne\")",
                         "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
             } catch (qbotics.engine.HostFileSystem.FsException e) {
                 throw new IllegalStateException(e);
@@ -1316,6 +1318,38 @@ public final class ScreenshotRun {
                 then(5, minecraft -> shot(minecraft, "ide-look-storage-tags"));
             }
         }
+        // A filter Ctrl+clicked: what it matches, and where the network holds those.
+        then(5, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide && LOOKS[4] != null) {
+                ide.showDevice(LOOKS[4]);
+            }
+        });
+        then(5, minecraft -> shot(minecraft, "ide-look-filter"));
+        // A device name nothing answers to is underlined as it is typed; item names are suggested in item strings.
+        then(5, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.closeLooksForShots();
+                ide.devicesForShots(java.util.List.of(
+                        new qbotics.ide.Completer.Device("oven", "192.168.1.3", "bus", "minecraft:furnace"),
+                        new qbotics.ide.Completer.Device("crafter", "192.168.1.2", "bus", "minecraft:crafting_table"),
+                        new qbotics.ide.Completer.Device("storage_1", "192.168.1.4", "bus", "minecraft:chest"),
+                        new qbotics.ide.Completer.Device("storage_2", "192.168.1.5", "bus", "minecraft:barrel")));
+            }
+        });
+        then(30, minecraft -> { }); // the check waits for typing to pause
+        then(2, minecraft -> {
+            var window = minecraft.getWindow();
+            // The mouse on the underlined name (line 7), for its message.
+            org.lwjgl.glfw.GLFW.glfwSetCursorPos(window.handle(), (160 + 4 + 4 * 6 + 4 + 18 * 6) * 2.0 * window.getScreenWidth() / window.getWidth(),
+                    (16 + 15 + 6 * 10 + 5) * 2.0 * window.getScreenHeight() / window.getHeight());
+        });
+        then(20, minecraft -> shot(minecraft, "ide-device-warning"));
+        then(2, minecraft -> {
+            if (minecraft.screen instanceof qbotics.client.ide.IdeScreen ide) {
+                ide.typeForShots("move(chests, oven.destination(face=\"top\"), \"co");
+            }
+        });
+        then(10, minecraft -> shot(minecraft, "ide-item-names"));
     }
 
     /**

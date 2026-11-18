@@ -65,6 +65,10 @@ final class CodeView {
     private Completer.Result completion;
     /** The devices on the computer's network, for their names in net.bus("..."): set by the editor. */
     java.util.function.Supplier<List<Completer.Device>> devices = List::of;
+    /** Item and tag names for the strings that name items, the network's first (WorldHints). */
+    java.util.function.Supplier<List<qbotics.ide.WorldHints.ItemName>> items = List::of;
+    /** The device list the last check was made with: a new one (it arrives after opening) checks again. */
+    private List<Completer.Device> checkedDevices = List.of();
     private int completionIndex;
     private int completionTop;
     /** True once the player has moved through the list; only then does Enter pick from it. */
@@ -166,15 +170,18 @@ final class CodeView {
             seenVersion = version;
             editedAt = now;
         }
-        if (version == checkedVersion || now - editedAt < CHECK_AFTER_MS) {
+        List<Completer.Device> known = devices.get();
+        if ((version == checkedVersion && known == checkedDevices) || now - editedAt < CHECK_AFTER_MS) {
             return;
         }
         checkedVersion = version;
+        checkedDevices = known;
         List<String> lines = new ArrayList<>(buffer.lineCount());
         for (int i = 0; i < buffer.lineCount(); i++) {
             lines.add(buffer.line(i));
         }
-        problems = Checker.check(lines, Docs.moduleExports());
+        problems = new ArrayList<>(Checker.check(lines, Docs.moduleExports()));
+        problems.addAll(qbotics.ide.WorldHints.deviceProblems(lines, known)); // names nothing on the network answers to
         boolean errors = problems.stream().anyMatch(p -> p.severity() == Checker.Severity.ERROR);
         byte[] code = buffer.text().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         // A file too long to send is not checked by the computer (sending it would drop the player from a server).
@@ -523,7 +530,7 @@ final class CodeView {
     // ---- autocomplete ------------------------------------------------------------
 
     private void updateCompletion(boolean asked) {
-        completion = language == Language.PYTHON ? Completer.complete(buffer, asked, devices.get()) : null;
+        completion = language == Language.PYTHON ? Completer.complete(buffer, asked, devices.get(), items.get()) : null;
         completionIndex = 0;
         completionTop = 0;
         completionNavigated = false;

@@ -101,12 +101,15 @@ public class IdeScreen extends Screen implements IdeView.Host {
 
     @Override
     public void showDevice(com.google.gson.JsonObject device) {
-        boolean fromStorage = !looks.isEmpty() && looks.peek() instanceof StorageLook;
-        if (!fromStorage) {
+        // A device opened from a storage's or a filter's list goes over it; anything else starts afresh.
+        boolean fromList = !looks.isEmpty() && (looks.peek() instanceof StorageLook || looks.peek() instanceof FilterLook);
+        if (!fromList) {
             looks.clear();
         }
-        looks.push("storage".equals(device.has("kind") ? device.get("kind").getAsString() : "")
-                ? new StorageLook(device, this.width, this.height) : new DeviceLook(device, this.width, this.height, fromStorage));
+        String kind = device.has("kind") ? device.get("kind").getAsString() : "";
+        looks.push(kind.equals("storage") ? new StorageLook(device, this.width, this.height)
+                : kind.equals("filter") ? new FilterLook(device, this.width, this.height)
+                : new DeviceLook(device, this.width, this.height, fromList));
     }
 
     /** Whether a device or storage is shown over the editor (its items' tooltips then show names and tags). */
@@ -150,6 +153,10 @@ public class IdeScreen extends Screen implements IdeView.Host {
     }
 
     /** For the screenshot run: types at the end of the open file (its suggestions show as for a player). */
+    public void closeLooksForShots() {
+        looks.clear();
+    }
+
     public void typeForShots(String text) {
         IdeSession.Tab tab = session().active();
         if (tab != null && tab.view != null) {

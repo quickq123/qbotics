@@ -82,6 +82,8 @@ final class IdeSession {
     boolean editOnly;
     /** The devices on this computer's network, as last asked (every few seconds while the editor is open). */
     volatile java.util.List<qbotics.ide.Completer.Device> devices = java.util.List.of();
+    /** Every item and tag name, with how many of each the network holds: for suggestions in item strings. */
+    volatile java.util.List<qbotics.ide.WorldHints.ItemName> items = java.util.List.of();
     /** What the title bar calls it: "Computer", or "Programmer". */
     String title = "Computer";
     /** A laptop: it has no settings page (it isn't a block with a name or a login rule). */
@@ -216,6 +218,7 @@ final class IdeSession {
     final CodeView scratch = new CodeView(new TextBuffer("print(\"hello world\")"), Language.PYTHON, false);
     {
         scratch.devices = () -> devices; // the scratchpad suggests device names too
+        scratch.items = () -> items;
     }
     String scratchOutput = "";
     boolean scratchOk = true;
