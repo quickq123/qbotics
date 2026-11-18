@@ -7,7 +7,7 @@ net = network()
 store = net.storage("chest*")       # every bus whose name starts with "chest", in name order
 
 print("The storage is", len(store.devices()), "chests")
-print("It holds", store.count(), "items;", store.free(), "of", store.slots(), "slots are empty")
+print("It holds", store.count(), "items;", store.free(), "of", store.size(), "slots are empty")
 
 # Everything in it, added up across the chests, the most first.
 print("Most of all:")

@@ -64,6 +64,15 @@ public final class PlayerItemPort implements ItemPort {
     }
 
     @Override
+    public boolean mayPlace(int slot, ItemStack like) {
+        if (slot < 0 || slot >= SLOTS) {
+            return false;
+        }
+        EquipmentSlot worn = armour(slot);
+        return worn == null || like.canEquip(worn, player);
+    }
+
+    @Override
     public int insertInto(int slot, ItemStack like, int max, boolean simulate) {
         if (slot < 0 || slot >= SLOTS) {
             return 0;

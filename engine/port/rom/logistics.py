@@ -554,8 +554,9 @@ class Storage:
         """How many empty slots there are, in all."""
         return sum(m["free"] for m in self._stock()["members"])
 
-    def slots(self):
-        """How many slots there are, in all."""
+    def size(self):
+        """How many slots there are, in all. (A storage has no slots() to walk: its chests
+        number their own. Walk one with chest.slots(), from devices().)"""
         return sum(m["slots"] for m in self._stock()["members"])
 
     def devices(self):
@@ -654,6 +655,16 @@ class _Reads(_Watches):
         short filter "words" that hold for it, such as ["enchant=mending", "enchanted"]."""
         return _call("contents", self.mac, face, bool(details))
 
+    def slots(self, face=None):
+        """Every slot of the target (through a face, the slots that face reaches) in order, empty ones too: [{"slot": 0, "item": "minecraft:coal", "count": 12,
+        "accepts": True}, {"slot": 1, "item": None, "count": 0, "accepts": True}, ...]. "accepts" is
+        False where nothing can be put in (a product slot, a closed slot)."""
+        return _call("slots", self.mac, face)
+
+    def size(self, face=None):
+        """How many slots the target has (through a face, how many that face reaches)."""
+        return len(self.slots(face))
+
     def count(self, item=None, face=None, slot=None):
         """How many of an item the target holds: chest.count("coal"). With no item, how
         many of everything. Narrow it with face= or slot=, or give a Face or a Slot in
@@ -687,9 +698,14 @@ class Interface(Device, _Gives, _Takes, _Watches):
         rule of the block itself: it also stops hoppers and other mods' pipes."""
         _call("set_filter", self.mac, slot, item)
 
-    @property
     def slots(self):
-        """How many slots it has."""
+        """Every slot in order, empty ones too: [{"slot": 0, "item": "minecraft:coal", "count": 12,
+        "accepts": True}, {"slot": 1, "item": None, "count": 0, "accepts": True}, ...]. "accepts" is
+        False where nothing can be put in (a product slot, a closed slot)."""
+        return _call("slots", self.mac, None)
+
+    def size(self):
+        """How many slots it has: 9."""
         return self._info["slots"]
 
 
@@ -742,8 +758,14 @@ class Screen:
         return _call("screen_cost", self.bus.mac)
 
     def slots(self):
-        """The numbers of the screen's own slots."""
-        return list(self._slots)
+        """Every slot of the screen's own (not the player's inventory part) in order, empty ones too: [{"slot": 0, "item": "minecraft:coal", "count": 12,
+        "accepts": True}, {"slot": 1, "item": None, "count": 0, "accepts": True}, ...]. "accepts" is
+        False where nothing can be put in (a product slot, a closed slot)."""
+        return _call("screen_slots", self.bus.mac)
+
+    def size(self):
+        """How many slots the screen has of its own."""
+        return len(self._slots)
 
     def contents(self):
         """What its slots hold now: a list of {"slot": 0, "item": "minecraft:stick", "count": 4}."""
@@ -1172,8 +1194,13 @@ class PlayerInterface(Device, _Gives, _Takes, _Watches):
         """True while that player is on the server."""
         return self.refresh()._info["online"]
 
-    @property
     def slots(self):
+        """Every slot in order, empty ones too: [{"slot": 0, "item": "minecraft:coal", "count": 12,
+        "accepts": True}, {"slot": 1, "item": None, "count": 0, "accepts": True}, ...]. "accepts" is
+        False where nothing can be put in (a product slot, a closed slot)."""
+        return _call("slots", self.mac, None)
+
+    def size(self):
         """How many slots it has: 41."""
         return self._info["slots"]
 
@@ -1419,7 +1446,7 @@ class Entity:
         sheep.sheared, sheep.color   villager.profession, villager.level   wolf.tame, wolf.owner
         item.item, item.count() (a dropped item) orb.value (an experience orb)
         frame.framed, frame.rotation (an item frame)   stand.armor {"head", "chest", "legs", "feet"}
-        e.slots: how many slots its inventory has (0 for none): see contents() and source()
+        e.size(): how many slots its inventory has (0 for none): see slots(), contents() and source()
         e.hostile, e.held, e.player, e.leashed, e.age
 
     Keys a kind doesn't have are missing: a cow has no "sheared". refresh() reads it again."""
@@ -1518,6 +1545,16 @@ class Entity:
         """What it holds: [{"slot", "item", "count"}], as a chest's contents()."""
         return _call("sensor_contents", self._sensor.mac, self.uuid, bool(details))
 
+    def slots(self):
+        """Every slot in order, empty ones too: [{"slot": 0, "item": "minecraft:coal", "count": 12,
+        "accepts": True}, {"slot": 1, "item": None, "count": 0, "accepts": True}, ...]. "accepts" is
+        False where nothing can be put in (a product slot, a closed slot)."""
+        return _call("sensor_slots", self._sensor.mac, self.uuid) if self.size() else []
+
+    def size(self):
+        """How many slots its inventory has; 0 for none."""
+        return self.data.get("slots", 0)
+
     def count(self, item=None, slot=None):
         """How many of an item (a name or filter) it holds; of everything, with none. A dropped
         item holds the stack lying there: item.count() is how many."""
@@ -1581,9 +1618,14 @@ class Collector(Device, _Area, _Gives, _Takes, _Watches):
         item, _, slot = _aim(item, None, slot)
         return _call("count", self.mac, item, None, slot)
 
-    @property
     def slots(self):
-        """How many slots it has (27)."""
+        """Every slot in order, empty ones too: [{"slot": 0, "item": "minecraft:coal", "count": 12,
+        "accepts": True}, {"slot": 1, "item": None, "count": 0, "accepts": True}, ...]. "accepts" is
+        False where nothing can be put in (a product slot, a closed slot)."""
+        return _call("slots", self.mac, None)
+
+    def size(self):
+        """How many slots it has: 27."""
         return self._info["slots"]
 
 

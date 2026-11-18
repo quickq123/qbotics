@@ -39,6 +39,11 @@ public final class ContainerItemPort implements ItemPort {
     }
 
     @Override
+    public boolean mayPlace(int slot, ItemStack like) {
+        return slot >= 0 && slot < container.getContainerSize() && container.canPlaceItem(slot, like);
+    }
+
+    @Override
     public int insertInto(int slot, ItemStack like, int max, boolean simulate) {
         ItemStack held = container.getItem(slot);
         if (!container.canPlaceItem(slot, like) || (!held.isEmpty() && !ItemStack.isSameItemSameComponents(held, like))) {

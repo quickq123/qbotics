@@ -135,7 +135,7 @@ public final class QboticsModTests {
                 "s = net.entity_sensor()",
                 "store = net.interface()",
                 "c = s.entities('@animalgarden')[0]",
-                "print('seen', c.type, c.health > 0, c.slots, c.hostile)",
+                "print('seen', c.type, c.health > 0, c.size(), c.hostile)",
                 "before = c.health",
                 "r = c.attack('iron_sword', store)",
                 "print('hit', r['health'] < before, store.count('iron_sword'))")) {

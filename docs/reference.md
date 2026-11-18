@@ -417,6 +417,35 @@ slots that face exposes.
 
 The probe's Slots mode shows these numbers on any container's screen (section 8).
 
+**Walking the slots.** Everything that holds items in slots answers the same three calls: a
+bus or USB (for the container it points at), an interface, a Player Interface, a Collector, an
+open screen, a creature or cart an Entity Sensor sees, and a Qbot's `inventory`:
+
+```python
+chest = net.bus("chest")
+print(chest.size())                      # 27
+for s in chest.slots():                  # every slot in order, empty ones too
+    print(s["slot"], s["item"], s["count"], s["accepts"])
+print(chest.contents())                  # only the slots holding something
+
+furnace = net.bus("furnace")
+[s["slot"] for s in furnace.slots() if not s["accepts"]]    # [2]: where its product comes out
+furnace.size("top")                      # 1: through its top it reaches only the input
+```
+
+| Call | Gives |
+|---|---|
+| `size()` | How many slots |
+| `slots()` | Every slot in order, empty ones too: `{"slot": 0, "item": "minecraft:coal", "count": 12, "accepts": True}`; an empty slot has `"item": None` and `"count": 0` |
+| `contents()` | Only the slots that hold something, in the same form without `"accepts"` |
+
+`"accepts"` is `False` where nothing can be put in: a furnace's or crafting table's product, a
+closed interface slot. It is learned by trying the slot's rules with what it holds and a set of
+common items, so a slot for one unusual thing alone (some mods' machines) may show `False`
+until it holds one. On a bus, `size(face)` and `slots(face)` count only what that face reaches,
+numbered as that face numbers them. A storage of many chests has `size()` (all their slots) but
+no `slots()`: its chests number their own, so walk each one from `store.devices()`.
+
 ### 5.3 In counting
 
 `count` and `amount` take a name or filter, or a `Face`, or a `Slot`, as their first value,
@@ -501,6 +530,7 @@ right-click it with an empty hand to take it off.
 | `.target` | The block it points at, such as `"minecraft:furnace"` |
 | `.face` | The face used when a call names none |
 | `.set_face(face)` | Changes that face |
+| `.size(face=None)`, `.slots(face=None)` | How many slots the target has, and every slot (section 5.2). With a face, only what that face reaches |
 
 **A USB in programs.** On its own a USB works as an Item Serial Bus (`usb.count("coal")`,
 `usb.open_screen()`). `usb.fluid` and `usb.energy` are the same plate as a fluid bus and an
@@ -740,7 +770,7 @@ up again on every call, so a new bus named to match joins at once, and one taken
 | `store.count(item=None)` | How many of an item (a name or filter) are in all of it; with none, how many items in all |
 | `store.contents(details=False)` | `[{"item": "minecraft:coal", "count": 1200}, ...]`, added up across every container, the most first. With `details=True`, stacks that differ in data are counted apart, each with its details (section 6.5) |
 | `store.where(item)` | Which containers hold an item: `[{"device": <bus>, "count": 40}, ...]` |
-| `store.free()`, `store.slots()` | Empty slots, and all slots, in all |
+| `store.free()`, `store.size()` | Empty slots, and all slots, in all |
 | `store.devices()` | The buses and interfaces it is made of now |
 | `store.strays()` | Things in a chest whose bus's filter doesn't let them in (put there by hand): `[{"device": <bus>, "count": 5}]` |
 | `store.tidy()` | Moves the strays to where they belong in the storage; returns how many moved. Things with nowhere to go stay |
@@ -802,7 +832,7 @@ items a call, as any move does. A storage can't be watched yet: watch its buses 
 | `store.count(item=None, slot=None)` | How many it holds of a name or filter; of everything with none |
 | `store.filters()` | What each slot accepts; `None` for a closed slot |
 | `store.set_slot_filter(slot, item)` | Opens a slot for a name or filter. `None` closes it |
-| `store.slots` | How many slots it has |
+| `store.size()`, `store.slots()` | How many slots it has (9), and every slot with what it holds and whether it is open (section 5.2) |
 | `store.source(...)`, `store.destination(...)` | Section 6.4 |
 
 A slot holds one kind of item at a time, up to one stack, even when its filter passes many.
@@ -923,7 +953,7 @@ with table.open_screen() as screen:               # closed at the end, even afte
 | Call | Does |
 |---|---|
 | `bus.open_screen()` | Opens the screen of the block the Bus points at and returns a `Screen`. If this Bus already has one open, that one is returned |
-| `screen.slots()` | The numbers of the screen's own slots |
+| `screen.slots()`, `screen.size()` | Every slot of the screen's own (not the player's inventory part), as section 5.2 gives them: `[s["slot"] for s in screen.slots() if s["accepts"]]` are the ones to fill. And how many there are |
 | `screen.contents()` | What they hold: a list of `{"slot": 0, "item": "minecraft:stick", "count": 4}` |
 | `screen.put(slot, what=None, count=None, sources=..., need=None, wait=False)` | Moves into one slot from `sources`; returns how many. `what`, `count`, `need` and `wait` mean what they do in `move` |
 | `screen.take(slot, destinations, what=None, count=None)` | Moves out of one slot; returns how many. With no `count`, the whole slot |
@@ -1269,7 +1299,7 @@ Its slots are numbered as the game numbers a player's:
 | `me.armor()` | What they wear: `{"head": ..., "chest": ..., "legs": ..., "feet": ...}`, each an item name or `None` |
 | `me.info()` | The player now: `player`, `online`, `health`, `max_health`, `food`, `saturation`, `level`, `dimension`, `x`, `y`, `z`, `selected` (hotbar slot), `game_mode`, `held` |
 | `me.player`, `me.online` | Their name, and whether they are on the server |
-| `me.slots` | 41 |
+| `me.size()`, `me.slots()` | 41, and every slot (section 5.2) |
 
 When the player is offline, moves and counts fail with an error saying so; `info()` gives only
 `player` and `online`.
@@ -1406,7 +1436,7 @@ entity that has died or left the area raises `NetworkError`.
 | `value` | An experience orb's points |
 | `armor`, `offhand` | Creatures and armor stands: `{"head", "chest", "legs", "feet"}` (item names or `None`), and the off-hand item |
 | `framed`, `rotation` | An item frame: the item in it (or `None`), and its turn, 0 to 7 |
-| `slots` | How many slots its inventory has; 0 for none (below) |
+| `size()`, `slots()` | How many slots its inventory has (0 for none), and every slot (section 5.2; below) |
 
 | Call | Does |
 |---|---|
@@ -1512,7 +1542,7 @@ drops.set_area(radius=12, height=4)
 | `collector.contents(details=False)` | What it holds: `[{"slot", "item", "count"}]` (section 6.5 for details) |
 | `collector.count(item=None, slot=None)` | How many of an item it holds |
 | `collector.radius`, `collector.height`, `collector.set_area(radius=None, height=None)` | Its area, each 1 to 20 |
-| `collector.slots` | 27 |
+| `collector.size()`, `collector.slots()` | 27, and every slot (section 5.2) |
 | `collector.source(...)`, `collector.destination(...)`, `collector.watch(...)` | Sections 6.4 and 6.4b |
 
 ### 6.14 Block Sensor: farms and other blocks near it
@@ -2396,6 +2426,7 @@ Qbot nobody owns (placed by a machine) can't change the world.
 | Call | Does |
 |---|---|
 | `inventory.list()` | `[{"slot": 0, "item": "minecraft:coal", "count": 12}, ...]` |
+| `inventory.size()`, `inventory.slots()` | 16, and every slot, empty ones too, as a chest's (section 5.2) |
 | `inventory.count(item=None)` | How many of an item (or everything). One exact name: a wildcard, tag or filter is an error (add up `inventory.list()` for those) |
 | `inventory.drop(side, item=None, count=None, face=None)` | Into the block there (a chest, a furnace); with nothing there that takes items, onto the ground. Returns how many went |
 | `inventory.suck(side, item=None, count=None, face=None)` | From the block there; with no container, picks up items lying there |

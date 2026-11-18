@@ -371,6 +371,19 @@ public final class NetworkCalls {
                 }
                 throw new CallError("Only an interface or a bus can list contents; this is " + article(device) + ".");
             }
+            case "slots": {
+                // ["slots", mac, face]: every slot, empty ones too, with whether anything may be put in it.
+                NetworkDevice device = byMac(network, args, 1);
+                ServerLevel where = levelOf(device, level);
+                if (ownItems(device) instanceof ItemPort own) {
+                    return slotList(own);
+                }
+                if (device instanceof CablePort port && port.gives() && port.medium() != Medium.FLUID && port.medium() != Medium.ENERGY) {
+                    String faceWord = string(args, 2);
+                    return slotList(faceWord == null ? wholeTarget(where, port) : target(where, port, faceWord));
+                }
+                throw new CallError("Only an interface or a bus has slots to list; this is " + article(device) + ".");
+            }
             case "energy": {
                 // How much energy an energy interface holds, or the machine an energy bus points at.
                 EnergyPort store = energySource(level, byMac(network, args, 1), string(args, 2));
@@ -640,6 +653,16 @@ public final class NetworkCalls {
             }
             case "screen_contents":
                 return screenContents(openScreen(level, screenBus(byMac(network, args, 1))), false);
+            case "screen_slots": {
+                // Every slot of the screen's own, empty ones too, with whether anything may be put in it.
+                ScreenSessions.Session session = openScreen(level, screenBus(byMac(network, args, 1)));
+                ItemPort port = session.port();
+                JsonArray list = new JsonArray();
+                for (net.minecraft.world.inventory.Slot slot : session.slots()) {
+                    list.add(slotEntry(slot.index, slot.getItem(), port.acceptsAny(slot.index)));
+                }
+                return list;
+            }
             case "screen_button": {
                 // A button on the screen, as a player clicking it: a stonecutter's or loom's choices.
                 ScreenSessions.Session session = openScreen(level, screenBus(byMac(network, args, 1)));
@@ -804,7 +827,7 @@ public final class NetworkCalls {
             }
             case "bsensor_box", "bsensor_blocks", "bsensor_block", "bsensor_break", "bsensor_place", "bsensor_use", "bsensor_sign":
                 return BlockSensorCalls.call(method, level, network, args);
-            case "sensor_entities", "sensor_entity", "sensor_contents", "sensor_use", "sensor_attack", "sensor_offers", "sensor_trade", "sensor_collect":
+            case "sensor_entities", "sensor_entity", "sensor_contents", "sensor_slots", "sensor_use", "sensor_attack", "sensor_offers", "sensor_trade", "sensor_collect":
                 return EntitySensorCalls.call(method, level, network, args);
             case "player_info", "chat_say", "chat_tell", "chat_command", "chat_listen", "command_run":
                 return GameInterfaceCalls.call(method, level, network, computerPos, args);
@@ -2465,6 +2488,32 @@ public final class NetworkCalls {
     }
 
     /** What a container holds, slot by slot; with a level to read registries from, each stack's details as well. */
+    /**
+     * Every slot, empty ones too, as slots() gives them: {"slot", "item" (null when empty),
+     * "count", "accepts"}, the same for a bus's container, an interface, a screen and an entity.
+     */
+    static JsonArray slotList(ItemPort port) {
+        JsonArray list = new JsonArray();
+        List<ItemStack> stacks = port.contents();
+        for (int slot = 0; slot < stacks.size(); slot++) {
+            list.add(slotEntry(slot, stacks.get(slot), port.acceptsAny(slot)));
+        }
+        return list;
+    }
+
+    private static JsonObject slotEntry(int slot, ItemStack stack, boolean accepts) {
+        JsonObject entry = new JsonObject();
+        entry.addProperty("slot", slot);
+        if (stack.isEmpty()) {
+            entry.add("item", JsonNull.INSTANCE);
+        } else {
+            entry.addProperty("item", itemId(stack.getItem()));
+        }
+        entry.addProperty("count", stack.getCount());
+        entry.addProperty("accepts", accepts);
+        return entry;
+    }
+
     private static JsonArray contents(ItemPort port, @org.jspecify.annotations.Nullable ServerLevel details) {
         JsonArray list = new JsonArray();
         List<ItemStack> stacks = port.contents();

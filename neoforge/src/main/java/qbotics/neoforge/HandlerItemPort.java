@@ -39,6 +39,11 @@ record HandlerItemPort(ResourceHandler<ItemResource> handler) implements ItemPor
     }
 
     @Override
+    public boolean mayPlace(int slot, ItemStack like) {
+        return slot >= 0 && slot < handler.size() && !like.isEmpty() && handler.isValid(slot, ItemResource.of(like));
+    }
+
+    @Override
     public int insertInto(int slot, ItemStack like, int max, boolean simulate) {
         if (like.isEmpty() || max <= 0 || slot >= handler.size()) {
             return 0;

@@ -114,6 +114,17 @@ public class InterfaceBlockEntity extends DeviceBlockEntity implements Container
     }
 
     @Override
+    public boolean mayPlace(int slot, ItemStack like) {
+        return slot >= 0 && slot < items.size() && canPlaceItem(slot, like);
+    }
+
+    /** An open slot takes what its filter names; a closed one takes nothing. */
+    @Override
+    public boolean acceptsAny(int slot) {
+        return slot >= 0 && slot < filters.size() && filters.get(slot) != null;
+    }
+
+    @Override
     public boolean stillValid(Player player) {
         return Container.stillValidBlockEntity(this, player);
     }

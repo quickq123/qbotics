@@ -58,6 +58,12 @@ final class EntitySensorCalls {
             case "sensor_entities" -> list(level, sensor, args);
             case "sensor_entity" -> describe(sensor, find(level, sensor, args, 2));
             case "sensor_contents" -> contents(level, sensor, args);
+            case "sensor_slots" -> {
+                // ["sensor_slots", mac, uuid]: every slot of an entity's inventory, as a chest's slots().
+                JsonObject written = new JsonObject();
+                written.addProperty("entity", NetworkCalls.string(args, 2));
+                yield NetworkCalls.slotList(inventory(level, new End(sensor, null, -1, written, null)));
+            }
             case "sensor_use" -> use(level, network, sensor, args);
             case "sensor_attack" -> attack(level, network, sensor, args);
             case "sensor_offers" -> offers(level, find(level, sensor, args, 2));

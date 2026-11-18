@@ -33,6 +33,44 @@ public interface ItemPort {
     /** The same as {@link #extract}, out of one slot only. */
     int extractFrom(int slot, ItemStack like, int max, boolean simulate);
 
+    /**
+     * Whether this slot's rules let this item in, whatever it holds now (room aside). By
+     * default worked out from a trial run, which a full or occupied slot can't answer.
+     */
+    default boolean mayPlace(int slot, ItemStack like) {
+        return insertInto(slot, like.copyWithCount(1), 1, true) > 0;
+    }
+
+    /** Items a slot is tried with to learn whether it takes anything (slots() "accepts"). */
+    List<ItemStack> PROBES = java.util.stream.Stream.of(net.minecraft.world.item.Items.COBBLESTONE, net.minecraft.world.item.Items.COAL,
+            net.minecraft.world.item.Items.RAW_IRON, net.minecraft.world.item.Items.IRON_INGOT, net.minecraft.world.item.Items.DIAMOND,
+            net.minecraft.world.item.Items.STICK, net.minecraft.world.item.Items.OAK_LOG, net.minecraft.world.item.Items.OAK_PLANKS,
+            net.minecraft.world.item.Items.WHEAT_SEEDS, net.minecraft.world.item.Items.PAPER, net.minecraft.world.item.Items.MAP,
+            net.minecraft.world.item.Items.BOOK, net.minecraft.world.item.Items.LAPIS_LAZULI, net.minecraft.world.item.Items.POTION,
+            net.minecraft.world.item.Items.GLASS_BOTTLE, net.minecraft.world.item.Items.BLAZE_POWDER, net.minecraft.world.item.Items.NETHER_WART,
+            net.minecraft.world.item.Items.BUCKET, net.minecraft.world.item.Items.WHITE_BANNER, net.minecraft.world.item.Items.RED_DYE, net.minecraft.world.item.Items.FLOWER_BANNER_PATTERN,
+            net.minecraft.world.item.Items.IRON_PICKAXE, net.minecraft.world.item.Items.DIAMOND_PICKAXE, net.minecraft.world.item.Items.LEATHER_HELMET,
+            net.minecraft.world.item.Items.LEATHER_BOOTS, net.minecraft.world.item.Items.SADDLE, net.minecraft.world.item.Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE)
+            .map(ItemStack::new).toList();
+
+    /**
+     * Whether anything may be put into this slot: false for a product slot (a furnace's or
+     * crafting table's) or a closed one. Tried with what it holds and a set of common items, so a
+     * slot for one rare thing alone (another mod's) may show false until it holds one.
+     */
+    default boolean acceptsAny(int slot) {
+        List<ItemStack> stacks = contents();
+        if (slot >= 0 && slot < stacks.size() && !stacks.get(slot).isEmpty() && mayPlace(slot, stacks.get(slot))) {
+            return true;
+        }
+        for (ItemStack probe : PROBES) {
+            if (mayPlace(slot, probe)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Moves up to count of an item from one place to another, using any slots. */
     static int move(ItemPort from, ItemPort to, Item item, int count) {
         return move(from, -1, to, -1, stack -> stack.is(item), count);

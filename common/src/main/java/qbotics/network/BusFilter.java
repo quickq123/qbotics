@@ -104,6 +104,16 @@ public record BusFilter(List<String> names, boolean matching, boolean exact) {
         }
 
         @Override
+        public boolean mayPlace(int slot, ItemStack like) {
+            return inner.mayPlace(slot, like);
+        }
+
+        @Override
+        public boolean acceptsAny(int slot) {
+            return inner.acceptsAny(slot);
+        }
+
+        @Override
         public int insertInto(int slot, ItemStack like, int max, boolean simulate) {
             return allows(like) ? inner.insertInto(slot, like, max, simulate) : 0;
         }

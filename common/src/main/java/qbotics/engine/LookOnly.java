@@ -16,8 +16,8 @@ public final class LookOnly {
 
     /** The world calls that only read. */
     private static final Set<String> READS = Set.of(
-            "devices", "find", "self", "contents", "count", "energy", "filters", "available", "stock", "env",
-            "sensor_entities", "sensor_entity", "sensor_contents", "sensor_offers", "bsensor_blocks", "bsensor_block",
+            "devices", "find", "self", "contents", "slots", "count", "energy", "filters", "available", "stock", "env",
+            "sensor_entities", "sensor_entity", "sensor_contents", "sensor_slots", "sensor_offers", "bsensor_blocks", "bsensor_block",
             "look", "pin", "tablets", "tablet_find", "radio", "player_info",
             "repo_list", "repo_tree", "repo_read", "watch_open", "watch_poll", "watch_close",
             "qbot_info", "qbot_inspect", "qbot_at", "qbot_scan", "qbot_items", "qbot_read", "qbot_view");

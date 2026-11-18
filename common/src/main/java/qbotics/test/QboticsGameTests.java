@@ -1436,7 +1436,7 @@ public final class QboticsGameTests {
                 "",
                 "# Smithing table: template 0, base 1, addition 2, product 3.",
                 "with net.bus('smith').open_screen() as s:",
-                "    print('smith slots', s.slots())",
+                "    print('smith slots', [x['slot'] for x in s.slots()], 'take', [x['slot'] for x in s.slots() if x['accepts']])",
                 "    s.put(Slot(0), 'netherite_upgrade_smithing_template', 1, sources=stock)",
                 "    s.put(Slot(1), 'diamond_sword', 1, sources=stock)",
                 "    s.put(Slot(2), 'netherite_ingot', 1, sources=stock)",
@@ -1444,14 +1444,14 @@ public final class QboticsGameTests {
                 "",
                 "# Grindstone: two inputs, 0 and 1, product 2. Two swords make one.",
                 "with net.bus('grind').open_screen() as s:",
-                "    print('grind slots', s.slots())",
+                "    print('grind slots', [x['slot'] for x in s.slots()], 'take', [x['slot'] for x in s.slots() if x['accepts']])",
                 "    s.put(Slot(0), 'iron_sword', 1, sources=stock)",
                 "    s.put(Slot(1), 'iron_sword', 1, sources=stock)",
                 "    print('grind made', s.take(Slot(2), stock))",
                 "",
                 "# Stonecutter: input 0, product 1; the choice is a button, found by trying.",
                 "with net.bus('cutter').open_screen() as s:",
-                "    print('cutter slots', s.slots())",
+                "    print('cutter slots', [x['slot'] for x in s.slots()], 'take', [x['slot'] for x in s.slots() if x['accepts']])",
                 "    s.put(Slot(0), 'stone', 1, sources=stock)",
                 "    chosen = None",
                 "    for n in range(40):",
@@ -1463,7 +1463,7 @@ public final class QboticsGameTests {
                 "",
                 "# Loom: banner 0, dye 1, pattern item 2, product 3; patterns are buttons.",
                 "with net.bus('loom').open_screen() as s:",
-                "    print('loom slots', s.slots())",
+                "    print('loom slots', [x['slot'] for x in s.slots()], 'take', [x['slot'] for x in s.slots() if x['accepts']])",
                 "    s.put(Slot(0), 'white_banner', 1, sources=stock)",
                 "    s.put(Slot(1), 'red_dye', 1, sources=stock)",
                 "    print('loom pressed', s.press(1))",
@@ -1491,8 +1491,8 @@ public final class QboticsGameTests {
         helper.succeedWhen(() -> {
             String screen = screen(computer);
             helper.assertTrue(!screen.contains("Traceback"), "the program failed:\n" + screen);
-            assertScreen(helper, computer, "smith slots [0, 1, 2, 3]", "smith made 1\n", "grind slots [0, 1, 2]", "grind made 1\n",
-                    "cutter slots [0, 1]", "cutter chose True made 1\n", "loom slots [0, 1, 2, 3]", "loom pressed True", "loom made 1\n",
+            assertScreen(helper, computer, "smith slots [0, 1, 2, 3] take [0, 1, 2]", "smith made 1\n", "grind slots [0, 1, 2] take [0, 1]", "grind made 1\n",
+                    "cutter slots [0, 1] take [0]", "cutter chose True made 1\n", "loom slots [0, 1, 2, 3] take [0, 1, 2]", "loom pressed True", "loom made 1\n",
                     "buttons True 1 3\n", "bricks made {'minecraft:stone_bricks': 2}", "banner made {'minecraft:white_banner': 1}",
                     "final 1 1 3 1 2 0\n");
         });
@@ -5523,6 +5523,7 @@ public final class QboticsGameTests {
                 "print('facing', qbot.turn_right())",
                 "print('placed', qbot.place())",
                 "print('items', inventory.list())",
+                "print('qslots', inventory.size(), len(inventory.slots()), [x['slot'] for x in inventory.slots() if x['item']])",
                 "print('pumped', qbot.pump(Side.BACK))",
                 "qbot.back()",
                 "print('poured', qbot.pour(Side.FRONT, 'water'))",
@@ -5537,7 +5538,7 @@ public final class QboticsGameTests {
         computer.submitLine("run /q.py");
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "front minecraft:stone\n", "water 2000\n", "dug {'minecraft:cobblestone': 1}\n", "energy 5000\n",
-                    "refused: An iron Qbot can't dig minecraft:obsidian", "facing east\n", "placed minecraft:cobblestone\n", "items []\n",
+                    "refused: An iron Qbot can't dig minecraft:obsidian", "facing east\n", "placed minecraft:cobblestone\n", "items []\n", "qslots 16 16 []\n",
                     "pumped minecraft:lava\n", "poured minecraft:water\n", "done\n");
             // It ended a block west of where it dug, still the same computer, with its drive.
             qbotics.qbot.QbotBlockEntity moved = helper.getBlockEntity(new BlockPos(0, 1, 0), qbotics.qbot.QbotBlockEntity.class);
@@ -5771,14 +5772,20 @@ public final class QboticsGameTests {
                 "a = net.bus('chest-a')",
                 "print('a', a.count('iron_ingot'), a.count('cobblestone'), a.count('coal'))",
                 "print('self', move(store, a, 'coal', 5))",
-                "print('slots', store.slots(), net.storage(['chest-a', net.bus('chest-d')]).count('cobblestone'))",
+                "print('slots', store.size(), net.storage(['chest-a', net.bus('chest-d')]).count('cobblestone'))",
+                "f = net.bus('furnace')",
+                "print('fslots', [(x['slot'], x['item'], x['accepts']) for x in f.slots()], 'top', f.size('top'))",
+                "print('asize', a.size(), len(a.slots()), a.slots()[0]['slot'], a.slots()[26]['item'])",
+                "print('islots', inbox.size(), [x['accepts'] for x in inbox.slots()])",
                 "net.storage('nothing*').count()")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> {
             assertScreen(helper, computer, "n ['chest-a', 'chest-b', 'chest-d']\n", "count 45 65\n",
                     "contents [('minecraft:iron_ingot', 45), ('minecraft:coal', 20)]\n", "where [('chest-b', 5), ('chest-d', 40)]\n",
-                    "fuel 8\n", "in 10 30\n", "a 0 30 12\n", "self 0\n", "slots 108 30\n", "NetworkError: The storage is empty");
+                    "fuel 8\n", "in 10 30\n", "a 0 30 12\n", "self 0\n", "slots 108 30\n",
+                    "fslots [(0, None, True), (1, 'minecraft:coal', True), (2, None, False)] top 1\n", "asize 27 27 0 None\n",
+                    "islots 9 [True, True, False, False, False, False, False, False, False]\n", "NetworkError: The storage is empty");
             helper.assertTrue(countIn(helper, new BlockPos(1, 1, 1), Items.IRON_INGOT) == 0, "no iron should go where there was none");
         });
     }
@@ -6106,7 +6113,7 @@ public final class QboticsGameTests {
                 "net = network()",
                 "c = net.collector()",
                 "c.set_area(radius=2, height=1)",
-                "print('set', c.radius, c.height, c.slots, c.kind)")) {
+                "print('set', c.radius, c.height, c.size(), c.kind)")) {
             computer.submitLine(line);
         }
         helper.runAfterDelay(100, () -> {
@@ -6262,17 +6269,18 @@ public final class QboticsGameTests {
                 "s = net.entity_sensor()",
                 "store = net.interface()",
                 "cart = s.entities('chest_minecart')[0]",
-                "print('cart', cart.slots, cart.count('coal'), [(c['slot'], c['item']) for c in cart.contents()])",
+                "print('cart', cart.size(), cart.count('coal'), [(c['slot'], c['item']) for c in cart.contents()])",
+                "print('cartslots', len(cart.slots()), cart.slots()[3]['item'], cart.slots()[4]['item'], cart.slots()[3]['accepts'])",
                 "print('moved', move(cart, store, 'coal', 6), store.count('coal'), cart.count('coal'))",
                 "stand = s.entities('armor_stand')[0]",
                 "print('worn', move(store, stand.destination(slot=5), 'iron_helmet'), stand.refresh().armor['head'], store.count('iron_helmet'))",
                 "f = s.entities('item_frame')[0]",
-                "print('frame', f.framed, f.rotation, f.slots)",
+                "print('frame', f.framed, f.rotation, f.size())",
                 "print('none', len(s.entities('player')))")) {
             computer.submitLine(line);
         }
         helper.succeedWhen(() -> {
-            assertScreen(helper, computer, "cart 27 10 [(3, 'minecraft:coal')]\n", "moved 6 6 4\n", "worn 1 minecraft:iron_helmet 0\n",
+            assertScreen(helper, computer, "cart 27 10 [(3, 'minecraft:coal')]\n", "cartslots 27 minecraft:coal None True\n", "moved 6 6 4\n", "worn 1 minecraft:iron_helmet 0\n",
                     "frame minecraft:diamond 0 ");
             helper.assertTrue(stand.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(Items.IRON_HELMET), "the stand wears the helmet");
         });
@@ -6538,7 +6546,7 @@ public final class QboticsGameTests {
                 "net = network()",
                 "me = net.player_interface()",
                 "store = net.interface()",
-                "print('player', me.player, me.online, me.slots)",
+                "print('player', me.player, me.online, me.size())",
                 "print('cobble', me.count('cobblestone'))",
                 "print('moved', move(me, store, 'cobblestone', 4))",
                 "print('helmet on', move(me.source(slot=5), me.destination(slot=PlayerInterface.HEAD), 'iron_helmet'))",

@@ -292,6 +292,12 @@ public final class ScreenSessions {
         }
 
         @Override
+        public boolean mayPlace(int index, ItemStack like) {
+            Slot slot = slot(index);
+            return slot != null && !like.isEmpty() && slot.mayPlace(like);
+        }
+
+        @Override
         public int insertInto(int index, ItemStack like, int max, boolean simulate) {
             Slot slot = slot(index);
             if (slot == null || like.isEmpty() || max <= 0 || !slot.mayPlace(like)) {

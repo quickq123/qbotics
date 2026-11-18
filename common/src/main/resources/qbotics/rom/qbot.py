@@ -245,6 +245,17 @@ class _Inventory:
         """What it holds: [{"slot": 0, "item": "minecraft:coal", "count": 12}, ...]."""
         return _q("qbot_items")
 
+    def slots(self):
+        """Every slot in order, empty ones too, as a chest's slots(): [{"slot": 0, "item":
+        "minecraft:coal", "count": 12, "accepts": True}, {"slot": 1, "item": None, ...}, ...]."""
+        held = {stack["slot"]: stack for stack in _q("qbot_items")}
+        return [{"slot": n, "item": held[n]["item"] if n in held else None, "count": held[n]["count"] if n in held else 0,
+                 "accepts": True} for n in range(16)]
+
+    def size(self):
+        """How many slots it has: 16."""
+        return 16
+
     def count(self, item=None):
         """How many of an item (or of everything) it holds. One exact name ("coal"): not a
         wildcard, a tag or a filter."""
