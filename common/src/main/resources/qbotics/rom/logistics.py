@@ -355,6 +355,8 @@ def move(sources, destinations, what=None, count=None, need=None, wait=False):
     started = time.ticks_ms()
     while True:
         reply = _call("move", froms, tos, what, count, need)
+        if "said" in reply:
+            print("[dry run]", reply["said"])   # the editor's Dry run: only tried
         if not reply.get("short"):
             return reply["moved"]
         if not wait:

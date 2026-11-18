@@ -1414,6 +1414,8 @@ public final class NetworkCalls {
         String wanted = string(args, 3);
         Integer count = wholeNumber(args, 4, "count");
         Integer need = wholeNumber(args, 5, "amount needed");
+        // The editor's Dry run: only tried, and said in words (engine.DryRun).
+        boolean dry = args.size() > 6 && args.get(6).isJsonPrimitive() && args.get(6).getAsBoolean();
         // A USB carries whatever the other ends do. Between USBs only, the thing named decides
         // (a fluid's name moves fluid); with nothing named, items.
         Medium medium = null;
@@ -1647,6 +1649,17 @@ public final class NetworkCalls {
                 answer.addProperty("could", could);
                 return answer;
             }
+        }
+        if (dry) {
+            long could = sweep(step, sources.size(), destinations.size(), limit, true);
+            List<String> from = new ArrayList<>();
+            sources.forEach(end -> from.add(end.label()));
+            List<String> to = new ArrayList<>();
+            destinations.forEach(end -> to.add(end.label()));
+            answer.addProperty("moved", could);
+            answer.addProperty("said", "would move " + could + (medium == Medium.FLUID ? " mB of " : medium == Medium.ENERGY ? " FE of " : " ")
+                    + (wanted == null ? "anything" : wanted) + ": " + String.join(", ", from) + " -> " + String.join(", ", to));
+            return answer;
         }
         LessonHooks.Before lesson = null;
         if (medium == Medium.ITEM) {

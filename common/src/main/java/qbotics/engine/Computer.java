@@ -119,6 +119,8 @@ public final class Computer {
     public volatile boolean watched;
     /** True while the AI helper's look-only scratchpad runs: only calls that read are made (see LookOnly). */
     public volatile boolean lookOnly;
+    /** The editor's Dry run: moves are only tried, and other changes stop the program (DryRun). */
+    public volatile boolean dryRun;
     /** Where the program was last seen (while watched, or where it paused); null if not in the player's code. */
     public volatile Location location;
     /** Told where the program is each time it pauses (Ctrl+Z, Pause, or a step). */
@@ -463,7 +465,10 @@ public final class Computer {
                     (inst, args) -> {
                         String call = readString((int) args[0], (int) args[1]);
                         int ticket = nextTicket++;
-                        String refused = lookOnly ? LookOnly.refusal(call) : null;
+                        String refused = lookOnly ? LookOnly.refusal(call) : dryRun ? DryRun.refusal(call) : null;
+                        if (dryRun && refused == null) {
+                            call = DryRun.rewrite(call);
+                        }
                         // A program can submit without ever waiting: don't let calls pile up.
                         tickets.put(ticket, refused != null ? CompletableFuture.completedFuture(refused)
                                 : tickets.size() >= MAX_WAITING_CALLS
@@ -478,7 +483,7 @@ public final class Computer {
                     (inst, args) -> {
                         String path = readString((int) args[1], (int) args[2]);
                         byte[] arg = instance.memory().readBytes((int) args[3], (int) args[4]);
-                        if (lookOnly && LookOnly.writes((int) args[0])) {
+                        if ((lookOnly || dryRun) && LookOnly.writes((int) args[0])) {
                             fsResult = new byte[0];
                             return new long[] {-HostFileSystem.EACCES}; // the look-only scratchpad doesn't change files
                         }

@@ -51,7 +51,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("dry_run", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -108,6 +108,7 @@ public final class QboticsGameTests {
             Map.entry("cone_view", QboticsGameTests::coneView),
             Map.entry("start_here", QboticsGameTests::startHere),
             Map.entry("device_look", QboticsGameTests::deviceLook),
+            Map.entry("dry_run", QboticsGameTests::dryRun),
             Map.entry("qbot_view", QboticsGameTests::qbotView),
             Map.entry("computer_access", QboticsGameTests::computerAccess),
             Map.entry("mod_docs", QboticsGameTests::modDocs),
@@ -4821,6 +4822,50 @@ public final class QboticsGameTests {
         helper.assertTrue(own.size() == 9 && own.get(0).getAsJsonObject().get("count").getAsInt() == 5
                 && !own.get(1).getAsJsonObject().get("accepts").getAsBoolean(), "the interface's slots: " + own);
         helper.succeed();
+    }
+
+    /**
+     * The editor's Dry run (Shift+F5): a move is only tried, said in words, and leaves both chests
+     * as they were; the program goes on as if it had moved; putting items into a screen stops it
+     * there, saying so. Afterwards the computer runs for real again.
+     */
+    private static void dryRun(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        setPort(helper, new BlockPos(1, 1, 0), Kind.BUS, Direction.EAST);
+        helper.setBlock(new BlockPos(2, 1, 0), Blocks.CHEST);
+        setPort(helper, new BlockPos(1, 1, 1), Kind.BUS, Direction.EAST);
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.BARREL);
+        setPort(helper, new BlockPos(1, 1, 2), Kind.BUS, Direction.EAST);
+        helper.setBlock(new BlockPos(2, 1, 2), Blocks.CRAFTING_TABLE);
+        helper.getBlockEntity(new BlockPos(2, 1, 0), net.minecraft.world.level.block.entity.ChestBlockEntity.class).setItem(0, new ItemStack(Items.COAL, 5));
+        String[] names = {"from", "to", "table"};
+        for (int i = 0; i < 3; i++) {
+            CablePort bus = helper.getBlockEntity(new BlockPos(1, 1, i), PortBlockEntity.class).port(Direction.EAST);
+            bus.onPlaced(UUID.randomUUID());
+            bus.setDeviceName(names[i]);
+        }
+        try {
+            computer.drive().call(qbotics.engine.HostFileSystem.WRITE, "/dry.py", String.join("\n",
+                    "from logistics import network, move, Slot",
+                    "net = network()",
+                    "print('moved', move(net.bus('from'), net.bus('to'), 'coal'))",
+                    "print('still', net.bus('from').count('coal'), net.bus('to').count('coal'))",
+                    "with net.bus('table').open_screen() as screen:",
+                    "    print('screen', len(screen.slots()))",
+                    "    screen.put(Slot(1), 'coal', 1, sources=net.bus('from'))",
+                    "print('not reached')",
+                    "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (qbotics.engine.HostFileSystem.FsException e) {
+            throw new IllegalStateException(e);
+        }
+        computer.submitRunFile("/dry.py", true);
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "[dry run: nothing in the world changes", "[dry run] would move 5 coal: ", "moved 5\n", "still 5 0\n",
+                    "screen 10\n", "Dry run: stopped here", "[dry run over: nothing was changed]");
+            helper.assertFalse(screen(computer).contains("not reached"), "the program stops where it would change the world");
+            helper.assertTrue(countIn(helper, new BlockPos(2, 1, 0), Items.COAL) == 5 && countIn(helper, new BlockPos(2, 1, 1), Items.COAL) == 0,
+                    "a dry run moves nothing");
+        });
     }
 
     private static void startHere(GameTestHelper helper) {

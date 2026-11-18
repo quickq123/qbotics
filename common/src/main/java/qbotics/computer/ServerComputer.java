@@ -265,9 +265,13 @@ public final class ServerComputer {
      * A file to run; program marks a Qbot's Run button (its startup.py, with its state kept);
      * stepping holds it at its first line, for F8 pressed with nothing running.
      */
-    private record RunFile(String path, boolean program, boolean stepping) implements Job {
+    private record RunFile(String path, boolean program, boolean stepping, boolean dry) implements Job {
         RunFile(String path) {
-            this(path, false, false);
+            this(path, false, false, false);
+        }
+
+        RunFile(String path, boolean program, boolean stepping) {
+            this(path, program, stepping, false);
         }
 
         RunFile(String path, boolean program) {
@@ -569,15 +573,20 @@ public final class ServerComputer {
 
     /** The editor's Run button: run a Python file, as if "run file" had been typed. */
     public void submitRunFile(String path) {
+        submitRunFile(path, false);
+    }
+
+    /** The same; dry: the editor's Dry run, which changes nothing in the world (engine.DryRun). */
+    public void submitRunFile(String path, boolean dry) {
         ServerComputer remote = sshRemote;
         if (remote != null) {
-            remote.submitRunFile(path); // the editor shows the other computer's files: they run there
+            remote.submitRunFile(path, dry); // the editor shows the other computer's files: they run there
             return;
         }
         if (running) {
             return; // something is running: Run does nothing, and nothing is kept to run later
         }
-        jobs.offer(new RunFile(path));
+        jobs.offer(new RunFile(path, false, false, dry));
     }
 
     /** The scratchpad's Run button. The result goes back to that player only. */
@@ -1191,6 +1200,10 @@ public final class ServerComputer {
                 case RunFile file -> {
                     terminal.write("run " + file.path() + "\n");
                     runningCommand = file.program() ? "program" : "run " + file.path();
+                    if (file.dry()) {
+                        terminal.write("[dry run: nothing in the world changes. Moves are only tried, and say what they would do]\n");
+                        computer.dryRun = true;
+                    }
                     if (file.stepping()) {
                         // F8 with nothing running: it stops at the first line of the file, and each F8 runs one more.
                         terminal.write("[stepping: F8 runs the next line, Ctrl+Z runs the rest, Ctrl+C stops]\n");
@@ -1205,6 +1218,10 @@ public final class ServerComputer {
                             runFile(computer, file.path());
                         }
                     } finally {
+                        if (file.dry()) {
+                            computer.dryRun = false;
+                            terminal.write("[dry run over: nothing was changed]\n");
+                        }
                         runningCommand = null;
                         computer.stepping = false; // also when the file could not be opened at all
                         computer.paused = false;
@@ -1223,8 +1240,13 @@ public final class ServerComputer {
         while (!shutDown) {
             Job job = nextJob(computer, ">>> ");
             if (job instanceof RunFile file) {
-                terminal.write("\nrun " + file.path() + "\n");
-                runFile(computer, file.path());
+                terminal.write("\nrun " + file.path() + (file.dry() ? "  [dry run: nothing in the world changes]" : "") + "\n");
+                computer.dryRun = file.dry();
+                try {
+                    runFile(computer, file.path());
+                } finally {
+                    computer.dryRun = false;
+                }
                 continue;
             }
             if (!(job instanceof Line first)) {

@@ -567,6 +567,14 @@ public final class ComputerManager {
         }
     }
 
+    /** The editor's Dry run (Shift+F5): the file runs, changing nothing in the world. */
+    public void onDryRunFile(ServerPlayer player, UUID deviceId, String path) {
+        ServerComputer computer = viewedComputer(player, deviceId);
+        if (computer != null) {
+            computer.submitRunFile(path, true);
+        }
+    }
+
     /** The scratchpad's Run button. */
     public void onScratchRun(ServerPlayer player, IdePayloads.ScratchRun run) {
         ServerComputer computer = viewedComputer(player, run.deviceId());

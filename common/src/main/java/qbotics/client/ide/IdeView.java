@@ -422,6 +422,8 @@ final class IdeView {
             button(ui, x, 1, TITLE_H - 2, "Format JSON", false, true, Ui.BAR_BG, this::formatActive);
         }
         if (!session.editOnly) {
+            x -= ui.textWidth("Dry run") + 10 + 4;
+            button(ui, x, 1, TITLE_H - 2, "Dry run", false, isPython, Ui.BAR_BG, this::dryRunActive);
             x -= ui.textWidth("Run") + 18 + 4;
             button(ui, x, 1, TITLE_H - 2, "Run", true, isPython, Ui.BAR_BG, this::runActive);
         }
@@ -446,7 +448,7 @@ final class IdeView {
             left = here != null ? "Line " + (here.line() + 1) + ": " + here.message()
                     : count + (count == 1 ? " problem" : " problems") + " in this file: hover over the underlined code to see what is wrong";
         } else {
-            left = (session.editOnly ? "" : "F5 Run   F8 Step   ") + "Ctrl+S Save   Ctrl+F Find   Ctrl+H Replace   Ctrl+Space Suggest   Ctrl+/ Comment   Ctrl+Plus/Minus Text size   Esc Close";
+            left = (session.editOnly ? "" : "F5 Run   Shift+F5 Dry run   F8 Step   ") + "Ctrl+S Save   Ctrl+F Find   Ctrl+H Replace   Ctrl+Space Suggest   Ctrl+/ Comment   Ctrl+Plus/Minus Text size   Esc Close";
         }
         String right = "";
         if (tab != null && tab.view != null) {
@@ -971,12 +973,21 @@ final class IdeView {
 
     /** Saves the file if needed, then runs it in the terminal. */
     private void runActive() {
+        runActive(false);
+    }
+
+    /** Shift+F5: the same, as a dry run that changes nothing in the world (engine.DryRun). */
+    private void dryRunActive() {
+        runActive(true);
+    }
+
+    private void runActive(boolean dry) {
         Tab tab = session.active();
         if (tab == null || tab.view == null || tab.view.language != Language.PYTHON) {
             toast("Open a Python (.py) file to run it.", true);
             return;
         }
-        Runnable run = () -> backend.terminalInput(TerminalInputPayload.RUN_FILE, tab.path);
+        Runnable run = () -> backend.terminalInput(dry ? TerminalInputPayload.DRY_RUN : TerminalInputPayload.RUN_FILE, tab.path);
         if (tab.view.buffer.isDirty()) {
             save(tab, run);
         } else {
@@ -2043,7 +2054,7 @@ final class IdeView {
             return true;
         }
         if (key == InputConstants.KEY_F5 && !session.editOnly) {
-            runActive();
+            runActive(event.hasShiftDown());
             return true;
         }
         if (key == InputConstants.KEY_F8 && !session.editOnly) {

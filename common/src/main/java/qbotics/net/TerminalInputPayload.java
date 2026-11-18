@@ -25,6 +25,8 @@ public record TerminalInputPayload(UUID deviceId, byte action, String line) impl
     public static final byte PAUSE = 4;
     /** F8: run to the next line of the player's code and hold there. */
     public static final byte STEP = 5;
+    /** The editor's Dry run (Shift+F5): line is the file, run changing nothing in the world. */
+    public static final byte DRY_RUN = 6;
 
     public static final int MAX_LINE_LENGTH = 256;
 
@@ -49,6 +51,7 @@ public record TerminalInputPayload(UUID deviceId, byte action, String line) impl
             case INTERRUPT -> manager.onInterrupt(player, deviceId);
             case CLOSE -> manager.closeTerminal(player);
             case RUN_FILE -> manager.onRunFile(player, deviceId, line);
+            case DRY_RUN -> manager.onDryRunFile(player, deviceId, line);
             case PAUSE -> manager.onPause(player, deviceId);
             case STEP -> manager.onStep(player, deviceId, line); // line: the file the editor has open
             default -> {
