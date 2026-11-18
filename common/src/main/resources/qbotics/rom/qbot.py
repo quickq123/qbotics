@@ -378,25 +378,45 @@ tanks = _Tanks()
 class Picture:
     """A picture the Qbot took (snapshot() or view()): .width and .height in pixels. block_at(x, y)
     says what a pixel shows: a block's id ("minecraft:stone"), "monster", "animal", "player"
-    or "creature" for a creature, or None for the sky. Show it on a web panel with
-    web.image("name", picture) and <img src="image:name">."""
+    or "creature" for a creature, or None for the sky. On a view(), creature_at(x, y) says which
+    creature ("minecraft:cow") and item_at(x, y) which item lies there or hangs in a frame. Show
+    it on a web panel with web.image("name", picture) and <img src="image:name">."""
 
     def __init__(self, info):
         self.id = info["id"]
         self.width = info["width"]
         self.height = info["height"]
         self._names = info["names"]
+        # A view names creatures by what they are; this gives each one's kind ("animal"...).
+        self._kinds = info.get("kinds", {})
         self._pixels = info["pixels"]
         # A big view() names its pixels in squares (step x step), to keep the answer small.
         self._step = info.get("step", 1)
         self._across = (self.width + self._step - 1) // self._step
 
-    def block_at(self, x, y):
+    def _name(self, x, y):
         if not (0 <= x < self.width and 0 <= y < self.height):
             raise IndexError("the picture is %d x %d" % (self.width, self.height))
         s = self._step
-        name = self._names[ord(self._pixels[(y // s) * self._across + x // s]) - 256]
-        return name or None
+        return self._names[ord(self._pixels[(y // s) * self._across + x // s]) - 256] or None
+
+    def block_at(self, x, y):
+        name = self._name(x, y)
+        return self._kinds.get(name, name)
+
+    def creature_at(self, x, y):
+        """Which creature a pixel shows: "minecraft:cow", "minecraft:player", "minecraft:item" for
+        an item on the ground... or None if it shows no creature (or the picture is a snapshot())."""
+        name = self._name(x, y)
+        return name.split("|")[0] if name in self._kinds else None
+
+    def item_at(self, x, y):
+        """Which item a pixel shows lying on the ground or in an item frame ("minecraft:diamond"),
+        or None."""
+        name = self._name(x, y)
+        if name in self._kinds and "|" in name:
+            return name.split("|")[1]
+        return None
 
     def counts(self):
         """How many pixels show each thing: {"minecraft:stone": 812, ...} (the sky is None)."""
@@ -404,6 +424,7 @@ class Picture:
         each = self._step * self._step
         for ch in self._pixels:
             name = self._names[ord(ch) - 256] or None
+            name = self._kinds.get(name, name)
             seen[name] = seen.get(name, 0) + each
         return seen
 
@@ -412,7 +433,7 @@ class Picture:
 
 
 def view(width=256, height=192, pitch=0, wait=True):
-    """What it sees ahead, up to 24 blocks away, drawn with the game's own blocks: sharper
+    """What it sees ahead, up to 32 blocks away, drawn with the game's own blocks: sharper
     and quicker than snapshot(). Each player's game draws it from the faces the Qbot can
     see, in even light (a Qbot sees in the dark). pitch tilts it up (positive) or down, in
     degrees. At most 256 x 192 pixels, four views a second: asked sooner, it waits until it

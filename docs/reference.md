@@ -2455,9 +2455,11 @@ web.image("cam", pic)                # players see the picture, coloured from th
 | Call | Does |
 |---|---|
 | `qbot.snapshot(width=64, height=48, pitch=0, wait=True)` | A picture of what is in front of it, up to 32 blocks away. `pitch` tilts the camera up (positive) or down, in degrees. At most 128 x 96, one a second of game time: asked sooner, it waits until it may (`wait=False` raises `QbotError` instead). Don't time pictures by the clock: a busy server's second is longer than a real one |
-| `qbot.view(width=256, height=192, pitch=0, wait=True)` | **New, beside `snapshot()`:** what it sees, up to 24 blocks ahead, drawn in each player's game with the real block models (flowers, glass, torches and stairs as they look). Sharper and four times as often: at most 256 x 192, **four a second** of game time. Even light everywhere: a Qbot sees in the dark. Gives the same kind of picture, so `block_at`, `counts` and `web.image` work the same (past 128 x 96, each name in `block_at` covers a 2 x 2 square of pixels) |
+| `qbot.view(width=256, height=192, pitch=0, wait=True)` | **New, beside `snapshot()`:** what it sees, up to 32 blocks ahead (as far as `snapshot()`), drawn in each player's game with the real block models (flowers, glass, torches and stairs as they look). Sharper and four times as often: at most 256 x 192, **four a second** of game time. Even light everywhere: a Qbot sees in the dark. Gives the same kind of picture, so `block_at`, `counts` and `web.image` work the same (past 128 x 96, each name in `block_at` covers a 2 x 2 square of pixels) |
 | `pic.width`, `pic.height` | Its size in pixels |
 | `pic.block_at(x, y)` | What a pixel shows: a block's id, `"monster"`, `"animal"`, `"player"` or `"creature"`, or `None` for the sky (0, 0 is the top left) |
+| `pic.creature_at(x, y)` | On a `view()`: which creature a pixel shows (`"minecraft:cow"`, `"minecraft:player"`, `"minecraft:item"` for an item on the ground, `"minecraft:item_frame"`...), or `None` if it shows no creature. Always `None` on a `snapshot()` |
+| `pic.item_at(x, y)` | On a `view()`: which item lies on the ground or hangs in a frame at that pixel (`"minecraft:diamond"`), or `None` |
 | `pic.counts()` | How many pixels show each thing |
 | `web.image(name, pic)` | Puts it on a web panel, as `<img src="image:name">` (up to 8 on a panel; `None` takes one off). The picture's number, `pic.id`, works too, so a Qbot can send it in a message for another computer to show |
 
@@ -2474,8 +2476,10 @@ trace rays: it lists the blocks ahead with a face turned towards the Qbot and no
 block beside it, and the creatures in sight (about 2 KB for a field). Each player's game draws
 those with the game's own models and textures, nearest in front, in the background so the game
 doesn't stutter; the last view stays up until the next is drawn. Creatures are drawn with the
-game's own models, turned the way they face (young ones small); held items and armour are left
-out, and each looks as a new one of its kind would (a sheep white, a villager without a job).
+game's own models, turned the way they face (young ones small), players with their skins; so are
+items on the ground, item frames with what they hold, armour stands and paintings. What creatures
+hold or wear is left out, and each looks as a new one of its kind would (a sheep white, a villager
+without a job).
 Water and lava slope as they do in the game. Blocks the game draws with code (chests, signs, beds, banners, heads, shulker
 boxes, pots, bells, conduits) are drawn from the game's own models for them, shut and without
 their text or patterns; any other block that has no model of its own (some from other mods) shows

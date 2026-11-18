@@ -95,19 +95,19 @@ public final class ConeRenderer {
             }
         }
         for (ConeView.Creature c : creatures) {
-            List<CreatureModels.Quad> model = CreatureModels.of(c.type(), c.baby());
+            List<CreatureModels.Quad> model = CreatureModels.of(c);
             if (!model.isEmpty()) {
                 // The game's own model, turned the way the creature faces and stood where it stands.
-                double turn = Math.toRadians(-c.yaw());
+                double turn = c.hung() >= 0 ? 0 : Math.toRadians(-c.yaw()); // a hung one is made facing its way
                 double cos = Math.cos(turn);
                 double sin = Math.sin(turn);
-                double cx = c.x() + c.width() / 2.0;
-                double cz = c.z() + c.depth() / 2.0;
+                double cx = c.ex();
+                double cz = c.ez();
                 for (CreatureModels.Quad q : model) {
                     double[][] corners = new double[4][];
                     for (int i = 0; i < 4; i++) {
                         double[] p = q.corners()[i];
-                        corners[i] = new double[] {cx + p[0] * cos + p[2] * sin, c.y() + p[1], cz - p[0] * sin + p[2] * cos, p[3], p[4]};
+                        corners[i] = new double[] {cx + p[0] * cos + p[2] * sin, c.ey() + p[1], cz - p[0] * sin + p[2] * cos, p[3], p[4]};
                     }
                     PictureColors.Image t = q.texture();
                     draw(new Face(corners, t.pixels(), t.width(), t.height(), q.tint(), q.shade(), q.layer() * 0.004f), basis, color, depth, width,

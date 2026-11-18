@@ -184,7 +184,21 @@ public final class DisplayPayloads {
             ByteBufCodecs.VAR_INT.encode(buffer, c.type() + 1);
             buffer.writeFloat(c.yaw());
             buffer.writeBoolean(c.baby());
+            buffer.writeFloat(c.ex());
+            buffer.writeFloat(c.ey());
+            buffer.writeFloat(c.ez());
+            ByteBufCodecs.VAR_INT.encode(buffer, c.item() + 1);
+            buffer.writeBoolean(c.player() != null);
+            if (c.player() != null) {
+                net.minecraft.core.UUIDUtil.STREAM_CODEC.encode(buffer, c.player());
+            }
+            buffer.writeByte(c.hung());
+            ByteBufCodecs.STRING_UTF8.encode(buffer, c.variant() == null ? "" : c.variant());
         }
+    }
+
+    private static @org.jspecify.annotations.Nullable String emptyAsNull(String s) {
+        return s.isEmpty() ? null : s;
     }
 
     /** A view, or null if it isn't one that could have been sent (it is read through either way). */
@@ -211,7 +225,9 @@ public final class DisplayPayloads {
         for (int i = 0; i < creatures; i++) {
             list.add(new qbotics.camera.ConeView.Creature(buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat(),
                     buffer.readFloat(), buffer.readFloat(), buffer.readByte(), ByteBufCodecs.VAR_INT.decode(buffer) - 1, buffer.readFloat(),
-                    buffer.readBoolean()));
+                    buffer.readBoolean(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), ByteBufCodecs.VAR_INT.decode(buffer) - 1,
+                    buffer.readBoolean() ? net.minecraft.core.UUIDUtil.STREAM_CODEC.decode(buffer) : null, buffer.readByte(),
+                    emptyAsNull(ByteBufCodecs.STRING_UTF8.decode(buffer))));
         }
         if (w < 1 || h < 1 || w > qbotics.camera.ConeView.MAX_WIDTH || h > qbotics.camera.ConeView.MAX_HEIGHT || facing.getAxis().isVertical()) {
             return null;

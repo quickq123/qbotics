@@ -475,18 +475,52 @@ public final class ScreenshotRun {
             }
             level.setBlock(o.offset(0, 0, -12), Blocks.OAK_STAIRS.defaultBlockState()
                     .setValue(net.minecraft.world.level.block.StairBlock.WATERLOGGED, true), Block.UPDATE_ALL);
+            // Things that aren't creatures: items on the ground, a sword in a frame, an armour stand, a painting.
+            for (var item : java.util.List.of(net.minecraft.world.item.Items.DIAMOND, net.minecraft.world.item.Items.IRON_INGOT,
+                    net.minecraft.world.item.Items.OAK_SAPLING)) {
+                int i = java.util.List.of(net.minecraft.world.item.Items.DIAMOND, net.minecraft.world.item.Items.IRON_INGOT,
+                        net.minecraft.world.item.Items.OAK_SAPLING).indexOf(item);
+                net.minecraft.world.entity.item.ItemEntity drop = new net.minecraft.world.entity.item.ItemEntity(level,
+                        o.getX() + 0.5 + i * 0.8, o.getY() + 1, o.getZ() - 3, new net.minecraft.world.item.ItemStack(item));
+                drop.setDeltaMovement(0, 0, 0);
+                drop.setNeverPickUp();
+                drop.setUnlimitedLifetime();
+                level.addFreshEntity(drop);
+            }
+            net.minecraft.world.entity.decoration.ItemFrame frame = new net.minecraft.world.entity.decoration.ItemFrame(level,
+                    o.offset(0, 2, -7), Direction.SOUTH);
+            frame.setItem(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_SWORD), false);
+            level.setBlock(o.offset(0, 2, -8), Blocks.STONE_BRICKS.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.addFreshEntity(frame);
+            net.minecraft.world.entity.decoration.ArmorStand stand = new net.minecraft.world.entity.decoration.ArmorStand(level,
+                    o.getX() + 4.5, o.getY() + 1, o.getZ() - 5.5);
+            stand.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GOLDEN_HELMET));
+            level.addFreshEntity(stand);
+            net.minecraft.world.entity.decoration.painting.Painting.create(level, o.offset(-8, 2, -17), Direction.SOUTH).ifPresent(level::addFreshEntity);
         }));
         // The game's own picture from the Qbot's eye; then, with the player there so the scene has run (the water
         // spread; nothing changes where no player is near), what the Qbot's view shows.
         then(2, minecraft -> minecraft.options.fov().set(70));
         view("view-blocks-game", new Vec3(110.5, 5.5, 0.8), new Vec3(110.5, 5.5 - 10 * Math.tan(Math.toRadians(30)), -9.2));
-        // (The player steps behind the Qbot first: standing at its eye, it would fill the view.)
-        then(2, minecraft -> onServer(minecraft, player -> player.teleportTo(110.5, 1, 8)));
+        // (The player steps out in front of the Qbot first, to be seen as a player: standing at its eye, it would fill the view.)
+        then(2, minecraft -> onServer(minecraft, player -> {
+            player.teleportTo(108.5, 1, -2.5);
+            player.setYRot(0);
+            player.setYBodyRot(0);
+            player.setYHeadRot(0);
+        }));
         then(40, minecraft -> onServer(minecraft, player -> {
             net.minecraft.server.level.ServerLevel level = (net.minecraft.server.level.ServerLevel) player.level();
             qbotics.camera.ConeView.Basis b = qbotics.camera.ConeView.basis(Direction.NORTH, -30, 0.75);
             blocksSeen = qbotics.camera.ConeView.collect(level, blocksAt, b);
             blocksCreatures = qbotics.camera.ConeView.creatures(level, blocksAt, b);
+            // The run's player isn't found by the server where it was moved (it doesn't move as a player's game would move
+            // it), so it is added by hand where it stands, to be drawn as a player.
+            java.util.List<qbotics.camera.ConeView.Creature> withPlayer = new java.util.ArrayList<>(blocksCreatures);
+            withPlayer.add(new qbotics.camera.ConeView.Creature(-1.8f, -4, -3.8f, 0.6f, 1.8f, 0.6f, qbotics.camera.Picture.PLAYER,
+                    net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getId(net.minecraft.world.entity.EntityType.PLAYER), 0, false,
+                    -1.5f, -4, -3.5f, -1, player.getUUID(), -1, null));
+            blocksCreatures = withPlayer;
         }));
         then(10, minecraft -> saveScaled(minecraft, "view-blocks", qbotics.client.display.ConeRenderer.render(blocksSeen, blocksCreatures, blocksAt,
                 Direction.NORTH, -30, 256, 192), 3));

@@ -3341,6 +3341,7 @@ public final class QboticsGameTests {
                 "print('middle', pic.block_at(32, 24))",
                 "seen = pic.counts()",
                 "print('stone', seen.get('minecraft:stone', 0) > 300, 'pig', seen.get('animal', 0) > 0)",
+                "print('which', pic.block_at(32, 24), pic.creature_at(32, 24), pic.item_at(32, 24))",
                 "try:",
                 "    qbot.view(wait=False)",
                 "except qbot.QbotError as e:",
@@ -3361,7 +3362,7 @@ public final class QboticsGameTests {
         }
         computer.submitLine("run /view.py");
         helper.succeedWhen(() -> {
-            assertScreen(helper, computer, "view 64 48", "middle animal", "stone True pig True", "again: A Qbot takes four views a second",
+            assertScreen(helper, computer, "view 64 48", "middle animal", "stone True pig True", "which animal minecraft:pig None", "again: A Qbot takes four views a second",
                     "waited 8", "big 256 192 True 49152", "shown");
             qbotics.block.DisplayBlockEntity panel = helper.getBlockEntity(new BlockPos(2, 1, 5), qbotics.block.DisplayBlockEntity.class);
             qbotics.display.WebScreen web = (qbotics.display.WebScreen) panel.content();
@@ -3378,7 +3379,7 @@ public final class QboticsGameTests {
             int bytes = buffer.readableBytes();
             qbotics.net.DisplayPayloads.Web back = qbotics.net.DisplayPayloads.Web.STREAM_CODEC.decode(buffer);
             helper.assertTrue(back.images().get("cam") instanceof qbotics.camera.View read && read.blocks().equals(view.blocks())
-                    && read.creatures().equals(view.creatures()) && read.facing() == Direction.NORTH && bytes < 4000,
+                    && read.creatures().equals(view.creatures()) && read.facing() == Direction.NORTH && bytes < 8000, // (32 blocks ahead: about 5.6 KB here)
                     "the view arrives as it was sent, in " + bytes + " bytes");
         });
     }
@@ -4711,6 +4712,15 @@ public final class QboticsGameTests {
         int pigs = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getId(net.minecraft.world.entity.EntityType.PIG);
         helper.assertTrue(creatures.stream().anyMatch(c -> c.type() == pigs && Math.abs(c.yaw() - 90) < 1 && !c.baby()),
                 "the pig, said to be a pig and which way it faces: " + creatures);
+        net.minecraft.world.entity.item.ItemEntity drop = new net.minecraft.world.entity.item.ItemEntity(helper.getLevel(),
+                helper.absolutePos(new BlockPos(2, 2, 4)).getX() + 0.5, helper.absolutePos(new BlockPos(2, 2, 4)).getY(),
+                helper.absolutePos(new BlockPos(2, 2, 4)).getZ() + 0.5, new ItemStack(Items.DIAMOND));
+        drop.setDeltaMovement(0, 0, 0);
+        helper.getLevel().addFreshEntity(drop);
+        int diamond = net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(Items.DIAMOND);
+        helper.assertTrue(qbotics.camera.ConeView.creatures(helper.getLevel(), helper.absolutePos(at), basis).stream()
+                .anyMatch(c -> c.item() == diamond && c.player() == null), "the diamond on the ground, said to be a diamond");
+        drop.discard();
         pig.discard();
         helper.succeed();
     }

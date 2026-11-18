@@ -162,6 +162,57 @@ final class PictureColors {
 
     private static final Map<Identifier, Optional<Image>> IMAGES = new java.util.concurrent.ConcurrentHashMap<>();
 
+    private static final Map<TextureAtlasSprite, Optional<Image>> SPRITES = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
+     * A sprite's picture (its first frame), from the picture the game keeps for it, else from its
+     * file (textures/<name>.png); null if neither can be read. Render thread, for the kept picture.
+     */
+    static @Nullable Image sprite(TextureAtlasSprite sprite) {
+        Optional<Image> known = SPRITES.get(sprite);
+        if (known != null) {
+            return known.orElse(null);
+        }
+        Image made = null;
+        try {
+            NativeImage original = sprite.contents().getOriginalImage();
+            int w = sprite.contents().width();
+            int h = sprite.contents().height();
+            int[] pixels = new int[w * h];
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    pixels[y * w + x] = original.getPixel(x, y);
+                }
+            }
+            made = new Image(pixels, w, h);
+        } catch (RuntimeException e) {
+            Identifier name = sprite.contents().name();
+            made = image(Identifier.fromNamespaceAndPath(name.getNamespace(), "textures/" + name.getPath() + ".png"));
+        }
+        SPRITES.put(sprite, Optional.ofNullable(made));
+        return made;
+    }
+
+    /** A texture the game made rather than read from a file (a downloaded skin), by its name; null if none. Render thread. */
+    static @Nullable Image loaded(Identifier location) {
+        return IMAGES.computeIfAbsent(location, name -> {
+            if (Minecraft.getInstance().getTextureManager().getTexture(name) instanceof net.minecraft.client.renderer.texture.DynamicTexture made
+                    && made.getPixels() != null) {
+                NativeImage image = made.getPixels();
+                int w = image.getWidth();
+                int h = image.getHeight();
+                int[] pixels = new int[w * h];
+                for (int y = 0; y < h; y++) {
+                    for (int x = 0; x < w; x++) {
+                        pixels[y * w + x] = image.getPixel(x, y);
+                    }
+                }
+                return Optional.of(new Image(pixels, w, h));
+            }
+            return Optional.empty();
+        }).orElse(null);
+    }
+
     /** A texture file by its full path (textures/....png); null if it can't be read. Cached. */
     static @Nullable Image image(Identifier file) {
         return IMAGES.computeIfAbsent(file, name -> {

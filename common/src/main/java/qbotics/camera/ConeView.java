@@ -33,7 +33,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class ConeView {
     /** How far ahead it sees, in blocks. */
-    public static final int RANGE = 24;
+    public static final int RANGE = 32;
     /** Across, in degrees (as the camera). */
     public static final double FOV = 70;
     public static final int MAX_WIDTH = 256;
@@ -77,13 +77,19 @@ public final class ConeView {
     }
 
     /**
-     * A creature in sight: its box (from the Qbot's block's corner, in blocks), kind
-     * (Picture.MONSTER...), what it is (an entity type's ID, so players' games draw its model; -1 if
-     * not known), the way its body faces (degrees, as the game's yaw) and whether it is young.
+     * A creature (or any other entity: an item on the ground, an item frame) in sight: its box (from
+     * the Qbot's block's corner, in blocks), kind (Picture.MONSTER...), what it is (an entity type's
+     * ID, so players' games draw its model; -1 if not known), the way it faces (degrees, as the
+     * game's yaw), whether it is young, where it stands (its position, from the same corner), the
+     * item it is or shows (an item's ID, or -1), for a player, who (so their skin is drawn), for
+     * something hung on a block (a frame, a painting), the way it faces (a Direction's 3D data
+     * value, else -1), and for a painting, which one ("minecraft:kebab").
      */
-    public record Creature(float x, float y, float z, float width, float height, float depth, int kind, int type, float yaw, boolean baby) {
+    public record Creature(float x, float y, float z, float width, float height, float depth, int kind, int type, float yaw, boolean baby,
+            float ex, float ey, float ez, int item, java.util.@org.jspecify.annotations.Nullable UUID player, int hung,
+            @org.jspecify.annotations.Nullable String variant) {
         public Creature(float x, float y, float z, float width, float height, float depth, int kind) {
-            this(x, y, z, width, height, depth, kind, -1, 0, false);
+            this(x, y, z, width, height, depth, kind, -1, 0, false, x + width / 2, y, z + depth / 2, -1, null, -1, null);
         }
     }
 
@@ -274,9 +280,17 @@ public final class ConeView {
             }
             float yaw = entity instanceof net.minecraft.world.entity.LivingEntity living ? living.yBodyRot : entity.getYRot();
             boolean baby = entity instanceof net.minecraft.world.entity.LivingEntity living && living.isBaby();
+            net.minecraft.world.item.ItemStack shown = entity instanceof net.minecraft.world.entity.item.ItemEntity item ? item.getItem()
+                    : entity instanceof net.minecraft.world.entity.decoration.ItemFrame frame ? frame.getItem()
+                    : net.minecraft.world.item.ItemStack.EMPTY;
             list.add(new Creature((float) (box.minX - at.getX()), (float) (box.minY - at.getY()), (float) (box.minZ - at.getZ()),
                     (float) box.getXsize(), (float) box.getYsize(), (float) box.getZsize(), kindOf(entity),
-                    BuiltInRegistries.ENTITY_TYPE.getId(entity.getType()), yaw, baby));
+                    BuiltInRegistries.ENTITY_TYPE.getId(entity.getType()), yaw, baby,
+                    (float) (entity.getX() - at.getX()), (float) (entity.getY() - at.getY()), (float) (entity.getZ() - at.getZ()),
+                    shown.isEmpty() ? -1 : BuiltInRegistries.ITEM.getId(shown.getItem()), entity instanceof Player ? entity.getUUID() : null,
+                    entity instanceof net.minecraft.world.entity.decoration.HangingEntity hanging ? hanging.getDirection().get3DDataValue() : -1,
+                    entity instanceof net.minecraft.world.entity.decoration.painting.Painting painting
+                            ? painting.getVariant().unwrapKey().map(k -> k.identifier().toString()).orElse(null) : null));
             if (list.size() >= MAX_CREATURES) {
                 break;
             }
@@ -323,6 +337,7 @@ public final class ConeView {
         float[] depth = new float[w * h];
         java.util.Arrays.fill(depth, Float.MAX_VALUE);
         Map<String, Integer> palette = new LinkedHashMap<>();
+        Map<String, String> kinds = new LinkedHashMap<>(); // each creature's name, and its kind
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (Seen s : view.blocks()) {
             BlockState state = Block.stateById(s.state());
@@ -345,7 +360,12 @@ public final class ConeView {
             }
         }
         for (Creature c : view.creatures()) {
-            int index = palette.computeIfAbsent(CREATURE_NAMES[Math.clamp(c.kind(), 0, 3)], k -> palette.size()) + 1;
+            // Named by what it is ("minecraft:cow", "minecraft:item|minecraft:diamond"); its kind is given beside.
+            String name = c.type() < 0 ? CREATURE_NAMES[Math.clamp(c.kind(), 0, 3)]
+                    : BuiltInRegistries.ENTITY_TYPE.getKey(BuiltInRegistries.ENTITY_TYPE.byId(c.type())).toString()
+                    + (c.item() < 0 ? "" : "|" + BuiltInRegistries.ITEM.getKey(BuiltInRegistries.ITEM.byId(c.item())));
+            kinds.put(name, CREATURE_NAMES[Math.clamp(c.kind(), 0, 3)]);
+            int index = palette.computeIfAbsent(name, k -> palette.size()) + 1;
             drawBox(b, new AABB(c.x(), c.y(), c.z(), c.x() + c.width(), c.y() + c.height(), c.z() + c.depth()), 0x3F, index, which, depth, w, h);
         }
         List<String> names = new ArrayList<>();
@@ -363,6 +383,9 @@ public final class ConeView {
         JsonArray list = new JsonArray();
         names.subList(0, Math.min(names.size(), 255)).forEach(list::add);
         reply.add("names", list);
+        JsonObject kindsOf = new JsonObject();
+        kinds.forEach(kindsOf::addProperty);
+        reply.add("kinds", kindsOf);
         reply.addProperty("pixels", pixels.toString());
         return reply;
     }
