@@ -13,7 +13,7 @@ PLAY TEST (the game, with other mods)
 ADDING MORE MODS TO THE PLAY TEST
     1. Open  neoforge\playtest-mods.txt
     2. Add a line with the mod's file name, as it appears in the FTB Evolution 2 mods folder
-       (C:\Users\qrick\curseforge\minecraft\Instances\FTB Evolution 2\mods),
+       (%USERPROFILE%\curseforge\minecraft\Instances\FTB Evolution 2\mods),
        with * in place of the version, for example:
            ae2-*.jar
     3. Add the mods it needs as well (the game says which are missing if it won't start).
