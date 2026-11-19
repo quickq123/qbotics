@@ -15,7 +15,8 @@
 #   6. makes the GitHub release with the jar as qbotics-<version>-mc<minecraft version>.jar
 #      and the commits since the last release listed as its changes.
 #
-# Needs the GitHub CLI once: winget install GitHub.cli, then: gh auth login
+# Uses the GitHub CLI (gh) if it is installed. Otherwise it talks to GitHub's API with curl,
+# using the sign-in Git already has saved for pushing (never shown or written anywhere).
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -60,11 +61,31 @@ git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already e
 [ -z "$(git ls-remote --tags origin "refs/tags/$TAG")" ] || die "tag $TAG already exists on GitHub"
 [ "$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | head -1)" = "$CURRENT" ] \
     || die "version $VERSION is lower than the current $CURRENT"
-if [ $DRY = 0 ]; then
-    [ -n "$GH" ] || die "the GitHub CLI isn't installed: winget install GitHub.cli, then gh auth login"
+
+# Without gh: GitHub's API through curl, signed in as Git is when it pushes.
+REPO=$(git remote get-url origin | sed -E 's#^(https://github\.com/|git@github\.com:)##; s#\.git$##')
+[[ "$REPO" =~ ^[^/]+/[^/]+$ ]] || die "origin isn't a GitHub repository: $(git remote get-url origin)"
+TOKEN=""
+api() { # api METHOD URL [curl options...]: prints the response body; the sign-in goes in on stdin
+    local method=$1 url=$2
+    shift 2
+    printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" | curl -sS -K - -X "$method" \
+        -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" "$@" "$url"
+}
+json_string() { # a file's text as one JSON string
+    printf '"'
+    sed -e 's/\r$//' -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' "$1" | awk 'NR > 1 { printf "\\n" } { printf "%s", $0 }'
+    printf '"'
+}
+if [ -n "$GH" ]; then
     "$GH" auth status >/dev/null 2>&1 || die "the GitHub CLI isn't signed in: gh auth login"
-elif [ -z "$GH" ]; then
-    echo "release: (dry run) note: the GitHub CLI isn't installed; a real release needs it"
+else
+    TOKEN=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill 2>/dev/null | sed -n 's/^password=//p' | tr -d '\r')
+    [ -n "$TOKEN" ] || die "Git has no saved GitHub sign-in; push once (git push) to sign in, then try again"
+    # Allowed to push to the repository means allowed to make its releases.
+    api GET "https://api.github.com/repos/$REPO" | grep -qE '"push": *true' \
+        || die "Git's saved GitHub sign-in can't push to $REPO, so it can't make releases there"
+    echo "Signed in to GitHub through Git's saved sign-in; may publish to $REPO"
 fi
 
 echo "Releasing $TITLE (NeoForge $NEO) as tag $TAG"
@@ -127,5 +148,20 @@ git tag -a "$TAG" -m "$TITLE (NeoForge $NEO)"
 git push -q --atomic origin main "refs/tags/$TAG"
 
 # ---- 6. GitHub release ----
-"$GH" release create "$TAG" "$OUT/$ASSET" --title "$TITLE" --notes-file "$OUT/notes.md" --verify-tag
+LATER="The tag $TAG is pushed, but the release isn't made. Make it by hand on GitHub (Releases,
+Draft a new release, choose $TAG) with the file $OUT/$ASSET and the text in $OUT/notes.md."
+if [ -n "$GH" ]; then
+    "$GH" release create "$TAG" "$OUT/$ASSET" --title "$TITLE" --notes-file "$OUT/notes.md" --verify-tag || die "$LATER"
+    echo "Released: $TITLE"
+    exit 0
+fi
+printf '{"tag_name":"%s","name":"%s","body":%s}' "$TAG" "$TITLE" "$(json_string "$OUT/notes.md")" > "$OUT/release.json"
+RESPONSE=$(api POST "https://api.github.com/repos/$REPO/releases" -H "Content-Type: application/json" --data-binary "@$OUT/release.json")
+UPLOAD=$(printf '%s' "$RESPONSE" | grep -oE '"upload_url": *"[^"{]+' | head -1 | sed -E 's/.*"//')
+PAGE=$(printf '%s' "$RESPONSE" | grep -oE '"html_url": *"[^"]+/releases/tag/[^"]+' | head -1 | sed -E 's/.*"//')
+[ -n "$UPLOAD" ] || { printf '%s\n' "$RESPONSE" | head -5 >&2; die "$LATER"; }
+api POST "$UPLOAD?name=$ASSET" -H "Content-Type: application/java-archive" --data-binary "@$OUT/$ASSET" \
+    | grep -q '"browser_download_url"' \
+    || die "The release $PAGE is made, but the jar didn't upload. Add $OUT/$ASSET to it by hand (Edit release)."
 echo "Released: $TITLE"
+echo "$PAGE"

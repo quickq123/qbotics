@@ -44,4 +44,4 @@ RELEASING A VERSION ON GITHUB
     It sets mod_version, runs the game tests (any failure stops it), builds the jar,
     commits and tags it as v0.2.0-mc26.1.2, pushes, and makes the GitHub release with
     qbotics-0.2.0-mc26.1.2.jar attached. The Minecraft version comes from gradle.properties.
-    Needs the GitHub CLI, once:  winget install GitHub.cli   then   gh auth login
+    Uses the GitHub CLI if installed; otherwise the GitHub sign-in Git saved when you pushed.
