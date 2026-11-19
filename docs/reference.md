@@ -171,7 +171,7 @@ finds it (`net.bus("crafter")`) or a name set from one (`craft` anywhere after
 `craft = net.bus("crafter")`). Over the editor comes the block that device works, as a player
 sees its screen, with what its slots held at that moment:
 
-- each slot's number as a program writes it, in yellow (the same numbers the probe's Slots mode shows);
+- each slot's number as a program writes it, small and yellow in its top-left corner (the same numbers the probe's Slots mode shows);
 - the slots nothing can be put in (a product) in red;
 - beside it, the face the bus works through and the slots each face of the block reaches (a
   furnace: top slot 0, sides slot 1, bottom slots 2 and 1).

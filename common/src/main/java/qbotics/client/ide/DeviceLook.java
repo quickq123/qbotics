@@ -243,7 +243,7 @@ final class DeviceLook implements Look {
             if (!spot.accepts()) {
                 graphics.fill(x, y, x + 16, y + 16, TAKES_NOTHING);
             }
-            graphics.text(font, String.valueOf(spot.label()), x + 1, y + 1, LABEL, true);
+            qbotics.client.SlotNumbers.draw(graphics, font, spot.label(), x, y, LABEL);
         }
         if (screen != null) {
             graphics.pose().popMatrix();

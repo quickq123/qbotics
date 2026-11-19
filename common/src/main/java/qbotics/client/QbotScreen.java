@@ -364,14 +364,9 @@ public class QbotScreen extends AbstractContainerScreen<QbotMenu> {
         if (player != null && qbotics.block.ProbeItem.showsSlots(player)) {
             return;
         }
-        graphics.pose().pushMatrix();
-        graphics.pose().scale(0.5F, 0.5F);
         for (int slot = 0; slot < QbotBlockEntity.SLOTS; slot++) {
-            int sx = QbotMenu.GRID_X + (slot % 4) * 18;
-            int sy = QbotMenu.GRID_Y + (slot / 4) * 18;
-            graphics.text(font, String.valueOf(slot), sx * 2, sy * 2, 0xFFE8E8E8, true);
+            SlotNumbers.draw(graphics, font, slot, QbotMenu.GRID_X + (slot % 4) * 18, QbotMenu.GRID_Y + (slot / 4) * 18, 0xFFE8E8E8);
         }
-        graphics.pose().popMatrix();
     }
 
     private void drawProgram(GuiGraphicsExtractor graphics) {

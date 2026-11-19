@@ -43,7 +43,7 @@ public final class SlotLabels {
         for (Slot slot : screen.getMenu().slots) {
             // The player's own inventory isn't what a program reaches; only the block's slots are numbered.
             if (!(slot.container instanceof Inventory)) {
-                graphics.text(minecraft.font, String.valueOf(byScreen ? slot.index : slot.getContainerSlot()), slot.x + 1, slot.y + 1, COLOUR, true);
+                SlotNumbers.draw(graphics, minecraft.font, byScreen ? slot.index : slot.getContainerSlot(), slot.x, slot.y, COLOUR);
             }
         }
         drawButtonNotice(graphics, minecraft, panelWidth, panelTop);
