@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Publishes a Qbotics release on GitHub: the jar built here, attached to a tagged commit.
+# Publishes a release of this mod on GitHub: the jar built here, attached to a tagged commit.
+# The same script serves every mod project (Qbotics, RNGambling): it reads the mod's name and
+# versions from gradle.properties and finds the NeoForge module itself.
 #
 #   ./release.sh 0.2.0                  release version 0.2.0
 #   ./release.sh 0.2.0 --notes notes.md  put notes.md at the top of the release text
@@ -7,13 +9,14 @@
 #
 # What it does, stopping at the first problem:
 #   1. checks: on main, no uncommitted changes, up to date with GitHub, the tag is new,
-#      the version isn't lower than the current one, the GitHub CLI (gh) is signed in;
+#      the version isn't lower than the current one, GitHub accepts the sign-in;
 #   2. sets mod_version in gradle.properties, so the jar and the game both show it;
 #   3. runs the game tests; any failure stops the release;
 #   4. builds the jar;
 #   5. commits the version, tags it v<version>-mc<minecraft version>, pushes both;
-#   6. makes the GitHub release with the jar as qbotics-<version>-mc<minecraft version>.jar
-#      and the commits since the last release listed as its changes.
+#   6. makes the GitHub release with the jar attached
+#      (named <mod_id>-<version>-mc<minecraft version>.jar) and the commits since the last
+#      release listed as its changes.
 #
 # Uses the GitHub CLI (gh) if it is installed. Otherwise it talks to GitHub's API with curl,
 # using the sign-in Git already has saved for pushing (never shown or written anywhere).
@@ -29,7 +32,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --dry-run) DRY=1 ;;
         --notes) shift; NOTES_FILE="${1:-}"; [ -f "$NOTES_FILE" ] || die "no notes file: $NOTES_FILE" ;;
-        -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,/^set -e/{/^#/p}' "$0"; exit 0 ;;
         -*) die "unknown option $1 (see ./release.sh --help)" ;;
         *) [ -z "$VERSION" ] || die "give one version"; VERSION="$1" ;;
     esac
@@ -42,10 +45,14 @@ prop() { grep -E "^$1=" gradle.properties | head -1 | cut -d= -f2- | tr -d '\r';
 MC=$(prop minecraft_version)
 NEO=$(prop neo_version)
 CURRENT=$(prop mod_version)
+MOD_ID=$(prop mod_id)
+MOD_NAME=$(prop mod_name)
+# Qbotics keeps its NeoForge module in neoforge/; RNGambling is one module at the top.
+if [ -d neoforge ] && grep -q "'neoforge'" settings.gradle; then TASKS=":neoforge:"; LIBS=neoforge/build/libs; else TASKS=""; LIBS=build/libs; fi
 TAG="v$VERSION-mc$MC"
-ASSET="qbotics-$VERSION-mc$MC.jar"
-OUT=neoforge/build/release
-TITLE="Qbotics $VERSION for Minecraft $MC"
+ASSET="$MOD_ID-$VERSION-mc$MC.jar"
+OUT=$(dirname "$LIBS")/release
+TITLE="$MOD_NAME $VERSION for Minecraft $MC"
 
 export JAVA_HOME="${JAVA_HOME:-/c/Program Files/Eclipse Adoptium/jdk-25.0.5.8-hotspot}"
 
@@ -102,7 +109,7 @@ mkdir -p "$OUT"
 
 # ---- 3. tests ----
 echo "Running the game tests (log: $OUT/gametests.log)..."
-./gradlew :neoforge:runGameTestServer -q > "$OUT/gametests.log" 2>&1 || true
+./gradlew "${TASKS}runGameTestServer" -q > "$OUT/gametests.log" 2>&1 || true
 if grep -qE "All [0-9]+ required tests passed" "$OUT/gametests.log"; then
     grep -oE "All [0-9]+ required tests passed" "$OUT/gametests.log" | tail -1
 else
@@ -112,8 +119,8 @@ fi
 
 # ---- 4. build ----
 echo "Building the jar..."
-./gradlew :neoforge:build -x test -q > "$OUT/build.log" 2>&1 || { tail -20 "$OUT/build.log" >&2; die "the build failed"; }
-JAR="neoforge/build/libs/qbotics-$VERSION.jar"
+./gradlew "${TASKS}build" -x test -q > "$OUT/build.log" 2>&1 || { tail -20 "$OUT/build.log" >&2; die "the build failed"; }
+JAR="$LIBS/$MOD_ID-$VERSION.jar"
 [ -f "$JAR" ] || die "the build made no $JAR"
 cp "$JAR" "$OUT/$ASSET"
 
