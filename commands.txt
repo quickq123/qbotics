@@ -34,3 +34,14 @@ OTHER COMMANDS
     gradlew :neoforge:runGameTestServer     runs the automatic in-game tests
     gradlew build                           builds the mod (the jar is in neoforge\build\libs)
     gradlew :neoforge:runClient             the plain development game, no other mods
+
+RELEASING A VERSION ON GITHUB
+    In Git Bash (not PowerShell), from this folder:
+        ./release.sh 0.2.0 --dry-run     checks, tests and builds; publishes nothing
+        ./release.sh 0.2.0               the real release
+        ./release.sh 0.2.0 --notes notes.md   your own text above the list of changes
+
+    It sets mod_version, runs the game tests (any failure stops it), builds the jar,
+    commits and tags it as v0.2.0-mc26.1.2, pushes, and makes the GitHub release with
+    qbotics-0.2.0-mc26.1.2.jar attached. The Minecraft version comes from gradle.properties.
+    Needs the GitHub CLI, once:  winget install GitHub.cli   then   gh auth login
