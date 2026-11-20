@@ -149,6 +149,7 @@ public final class QboticsGameTests {
             Map.entry("world_plates", QboticsGameTests::worldPlates),
             Map.entry("store_screens", QboticsGameTests::storeScreens),
             Map.entry("store_slot_hoppers", QboticsGameTests::storeSlotHoppers),
+            Map.entry("store_slot_programs", QboticsGameTests::storeSlotPrograms),
             Map.entry("watching", QboticsGameTests::watching),
             Map.entry("events_module", QboticsGameTests::eventsModule),
             Map.entry("limits_and_boot", QboticsGameTests::limitsAndBoot),
@@ -1810,6 +1811,50 @@ public final class QboticsGameTests {
             helper.assertTrue(cellOut.countItem(Items.COBBLESTONE) == 1 && cell.batteries().isEmpty(),
                     "the hopper below should take the cobblestone from the charge slot");
             helper.assertTrue(cellIn.countItem(Blocks.STONE.asItem()) == 1, "the battery slots should refuse the hopper's stone");
+        });
+    }
+
+    /**
+     * A program fills buckets at a Fluid Interface: tanks.buckets takes empty buckets only
+     * where a tank holds a bucket's worth, gives back the full ones, and is watched like any
+     * container; cell.batteries refuses what holds no energy.
+     */
+    private static void storeSlotPrograms(GameTestHelper helper) {
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        helper.setBlock(new BlockPos(1, 1, 0), QboticsContent.INTERFACE_BLOCK.get());
+        InterfaceBlockEntity store = helper.getBlockEntity(new BlockPos(1, 1, 0), InterfaceBlockEntity.class);
+        store.setDeviceName("chest");
+        for (int slot = 0; slot < InterfaceBlockEntity.SLOTS; slot++) {
+            store.setFilter(slot, qbotics.network.NameMatch.parse(net.minecraft.core.registries.BuiltInRegistries.ITEM, "*"));
+        }
+        store.setItem(0, new ItemStack(Items.BUCKET, 3));
+        store.setItem(1, new ItemStack(Blocks.STONE));
+        helper.setBlock(new BlockPos(2, 1, 0), QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        qbotics.block.FluidInterfaceBlockEntity tanks = helper.getBlockEntity(new BlockPos(2, 1, 0), qbotics.block.FluidInterfaceBlockEntity.class);
+        tanks.insertInto(2, net.minecraft.world.level.material.Fluids.LAVA, 1500, false); // a bucket's worth, and some over
+        tanks.insertInto(3, net.minecraft.world.level.material.Fluids.LAVA, 500, false);  // not a bucket's worth
+        helper.setBlock(new BlockPos(2, 1, 1), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        InterfaceBlockEntity chest = store;
+
+        for (String line : List.of(
+                "python",
+                "from logistics import network, move",
+                "net = network()",
+                "chest = net.interface('chest')",
+                "tanks = net.fluid_interface()",
+                "slots = tanks.buckets",
+                "w = slots.watch()",
+                "print('in', move(chest, slots, 'bucket'), slots.count('bucket'), slots.count('lava_bucket'))",
+                "print('seen', [(c['item'], c['now']) for c in w.changes() if c['now']])",
+                "print('out', move(slots, chest, 'lava_bucket'), chest.count('lava_bucket'))",
+                "print('cell', move(chest, net.energy_interface().batteries, 'stone'), net.energy_interface().batteries.count())",
+                "print(type(slots).__name__, slots.kind)")) {
+            computer.submitLine(line);
+        }
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "in 1 0 1", "seen [('minecraft:lava_bucket', 1)]", "out 1 1", "cell 0 0", "Slots bucket_slots");
+            helper.assertTrue(tanks.tanks().get(2).amount() == 500 && tanks.tanks().get(3).amount() == 500 && chest.countItem(Items.BUCKET) == 2,
+                    "tank 2 should have given a bucket's worth and tank 3 nothing: " + tanks.tanks());
         });
     }
 

@@ -39,6 +39,16 @@ public class EnergyInterfaceBlockEntity extends DeviceBlockEntity implements Ene
         return batteries;
     }
 
+    private qbotics.network.@org.jspecify.annotations.Nullable SlotsView batteriesView;
+
+    /** The battery slots as a device for programs ({@code cell.batteries}), by a hopper's rules. */
+    public qbotics.network.SlotsView batteriesView() {
+        if (batteriesView == null) {
+            batteriesView = new qbotics.network.SlotsView(this, batteries, "battery_slots");
+        }
+        return batteriesView;
+    }
+
     /**
      * The battery slots, which hoppers and item pipes reach from any face. A battery that can
      * take more charge goes in the charge slot; a full one goes in the drain slot. Each comes

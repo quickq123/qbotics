@@ -9,8 +9,26 @@ import net.minecraft.world.item.ItemStack;
 public final class ContainerItemPort implements ItemPort {
     private final Container container;
 
+    /** Set when items move by the rules a hopper on the block meets: which slots take what, and when. */
+    private final net.minecraft.world.@org.jspecify.annotations.Nullable WorldlyContainer automation;
+
     public ContainerItemPort(Container container) {
         this.container = container;
+        this.automation = null;
+    }
+
+    private ContainerItemPort(net.minecraft.world.WorldlyContainer container, boolean byHopperRules) {
+        this.container = container;
+        this.automation = byHopperRules ? container : null;
+    }
+
+    /** A container whose slots take and give only what a hopper on the block could put in and take out. */
+    public static ContainerItemPort asAutomation(net.minecraft.world.WorldlyContainer container) {
+        return new ContainerItemPort(container, true);
+    }
+
+    private boolean placeable(int slot, ItemStack like) {
+        return container.canPlaceItem(slot, like) && (automation == null || automation.canPlaceItemThroughFace(slot, like, null));
     }
 
     @Override
@@ -40,13 +58,13 @@ public final class ContainerItemPort implements ItemPort {
 
     @Override
     public boolean mayPlace(int slot, ItemStack like) {
-        return slot >= 0 && slot < container.getContainerSize() && container.canPlaceItem(slot, like);
+        return slot >= 0 && slot < container.getContainerSize() && placeable(slot, like);
     }
 
     @Override
     public int insertInto(int slot, ItemStack like, int max, boolean simulate) {
         ItemStack held = container.getItem(slot);
-        if (!container.canPlaceItem(slot, like) || (!held.isEmpty() && !ItemStack.isSameItemSameComponents(held, like))) {
+        if (!placeable(slot, like) || (!held.isEmpty() && !ItemStack.isSameItemSameComponents(held, like))) {
             return 0;
         }
         int most = Math.min(container.getMaxStackSize(like), like.getMaxStackSize());
@@ -60,7 +78,8 @@ public final class ContainerItemPort implements ItemPort {
     @Override
     public int extractFrom(int slot, ItemStack like, int max, boolean simulate) {
         ItemStack held = container.getItem(slot);
-        if (held.isEmpty() || !ItemStack.isSameItemSameComponents(held, like)) {
+        if (held.isEmpty() || !ItemStack.isSameItemSameComponents(held, like)
+                || (automation != null && !automation.canTakeItemThroughFace(slot, held, net.minecraft.core.Direction.DOWN))) {
             return 0;
         }
         int take = Math.clamp(max, 0, held.getCount());

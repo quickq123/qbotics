@@ -75,6 +75,16 @@ public class FluidInterfaceBlockEntity extends DeviceBlockEntity implements Flui
         return buckets;
     }
 
+    private qbotics.network.@org.jspecify.annotations.Nullable SlotsView bucketsView;
+
+    /** The bucket slots as a device for programs ({@code tanks.buckets}), by a hopper's rules. */
+    public qbotics.network.SlotsView bucketsView() {
+        if (bucketsView == null) {
+            bucketsView = new qbotics.network.SlotsView(this, buckets, "bucket_slots");
+        }
+        return bucketsView;
+    }
+
     /**
      * The bucket slots. A hopper or item pipe may put a container in an empty slot only if it
      * would empty into or fill from that slot's tank right now (a full bucket with room for

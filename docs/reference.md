@@ -976,6 +976,7 @@ Right-click it to open its screen: the four tanks, each with a **filter socket**
 | `tanks.amount(fluid=None, slot=None)` | Fluid Interface | Millibuckets held of a name or filter |
 | `tanks.filters()` | Fluid Interface | The fluid each tank is kept for, e.g. `["minecraft:water", None, None, None]`; `None` where it takes any |
 | `tanks.set_tank_filter(tank, fluid)` | Fluid Interface | Keeps a tank for one fluid (`"water"`); `None` lets it take any again |
+| `tanks.buckets` | Fluid Interface | The four bucket slots as an item device for `move()`, `count()`, `contents()` and `watch()`. Slot 0 is tank 0's, up to slot 3. They take and give by a hopper's rules (above): `move(chest, tanks.buckets, "bucket")` puts empty buckets only where a tank has 1,000 mB to fill them, and `move(tanks.buckets, chest, "lava_bucket")` takes the full ones out |
 | `bus.contents(face=None)` | Fluid Serial Bus, `usb.fluid` | The target's tanks |
 | `bus.amount(fluid=None, face=None, slot=None)` | Fluid Serial Bus, `usb.fluid` | Millibuckets the target holds |
 
@@ -995,6 +996,7 @@ that a player left in a slot.
 | Call | On | Gives |
 |---|---|---|
 | `cell.stored`, `cell.capacity` | Energy Interface | Energy held now; the most it can hold |
+| `cell.batteries` | Energy Interface | The two battery slots (0 charges, 1 drains) as an item device for `move()`, by a hopper's rules: in go batteries where they fit, and out come only finished ones |
 | `bus.stored(face=None)`, `bus.capacity(face=None)` | Energy Serial Bus, `usb.energy` | The same for the target |
 
 All of them have `source(...)` and `destination(...)` as section 6.4 says. In a fluid end,

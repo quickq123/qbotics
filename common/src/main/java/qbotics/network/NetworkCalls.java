@@ -165,6 +165,9 @@ public final class NetworkCalls {
                 throw new CallError("'" + mac.substring(at + 1) + "' isn't something a USB carries: it carries item, fluid and energy.");
             }
             NetworkDevice device = resolve(network, mac.substring(0, at));
+            if (device != null && wanted == Medium.ITEM && itemSlotsOf(device) instanceof SlotsView slots) {
+                return slots; // a fluid or energy store's bucket or battery slots
+            }
             return device == null ? null : concrete(device, wanted);
         }
         int slash = mac.indexOf('/');
@@ -221,6 +224,9 @@ public final class NetworkCalls {
 
     /** The level a device is in: another network's may be in another dimension. */
     static ServerLevel levelOf(NetworkDevice device, ServerLevel fallback) {
+        if (device instanceof SlotsView slots) {
+            device = slots.store();
+        }
         if (device instanceof net.minecraft.world.level.block.entity.BlockEntity block && block.getLevel() instanceof ServerLevel own) {
             return own;
         }
@@ -1926,6 +1932,9 @@ public final class NetworkCalls {
         if (device instanceof qbotics.qbot.QbotBlockEntity qbot) {
             return qbot.itemPort(); // its 16 slots
         }
+        if (device instanceof SlotsView slots) {
+            return slots.port(); // a fluid or energy store's bucket or battery slots
+        }
         return null;
     }
 
@@ -2252,6 +2261,17 @@ public final class NetworkCalls {
             return view;
         }
         return device;
+    }
+
+    /** A fluid or energy store's item slots ("...@item"): its bucket or battery slots. Null for any other device. */
+    static @org.jspecify.annotations.Nullable SlotsView itemSlotsOf(NetworkDevice device) {
+        SlotsView view = device instanceof qbotics.block.FluidInterfaceBlockEntity tanks ? tanks.bucketsView()
+                : device instanceof qbotics.block.EnergyInterfaceBlockEntity cell ? cell.batteriesView() : null;
+        String remote = view == null ? null : REMOTE.get(device);
+        if (remote != null) {
+            REMOTE.put(view, remote);
+        }
+        return view;
     }
 
     /** A device by IP address, hardware address or name; with no key, the only device of a kind. */

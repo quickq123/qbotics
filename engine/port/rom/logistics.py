@@ -1056,6 +1056,17 @@ class FluidInterface(Device, _Gives, _Takes, _Watches):
         bucket of the fluid to do the same."""
         _call("set_filter", self.mac, tank, fluid)
 
+    @property
+    def buckets(self) -> "Slots":
+        """The four bucket slots under the tanks, as a place items move to and from:
+        slot 0 is tank 0's, up to slot 3. An empty bucket goes in only where its tank has
+        a bucket's worth (1000 mB) to fill it with, a full one only where its tank has room;
+        it swaps at once, and the result can be taken out:
+
+            move(chest, tanks.buckets, "bucket")          # fills where it can
+            move(tanks.buckets, chest, "lava_bucket")     # takes the full ones out"""
+        return _wrap(_call("find", self.mac + "@item", None))
+
 
 class _ReadsFluid(_Watches):
     def contents(self, face=None):
@@ -1076,8 +1087,38 @@ class FluidBus(Port, _ReadsFluid, _Gives, _Takes):
 # ---- energy: amounts are in FE, the unit mods share (also called RF) ----
 
 
+class Slots(Device, _Gives, _Takes, _Watches):
+    """A store's item slots: a Fluid Interface's buckets (tanks.buckets) or an Energy
+    Interface's batteries (cell.batteries). Items go in and come out by the same rules as a
+    hopper on the block: only what can be filled, emptied, charged or drained there now
+    goes in, and a battery comes out only once it is done."""
+
+    def contents(self, details=False):
+        """What is in the slots: a list of {"slot": 0, "item": "minecraft:lava_bucket", "count": 1}."""
+        return _call("contents", self.mac, None, bool(details))
+
+    def count(self, item=None, slot=None):
+        """How many of an item are in the slots (or of anything, with no item)."""
+        item, _, slot = _aim(item, None, slot)
+        return _call("count", self.mac, item, None, slot)
+
+    def slots(self):
+        """Every slot in order, empty ones too, as an interface's slots() gives them."""
+        return _call("slots", self.mac, None)
+
+
 class EnergyInterface(Device, _Gives, _Takes, _Watches):
     """The network's energy store: it holds 2,000,000 FE."""
+
+    @property
+    def batteries(self) -> "Slots":
+        """The two battery slots, as a place items move to and from: slot 0 charges a
+        battery from the store, slot 1 drains one into it. A battery that can take more goes
+        in slot 0 and a full one in slot 1; each comes out only once it is done:
+
+            move(chest, cell.batteries)                   # in they go, each where it fits
+            move(cell.batteries, chest)                   # out come the finished ones"""
+        return _wrap(_call("find", self.mac + "@item", None))
 
     @property
     def stored(self):
@@ -1838,7 +1879,8 @@ _KINDS = {"interface": Interface, "bus": Bus, "usb": USB, "drive_bay": DriveBay,
           "fluid_interface": FluidInterface, "fluid_bus": FluidBus,
           "energy_interface": EnergyInterface, "energy_bus": EnergyBus, "experience_interface": ExperienceInterface,
           "player_interface": PlayerInterface, "chat_interface": ChatInterface, "command_interface": CommandInterface,
-          "entity_sensor": EntitySensor, "collector": Collector, "block_sensor": BlockSensor}
+          "entity_sensor": EntitySensor, "collector": Collector, "block_sensor": BlockSensor,
+          "bucket_slots": Slots, "battery_slots": Slots}
 
 
 def _wrap(info) -> "Device":
