@@ -25,7 +25,7 @@ import qbotics.network.Medium;
  * ({@link FluidInterfaceMenu}) each tank also has a bucket slot: a full container put there
  * empties into the tank, an empty one fills from it.
  */
-public class FluidInterfaceBlockEntity extends DeviceBlockEntity implements FluidPort, StorageSnapshots,
+public class FluidInterfaceBlockEntity extends DeviceBlockEntity implements FluidPort, StorageSnapshots, ShowsContents,
         net.minecraft.world.MenuProvider {
     public static final int TANKS = 4;
     public static final int TANK_CAPACITY = 4 * BUCKET;
@@ -45,6 +45,19 @@ public class FluidInterfaceBlockEntity extends DeviceBlockEntity implements Flui
         super(QboticsContent.FLUID_INTERFACE_BLOCK_ENTITY.get(), pos, state);
         java.util.Arrays.fill(fluids, Fluids.EMPTY);
         java.util.Arrays.fill(filters, Fluids.EMPTY);
+    }
+
+    // ---- what its sides show (ShowsContents) ------------------------------------------------
+
+    /** Each tank's fluid, and how full it is in fortieths (rounded up, so a little still shows). */
+    @Override
+    public String look() {
+        StringBuilder look = new StringBuilder();
+        for (int i = 0; i < TANKS; i++) {
+            look.append(amounts[i] == 0 ? "" : net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluids[i]))
+                    .append('=').append((amounts[i] * 40 + TANK_CAPACITY - 1) / TANK_CAPACITY).append(';');
+        }
+        return look.toString();
     }
 
     // ---- filters ---------------------------------------------------------------------------

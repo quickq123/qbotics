@@ -186,7 +186,7 @@ public final class QboticsNeoForge {
     private static final DeferredBlock<qbotics.block.StoreBlock> EXPERIENCE_INTERFACE = BLOCKS.registerBlock("experience_interface",
             qbotics.block.StoreBlock::experience, properties -> properties.mapColor(MapColor.METAL).strength(2.0f).sound(SoundType.METAL));
     private static final DeferredItem<BlockItem> EXPERIENCE_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(EXPERIENCE_INTERFACE);
-    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.ExperienceInterfaceBlockEntity>> EXPERIENCE_INTERFACE_BLOCK_ENTITY =
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.ExperienceInterfaceBlockEntity>> EXPERIENCE_INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("experience_interface",
                     () -> new BlockEntityType<>(qbotics.block.ExperienceInterfaceBlockEntity::new, EXPERIENCE_INTERFACE.get()));
     private static final DeferredItem<BlockItem> FLUID_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(FLUID_INTERFACE);
@@ -226,10 +226,10 @@ public final class QboticsNeoForge {
             BLOCK_ENTITY_TYPES.register("game_interface", () -> new BlockEntityType<>(qbotics.block.GameInterfaceBlockEntity::new,
                     PLAYER_INTERFACE.get(), CHAT_INTERFACE.get(), COMMAND_INTERFACE.get()));
     private static final DeferredItem<BlockItem> ENERGY_INTERFACE_ITEM = ITEMS.registerSimpleBlockItem(ENERGY_INTERFACE);
-    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.FluidInterfaceBlockEntity>> FLUID_INTERFACE_BLOCK_ENTITY =
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.FluidInterfaceBlockEntity>> FLUID_INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("fluid_interface",
                     () -> new BlockEntityType<>(qbotics.block.FluidInterfaceBlockEntity::new, FLUID_INTERFACE.get()));
-    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY =
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.EnergyInterfaceBlockEntity>> ENERGY_INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("energy_interface",
                     () -> new BlockEntityType<>(qbotics.block.EnergyInterfaceBlockEntity::new, ENERGY_INTERFACE.get()));
     static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.DisplayBlockEntity>> DISPLAY_BLOCK_ENTITY =
@@ -240,7 +240,7 @@ public final class QboticsNeoForge {
             BLOCK_ENTITY_TYPES.register("uplink", () -> new BlockEntityType<>(qbotics.uplink.UplinkBlockEntity::new, UPLINK.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<qbotics.block.DriveBayBlockEntity>> DRIVE_BAY_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("drive_bay", () -> new BlockEntityType<>(qbotics.block.DriveBayBlockEntity::new, DRIVE_BAY.get()));
-    private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY =
+    static final DeferredHolder<BlockEntityType<?>, BlockEntityType<InterfaceBlockEntity>> INTERFACE_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("interface", () -> new BlockEntityType<>(InterfaceBlockEntity::new, INTERFACE.get()));
     private static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PortBlockEntity>> PORT_BLOCK_ENTITY =
             BLOCK_ENTITY_TYPES.register("port", () -> new BlockEntityType<>(PortBlockEntity::new, CABLE.get()));

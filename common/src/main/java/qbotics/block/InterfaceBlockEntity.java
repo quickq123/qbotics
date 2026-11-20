@@ -29,7 +29,7 @@ import qbotics.network.NameMatch;
  * slot accepts only the item its filter names, and holds up to one stack of it. Hoppers
  * and other mods' pipes can put items in (where a filter allows) and take them out.
  */
-public class InterfaceBlockEntity extends DeviceBlockEntity implements Container, MenuProvider, ItemPort {
+public class InterfaceBlockEntity extends DeviceBlockEntity implements Container, MenuProvider, ItemPort, ShowsContents {
     /** Basic tier (design doc §11.0, tiered upgrades). */
     public static final int SLOTS = 9;
 
@@ -67,6 +67,26 @@ public class InterfaceBlockEntity extends DeviceBlockEntity implements Container
     /** Sets what a slot accepts; null closes it. Items already in the slot stay and can be taken out. */
     public void setFilter(int slot, @Nullable Item item) {
         setFilter(slot, item == null ? null : NameMatch.parse(BuiltInRegistries.ITEM, BuiltInRegistries.ITEM.getKey(item).toString()));
+    }
+
+    // ---- what its sides show (ShowsContents) ------------------------------------------
+
+    /** A slot's light on the block's sides: 0 closed, 1 open and empty, 2 holding something, 3 full. */
+    public int slotLight(int slot) {
+        ItemStack held = items.get(slot);
+        if (!held.isEmpty()) {
+            return held.getCount() >= getMaxStackSize(held) ? 3 : 2;
+        }
+        return filters.get(slot) == null ? 0 : 1;
+    }
+
+    @Override
+    public String look() {
+        StringBuilder look = new StringBuilder(SLOTS);
+        for (int slot = 0; slot < SLOTS; slot++) {
+            look.append(slotLight(slot));
+        }
+        return look.toString();
     }
 
     // ---- Container: what hoppers, players and other mods see --------------------------

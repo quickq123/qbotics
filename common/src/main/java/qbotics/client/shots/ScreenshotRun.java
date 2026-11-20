@@ -66,7 +66,7 @@ public final class ScreenshotRun {
 
     /** The sections of the script, in the order they run. */
     public static final java.util.List<String> SECTIONS = java.util.List.of(
-            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "devicelook", "agent", "night", "stage", "items", "interfaces", "cone", "viewblocks");
+            "world", "web", "screens", "computer", "displays", "tablet", "qbot", "laptop", "editor", "devicelook", "agent", "night", "stage", "items", "interfaces", "stores", "cone", "viewblocks");
     /** The sections asked for (-Pshots=a,b), or every section. */
     private static final java.util.Set<String> WANTED = wanted();
     /** Whether the section being planned is wanted: steps of other sections are left out. */
@@ -1023,6 +1023,56 @@ public final class ScreenshotRun {
         view("20c-dropper-plate", new Vec3(9.6, 1.4, 32.6), new Vec3(8.0, 0.5, 30.5));
         view("20d-entity-sensor-area", new Vec3(2.5, 6.5, 52.0), new Vec3(2.5, 0.5, 40.5));
         view("20e-collector", new Vec3(5.6, 1.6, 43.4), new Vec3(4.5, 0.5, 41.5));
+
+        // The Interfaces' sides show what they hold. Filled after they are placed, so the
+        // pictures also show the changes reaching the player's game.
+        section("stores");
+        then(20, minecraft -> onServer(minecraft, player -> {
+            net.minecraft.server.level.ServerLevel level = player.level();
+            level.setBlock(base.offset(0, 0, 60), QboticsContent.INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            level.setBlock(base.offset(2, 0, 60), QboticsContent.FLUID_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            level.setBlock(base.offset(4, 0, 60), QboticsContent.ENERGY_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+            level.setBlock(base.offset(6, 0, 60), QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+        }));
+        view("21a-stores-empty", new Vec3(3.5, 1.4, 63.2), new Vec3(3.5, 0.5, 60.5));
+        then(10, minecraft -> onServer(minecraft, player -> {
+            net.minecraft.server.level.ServerLevel level = player.level();
+            if (level.getBlockEntity(base.offset(0, 0, 60)) instanceof InterfaceBlockEntity items) {
+                for (int slot = 0; slot < 6; slot++) {
+                    items.setFilter(slot, Items.COBBLESTONE);
+                }
+                items.setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+                items.setItem(1, new ItemStack(Items.COBBLESTONE, 10));
+                items.setItem(4, new ItemStack(Items.COBBLESTONE, 30));
+            }
+            if (level.getBlockEntity(base.offset(2, 0, 60)) instanceof qbotics.block.FluidInterfaceBlockEntity tanks) {
+                tanks.insertInto(0, net.minecraft.world.level.material.Fluids.WATER, 4000, false);
+                tanks.insertInto(1, net.minecraft.world.level.material.Fluids.LAVA, 2000, false);
+                tanks.insertInto(3, net.minecraft.world.level.material.Fluids.WATER, 500, false);
+            }
+            if (level.getBlockEntity(base.offset(4, 0, 60)) instanceof qbotics.block.EnergyInterfaceBlockEntity cell) {
+                cell.insert(1_300_000, false);
+            }
+            if (level.getBlockEntity(base.offset(6, 0, 60)) instanceof qbotics.block.ExperienceInterfaceBlockEntity bank) {
+                bank.add(qbotics.block.Experience.pointsAtLevel(17));
+            }
+        }));
+        view("21b-stores-filled", new Vec3(3.5, 1.4, 63.2), new Vec3(3.5, 0.5, 60.5));
+        view("21c-stores-close", new Vec3(2.0, 1.0, 61.9), new Vec3(2.0, 0.5, 60.5));
+        // Experience Interfaces holding a lot: how big numbers fit on the bottle.
+        then(10, minecraft -> onServer(minecraft, player -> {
+            long[] levels = {345, 6789, 123_456, 50_000_000};
+            for (int i = 0; i < levels.length; i++) {
+                BlockPos at = base.offset(i * 2, 0, 66);
+                player.level().setBlock(at, QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get().defaultBlockState(), Block.UPDATE_ALL);
+                if (player.level().getBlockEntity(at) instanceof qbotics.block.ExperienceInterfaceBlockEntity bank) {
+                    bank.add(qbotics.block.Experience.pointsAtLevel(levels[i]));
+                }
+            }
+        }));
+        view("21e-experience-numbers", new Vec3(3.0, 1.2, 68.6), new Vec3(3.0, 0.5, 66.5));
+        then(5, minecraft -> onServer(minecraft, player -> command(player, "time set midnight")));
+        view("21d-stores-night", new Vec3(3.5, 1.4, 63.2), new Vec3(3.5, 0.5, 60.5));
         view("20f-block-sensor-field", new Vec3(20.5, 6.0, 53.5), new Vec3(20.5, 0.0, 44.5));
 
         // The items, as the hotbar and the hand draw them.

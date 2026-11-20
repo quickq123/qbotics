@@ -883,13 +883,15 @@ if os.path.isdir(HELPME):
 
 
 def interface_side():
-    """Nine small slots, like the block's nine filtered slots."""
+    """Nine small slots, like the block's nine filtered slots. Each has a 2x2 light that
+    InterfaceLookRenderer.java lights when the slot holds something."""
     px = case_base()
     for gy in range(3):
         for gx in range(3):
-            for y in range(3):
-                for x in range(3):
-                    px[3 + gy * 4 + y][3 + gx * 4 + x] = VENT if (x, y) != (1, 1) else SCREEN
+            for y in range(4):
+                for x in range(4):
+                    edge = x in (0, 3) or y in (0, 3)
+                    px[2 + gy * 4 + y][2 + gx * 4 + x] = VENT if edge else SCREEN
     return px
 
 
@@ -933,15 +935,20 @@ def tint_value(colour):
     return value - (1 << 32)
 
 
-def store_side(colour, cells):
-    """A store's side: iron, with windows showing what is inside."""
+# An empty window. In the world, InterfaceLookRenderer draws what the store holds over it.
+GLASS = (34, 38, 46)
+GLASS_GLINT = (62, 68, 80)
+
+
+def store_side(cells):
+    """A store's side: iron, with empty windows that show what is inside once it is placed.
+    (InterfaceLookRenderer.java draws into these same cells.)"""
     px = case_base()
-    dark = tuple(c * 2 // 3 for c in colour)
     for (x0, y0, x1, y1) in cells:
         for y in range(y0, y1):
             for x in range(x0, x1):
                 edge = x in (x0, x1 - 1) or y in (y0, y1 - 1)
-                px[y][x] = EDGE if edge else (colour if y >= (y0 + y1) // 2 else dark)
+                px[y][x] = EDGE if edge else (GLASS_GLINT if (x, y) == (x0 + 1, y0 + 1) else GLASS)
     return px
 
 
@@ -1004,14 +1011,14 @@ write_png("assets/qbotics/textures/block/dropper_front.png", dropper_front())
 write_png("assets/qbotics/textures/block/plate_ring.png", [[(255, 255, 255)] * 16 for _ in range(16)])
 # The fluid store shows four tanks; the energy store shows one tall cell.
 write_png("assets/qbotics/textures/block/fluid_interface_side.png",
-          store_side(MEDIA["fluid_"], [(2, 2, 8, 8), (8, 2, 14, 8), (2, 8, 8, 14), (8, 8, 14, 14)]))
+          store_side([(1, 1, 8, 8), (8, 1, 15, 8), (1, 8, 8, 15), (8, 8, 15, 15)]))
 write_png("assets/qbotics/textures/block/fluid_interface_top.png", store_top(MEDIA["fluid_"]))
 write_png("assets/qbotics/textures/block/energy_interface_side.png",
-          store_side(MEDIA["energy_"], [(3, 2, 6, 14), (6, 2, 10, 14), (10, 2, 13, 14)]))
+          store_side([(3, 2, 6, 14), (6, 2, 10, 14), (10, 2, 13, 14)]))
 write_png("assets/qbotics/textures/block/energy_interface_top.png", store_top(MEDIA["energy_"]))
 # The experience store shows one round bottle of green.
 write_png("assets/qbotics/textures/block/experience_interface_side.png",
-          store_side(XP_GREEN, [(5, 2, 11, 5), (3, 5, 13, 14)]))
+          store_side([(5, 2, 11, 5), (3, 5, 13, 14)]))
 write_png("assets/qbotics/textures/block/experience_interface_top.png", store_top(XP_GREEN))
 write_json("data/qbotics/recipe/experience_interface.json", shaped(
     ["CCC", "CBC", "CCC"], {"C": "qbotics:cable", "B": "minecraft:glass_bottle"}, "qbotics:experience_interface"))

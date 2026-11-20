@@ -25,7 +25,7 @@ import qbotics.network.RadioNetwork;
  * lock says who may. It never accepts liquid experience: that would let a mod's fluid, at
  * whatever rate that mod chose, be turned into experience a player can take.
  */
-public class ExperienceInterfaceBlockEntity extends DeviceBlockEntity {
+public class ExperienceInterfaceBlockEntity extends DeviceBlockEntity implements ShowsContents {
     /** As much as fits with room to spare for arithmetic. */
     public static final long MAX_POINTS = Long.MAX_VALUE / 4;
     private static final double MAX_USE_DISTANCE = 8.0;
@@ -79,6 +79,12 @@ public class ExperienceInterfaceBlockEntity extends DeviceBlockEntity {
             setChanged();
         }
         return taken;
+    }
+
+    /** The levels it holds (as a player with nothing would reach), and whether it holds anything. */
+    @Override
+    public String look() {
+        return points == 0 ? "" : Long.toString(Experience.levelAt(points));
     }
 
     // ---- players, by hand --------------------------------------------------------------------

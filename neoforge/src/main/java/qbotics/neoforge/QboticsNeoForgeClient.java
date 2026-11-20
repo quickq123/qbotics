@@ -62,6 +62,13 @@ public final class QboticsNeoForgeClient {
                 event.registerBlockEntityRenderer(QboticsNeoForge.COLLECTOR_BLOCK_ENTITY.get(), SensorAreaRenderer::new));
         modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) ->
                 event.registerBlockEntityRenderer(QboticsNeoForge.BLOCK_SENSOR_BLOCK_ENTITY.get(), SensorAreaRenderer::new));
+        // The Interfaces' sides show what they hold: slot lights, tanks, charge and experience.
+        modBus.addListener((net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) -> {
+            event.registerBlockEntityRenderer(QboticsNeoForge.INTERFACE_BLOCK_ENTITY.get(), InterfaceLookRenderer::new);
+            event.registerBlockEntityRenderer(QboticsNeoForge.FLUID_INTERFACE_BLOCK_ENTITY.get(), InterfaceLookRenderer::new);
+            event.registerBlockEntityRenderer(QboticsNeoForge.ENERGY_INTERFACE_BLOCK_ENTITY.get(), InterfaceLookRenderer::new);
+            event.registerBlockEntityRenderer(QboticsNeoForge.EXPERIENCE_INTERFACE_BLOCK_ENTITY.get(), InterfaceLookRenderer::new);
+        });
         modBus.addListener((net.neoforged.neoforge.client.event.RegisterMenuScreensEvent event) -> {
             event.register(QboticsNeoForge.INTERFACE_MENU.get(), qbotics.client.InterfaceScreen::new);
             event.register(QboticsNeoForge.FLUID_INTERFACE_MENU.get(), qbotics.client.FluidInterfaceScreen::new);

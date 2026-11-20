@@ -912,6 +912,9 @@ items a call, as any move does. A storage can't be watched yet: watch its buses 
 
 **Interface** (`net.interface()`): nine slots. Every slot starts closed.
 
+Its sides show its nine slots as lights, in the same order as its screen: dim for an open,
+empty slot, green for one holding something, amber for a full stack, and dark for a closed one.
+
 | Call | Does |
 |---|---|
 | `store.contents(details=False)` | A list of `{"slot": 0, "item": "minecraft:coal", "count": 12}`. With `details=True` (below), each stack's data too |
@@ -953,6 +956,9 @@ unit mods share (also called RF).
 **Fluid Interface** (`net.fluid_interface()`): four tanks of 4,000 mB. A tank takes any fluid
 while empty, then only more of the same, unless it has a filter.
 
+Its sides show the four tanks (tank 0 top left, tank 3 bottom right), each filled to its level
+with the fluid it holds, in that fluid's own colour.
+
 Right-click it to open its screen: the four tanks, each with a **filter socket** above and a
 **bucket slot** below. Hover a tank to see what it holds.
 
@@ -981,6 +987,8 @@ Right-click it to open its screen: the four tanks, each with a **filter socket**
 | `bus.amount(fluid=None, face=None, slot=None)` | Fluid Serial Bus, `usb.fluid` | Millibuckets the target holds |
 
 **Energy Interface** (`net.energy_interface()`): holds 2,000,000 FE.
+
+Its sides show how full it is, as a red bar that rises with its charge.
 
 Right-click it to open its screen: a gauge of what it holds between two battery slots.
 **Charge** fills a battery (any item that holds FE, from any mod) from the store; **Drain**
@@ -1011,6 +1019,9 @@ move(net.energy_interface("battery"), net.energy_bus("machine"), count=50000)
 
 **Experience Interface** (`net.experience_interface()`): a block that holds experience. It
 holds real experience only and has no limit.
+
+Its sides show a bottle that fills up to 30 levels, with the number of levels it holds on it
+(as many as a player with none would climb). Big numbers are shortened: 12k, 3.4M.
 
 At the block, right-click to open its screen: type a number of levels and press **Store** or
 **Take**, or use **Store All** and **Take All**. Storing takes your top levels at what those

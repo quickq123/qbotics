@@ -17,7 +17,7 @@ import qbotics.network.Medium;
  * whatever energy-holding item is put in it from the store, the other drains one into the
  * store. Both work a little every tick, as fast as the item takes or gives.
  */
-public class EnergyInterfaceBlockEntity extends DeviceBlockEntity implements EnergyPort, StorageSnapshots,
+public class EnergyInterfaceBlockEntity extends DeviceBlockEntity implements EnergyPort, StorageSnapshots, ShowsContents,
         net.minecraft.world.MenuProvider {
     public static final int CAPACITY = 2_000_000;
     /** The battery slots: this one is charged from the store... */
@@ -91,6 +91,12 @@ public class EnergyInterfaceBlockEntity extends DeviceBlockEntity implements Ene
         public boolean canTakeItemThroughFace(int slot, net.minecraft.world.item.ItemStack stack, net.minecraft.core.Direction side) {
             return slot == CHARGE_SLOT ? !qbotics.Qbotics.platform().canCharge(stack) : !qbotics.Qbotics.platform().canDischarge(stack);
         }
+    }
+
+    /** How full it is in fiftieths (rounded up, so a little charge still shows). */
+    @Override
+    public String look() {
+        return Integer.toString((int) (((long) energy * 50 + CAPACITY - 1) / CAPACITY));
     }
 
     /** Once a tick on the server: charges and drains what is in the battery slots. */

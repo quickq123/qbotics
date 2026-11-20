@@ -105,6 +105,50 @@ public abstract class DeviceBlockEntity extends BlockEntity implements NetworkDe
         }
     }
 
+    // ---- what players see on its sides (ShowsContents) ----------------------------------------
+
+    /** What was last sent to players' games, for a block that shows its contents. */
+    private @Nullable String lookSent;
+    private boolean lookQueued;
+
+    /**
+     * Saved, and for a block that shows its contents, checked at the end of the tick for a
+     * change players would see. Checked then, not now, because other mods' transfers change
+     * a store and may take the change back again before the tick is over.
+     */
+    @Override
+    public void setChanged() {
+        super.setChanged();
+        if (this instanceof ShowsContents && !lookQueued && level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            net.minecraft.server.MinecraftServer server = serverLevel.getServer();
+            lookQueued = true;
+            server.schedule(server.wrapRunnable(this::sendLookIfChanged));
+        }
+    }
+
+    private void sendLookIfChanged() {
+        lookQueued = false;
+        if (isRemoved() || level == null || level.getBlockEntity(getBlockPos()) != this) {
+            return;
+        }
+        String now = ((ShowsContents) this).look();
+        if (!now.equals(lookSent)) {
+            lookSent = now;
+            level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+        }
+    }
+
+    /** A block that shows its contents sends players' games what it holds, to draw it. */
+    @Override
+    public net.minecraft.nbt.CompoundTag getUpdateTag(net.minecraft.core.HolderLookup.Provider registries) {
+        return this instanceof ShowsContents ? saveCustomOnly(registries) : super.getUpdateTag(registries);
+    }
+
+    @Override
+    public net.minecraft.network.protocol.@Nullable Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return this instanceof ShowsContents ? net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this) : super.getUpdatePacket();
+    }
+
     @Override
     public void setRemoved() {
         super.setRemoved();
