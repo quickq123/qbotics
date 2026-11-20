@@ -474,6 +474,11 @@ public final class QboticsNeoForge {
             // The fluid and energy stores are ordinary tanks and batteries to other mods' pipes and cables.
             event.registerBlockEntity(Capabilities.Fluid.BLOCK, FLUID_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
             event.registerBlockEntity(Capabilities.Energy.BLOCK, ENERGY_INTERFACE_BLOCK_ENTITY.get(), (store, side) -> MediaHandlers.of(store));
+            // Their bucket and battery slots, for hoppers and item pipes on any face.
+            event.registerBlockEntity(Capabilities.Item.BLOCK, FLUID_INTERFACE_BLOCK_ENTITY.get(),
+                    (store, side) -> new net.neoforged.neoforge.transfer.item.WorldlyContainerWrapper(store.buckets(), side));
+            event.registerBlockEntity(Capabilities.Item.BLOCK, ENERGY_INTERFACE_BLOCK_ENTITY.get(),
+                    (store, side) -> new net.neoforged.neoforge.transfer.item.WorldlyContainerWrapper(store.batteries(), side));
             // A Qbot parked by a hopper, pipe or cable: its 16 slots, two tanks and energy cell are theirs to
             // fill and empty, from any side, as a chest's, a tank's and a battery's are.
             event.registerBlockEntity(Capabilities.Item.BLOCK, QBOT_BLOCK_ENTITY.get(), (qbot, side) -> VanillaContainerWrapper.of(qbot.items()));
@@ -845,6 +850,69 @@ public final class QboticsNeoForge {
                     return true;
                 }
                 return net.neoforged.neoforge.transfer.ResourceHandlerUtil.move(into, item, fluid -> true, Integer.MAX_VALUE, null) > 0;
+            }
+
+            @Override
+            @SuppressWarnings("deprecation") // the open transaction isn't passed to us; see trialRun
+            public boolean wouldExchangeFluid(ItemStack stack, qbotics.block.FluidInterfaceBlockEntity store, int tank) {
+                if (stack.isEmpty()) {
+                    return false;
+                }
+                // A copy of the container, in a slot of its own, tried against the tank in a transaction that is never committed.
+                net.minecraft.world.SimpleContainer trial = new net.minecraft.world.SimpleContainer(stack.copyWithCount(1));
+                var items = net.neoforged.neoforge.transfer.item.VanillaContainerWrapper.ofUncached(trial);
+                var item = Capabilities.Fluid.ITEM.getCapability(trial.getItem(0), net.neoforged.neoforge.transfer.access.ItemAccess.forHandlerIndexStrict(items, 0));
+                if (item == null) {
+                    return false;
+                }
+                var into = net.neoforged.neoforge.transfer.RangedResourceHandler.ofSingleIndex(MediaHandlers.of(store), tank);
+                try (var transaction = trialRun()) {
+                    return net.neoforged.neoforge.transfer.ResourceHandlerUtil.move(item, into, fluid -> true, Integer.MAX_VALUE, transaction) > 0
+                            || net.neoforged.neoforge.transfer.ResourceHandlerUtil.move(into, item, fluid -> true, Integer.MAX_VALUE, transaction) > 0;
+                }
+            }
+
+            @Override
+            public boolean canCharge(ItemStack stack) {
+                var item = energyOf(stack);
+                if (item == null) {
+                    return false;
+                }
+                try (var transaction = trialRun()) {
+                    return item.insert(1, transaction) > 0;
+                }
+            }
+
+            @Override
+            public boolean canDischarge(ItemStack stack) {
+                var item = energyOf(stack);
+                if (item == null) {
+                    return false;
+                }
+                try (var transaction = trialRun()) {
+                    return item.extract(1, transaction) > 0;
+                }
+            }
+
+            /** The energy handler of a copy of this item, or null if it holds no energy. */
+            private net.neoforged.neoforge.transfer.energy.@org.jspecify.annotations.Nullable EnergyHandler energyOf(ItemStack stack) {
+                if (stack.isEmpty()) {
+                    return null;
+                }
+                net.minecraft.world.SimpleContainer trial = new net.minecraft.world.SimpleContainer(stack.copyWithCount(1));
+                var items = net.neoforged.neoforge.transfer.item.VanillaContainerWrapper.ofUncached(trial);
+                return Capabilities.Energy.ITEM.getCapability(trial.getItem(0), net.neoforged.neoforge.transfer.access.ItemAccess.forHandlerIndexStrict(items, 0));
+            }
+
+            /**
+             * A transaction for trying something and then taking it back (closed without a commit).
+             * A hopper asks whether a slot takes an item while its own transfer is open, so this
+             * goes inside that one when there is one.
+             */
+            @SuppressWarnings("deprecation")
+            private net.neoforged.neoforge.transfer.transaction.Transaction trialRun() {
+                return net.neoforged.neoforge.transfer.transaction.Transaction.open(
+                        net.neoforged.neoforge.transfer.transaction.Transaction.getCurrentOpenedTransaction());
             }
 
             @Override

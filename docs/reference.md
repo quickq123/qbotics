@@ -963,6 +963,11 @@ Right-click it to open its screen: the four tanks, each with a **filter socket**
 - **Bucket slots.** A full bucket (or another mod's fluid container) put in a tank's slot
   empties into that tank; an empty one fills from it. Take the result out of the slot.
   Shift-click moves buckets in and out.
+- **Hoppers and item pipes** reach the bucket slots from any side. They can put in a full
+  bucket only where a tank has room for it (and its filter allows it), and an empty one only
+  where a tank has a bucket's worth to give, so a bucket with nowhere to go stays where it
+  was. It swaps at once, and a hopper underneath takes out the result: a hopper of water
+  buckets on top, and the empty buckets collect in a hopper below.
 - Using a bucket on the block itself still fills or empties it directly, as before.
 
 | Call | On | Does |
@@ -980,6 +985,12 @@ Right-click it to open its screen: a gauge of what it holds between two battery 
 **Charge** fills a battery (any item that holds FE, from any mod) from the store; **Drain**
 empties one into the store. Each works every tick, up to 50,000 FE a tick or as fast as the
 battery allows. Take the battery out when it is done.
+
+Hoppers and item pipes reach the battery slots from any side. A battery that can take more
+charge goes in **Charge**, and a full one goes in **Drain**. Each comes out again only once
+it is done (charged full, or drained empty), so a hopper underneath collects finished
+batteries. They never put in something that holds no energy, and they take out anything like
+that a player left in a slot.
 
 | Call | On | Gives |
 |---|---|---|

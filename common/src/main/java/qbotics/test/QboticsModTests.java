@@ -31,11 +31,12 @@ public final class QboticsModTests {
     private QboticsModTests() {
     }
 
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("modded_crops", 2400, "modded_creature", 2400);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("modded_crops", 2400, "modded_creature", 2400, "battery_hoppers", 2400);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.of(
             "modded_crops", QboticsModTests::moddedCrops,
-            "modded_creature", QboticsModTests::moddedCreature);
+            "modded_creature", QboticsModTests::moddedCreature,
+            "battery_hoppers", QboticsModTests::batteryHoppers);
 
     private static Block block(GameTestHelper helper, String id) {
         Block found = BuiltInRegistries.BLOCK.getValue(Identifier.parse(id));
@@ -143,5 +144,55 @@ public final class QboticsModTests {
         }
         helper.succeedWhen(() -> QboticsGameTests.assertScreen(helper, computer, "seen animalgarden_crocodile:crocodile True 6 ",
                 "hit True 1\n"));
+    }
+
+    /**
+     * Energized Power's batteries and hoppers on Energy Interfaces: an empty battery from a
+     * hopper above goes in the charge slot, and the hopper underneath takes it only once it
+     * is full; a full one goes in the drain slot, and comes out once it is empty.
+     */
+    private static void batteryHoppers(GameTestHelper helper) {
+        Item battery = item(helper, "energizedpower:battery_1");
+        qbotics.QboticsPlatform platform = qbotics.Qbotics.platform();
+        helper.assertTrue(platform.canCharge(new ItemStack(battery)) && !platform.canDischarge(new ItemStack(battery)),
+                "a new battery should be empty: chargeable, with nothing to give");
+
+        // Charging: a full store, an empty battery.
+        BlockPos chargePos = new BlockPos(0, 1, 1);
+        helper.setBlock(chargePos, QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(chargePos.above(), Blocks.HOPPER);
+        helper.setBlock(chargePos.below(), Blocks.HOPPER);
+        qbotics.block.EnergyInterfaceBlockEntity charger = helper.getBlockEntity(chargePos, qbotics.block.EnergyInterfaceBlockEntity.class);
+        charger.insert(qbotics.block.EnergyInterfaceBlockEntity.CAPACITY, false);
+        var chargeIn = helper.getBlockEntity(chargePos.above(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        var chargeOut = helper.getBlockEntity(chargePos.below(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        chargeIn.setItem(0, new ItemStack(battery));
+
+        // Draining: an empty store, and a battery charged full here first.
+        net.minecraft.world.SimpleContainer bench = new net.minecraft.world.SimpleContainer(new ItemStack(battery));
+        int moved = 0;
+        for (int i = 0; i < 10_000 && platform.canCharge(bench.getItem(0)); i++) {
+            moved += platform.exchangeEnergy(bench, 0, charger, true, Integer.MAX_VALUE);
+        }
+        ItemStack full = bench.getItem(0);
+        helper.assertTrue(!platform.canCharge(full) && platform.canDischarge(full), "the bench battery should be full: took " + moved + ", chargeable " + platform.canCharge(full) + ", can give " + platform.canDischarge(full) + ", " + full.getComponents());
+        charger.insert(qbotics.block.EnergyInterfaceBlockEntity.CAPACITY, false); // top it back up
+        BlockPos drainPos = new BlockPos(2, 1, 1);
+        helper.setBlock(drainPos, QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(drainPos.above(), Blocks.HOPPER);
+        helper.setBlock(drainPos.below(), Blocks.HOPPER);
+        qbotics.block.EnergyInterfaceBlockEntity drainer = helper.getBlockEntity(drainPos, qbotics.block.EnergyInterfaceBlockEntity.class);
+        var drainIn = helper.getBlockEntity(drainPos.above(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        var drainOut = helper.getBlockEntity(drainPos.below(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        drainIn.setItem(0, full);
+
+        helper.succeedWhen(() -> {
+            ItemStack charged = chargeOut.getItem(0);
+            helper.assertTrue(charged.is(battery) && !platform.canCharge(charged),
+                    "the hopper below the charger should hold a full battery, holds " + charged + "; slots: " + charger.batteries().getItem(0));
+            ItemStack drained = drainOut.getItem(0);
+            helper.assertTrue(drained.is(battery) && !platform.canDischarge(drained) && drainer.stored() > 0,
+                    "the hopper below the drainer should hold an empty battery, holds " + drained + "; store has " + drainer.stored());
+        });
     }
 }

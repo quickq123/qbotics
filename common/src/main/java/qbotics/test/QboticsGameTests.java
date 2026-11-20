@@ -148,6 +148,7 @@ public final class QboticsGameTests {
             Map.entry("screen_experience", QboticsGameTests::screenExperience),
             Map.entry("world_plates", QboticsGameTests::worldPlates),
             Map.entry("store_screens", QboticsGameTests::storeScreens),
+            Map.entry("store_slot_hoppers", QboticsGameTests::storeSlotHoppers),
             Map.entry("watching", QboticsGameTests::watching),
             Map.entry("events_module", QboticsGameTests::eventsModule),
             Map.entry("limits_and_boot", QboticsGameTests::limitsAndBoot),
@@ -1749,6 +1750,66 @@ public final class QboticsGameTests {
                     "A tank is kept for one fluid;", "['minecraft:lava', None, None, None]");
             helper.assertTrue(cell.stored() == 1_500_000 && cell.batteries().getItem(0).is(Blocks.STONE.asItem()),
                     "stone in the charge slot should take nothing");
+        });
+    }
+
+    /**
+     * Hoppers on the fluid and energy stores: a hopper above puts full buckets in (where a tank
+     * has room) and empty ones (where a tank has a bucket's worth), and the hopper underneath
+     * takes out what they became. Something that isn't a fluid container, or a bucket with
+     * nowhere to go, stays in the hopper above. The battery slots take no stone from a hopper,
+     * but a hopper takes out stone a player left there.
+     */
+    private static void storeSlotHoppers(GameTestHelper helper) {
+        net.minecraft.world.level.material.Fluid water = net.minecraft.world.level.material.Fluids.WATER;
+        // Filling: two water buckets, a lava bucket and a stick; the tanks start empty.
+        BlockPos fillPos = new BlockPos(0, 1, 1);
+        helper.setBlock(fillPos, QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(fillPos.above(), Blocks.HOPPER);
+        helper.setBlock(fillPos.below(), Blocks.HOPPER);
+        qbotics.block.FluidInterfaceBlockEntity filling = helper.getBlockEntity(fillPos, qbotics.block.FluidInterfaceBlockEntity.class);
+        var fillIn = helper.getBlockEntity(fillPos.above(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        var fillOut = helper.getBlockEntity(fillPos.below(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        fillIn.setItem(0, new ItemStack(Items.STICK));
+        fillIn.setItem(1, new ItemStack(Items.WATER_BUCKET));
+        fillIn.setItem(2, new ItemStack(Items.WATER_BUCKET));
+        fillIn.setItem(3, new ItemStack(Items.LAVA_BUCKET));
+        // Emptying: one bucket's worth of water, and two empty buckets. Only one can be filled.
+        BlockPos drainPos = new BlockPos(1, 1, 1);
+        helper.setBlock(drainPos, QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(drainPos.above(), Blocks.HOPPER);
+        helper.setBlock(drainPos.below(), Blocks.HOPPER);
+        qbotics.block.FluidInterfaceBlockEntity draining = helper.getBlockEntity(drainPos, qbotics.block.FluidInterfaceBlockEntity.class);
+        draining.insert(water, 1000, false);
+        var drainIn = helper.getBlockEntity(drainPos.above(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        var drainOut = helper.getBlockEntity(drainPos.below(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        drainIn.setItem(0, new ItemStack(Items.BUCKET));
+        drainIn.setItem(1, new ItemStack(Items.BUCKET));
+        // The battery slots: a hopper's stone stays out; stone already in the charge slot comes out.
+        BlockPos cellPos = new BlockPos(2, 1, 1);
+        helper.setBlock(cellPos, QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(cellPos.above(), Blocks.HOPPER);
+        helper.setBlock(cellPos.below(), Blocks.HOPPER);
+        qbotics.block.EnergyInterfaceBlockEntity cell = helper.getBlockEntity(cellPos, qbotics.block.EnergyInterfaceBlockEntity.class);
+        cell.batteries().setItem(qbotics.block.EnergyInterfaceBlockEntity.CHARGE_SLOT, new ItemStack(Items.COBBLESTONE));
+        var cellIn = helper.getBlockEntity(cellPos.above(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        var cellOut = helper.getBlockEntity(cellPos.below(), net.minecraft.world.level.block.entity.HopperBlockEntity.class);
+        cellIn.setItem(0, new ItemStack(Blocks.STONE));
+
+        helper.succeedWhen(() -> {
+            int waterIn = filling.tanks().stream().filter(t -> t.fluid() == water).mapToInt(qbotics.network.FluidPort.Tank::amount).sum();
+            int lavaIn = filling.tanks().stream().filter(t -> t.fluid() == net.minecraft.world.level.material.Fluids.LAVA)
+                    .mapToInt(qbotics.network.FluidPort.Tank::amount).sum();
+            helper.assertTrue(waterIn == 2000 && lavaIn == 1000, "the tanks should hold 2000 water and 1000 lava: " + filling.tanks());
+            helper.assertTrue(fillOut.countItem(Items.BUCKET) == 3, "the hopper below should have three empty buckets, has " + fillOut.countItem(Items.BUCKET));
+            helper.assertTrue(fillIn.countItem(Items.STICK) == 1, "the stick should stay in the hopper above");
+            helper.assertTrue(draining.tanks().get(0).amount() == 0 && drainOut.countItem(Items.WATER_BUCKET) == 1,
+                    "one empty bucket should come out full: " + draining.tanks() + ", " + drainOut.countItem(Items.WATER_BUCKET) + " water buckets below");
+            helper.assertTrue(drainIn.countItem(Items.BUCKET) == 1 && drainOut.countItem(Items.BUCKET) == 0,
+                    "the second empty bucket has nothing to fill from and should stay in the hopper above");
+            helper.assertTrue(cellOut.countItem(Items.COBBLESTONE) == 1 && cell.batteries().isEmpty(),
+                    "the hopper below should take the cobblestone from the charge slot");
+            helper.assertTrue(cellIn.countItem(Blocks.STONE.asItem()) == 1, "the battery slots should refuse the hopper's stone");
         });
     }
 

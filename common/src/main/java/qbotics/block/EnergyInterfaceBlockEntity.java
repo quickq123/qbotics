@@ -28,7 +28,30 @@ public class EnergyInterfaceBlockEntity extends DeviceBlockEntity implements Ene
     public static final int PER_TICK = 50_000;
 
     private int energy;
-    private final net.minecraft.world.SimpleContainer batteries = new net.minecraft.world.SimpleContainer(2) {
+    private final BatterySlots batteries = new BatterySlots();
+
+    public EnergyInterfaceBlockEntity(BlockPos pos, BlockState state) {
+        super(QboticsContent.ENERGY_INTERFACE_BLOCK_ENTITY.get(), pos, state);
+    }
+
+    /** The battery slots, for the screen and for hoppers and item pipes. */
+    public net.minecraft.world.WorldlyContainer batteries() {
+        return batteries;
+    }
+
+    /**
+     * The battery slots, which hoppers and item pipes reach from any face. A battery that can
+     * take more charge goes in the charge slot; a full one goes in the drain slot. Each comes
+     * out again only when it is done: charged full, or drained empty. Something that holds no
+     * energy is never put in by them, and comes straight out if a player put it there.
+     */
+    private final class BatterySlots extends net.minecraft.world.SimpleContainer implements net.minecraft.world.WorldlyContainer {
+        private static final int[] BOTH = {CHARGE_SLOT, DRAIN_SLOT};
+
+        BatterySlots() {
+            super(2);
+        }
+
         @Override
         public int getMaxStackSize() {
             return 1;
@@ -39,15 +62,25 @@ public class EnergyInterfaceBlockEntity extends DeviceBlockEntity implements Ene
             super.setChanged();
             EnergyInterfaceBlockEntity.this.setChanged();
         }
-    };
 
-    public EnergyInterfaceBlockEntity(BlockPos pos, BlockState state) {
-        super(QboticsContent.ENERGY_INTERFACE_BLOCK_ENTITY.get(), pos, state);
-    }
+        @Override
+        public int[] getSlotsForFace(net.minecraft.core.Direction side) {
+            return BOTH;
+        }
 
-    /** The battery slots, for the screen. */
-    public net.minecraft.world.Container batteries() {
-        return batteries;
+        @Override
+        public boolean canPlaceItemThroughFace(int slot, net.minecraft.world.item.ItemStack stack, net.minecraft.core.@org.jspecify.annotations.Nullable Direction side) {
+            if (!getItem(slot).isEmpty()) {
+                return false;
+            }
+            boolean chargeable = qbotics.Qbotics.platform().canCharge(stack);
+            return slot == CHARGE_SLOT ? chargeable : !chargeable && qbotics.Qbotics.platform().canDischarge(stack);
+        }
+
+        @Override
+        public boolean canTakeItemThroughFace(int slot, net.minecraft.world.item.ItemStack stack, net.minecraft.core.Direction side) {
+            return slot == CHARGE_SLOT ? !qbotics.Qbotics.platform().canCharge(stack) : !qbotics.Qbotics.platform().canDischarge(stack);
+        }
     }
 
     /** Once a tick on the server: charges and drains what is in the battery slots. */

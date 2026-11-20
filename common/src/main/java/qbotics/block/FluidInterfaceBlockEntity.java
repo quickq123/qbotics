@@ -34,19 +34,8 @@ public class FluidInterfaceBlockEntity extends DeviceBlockEntity implements Flui
     private final int[] amounts = new int[TANKS];
     /** The one fluid each tank takes, or EMPTY where any fluid will do. */
     private final Fluid[] filters = new Fluid[TANKS];
-    /** One bucket slot under each tank, on the screen. */
-    private final net.minecraft.world.SimpleContainer buckets = new net.minecraft.world.SimpleContainer(TANKS) {
-        @Override
-        public int getMaxStackSize() {
-            return 1;
-        }
-
-        @Override
-        public void setChanged() {
-            super.setChanged();
-            bucketsChanged();
-        }
-    };
+    /** One bucket slot under each tank, on the screen; hoppers and item pipes reach them from any face. */
+    private final BucketSlots buckets = new BucketSlots();
     /** The item each slot held after it was last dealt with, so each is dealt with once. */
     private final net.minecraft.world.item.ItemStack[] handled = new net.minecraft.world.item.ItemStack[TANKS];
     /** True while this block itself changes a bucket slot, so that change isn't taken as a new request. */
@@ -81,9 +70,54 @@ public class FluidInterfaceBlockEntity extends DeviceBlockEntity implements Flui
 
     // ---- bucket slots ------------------------------------------------------------------------
 
-    /** The bucket slots, for the screen. */
-    public net.minecraft.world.Container buckets() {
+    /** The bucket slots, for the screen and for hoppers and item pipes. */
+    public net.minecraft.world.WorldlyContainer buckets() {
         return buckets;
+    }
+
+    /**
+     * The bucket slots. A hopper or item pipe may put a container in an empty slot only if it
+     * would empty into or fill from that slot's tank right now (a full bucket with room for
+     * it, an empty one with a bucket's worth to take); it then swaps at once. What is in a
+     * slot may always be taken out, so a hopper underneath collects the results.
+     */
+    private final class BucketSlots extends net.minecraft.world.SimpleContainer implements net.minecraft.world.WorldlyContainer {
+        private static final int[] ALL = {0, 1, 2, 3};
+
+        BucketSlots() {
+            super(TANKS);
+        }
+
+        @Override
+        public int getMaxStackSize() {
+            return 1;
+        }
+
+        @Override
+        public void setChanged() {
+            super.setChanged();
+            bucketsChanged();
+        }
+
+        // While a hopper's or pipe's transfer is still open (it may be taken back), NeoForge sets a
+        // slot without calling setChanged, and calls it once the transfer is final: only then
+        // does the bucket swap.
+
+        @Override
+        public int[] getSlotsForFace(net.minecraft.core.Direction side) {
+            return ALL;
+        }
+
+        @Override
+        public boolean canPlaceItemThroughFace(int slot, net.minecraft.world.item.ItemStack stack, net.minecraft.core.@org.jspecify.annotations.Nullable Direction side) {
+            return getItem(slot).isEmpty() && level != null && !level.isClientSide()
+                    && qbotics.Qbotics.platform().wouldExchangeFluid(stack, FluidInterfaceBlockEntity.this, slot);
+        }
+
+        @Override
+        public boolean canTakeItemThroughFace(int slot, net.minecraft.world.item.ItemStack stack, net.minecraft.core.Direction side) {
+            return true;
+        }
     }
 
     /**

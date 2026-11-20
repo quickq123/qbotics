@@ -9,3 +9,6 @@ MysticalAgriculture-*.jar
 # Animal Garden's crocodile: a modded creature, for the Entity Sensor (read, slots, attack)
 aquariuslibs-*.jar
 animalgarden-crocodile-*.jar
+
+# Energized Power: batteries (items that hold energy), for the Energy Interface's battery slots and hoppers
+energizedpower-*.jar

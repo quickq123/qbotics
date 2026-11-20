@@ -107,6 +107,18 @@ public interface QboticsPlatform {
     boolean exchangeFluid(net.minecraft.world.Container container, int slot, qbotics.block.FluidInterfaceBlockEntity store, int tank);
 
     /**
+     * True if {@link #exchangeFluid} would move anything for this container and tank right
+     * now; nothing is changed. Safe to ask in the middle of another mod's item transfer.
+     */
+    boolean wouldExchangeFluid(net.minecraft.world.item.ItemStack stack, qbotics.block.FluidInterfaceBlockEntity store, int tank);
+
+    /** True if this item holds energy and can take more of it now. Changes nothing. */
+    boolean canCharge(net.minecraft.world.item.ItemStack stack);
+
+    /** True if this item holds energy and can give some now. Changes nothing. */
+    boolean canDischarge(net.minecraft.world.item.ItemStack stack);
+
+    /**
      * Charges the energy-holding item in one slot of a container from an Energy Interface
      * ({@code charge} true), or drains it into the store. Returns how much moved.
      */
