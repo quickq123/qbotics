@@ -2961,7 +2961,7 @@ editor, network, `ssh`, the Programmer), and more:
 - Broken, it keeps its files (they travel with the item, as a computer's do) and drops its
   hard drives.
 
-**Crafting:** `ASA` / `RLR` / `ADA`: ancient debris at the four corners, an **LED Screen** at
+**Crafting:** `MSM` / `RLR` / `MDM`: diamonds at the four corners, an **LED Screen** at
 the top, **RAM** on either side of a **Laptop**, a **Drive Bay** at the bottom. **RAM** is an
 Integrated Circuit surrounded by eight gold ingots (`GGG` / `GIG` / `GGG`).
 

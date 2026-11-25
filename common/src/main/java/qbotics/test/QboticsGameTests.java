@@ -3082,9 +3082,9 @@ public final class QboticsGameTests {
         ItemStack gold = new ItemStack(Items.GOLD_INGOT);
         ItemStack ram = craft(helper, gold, gold, gold, gold, item.apply("integrated_circuit"), gold, gold, gold, gold);
         helper.assertTrue(ram.getItem().toString().equals("qbotics:ram"), "the RAM recipe gave " + ram);
-        ItemStack debris = new ItemStack(Items.ANCIENT_DEBRIS);
-        ItemStack made = craft(helper, debris, item.apply("led_screen"), debris, ram, item.apply("laptop"), ram,
-                debris, item.apply("drive_bay"), debris);
+        ItemStack diamond = new ItemStack(Items.DIAMOND);
+        ItemStack made = craft(helper, diamond, item.apply("led_screen"), diamond, ram, item.apply("laptop"), ram,
+                diamond, item.apply("drive_bay"), diamond);
         helper.assertTrue(made.getItem().toString().equals("qbotics:server"), "the Server recipe gave " + made);
 
         BlockPos at = new BlockPos(0, 1, 0);

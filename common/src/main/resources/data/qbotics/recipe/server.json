@@ -2,16 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
-    "A": "minecraft:ancient_debris",
+    "M": "minecraft:diamond",
     "S": "qbotics:led_screen",
     "R": "qbotics:ram",
     "L": "qbotics:laptop",
     "D": "qbotics:drive_bay"
   },
   "pattern": [
-    "ASA",
+    "MSM",
     "RLR",
-    "ADA"
+    "MDM"
   ],
   "result": {
     "id": "qbotics:server"

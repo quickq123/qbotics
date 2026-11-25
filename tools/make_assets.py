@@ -822,13 +822,13 @@ def ram_item():
 write_png("assets/qbotics/textures/item/ram.png", ram_item())
 write_json("assets/qbotics/models/item/ram.json", {"parent": "minecraft:item/generated", "textures": {"layer0": "qbotics:item/ram"}})
 write_json("assets/qbotics/items/ram.json", {"model": {"type": "minecraft:model", "model": "qbotics:item/ram"}})
-# RAM: an integrated circuit in eight gold ingots. Server (decided 2026-11-12): ancient debris
+# RAM: an integrated circuit in eight gold ingots. Server: diamonds (ancient debris until 2026-11-25)
 # at the corners, an LED Screen on top, RAM either side of a Laptop, a Drive Bay at the bottom.
 write_json("data/qbotics/recipe/ram.json", shaped(
     ["GGG", "GIG", "GGG"], {"G": "minecraft:gold_ingot", "I": "qbotics:integrated_circuit"}, "qbotics:ram"))
 write_json("data/qbotics/recipe/server.json", shaped(
-    ["ASA", "RLR", "ADA"],
-    {"A": "minecraft:ancient_debris", "S": "qbotics:led_screen", "R": "qbotics:ram", "L": "qbotics:laptop", "D": "qbotics:drive_bay"},
+    ["MSM", "RLR", "MDM"],
+    {"M": "minecraft:diamond", "S": "qbotics:led_screen", "R": "qbotics:ram", "L": "qbotics:laptop", "D": "qbotics:drive_bay"},
     "qbotics:server"))
 
 # A broken computer keeps its drive (its files).

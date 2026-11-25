@@ -212,9 +212,9 @@ The `.hint` field always holds a learner-friendly fix, e.g. *"There's a block in
 > **Status (2026-11-12): decided and partly built** (`docs/reference.md` §7i). There is **no Advanced computer**: the
 > Laptop is the mid tier, with 1 MB (one per player, so its memory costs little). The **Server** is built: a computer
 > block with 2 MB, an 8 MB drive, a built-in uplink, and four hard-drive sockets of its own (mounted at `/net/disks`),
-> limited by `limits.servers_per_player` (2). Recipe `ASA/RLR/ADA` (ancient debris, LED Screen, RAM, Laptop, Drive Bay);
-> **RAM** is an integrated circuit in eight gold ingots. Raw ancient debris rather than netherite ingots, because getting
-> the raw material is the hard part. Memory belongs to the machine that runs the program: a laptop or ssh session on a
+> limited by `limits.servers_per_player` (2). Recipe `MSM/RLR/MDM` (diamonds, LED Screen, RAM, Laptop, Drive Bay);
+> **RAM** is an integrated circuit in eight gold ingots. Diamonds at the corners since 2026-11-25; before that raw ancient debris, which proved too hard to get, though getting
+> the raw material was meant to be the hard part. Memory belongs to the machine that runs the program: a laptop or ssh session on a
 > Server gets 2 MB, a laptop on a Qbot gets 256 KB. **Services built** (§7i.1): up to four background programs, each
 > its own 256 KB Python on its own thread sharing the Server's drive, network and CPU share; `service
 > start/list/log/restart/stop`; kept in `/.services` and restarted when the Server comes on; a light each on the rack
