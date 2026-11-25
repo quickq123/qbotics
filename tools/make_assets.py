@@ -1031,10 +1031,11 @@ for store in ("fluid_interface", "energy_interface", "experience_interface"):
     write_json("assets/qbotics/items/%s.json" % store, {
         "model": {"type": "minecraft:model", "model": "qbotics:block/%s" % store},
     })
-    # A store named in an anvil keeps its name when broken; the experience store keeps its experience too.
+    # A store named in an anvil keeps its name when broken, and each keeps what it holds:
+    # experience in its own component, fluid and energy in the item's custom data.
     write_json("data/qbotics/loot_table/blocks/%s.json" % store,
                drops_itself("qbotics:%s" % store, copy_components=["minecraft:custom_name", "qbotics:xp_points"]
-                            if store == "experience_interface" else ["minecraft:custom_name"]))
+                            if store == "experience_interface" else ["minecraft:custom_name", "minecraft:custom_data"]))
 
 
 

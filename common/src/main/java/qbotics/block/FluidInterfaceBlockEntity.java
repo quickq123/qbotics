@@ -305,6 +305,45 @@ public class FluidInterfaceBlockEntity extends DeviceBlockEntity implements Flui
         System.arraycopy(saved.amounts(), 0, amounts, 0, TANKS);
     }
 
+    // ---- picked up, the block keeps its fluid (the buckets in its slots drop) ----------------
+
+    @Override
+    protected void collectImplicitComponents(net.minecraft.core.component.DataComponentMap.Builder components) {
+        super.collectImplicitComponents(components);
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        for (int i = 0; i < TANKS; i++) {
+            if (amounts[i] > 0) {
+                tag.putString("fluid" + i, BuiltInRegistries.FLUID.getKey(fluids[i]).toString());
+                tag.putInt("amount" + i, amounts[i]);
+            }
+        }
+        if (!tag.isEmpty()) {
+            components.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+        }
+    }
+
+    @Override
+    protected void applyImplicitComponents(net.minecraft.core.component.DataComponentGetter components) {
+        super.applyImplicitComponents(components);
+        net.minecraft.world.item.component.CustomData data = components.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+        if (data != null) {
+            net.minecraft.nbt.CompoundTag tag = data.copyTag();
+            for (int i = 0; i < TANKS; i++) {
+                Fluid fluid = Carried.fluid(tag, "fluid" + i);
+                int amount = Math.clamp(tag.getIntOr("amount" + i, 0), 0, TANK_CAPACITY);
+                fluids[i] = fluid == Fluids.EMPTY || amount == 0 ? Fluids.EMPTY : fluid;
+                amounts[i] = fluids[i] == Fluids.EMPTY ? 0 : amount;
+            }
+        }
+    }
+
+    @Override
+    public void removeComponentsFromTag(ValueOutput output) {
+        super.removeComponentsFromTag(output);
+        output.discard("fluids");
+        output.discard("amounts");
+    }
+
     // ---- saving ----------------------------------------------------------------------------
 
     @Override

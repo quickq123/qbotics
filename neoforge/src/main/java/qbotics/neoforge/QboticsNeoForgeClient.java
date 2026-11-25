@@ -25,6 +25,9 @@ public final class QboticsNeoForgeClient {
         // With a probe in hand, item tooltips show the name programs use; Ctrl+C copies it (see ItemNames).
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.ItemTooltipEvent event) ->
                 qbotics.client.ItemNames.tooltip(event.getItemStack(), event.getToolTip()));
+        // A picked-up interface says what it still holds.
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.ItemTooltipEvent event) ->
+                qbotics.block.Carried.tooltip(event.getItemStack(), event.getToolTip()));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ScreenEvent.KeyPressed.Pre event) ->
                 qbotics.client.ItemNames.keyPressed(event.getKeyCode()));
         // The cable's model built in code: its plates come from its block entity (see CableModels).

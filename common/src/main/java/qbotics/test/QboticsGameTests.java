@@ -125,6 +125,7 @@ public final class QboticsGameTests {
             Map.entry("computer_interrupt_ignored", QboticsGameTests::computerInterruptIgnored),
             Map.entry("computer_forgets_calls", QboticsGameTests::computerForgetsCalls),
             Map.entry("computer_recipe", QboticsGameTests::computerRecipe),
+            Map.entry("reset_recipe", QboticsGameTests::resetRecipe),
             Map.entry("computer_break", QboticsGameTests::computerBreak),
             Map.entry("computer_files", QboticsGameTests::computerFiles),
             Map.entry("computer_shell", QboticsGameTests::computerShell),
@@ -289,6 +290,73 @@ public final class QboticsGameTests {
                 .map(recipe -> recipe.value().assemble(input))
                 .orElse(ItemStack.EMPTY);
     }
+
+    /**
+     * Fluid and Energy Interfaces keep what they hold when picked up, and a Qbotics item alone
+     * in the crafting grid comes out reset: no name, and nothing stored in it. An item with
+     * nothing to reset, another mod's item, or two things together give nothing.
+     */
+    private static void resetRecipe(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var nameKey = net.minecraft.core.component.DataComponents.CUSTOM_NAME;
+        ItemStack none = ItemStack.EMPTY;
+        java.util.function.Function<ItemStack, ItemStack> alone = stack -> craft(helper, none, none, none, none, stack, none, none, none, none);
+
+        // Picked up and put down again, a Fluid Interface still holds its fluid, and an Energy Interface its charge.
+        BlockPos tanksPos = new BlockPos(0, 1, 0);
+        BlockPos cellPos = new BlockPos(2, 1, 0);
+        helper.setBlock(tanksPos, QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(cellPos, QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        var tanks = helper.getBlockEntity(tanksPos, qbotics.block.FluidInterfaceBlockEntity.class);
+        var cell = helper.getBlockEntity(cellPos, qbotics.block.EnergyInterfaceBlockEntity.class);
+        String emptyLook = tanks.look();
+        tanks.insert(net.minecraft.world.level.material.Fluids.WATER, 3000, false);
+        tanks.insert(net.minecraft.world.level.material.Fluids.LAVA, 1500, false);
+        cell.insert(500_000, false);
+        String fullLook = tanks.look();
+        ItemStack tanksItem = net.minecraft.world.level.block.Block.getDrops(helper.getBlockState(tanksPos), level, helper.absolutePos(tanksPos), tanks).getFirst();
+        ItemStack cellItem = net.minecraft.world.level.block.Block.getDrops(helper.getBlockState(cellPos), level, helper.absolutePos(cellPos), cell).getFirst();
+        helper.setBlock(tanksPos, Blocks.AIR);
+        helper.setBlock(cellPos, Blocks.AIR);
+        helper.setBlock(tanksPos, QboticsContent.FLUID_INTERFACE_BLOCK.get());
+        helper.setBlock(cellPos, QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        tanks = helper.getBlockEntity(tanksPos, qbotics.block.FluidInterfaceBlockEntity.class);
+        cell = helper.getBlockEntity(cellPos, qbotics.block.EnergyInterfaceBlockEntity.class);
+        helper.assertTrue(tanks.look().equals(emptyLook) && cell.stored() == 0, "new blocks should start empty");
+        tanks.applyComponentsFromItemStack(tanksItem);
+        cell.applyComponentsFromItemStack(cellItem);
+        helper.assertTrue(!fullLook.equals(emptyLook) && tanks.look().equals(fullLook),
+                "the Fluid Interface should hold its fluid again: " + tanks.look() + ", was " + fullLook + "; item " + tanksItem.getComponentsPatch());
+        helper.assertTrue(cell.stored() == 500_000, "the Energy Interface should hold its charge again: " + cell.stored());
+
+        // Reset in the grid, both are as new: what they held is gone.
+        ItemStack plainTanks = alone.apply(tanksItem);
+        ItemStack plainCell = alone.apply(cellItem);
+        helper.assertTrue(plainTanks.getCount() == 1 && ItemStack.isSameItemSameComponents(plainTanks, new ItemStack(tanksItem.getItem()))
+                && ItemStack.isSameItemSameComponents(plainCell, new ItemStack(cellItem.getItem())),
+                "reset interfaces should be as new, gave " + plainTanks.getComponentsPatch() + " and " + plainCell.getComponentsPatch());
+
+        // A named bus (five of them: one comes out per craft) and a named, filled Experience Interface.
+        ItemStack bus = new ItemStack(QboticsContent.plateItem(Kind.BUS, qbotics.network.Medium.ITEM), 5);
+        bus.set(nameKey, net.minecraft.network.chat.Component.literal("Furnace1"));
+        ItemStack plainBus = alone.apply(bus);
+        helper.assertTrue(plainBus.getCount() == 1 && ItemStack.isSameItemSameComponents(plainBus, new ItemStack(bus.getItem())),
+                "a named bus should come out as a new one, gave " + plainBus + " " + plainBus.getComponentsPatch());
+        ItemStack bank = new ItemStack(QboticsContent.EXPERIENCE_INTERFACE_BLOCK.get());
+        bank.set(nameKey, net.minecraft.network.chat.Component.literal("bank"));
+        bank.set(QboticsContent.XP_POINTS.get(), 1234L);
+        ItemStack plainBank = alone.apply(bank);
+        helper.assertTrue(ItemStack.isSameItemSameComponents(plainBank, new ItemStack(bank.getItem())),
+                "a reset Experience Interface should be as new, gave " + plainBank + " " + plainBank.getComponentsPatch());
+
+        ItemStack sword = new ItemStack(Items.IRON_SWORD);
+        sword.set(nameKey, net.minecraft.network.chat.Component.literal("Sting"));
+        helper.assertTrue(alone.apply(new ItemStack(bus.getItem())).isEmpty(), "a new bus has nothing to reset");
+        helper.assertTrue(alone.apply(sword).isEmpty(), "another mod's named item is left alone");
+        helper.assertTrue(craft(helper, bus, bank, none, none, none, none, none, none, none).isEmpty(), "two items together give nothing");
+        helper.succeed();
+    }
+
 
     /** Cable in the shape of leggings, redstone in the middle, glass at the bottom middle. */
     private static void computerRecipe(GameTestHelper helper) {

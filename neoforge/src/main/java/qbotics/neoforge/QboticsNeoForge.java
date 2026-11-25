@@ -306,7 +306,14 @@ public final class QboticsNeoForge {
     private static final DeferredHolder<net.minecraft.advancements.CriterionTrigger<?>, qbotics.lesson.LessonTrigger> LESSON_TRIGGER =
             TRIGGERS.register("lesson", qbotics.lesson.LessonTrigger::new);
 
-    private static final DeferredRegister<CreativeModeTab> CREATIVE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Qbotics.MOD_ID);
+    /** A Qbotics item alone in a crafting grid comes out as new: no name, nothing stored. */
+    private static final DeferredRegister<net.minecraft.world.item.crafting.RecipeSerializer<?>> RECIPE_SERIALIZERS =
+            DeferredRegister.create(Registries.RECIPE_SERIALIZER, Qbotics.MOD_ID);
+    static {
+        RECIPE_SERIALIZERS.register("reset", () -> qbotics.block.ResetRecipe.SERIALIZER);
+    }
+
+    private static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Qbotics.MOD_ID);
     private static final DeferredHolder<CreativeModeTab, CreativeModeTab> CREATIVE_TAB = CREATIVE_TABS.register("qbotics",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.qbotics"))
@@ -466,6 +473,7 @@ public final class QboticsNeoForge {
         CREATIVE_TABS.register(modBus);
         MENUS.register(modBus);
         TRIGGERS.register(modBus);
+        RECIPE_SERIALIZERS.register(modBus);
         // Hoppers and other mods' pipes see the Input block as an ordinary (filtered) inventory.
         modBus.addListener((RegisterCapabilitiesEvent event) -> {
             event.registerBlockEntity(Capabilities.Item.BLOCK, INTERFACE_BLOCK_ENTITY.get(), (input, side) -> VanillaContainerWrapper.of(input));

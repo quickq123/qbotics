@@ -209,6 +209,33 @@ public class EnergyInterfaceBlockEntity extends DeviceBlockEntity implements Ene
         energy = (Integer) snapshot;
     }
 
+    // Picked up, the block keeps its charge (the batteries in its slots drop).
+
+    @Override
+    protected void collectImplicitComponents(net.minecraft.core.component.DataComponentMap.Builder components) {
+        super.collectImplicitComponents(components);
+        if (energy > 0) {
+            net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+            tag.putInt("energy", energy);
+            components.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+        }
+    }
+
+    @Override
+    protected void applyImplicitComponents(net.minecraft.core.component.DataComponentGetter components) {
+        super.applyImplicitComponents(components);
+        net.minecraft.world.item.component.CustomData data = components.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+        if (data != null) {
+            energy = Math.clamp(data.copyTag().getIntOr("energy", 0), 0, CAPACITY);
+        }
+    }
+
+    @Override
+    public void removeComponentsFromTag(ValueOutput output) {
+        super.removeComponentsFromTag(output);
+        output.discard("energy");
+    }
+
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);

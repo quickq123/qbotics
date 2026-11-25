@@ -372,6 +372,7 @@ ways to be named:
 | Identifier | Looks like | Notes |
 |---|---|---|
 | Name | `smelter` | Given by you, with the probe, an anvil or `rename()`. Letters, digits, `_`, `-`, `.`; up to 24 characters. The best thing to write in code |
+| | | A named device keeps its name as an item when you pick it up, so it won't stack with new ones. **To reset it,** put the item alone in a crafting grid: out comes the same item as new, with no name. This works for every Qbotics item. A reset also empties it: the fluid, energy or experience stored in a picked-up interface (or a Qbot's cell and tanks) is destroyed. Items and files are not touched: a Qbot's load, a drive's files and a tablet's pairing stay |
 | Internal IP | `192.168.1.5` | Given by the network. Can change if two networks are joined |
 | Hardware address | `02:3F:42:CB:A9:E3` | Fixed while the device stays placed; new if it is picked up and placed again |
 
@@ -969,6 +970,9 @@ Right-click it to open its screen: the four tanks, each with a **filter socket**
 - **Bucket slots.** A full bucket (or another mod's fluid container) put in a tank's slot
   empties into that tank; an empty one fills from it. Take the result out of the slot.
   Shift-click moves buckets in and out.
+- **Picked up,** the block keeps the fluid in its tanks (the item's tooltip lists it) and has it
+  again when placed. Buckets left in its slots drop, and its filters are forgotten. To empty
+  one for good, reset the item in a crafting grid (section 3): the fluid is destroyed.
 - **Hoppers and item pipes** reach the bucket slots from any side. They can put in a full
   bucket only where a tank has room for it (and its filter allows it), and an empty one only
   where a tank has a bucket's worth to give, so a bucket with nowhere to go stays where it
@@ -1000,6 +1004,10 @@ charge goes in **Charge**, and a full one goes in **Drain**. Each comes out agai
 it is done (charged full, or drained empty), so a hopper underneath collects finished
 batteries. They never put in something that holds no energy, and they take out anything like
 that a player left in a slot.
+
+Picked up, the block keeps its charge (the item's tooltip shows it) and has it again when
+placed. Batteries left in its slots drop. Resetting the item in a crafting grid (section 3)
+empties it.
 
 **A placed battery.** Other mods' cables charge it (and can draw from it) on any face. A
 machine from another mod that touches one of its faces is powered straight from it, with no
@@ -1033,7 +1041,8 @@ At the block, right-click to open its screen: type a number of levels and press 
 **Take**, or use **Store All** and **Take All**. Storing takes your top levels at what those
 cost, and taking gives enough to climb that many levels from where you are, so nothing is
 gained or lost. The **Lock** button, which only the owner can press, sets who may store and
-take: the owner, the owner's team, or everyone. Picked up, the block keeps its experience.
+take: the owner, the owner's team, or everyone. Picked up, the block keeps its experience. Resetting
+the item in a crafting grid (section 3) destroys it.
 
 It does not accept liquid experience from other mods.
 
