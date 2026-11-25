@@ -228,6 +228,11 @@ public final class CableNetwork {
         return network;
     }
 
+    /** True if it stopped at a chunk that isn't loaded: it may reach further than is known now. */
+    public boolean reachesUnloaded() {
+        return !edges.isEmpty();
+    }
+
     /** The chunks its cables and devices are in (as ChunkPos longs). */
     public Set<Long> chunks() {
         return chunks;

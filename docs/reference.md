@@ -3366,7 +3366,15 @@ Its files are kept. You are told when you place one.
 **Starting up.** A computer that was on comes back on by itself when its area of the world
 loads (you came back to it, or the server restarted): it starts as from new, and its
 `startup.sh` runs (or `startup.py`, section 1.1b). When its area unloads, the computer stops;
-a Chunk Loader Upgrade keeps it loaded and running. A computer nobody placed (a command or a
+a Chunk Loader Upgrade keeps it loaded and running.
+
+A computer and its cable network come and go together. An area loads chunk by chunk, so a
+computer waits to start until every chunk its cable network runs through has loaded: its
+program finds all its devices from its first line. If part of the network stays unloaded (it
+reaches further than the loaded area), the computer starts after 10 seconds with the devices
+that are there. While it runs, if a chunk its network is in unloads, the computer stops, and
+comes back on the same way when that chunk returns. Devices reached by radio, through an
+antenna, are not waited for. A computer nobody placed (a command or a
 structure put it there) stays off until a player right-clicks it and takes it on. Computers come
 back a few at a time (4 a tick by default): the Overworld first, players taking turns, those
 nearest the world's centre first.

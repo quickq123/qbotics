@@ -51,7 +51,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("dry_run", 200_000), Map.entry("step_values", 200_000), Map.entry("git_panel", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("dry_run", 200_000), Map.entry("step_values", 200_000), Map.entry("git_panel", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000), Map.entry("boots_with_network", 2_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -126,6 +126,7 @@ public final class QboticsGameTests {
             Map.entry("computer_forgets_calls", QboticsGameTests::computerForgetsCalls),
             Map.entry("computer_recipe", QboticsGameTests::computerRecipe),
             Map.entry("reset_recipe", QboticsGameTests::resetRecipe),
+            Map.entry("boots_with_network", QboticsGameTests::bootsWithNetwork),
             Map.entry("computer_break", QboticsGameTests::computerBreak),
             Map.entry("computer_files", QboticsGameTests::computerFiles),
             Map.entry("computer_shell", QboticsGameTests::computerShell),
@@ -289,6 +290,69 @@ public final class QboticsGameTests {
                 .getRecipeFor(RecipeType.CRAFTING, input, level)
                 .map(recipe -> recipe.value().assemble(input))
                 .orElse(ItemStack.EMPTY);
+    }
+
+    /**
+     * Coming back on. A computer that should be on and was stopped while its block stayed
+     * loaded (its chunk stopped counting as loaded, then came back without leaving memory)
+     * starts again within a second or two. And a computer whose cable network runs into
+     * another chunk stops when that chunk unloads, waits while it is away, and comes back on
+     * once the whole network is there.
+     */
+    private static void bootsWithNetwork(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ComputerManager manager = ComputerManager.get(level.getServer());
+        BlockPos nearPos = new BlockPos(1, 1, 1);
+        helper.setBlock(nearPos, QboticsContent.COMPUTER_BLOCK.get());
+        ComputerBlockEntity near = helper.getBlockEntity(nearPos, ComputerBlockEntity.class);
+        near.onPlaced(UUID.randomUUID());
+        manager.getOrStart(near);
+        manager.remove(near.deviceId()); // stopped, as a computer whose chunk stopped counting as loaded is
+
+        // Far from every other test: a computer in one chunk, its cable running to a chunk three
+        // away (the chunks next to a loaded one stay loaded too, so the far end must be further).
+        BlockPos origin = helper.absolutePos(new BlockPos(0, 1, 0));
+        int chunkX = (origin.getX() >> 4) + 3;
+        int chunkZ = (origin.getZ() >> 4) - 300;
+        level.setChunkForced(chunkX, chunkZ, true);
+        int farChunkX = chunkX + 3;
+        level.setChunkForced(farChunkX, chunkZ, true);
+        BlockPos farPos = new BlockPos(chunkX * 16 + 15, origin.getY() + 20, chunkZ * 16 + 8);
+        List<BlockPos> built = new ArrayList<>();
+        built.add(farPos);
+        level.setBlockAndUpdate(farPos, QboticsContent.COMPUTER_BLOCK.get().defaultBlockState());
+        for (int step = 1; step <= 33; step++) { // through two chunks, and one block into the third
+            built.add(farPos.east(step));
+            level.setBlockAndUpdate(farPos.east(step), QboticsContent.CABLE_BLOCK.get().defaultBlockState());
+        }
+        built.add(farPos.east(34));
+        level.setBlockAndUpdate(farPos.east(34), QboticsContent.INTERFACE_BLOCK.get().defaultBlockState());
+        ComputerBlockEntity far = (ComputerBlockEntity) level.getBlockEntity(farPos);
+        far.onPlaced(UUID.randomUUID());
+        manager.getOrStart(far);
+        helper.assertTrue(qbotics.network.CableNetwork.at(level, farPos).chunks().size() == 4 && !qbotics.network.CableNetwork.at(level, farPos).reachesUnloaded(),
+                "the far network should be whole, in four chunks");
+
+        int[] stage = {0};
+        helper.succeedWhen(() -> {
+            helper.assertTrue(manager.isRunning(near.deviceId()), "a loaded computer that should be on comes back on");
+            if (stage[0] == 0) {
+                level.setChunkForced(farChunkX, chunkZ, false); // the far end of its network unloads
+                stage[0] = 1;
+            }
+            if (stage[0] == 1) {
+                helper.assertTrue(!level.getChunkSource().hasChunk(farChunkX, chunkZ), "waiting for the far chunk to unload");
+                helper.assertTrue(!manager.isRunning(far.deviceId()), "a computer stops when a chunk of its network unloads");
+                helper.assertTrue(far.wasOn() && manager.bootQueueSize() > 0, "and waits to come back on while that chunk is away");
+                level.setChunkForced(farChunkX, chunkZ, true);
+                stage[0] = 2;
+            }
+            helper.assertTrue(manager.isRunning(far.deviceId()), "it comes back on when its whole network is loaded again");
+            helper.assertTrue(!qbotics.network.CableNetwork.at(level, farPos).reachesUnloaded(), "and not before");
+            built.forEach(pos -> level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState()));
+            level.setChunkForced(chunkX, chunkZ, false);
+            level.setChunkForced(farChunkX, chunkZ, false);
+        });
     }
 
     /**

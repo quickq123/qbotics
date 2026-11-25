@@ -170,6 +170,10 @@ public final class ComputerManager {
             qbot.radioIp(block.getLevel().getServer()); // its radio has an address from the start
         }
         booting.remove(block.deviceId());
+        if (!(block instanceof qbotics.qbot.QbotBlockEntity) && block.getLevel() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            // A Qbot walks from network to network; a placed computer depends on the one it is on.
+            networkChunks.put(block.deviceId(), new java.util.HashSet<>(qbotics.network.CableNetwork.at(serverLevel, pos).chunks()));
+        }
         block.setOn(true); // it comes back on by itself when its chunk next loads
         if (block instanceof qbotics.block.ServerBlockEntity) {
             startServices(computer, computerId, dimension, pos);
@@ -384,12 +388,12 @@ public final class ComputerManager {
         viewers.replaceAll((player, viewing) -> viewing.deviceId().equals(deviceId) ? new Viewing(deviceId, dimension, at) : viewing);
         Boot waiting = booting.get(deviceId);
         if (waiting != null) {
-            booting.put(deviceId, new Boot(deviceId, dimension, at, waiting.owner()));
+            booting.put(deviceId, new Boot(deviceId, dimension, at, waiting.owner(), waiting.since()));
         }
     }
 
-    /** A computer waiting to come back on: where it is, whose it is, and how far from the world's origin. */
-    private record Boot(UUID deviceId, ResourceKey<Level> dimension, BlockPos pos, String owner) {
+    /** A computer waiting to come back on: where it is, whose it is, how far from the world's origin, and since which tick. */
+    private record Boot(UUID deviceId, ResourceKey<Level> dimension, BlockPos pos, String owner, int since) {
         long distance() {
             return (long) pos.getX() * pos.getX() + (long) pos.getZ() * pos.getZ();
         }
@@ -406,9 +410,67 @@ public final class ComputerManager {
         if (block.owner() == null && !(block instanceof qbotics.qbot.QbotBlockEntity)) {
             return; // nobody placed it (a command, a structure): it waits for a player to take it on
         }
-        if (!computers.containsKey(id)) {
-            booting.put(id, new Boot(id, level.dimension(), block.getBlockPos().immutable(), String.valueOf(block.owner())));
+        if (!computers.containsKey(id) && !booting.containsKey(id)) {
+            booting.put(id, new Boot(id, level.dimension(), block.getBlockPos().immutable(), String.valueOf(block.owner()),
+                    level.getServer().getTickCount()));
         }
+    }
+
+    /**
+     * How long a computer waits to come back on while part of its cable network is in chunks
+     * that haven't loaded: an area loads chunk by chunk, and a program started before the rest
+     * of its network arrived would not find its devices. After this it starts with what is there
+     * (a network that reaches further than the loaded area).
+     */
+    static final int NETWORK_WAIT_TICKS = 200;
+
+    /**
+     * Every computer block that is loaded, whether its computer runs or not. A block is told it
+     * loaded only once, and that moment can be missed: its chunk may not count as loaded yet, or
+     * it stopped as unloaded and its chunk came back without ever leaving memory. So once a
+     * second every loaded block that should be on, and isn't, is queued again.
+     */
+    private final java.util.Set<ComputerBlockEntity> loadedBlocks = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    /** The chunks each running computer's cable network has been seen in: if one unloads, the computer restarts. */
+    private final Map<UUID, java.util.Set<Long>> networkChunks = new HashMap<>();
+
+    /** A computer block has loaded or been placed. Server thread. */
+    public void blockLoaded(ComputerBlockEntity block) {
+        loadedBlocks.add(block);
+    }
+
+    /**
+     * A computer block has unloaded with its chunk (or been broken): its computer stops at once.
+     * Its block still says it was on, so it starts as from new when it loads again, even if that
+     * is within the same second.
+     */
+    public void blockUnloaded(ComputerBlockEntity block, UUID deviceId) {
+        loadedBlocks.remove(block);
+        if (computers.containsKey(deviceId) || booting.containsKey(deviceId)) {
+            stopKeepingOn(deviceId);
+        }
+    }
+
+    private void stopKeepingOn(UUID id) {
+        places.remove(id);
+        viewers.values().removeIf(viewing -> viewing.deviceId().equals(id));
+        remove(id);
+    }
+
+    /** Once a second: queues every loaded computer that should be on and is neither running nor waiting. */
+    private void queueLoaded() {
+        loadedBlocks.removeIf(net.minecraft.world.level.block.entity.BlockEntity::isRemoved);
+        for (ComputerBlockEntity block : loadedBlocks) {
+            if (block.wasOn() && !block.bricked() && block.getLevel() instanceof net.minecraft.server.level.ServerLevel level
+                    && level.isLoaded(block.getBlockPos()) && !computers.containsKey(block.deviceId())) {
+                queueBoot(level, block);
+            }
+        }
+    }
+
+    private static boolean chunkLoaded(net.minecraft.server.level.ServerLevel level, long chunk) {
+        return level.getChunkSource().hasChunk(net.minecraft.world.level.ChunkPos.getX(chunk), net.minecraft.world.level.ChunkPos.getZ(chunk));
     }
 
     /** How many computers are waiting to come back on. */
@@ -464,13 +526,18 @@ public final class ComputerManager {
             if (started >= Math.max(1, qbotics.QboticsConfig.bootPerTick)) {
                 break;
             }
-            booting.remove(boot.deviceId());
             net.minecraft.server.level.ServerLevel level = server.getLevel(boot.dimension());
             if (level == null || !level.isLoaded(boot.pos())
                     || !(level.getBlockEntity(boot.pos()) instanceof ComputerBlockEntity block)
                     || !block.deviceId().equals(boot.deviceId()) || block.bricked() || !block.wasOn()) {
-                continue; // gone, unloaded again, or switched off since
+                booting.remove(boot.deviceId());
+                continue; // gone, unloaded again, or switched off since (if it is still there, it is queued again within a second)
             }
+            if (!(block instanceof qbotics.qbot.QbotBlockEntity) && server.getTickCount() - boot.since() < NETWORK_WAIT_TICKS
+                    && qbotics.network.CableNetwork.at(level, boot.pos()).reachesUnloaded()) {
+                continue; // the rest of its network is still loading: it waits its turn again next tick
+            }
+            booting.remove(boot.deviceId());
             getOrStart(block);
             started++;
         }
@@ -489,13 +556,22 @@ public final class ComputerManager {
             net.minecraft.server.level.ServerLevel level = server.getLevel(place.dimension());
             if (level == null || !level.isLoaded(place.pos())) {
                 gone.add(entry.getKey());
+                continue;
+            }
+            // A chunk its cable network was in has unloaded: devices its program uses are gone. It
+            // stops too, and comes back on (as its block says it should be) when they are back.
+            java.util.Set<Long> known = networkChunks.get(entry.getKey());
+            if (known != null) {
+                known.addAll(qbotics.network.CableNetwork.at(level, place.pos()).chunks());
+                for (long chunk : known) {
+                    if (!chunkLoaded(level, chunk)) {
+                        gone.add(entry.getKey());
+                        break;
+                    }
+                }
             }
         }
-        for (UUID id : gone) {
-            places.remove(id);
-            viewers.values().removeIf(viewing -> viewing.deviceId().equals(id));
-            remove(id);
-        }
+        gone.forEach(this::stopKeepingOn);
     }
 
     /** A program asked its computer to shut down: it stops, and stays off until someone opens it. */
@@ -947,6 +1023,7 @@ public final class ComputerManager {
         bootSome(server);
         if (server.getTickCount() % 20 == 0) {
             stopUnloaded(server);
+            queueLoaded();
         }
         qbotics.laptop.Laptops.tick(server);
         qbotics.display.Displays.tick(server);
@@ -1052,6 +1129,7 @@ public final class ComputerManager {
     /** The computer block was broken. */
     public void remove(UUID deviceId) {
         booting.remove(deviceId);
+        networkChunks.remove(deviceId);
         ServerComputer computer = computers.remove(deviceId);
         if (computer != null) {
             laptops.values().removeIf(laptop -> laptop == computer);

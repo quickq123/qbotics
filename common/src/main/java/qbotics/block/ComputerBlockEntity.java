@@ -216,6 +216,9 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
     @Override
     public void setLevel(net.minecraft.world.level.Level newLevel) {
         super.setLevel(newLevel);
+        if (newLevel instanceof ServerLevel serverLevel) {
+            ComputerManager.get(serverLevel.getServer()).blockLoaded(this);
+        }
         if (newLevel instanceof ServerLevel serverLevel && !moving) {
             qbotics.limits.Limits.loaded(serverLevel, this);
             if (on && !bricked) {
@@ -294,6 +297,10 @@ public class ComputerBlockEntity extends BlockEntity implements NetworkDevice, q
     public void setRemoved() {
         super.setRemoved();
         CableNetwork.changed(getBlockPos());
+        // Unloaded with its chunk (a broken block's computer is gone already; a moving Qbot's goes with it).
+        if (deviceId != null && !moving && level instanceof ServerLevel serverLevel && serverLevel.getServer().isSameThread()) {
+            ComputerManager.get(serverLevel.getServer()).blockUnloaded(this, deviceId);
+        }
     }
 
     @Override
