@@ -26,6 +26,8 @@ public final class PlateTints {
     public static final int LIGHT_OFF = 0xFF100E10;
     public static final int LIGHT_WAITING = 0xFFF0A020;
     public static final int LIGHT_CONNECTED = 0xFF40E048;
+    /** Connected, and this end pulls from its block into the tunnel (blue). */
+    public static final int LIGHT_PULLING = 0xFF30B0FF;
 
     private PlateTints() {
     }
@@ -45,7 +47,7 @@ public final class PlateTints {
         if (port == null || port.tunnel() == null) {
             return LIGHT_OFF;
         }
-        return port.tunnelLive() ? LIGHT_CONNECTED : LIGHT_WAITING;
+        return !port.tunnelLive() ? LIGHT_WAITING : port.tunnelPull() ? LIGHT_PULLING : LIGHT_CONNECTED;
     }
 
     /**

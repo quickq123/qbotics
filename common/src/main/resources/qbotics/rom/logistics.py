@@ -623,13 +623,16 @@ class Port(Device):
         """The block it points at, e.g. "minecraft:furnace"."""
         return self.refresh()._info["target"]
 
-    def tunnel(self, other):
+    def tunnel(self, other, pull=False):
         """Opens a tunnel between this bus and another (a device, or its name or address).
         Each end then offers, to hoppers, pipes and cables touching its face, the container
         the other end points at: what goes in at one end comes out at the other, with no
         program running. A tunnel either bus was in is closed first. Both must be on this
-        network, or behind antennas that both hold a Transport Upgrade."""
-        self._update(_call("tunnel", self.mac, _mac(other)))
+        network, or behind antennas that both hold a Transport Upgrade.
+
+        With pull=True the tunnel also moves things by itself: this bus takes what its block
+        holds and sends it through, into the block the other bus points at (see tunnel_pull)."""
+        self._update(_call("tunnel", self.mac, _mac(other), bool(pull)))
 
     def untunnel(self):
         """Closes this bus's tunnel, at both ends."""
@@ -639,6 +642,17 @@ class Port(Device):
     def tunneled(self):
         """True if this bus is one end of a tunnel."""
         return "tunnel" in self.refresh()._info
+
+    @property
+    def tunnel_pull(self):
+        """True if this end of its tunnel pulls: it takes what the block it points at holds and
+        sends it to the block at the other end, a little at a time, with nothing else pushing.
+        Set it to True or False. A tunnel pulls one way: setting it on one end clears the other."""
+        return bool(self.refresh()._info.get("tunnel_pull"))
+
+    @tunnel_pull.setter
+    def tunnel_pull(self, on):
+        self._update(_call("tunnel_pull", self.mac, bool(on)))
 
     @property
     def tunnel_end(self):

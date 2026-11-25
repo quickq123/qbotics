@@ -137,6 +137,7 @@ public class PortBlockEntity extends BlockEntity {
                 child.putLong("tunnel_pos", port.tunnel.pos().asLong());
                 child.putInt("tunnel_side", port.tunnel.side().get3DDataValue());
                 child.putBoolean("tunnel_live", port.tunnelLive);
+                child.putBoolean("tunnel_pull", port.tunnelPull);
             }
             if (port.filter != null) {
                 child.putString("filter", String.join("\n", port.filter.names()));
@@ -192,6 +193,7 @@ public class PortBlockEntity extends BlockEntity {
                         net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, dimension),
                         BlockPos.of(child.getLongOr("tunnel_pos", 0L)), Direction.from3DDataValue(child.getIntOr("tunnel_side", 0)));
                 port.tunnelLive = child.getBooleanOr("tunnel_live", false);
+                port.tunnelPull = child.getBooleanOr("tunnel_pull", false);
             }
             ports.put(side, port);
         }

@@ -685,6 +685,8 @@ what is behind the other. No program runs and nothing has to be moved by `move`.
 - **What it carries:** what both ends carry. Two Item Serial Buses carry items; a USB and a
   Fluid Serial Bus carry fluid; two USBs carry items, fluid and energy.
 - **Both ways:** either end can be pushed into or pulled from.
+- **A direction of pull:** a tunnel can also move things by itself (below), with no hopper or
+  pipe at either end.
 - **Reach:** both ends on one cable network; or on two networks whose antennas both hold a
   Transport Upgrade and can reach each other by radio (frequency, range and access, as for
   remote moves). Between networks the Transport rate caps apply (section 7.3b).
@@ -701,18 +703,37 @@ the four edges of its front plate (the face itself is against its target).
 | Off (dark) | Not in a tunnel |
 | Amber | In a tunnel, but the other end can't be reached now: its area isn't loaded, an antenna is out of range or lost its Transport Upgrade |
 | Green | In a tunnel and connected |
+| Blue | Connected, and this end pulls: it takes from its block and sends to the other end's |
 
 It is checked once a second.
 
+**Pulling.** Give a tunnel a direction and it works like a pipe between the two blocks: the
+end that pulls takes what the block it points at holds and puts it in the block at the other
+end. Its light is blue; the other end's stays green.
+
+- Every half second it moves up to 64 items and 1,000 mB of fluid; energy moves every tick,
+  up to 10,000 FE. It moves whatever the tunnel carries (a tunnel between two USBs pulls
+  items, fluid and energy).
+- It takes from its block as a hopper or pipe on that face would (a furnace gives up only its
+  output from below), and the bus at the other end still lets in only what its filter allows
+  (section 6.3a).
+- A tunnel pulls one way: setting one end to pull stops the other. With no pull it is as
+  before, only passing on what is pushed in or pulled out.
+- A newly opened tunnel doesn't pull. Between networks the Transport rate caps apply.
+
 **With the Network Probe**, in its Tunnels mode (sneak and scroll): right-click one bus,
 then the other. Right-clicking a bus that is already in a tunnel says where it leads; then
-right-click another bus to re-route it, or the same one again to close it.
+right-click another bus to re-route it, or the same one again to close it. **Sneak and
+right-click** a tunnelled bus to set its pull: first from that bus to the other end, again for
+the other way, and a third time for no pull.
 
 **From a program:**
 
 | Call | Does |
 |---|---|
 | `bus.tunnel(other)` | Opens a tunnel to another bus (a device, or its name or address; `"100.64.0.2/02:..."` for one behind another antenna). A tunnel either was in is closed first |
+| `bus.tunnel(other, pull=True)` | The same, and this bus pulls: what its block holds goes to the other bus's block |
+| `bus.tunnel_pull` | True if this end pulls. Set it to `True` or `False`; setting one end to pull stops the other |
 | `bus.untunnel()` | Closes its tunnel, at both ends |
 | `bus.tunneled` | True if it is one end of a tunnel |
 | `bus.tunnel_end` | The bus at the other end, or `None` (also when it can't be reached now) |
@@ -720,6 +741,8 @@ right-click another bus to re-route it, or the same one again to close it.
 ```python
 net.bus("hopper_in").tunnel(net.bus("storage"))
 net.energy_bus("generator").tunnel(net.usb("machine"))
+net.bus("farm_chest").tunnel(net.bus("storage"), pull=True)    # the farm's chest empties into storage
+net.bus("storage").tunnel_pull = True                          # now the other way
 ```
 
 ### 6.4 Moving things: sources, destinations and `move`

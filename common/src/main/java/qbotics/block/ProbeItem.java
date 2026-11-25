@@ -171,9 +171,35 @@ public class ProbeItem extends Item {
             player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.not_bus"));
             return InteractionResult.PASS;
         }
+        String here = qbotics.network.Tunnels.label(level, port);
+        if (player.isShiftKeyDown()) {
+            // Sneaking: which way its tunnel pulls. From here, then from the other end, then not at all.
+            if (port.tunnel() == null) {
+                player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.no_tunnel", here));
+                return InteractionResult.SUCCESS;
+            }
+            qbotics.network.Tunnels.Far other = qbotics.network.Tunnels.far(level, port);
+            String there = other == null ? Component.translatable("message.qbotics.tunnel.out_of_reach").getString()
+                    : qbotics.network.Tunnels.label(other.level(), other.port());
+            if (port.tunnelPull()) {
+                qbotics.network.Tunnels.setPull(level, port, false);
+                if (other != null) {
+                    qbotics.network.Tunnels.setPull(other.level(), other.port(), true);
+                    player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.pull", there, here));
+                } else {
+                    player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.pull_off", here, there));
+                }
+            } else if (other != null && other.port().tunnelPull()) {
+                qbotics.network.Tunnels.setPull(other.level(), other.port(), false);
+                player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.pull_off", here, there));
+            } else {
+                qbotics.network.Tunnels.setPull(level, port, true);
+                player.sendOverlayMessage(Component.translatable("message.qbotics.tunnel.pull", here, there));
+            }
+            return InteractionResult.SUCCESS;
+        }
         Chosen choice = CHOSEN.remove(player.getUUID());
         CablePort first = choice == null ? null : chosen(player, choice);
-        String here = qbotics.network.Tunnels.label(level, port);
         if (first == port) {
             if (port.tunnel() != null) {
                 qbotics.network.Tunnels.unlink(level, port);

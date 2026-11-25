@@ -802,6 +802,11 @@ public final class QboticsNeoForge {
             }
 
             @Override
+            public int pullThroughTunnel(ServerLevel level, qbotics.block.CablePort end, qbotics.network.Medium medium, int max) {
+                return TunnelHandlers.pull(level, end, medium, max);
+            }
+
+            @Override
             public qbotics.network.EnergyPort energyPort(ServerLevel level, BlockPos pos, Direction side) {
                 var handler = level.getCapability(Capabilities.Energy.BLOCK, pos, side);
                 return handler == null ? null : new MediaHandlers.EnergyTarget(handler);

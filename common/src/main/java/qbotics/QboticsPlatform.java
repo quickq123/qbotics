@@ -14,6 +14,15 @@ public interface QboticsPlatform {
     default void capabilitiesChanged(net.minecraft.world.level.Level level, net.minecraft.core.BlockPos pos) {
     }
 
+    /**
+     * A tunnel end that pulls: moves up to max of a medium (items, millibuckets, FE) out of the
+     * block this bus points at and into its tunnel, so into the block at the other end. Returns
+     * how much moved.
+     */
+    default int pullThroughTunnel(net.minecraft.server.level.ServerLevel level, qbotics.block.CablePort end, qbotics.network.Medium medium, int max) {
+        return 0;
+    }
+
     void sendToPlayer(ServerPlayer player, CustomPacketPayload payload);
 
     /** Client only. */

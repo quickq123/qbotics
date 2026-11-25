@@ -51,7 +51,7 @@ public final class QboticsGameTests {
      * 20 a second (10,000 a second when little is happening), so 1,200 can pass in a fraction of a
      * second. A test still ends as soon as it passes.
      */
-    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("dry_run", 200_000), Map.entry("step_values", 200_000), Map.entry("git_panel", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000), Map.entry("boots_with_network", 2_000));
+    public static final Map<String, Integer> TICK_LIMITS = Map.ofEntries(Map.entry("world_plates", 200_000), Map.entry("test_stage", 200_000), Map.entry("watching", 200_000), Map.entry("events_module", 200_000), Map.entry("drive_bays", 200_000), Map.entry("programmer_block", 200_000), Map.entry("displays", 200_000), Map.entry("antenna_upgrades", 200_000), Map.entry("iron_qbot", 200_000), Map.entry("qbot_crafting", 200_000), Map.entry("qbot_remote", 200_000), Map.entry("qbot_tablet", 200_000), Map.entry("game_interfaces", 200_000), Map.entry("storage_group", 200_000), Map.entry("bus_filters", 200_000), Map.entry("item_data_filters", 200_000), Map.entry("dropper_plate", 200_000), Map.entry("entity_sensor", 200_000), Map.entry("qbot_attack", 200_000), Map.entry("collector", 200_000), Map.entry("block_sensor", 200_000), Map.entry("environment", 200_000), Map.entry("entity_inventories", 200_000), Map.entry("block_sensor_data", 200_000), Map.entry("remote_sensors", 200_000), Map.entry("agent_scratchpad", 200_000), Map.entry("agent_stop_start", 200_000), Map.entry("ssh_gateway", 200_000), Map.entry("uplink", 200_000), Map.entry("git_offline", 200_000), Map.entry("server_block", 200_000), Map.entry("server_services", 200_000), Map.entry("server_chunk_loading", 200_000), Map.entry("web_panel", 200_000), Map.entry("web_panel_limit", 200_000), Map.entry("panel_widgets", 200_000), Map.entry("web_storage", 200_000), Map.entry("qbot_camera", 200_000), Map.entry("helpme", 200_000), Map.entry("shell_scripts", 200_000), Map.entry("helpme_storage", 200_000), Map.entry("helpme_factory", 200_000), Map.entry("helpme_events", 1_000_000), Map.entry("helpme_storage_world", 200_000), Map.entry("read_markdown", 200_000), Map.entry("lessons", 200_000), Map.entry("lessons_world", 200_000), Map.entry("lessons_unattended", 200_000), Map.entry("lessons_clone", 200_000), Map.entry("error_hints", 200_000), Map.entry("device_names", 200_000), Map.entry("step_from_start", 200_000), Map.entry("stepping_ends", 200_000), Map.entry("qbot_equip", 200_000), Map.entry("review_fixes", 200_000), Map.entry("laptop_events", 200_000), Map.entry("qbot_hopper", 200_000), Map.entry("qbot_transport", 200_000), Map.entry("qbot_sense", 200_000), Map.entry("qbot_netherite", 200_000), Map.entry("ssh_editor", 200_000), Map.entry("cone_view", 200_000), Map.entry("start_here", 200_000), Map.entry("device_look", 200_000), Map.entry("dry_run", 200_000), Map.entry("step_values", 200_000), Map.entry("git_panel", 200_000), Map.entry("qbot_view", 200_000), Map.entry("computer_access", 200_000), Map.entry("mod_docs", 200_000), Map.entry("agent_tools", 200_000), Map.entry("server_model", 200_000), Map.entry("game_knowledge", 200_000), Map.entry("auto_crafting", 200_000), Map.entry("laptop_connect", 200_000), Map.entry("step_through", 200_000), Map.entry("step_through_laptop", 200_000), Map.entry("qbot_program_controls", 200_000), Map.entry("computer_interrupt_ignored", 200_000), Map.entry("computer_interrupt_sleep", 200_000), Map.entry("boots_with_network", 2_000), Map.entry("tunnel_pull", 2_000));
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.ofEntries(
             Map.entry("cable_recipes", QboticsGameTests::cableRecipes),
@@ -60,6 +60,7 @@ public final class QboticsGameTests {
             Map.entry("computer_interrupt", QboticsGameTests::computerInterrupt),
             Map.entry("universal_serial_bus", QboticsGameTests::universalSerialBus),
             Map.entry("bus_tunnels", QboticsGameTests::busTunnels),
+            Map.entry("tunnel_pull", QboticsGameTests::tunnelPull),
             Map.entry("laptop", QboticsGameTests::laptop),
             Map.entry("laptop_connect", QboticsGameTests::laptopConnect),
             Map.entry("step_through", QboticsGameTests::stepThrough),
@@ -1138,6 +1139,73 @@ public final class QboticsGameTests {
             helper.assertTrue(b.tunnel() == null && !a.tunnelLive() && !b.tunnelLive()
                     && qbotics.Qbotics.platform().itemPort(level, at, Direction.UP) == null,
                     "after closing, neither end should be in a tunnel or lit, and the face should offer nothing");
+        });
+    }
+
+    /**
+     * A tunnel with a direction of pull moves things by itself: the end that pulls empties its
+     * chest into the chest at the other end, with no hopper anywhere; an energy tunnel does the
+     * same for charge; and turning the pull round sends the items back.
+     */
+    private static void tunnelPull(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerComputer computer = startAt(helper, new BlockPos(0, 1, 0));
+        BlockPos cableA = new BlockPos(1, 1, 0);
+        BlockPos cableB = new BlockPos(2, 1, 0);
+        helper.setBlock(cableA, QboticsContent.CABLE_BLOCK.get());
+        helper.setBlock(cableB, QboticsContent.CABLE_BLOCK.get());
+        BlockPos at = helper.absolutePos(cableA);
+        BlockPos bt = helper.absolutePos(cableB);
+        // End a: under a chest of cobblestone. End b: at an empty chest.
+        helper.setBlock(new BlockPos(1, 2, 0), Blocks.CHEST);
+        helper.setBlock(new BlockPos(2, 1, 1), Blocks.CHEST);
+        CablePort a = CableBlock.attach(level, at, Kind.BUS, qbotics.network.Medium.ITEM, Direction.UP);
+        CablePort b = CableBlock.attach(level, bt, Kind.BUS, qbotics.network.Medium.ITEM, Direction.SOUTH);
+        a.setDeviceName("a");
+        b.setDeviceName("b");
+        // A USB at a charged energy store, and an Energy Serial Bus at an empty one.
+        helper.setBlock(new BlockPos(1, 1, 1), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(new BlockPos(2, 2, 0), QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        CableBlock.attach(level, at, Kind.BUS, qbotics.network.Medium.UNIVERSAL, Direction.SOUTH).setDeviceName("u");
+        CableBlock.attach(level, bt, Kind.BUS, qbotics.network.Medium.ENERGY, Direction.UP).setDeviceName("e");
+        net.minecraft.world.Container full = helper.getBlockEntity(new BlockPos(1, 2, 0), net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        net.minecraft.world.Container empty = helper.getBlockEntity(new BlockPos(2, 1, 1), net.minecraft.world.level.block.entity.ChestBlockEntity.class);
+        qbotics.block.EnergyInterfaceBlockEntity charged = helper.getBlockEntity(new BlockPos(1, 1, 1), qbotics.block.EnergyInterfaceBlockEntity.class);
+        qbotics.block.EnergyInterfaceBlockEntity flat = helper.getBlockEntity(new BlockPos(2, 2, 0), qbotics.block.EnergyInterfaceBlockEntity.class);
+        full.setItem(0, new ItemStack(Items.COBBLESTONE, 64));
+        full.setItem(1, new ItemStack(Items.COBBLESTONE, 36));
+        charged.insert(50_000, false);
+        for (String line : List.of(
+                "python",
+                "from logistics import network",
+                "net = network()",
+                "a, b = net.bus('a'), net.bus('b')",
+                "a.tunnel(b)",
+                "print('plain', a.tunnel_pull, b.tunnel_pull)",
+                "a.tunnel(b, pull=True)",
+                "print('pull', a.tunnel_pull, b.tunnel_pull)",
+                "net.usb('u').tunnel('e')",
+                "net.usb('u').tunnel_pull = True",
+                "print('energy', net.usb('u').tunnel_pull, net.energy_bus('e').tunnel_pull)",
+                "exec(\"try: net.bus('a').untunnel(); net.bus('a').tunnel_pull = True\\nexcept Exception as e: print('refused', 'not in a tunnel' in str(e))\")",
+                "a.tunnel(b, pull=True)")) {
+            computer.submitLine(line);
+        }
+        boolean[] turned = {false};
+        helper.succeedWhen(() -> {
+            assertScreen(helper, computer, "plain False False\n", "pull True False\n", "energy True False\n", "refused True\n");
+            if (!turned[0]) {
+                helper.assertTrue(empty.countItem(Items.COBBLESTONE) == 100 && full.isEmpty(),
+                        "the pulling end should empty its chest into the other; the other has " + empty.countItem(Items.COBBLESTONE));
+                helper.assertTrue(flat.stored() == 50_000 && charged.stored() == 0,
+                        "the energy tunnel should pull the charge across: " + charged.stored() + " left, " + flat.stored() + " arrived");
+                // Turned round: the other end pulls, this one stops, and the items come back.
+                qbotics.network.Tunnels.setPull(level, b, true);
+                helper.assertTrue(b.tunnelPull() && !a.tunnelPull(), "a tunnel pulls one way only");
+                turned[0] = true;
+            }
+            helper.assertTrue(full.countItem(Items.COBBLESTONE) == 100 && empty.isEmpty(),
+                    "turned round, the items should come back; the first chest has " + full.countItem(Items.COBBLESTONE));
         });
     }
 

@@ -63,6 +63,42 @@ final class TunnelHandlers {
         return offers(host, side, Medium.ENERGY) ? new Energy(host, side) : null;
     }
 
+    /**
+     * A tunnel end that pulls: moves up to max out of the block this bus points at and into the
+     * tunnel, exactly as a pipe taking from that block and pushing into the bus's face would. So
+     * the other end's filter, and the Transport rate between networks, hold as for anything else.
+     */
+    static int pull(ServerLevel level, CablePort end, Medium medium, int max) {
+        if (!(level.getBlockEntity(end.getBlockPos()) instanceof PortBlockEntity host) || host.port(end.pointing()) == null) {
+            return 0;
+        }
+        Direction side = end.pointing();
+        Direction face = end.accessFace().resolve(side);
+        switch (medium) {
+            case ITEM -> {
+                ResourceHandler<ItemResource> from = level.getCapability(Capabilities.Item.BLOCK, end.targetPos(), face);
+                ResourceHandler<ItemResource> into = items(host, side);
+                return from == null || into == null ? 0
+                        : net.neoforged.neoforge.transfer.ResourceHandlerUtil.move(from, into, resource -> true, max, null);
+            }
+            case FLUID -> {
+                ResourceHandler<FluidResource> from = level.getCapability(Capabilities.Fluid.BLOCK, end.targetPos(), face);
+                ResourceHandler<FluidResource> into = fluid(host, side);
+                return from == null || into == null ? 0
+                        : net.neoforged.neoforge.transfer.ResourceHandlerUtil.move(from, into, resource -> true, max, null);
+            }
+            case ENERGY -> {
+                EnergyHandler from = level.getCapability(Capabilities.Energy.BLOCK, end.targetPos(), face);
+                EnergyHandler into = energy(host, side);
+                return from == null || into == null ? 0
+                        : net.neoforged.neoforge.transfer.energy.EnergyHandlerUtil.move(from, into, max, null);
+            }
+            default -> {
+                return 0;
+            }
+        }
+    }
+
     /** The handler behind the other end now, with the antennas a transfer crosses; null if there is none. */
     private record Target<H>(H handler, Set<AntennaBlockEntity> links, ServerLevel level, CablePort port) {
     }

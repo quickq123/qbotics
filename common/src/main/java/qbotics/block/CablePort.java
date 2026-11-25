@@ -46,6 +46,8 @@ public final class CablePort implements NetworkDevice {
     qbotics.network.Tunnels.@Nullable Link tunnel;
     /** True while its tunnel's other end can be reached: what its light shows (green, not amber). */
     boolean tunnelLive;
+    /** True if this end pulls what its block holds through its tunnel, into the block at the other end. */
+    boolean tunnelPull;
     /** What an item bus lets into its container, or null for anything (see BusFilter). */
     qbotics.network.@Nullable BusFilter filter;
 
@@ -111,6 +113,20 @@ public final class CablePort implements NetworkDevice {
         return viewOf != null ? viewOf.tunnelLive : tunnelLive;
     }
 
+    /** True if this end of a tunnel pulls from the block it points at and sends that to the other end's. */
+    public boolean tunnelPull() {
+        return viewOf != null ? viewOf.tunnelPull : tunnelPull;
+    }
+
+    /** Sets whether this end pulls; see Tunnels.setPull, which keeps a tunnel to one direction. */
+    public void setTunnelPull(boolean pull) {
+        CablePort real = base();
+        if (real.tunnelPull != pull) {
+            real.tunnelPull = pull;
+            host.lightChanged();
+        }
+    }
+
     /** Sets what its light shows; players nearby are told when it changes. */
     public void setTunnelLive(boolean live) {
         CablePort real = base();
@@ -127,6 +143,7 @@ public final class CablePort implements NetworkDevice {
             return;
         }
         tunnel = link;
+        tunnelPull = false; // a new tunnel only passes things through, until it is told to pull
         if (link == null) {
             tunnelLive = false;
         } else {

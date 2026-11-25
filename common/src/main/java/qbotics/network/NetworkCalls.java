@@ -339,6 +339,19 @@ public final class NetworkCalls {
                 if (problem != null) {
                     throw new CallError("Can't open a tunnel: " + problem);
                 }
+                if (args.size() > 3 && args.get(3).getAsBoolean()) {
+                    Tunnels.setPull(endLevel, end, true);
+                }
+                return describe(endLevel, network, end);
+            }
+            case "tunnel_pull": {
+                // ["tunnel_pull", mac, on]: this end of a tunnel pulls from its block (or stops pulling).
+                CablePort end = port(byMac(network, args, 1)).base();
+                ServerLevel endLevel = levelOf(end, level);
+                if (end.tunnel() == null) {
+                    throw new CallError("This bus is not in a tunnel: open one first, with bus.tunnel(other).");
+                }
+                Tunnels.setPull(endLevel, end, args.get(2).getAsBoolean());
                 return describe(endLevel, network, end);
             }
             case "rename": {
@@ -2458,6 +2471,7 @@ public final class NetworkCalls {
                 // The other end of its tunnel, by the address a program here uses; "" if it can't be reached now.
                 String to = Tunnels.addressFrom(levelOf(port, level), network, port);
                 info.addProperty("tunnel", to == null ? "" : to);
+                info.addProperty("tunnel_pull", port.tunnelPull());
             }
             info.addProperty("face", port.accessFace().word());
             if (port.kind() == Kind.DROPPER) {

@@ -19,8 +19,12 @@ import qbotics.upgrade.UpgradeItem;
 /**
  * Tunnels between two Serial Buses (design doc §11.0.6). Each end of a tunnel offers, on its
  * face, the container the <em>other</em> end points at: a hopper or pipe pushing into one end
- * fills what is behind the other, and one pulling from an end empties it. No program runs and
- * nothing ticks; other mods' blocks reach through as they would reach into any container.
+ * fills what is behind the other, and one pulling from an end empties it. No program runs;
+ * other mods' blocks reach through as they would reach into any container.
+ *
+ * <p>A tunnel can also be given a direction of pull ({@link #setPull}): the end that pulls takes
+ * what the block it points at holds and sends it through, into the block at the other end, a
+ * little at a time, as a pipe would. Then nothing else has to push or pull.
  *
  * <p>Both ends must be on the same cable network, or on networks whose antennas both hold a
  * Transport Upgrade and can reach each other by radio; then the Transport rate caps apply.
@@ -206,6 +210,48 @@ public final class Tunnels {
         }
     }
 
+    /** How often a pulling end moves items and fluid, in ticks; energy moves every tick. */
+    public static final int PULL_TICKS = 10;
+    /** The most a pulling end moves at a time: items and millibuckets every PULL_TICKS, FE every tick. */
+    public static final int PULL_ITEMS = 64;
+    public static final int PULL_FLUID = 1000;
+    public static final int PULL_ENERGY = 10_000;
+
+    /**
+     * Gives a tunnel its direction of pull, or takes it away. An end that pulls takes from the
+     * block it points at and sends that to the other end's block. A tunnel pulls one way only:
+     * switching one end on switches the other off (if it can be reached now; if not, it is
+     * switched off when this is next set with it in reach).
+     */
+    public static void setPull(ServerLevel level, CablePort end, boolean pull) {
+        end = end.base();
+        if (end.tunnel() == null) {
+            return;
+        }
+        end.setTunnelPull(pull);
+        CablePort other = pull ? partner(level, end) : null;
+        if (other != null) {
+            other.setTunnelPull(false);
+        }
+    }
+
+    /** One turn of a pulling end: what its block holds, of each medium the tunnel carries, goes through. */
+    private static void pull(ServerLevel level, CablePort end, boolean itemsAndFluid) {
+        if (!level.isLoaded(end.targetPos())) {
+            return;
+        }
+        Medium medium = end.medium();
+        if (medium == Medium.ENERGY || medium == Medium.UNIVERSAL) {
+            Qbotics.platform().pullThroughTunnel(level, end, Medium.ENERGY, PULL_ENERGY);
+        }
+        if (itemsAndFluid && (medium == Medium.ITEM || medium == Medium.UNIVERSAL)) {
+            Qbotics.platform().pullThroughTunnel(level, end, Medium.ITEM, PULL_ITEMS);
+        }
+        if (itemsAndFluid && (medium == Medium.FLUID || medium == Medium.UNIVERSAL)) {
+            Qbotics.platform().pullThroughTunnel(level, end, Medium.FLUID, PULL_FLUID);
+        }
+    }
+
     /** A short way to name a bus to a player: its name, or its kind and internal address. */
     public static String label(ServerLevel level, CablePort port) {
         CableNetwork.at(level, port.getBlockPos()); // gives it an address if it had none
@@ -233,11 +279,13 @@ public final class Tunnels {
         }
     }
 
-    /** Once a second: each watched end's light, green if its other end can be reached now and amber if not. */
+    /**
+     * Every tick: ends that pull move a little through their tunnels. Once a second: each
+     * watched end's light, green if its other end can be reached now and amber if not.
+     */
     public static void tick(net.minecraft.server.MinecraftServer server) {
-        if (server.getTickCount() % LIGHT_TICKS != 0) {
-            return;
-        }
+        boolean lights = server.getTickCount() % LIGHT_TICKS == 0;
+        boolean itemsAndFluid = server.getTickCount() % PULL_TICKS == 0;
         List<CablePort> ends;
         synchronized (WATCHED) {
             ends = new java.util.ArrayList<>(WATCHED);
@@ -249,7 +297,12 @@ public final class Tunnels {
                 }
                 continue;
             }
-            end.setTunnelLive(far(level, end) != null);
+            if (lights) {
+                end.setTunnelLive(far(level, end) != null);
+            }
+            if (end.tunnelPull() && end.tunnelLive()) {
+                pull(level, end, itemsAndFluid);
+            }
         }
     }
 
