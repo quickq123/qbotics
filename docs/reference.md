@@ -1001,6 +1001,12 @@ it is done (charged full, or drained empty), so a hopper underneath collects fin
 batteries. They never put in something that holds no energy, and they take out anything like
 that a player left in a slot.
 
+**A placed battery.** Other mods' cables charge it (and can draw from it) on any face. A
+machine from another mod that touches one of its faces is powered straight from it, with no
+cable or program: every tick it gives each touching machine as much as the machine takes, up
+to 50,000 FE a face. It doesn't push into Qbotics' own blocks (another Energy Interface, a
+Qbot, a bus): those get energy when a program moves it.
+
 | Call | On | Gives |
 |---|---|---|
 | `cell.stored`, `cell.capacity` | Energy Interface | Energy held now; the most it can hold |

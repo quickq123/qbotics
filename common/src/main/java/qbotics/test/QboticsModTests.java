@@ -31,12 +31,39 @@ public final class QboticsModTests {
     private QboticsModTests() {
     }
 
-    public static final Map<String, Integer> TICK_LIMITS = Map.of("modded_crops", 2400, "modded_creature", 2400, "battery_hoppers", 2400);
+    public static final Map<String, Integer> TICK_LIMITS = Map.of("modded_crops", 2400, "modded_creature", 2400, "battery_hoppers", 2400,
+            "powers_machines", 200);
 
     public static final Map<String, Consumer<GameTestHelper>> ALL = Map.of(
             "modded_crops", QboticsModTests::moddedCrops,
             "modded_creature", QboticsModTests::moddedCreature,
-            "battery_hoppers", QboticsModTests::batteryHoppers);
+            "battery_hoppers", QboticsModTests::batteryHoppers,
+            "powers_machines", QboticsModTests::powersMachines);
+
+    /**
+     * An Energy Interface is a placed battery: Energized Power's crusher touching one of its
+     * faces is charged from it with no cable or program, and an Energy Interface touching
+     * another is left alone.
+     */
+    private static void powersMachines(GameTestHelper helper) {
+        BlockPos storePos = new BlockPos(1, 1, 1);
+        BlockPos machinePos = new BlockPos(2, 1, 1);
+        BlockPos otherPos = new BlockPos(0, 1, 1);
+        helper.setBlock(storePos, QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(otherPos, QboticsContent.ENERGY_INTERFACE_BLOCK.get());
+        helper.setBlock(machinePos, block(helper, "energizedpower:crusher"));
+        qbotics.block.EnergyInterfaceBlockEntity store = helper.getBlockEntity(storePos, qbotics.block.EnergyInterfaceBlockEntity.class);
+        qbotics.block.EnergyInterfaceBlockEntity other = helper.getBlockEntity(otherPos, qbotics.block.EnergyInterfaceBlockEntity.class);
+        store.insert(100_000, false);
+        helper.succeedWhen(() -> {
+            qbotics.network.EnergyPort machine = qbotics.Qbotics.platform().energyPort(helper.getLevel(), helper.absolutePos(machinePos),
+                    net.minecraft.core.Direction.UP);
+            helper.assertTrue(machine != null, "the crusher should take energy");
+            helper.assertTrue(machine.stored() > 0 && store.stored() + machine.stored() == 100_000 && other.stored() == 0,
+                    "the crusher should be charged from the store, and the other store left alone: store " + store.stored()
+                            + ", crusher " + machine.stored() + ", other store " + other.stored());
+        });
+    }
 
     private static Block block(GameTestHelper helper, String id) {
         Block found = BuiltInRegistries.BLOCK.getValue(Identifier.parse(id));

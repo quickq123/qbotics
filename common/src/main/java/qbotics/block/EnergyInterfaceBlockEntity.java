@@ -11,7 +11,7 @@ import qbotics.network.Medium;
 /**
  * The Energy Interface: the network's energy store (design doc §11.0). It holds two million
  * units of the energy mods share (FE, also called RF). Other mods' cables can charge and
- * drain it.
+ * drain it, and it powers any machine touching one of its faces, as a placed battery does.
  *
  * <p>On its screen ({@link EnergyInterfaceMenu}) it has two battery slots: one charges
  * whatever energy-holding item is put in it from the store, the other drains one into the
@@ -106,6 +106,36 @@ public class EnergyInterfaceBlockEntity extends DeviceBlockEntity implements Ene
         }
         if (!batteries.getItem(DRAIN_SLOT).isEmpty() && energy < CAPACITY) {
             qbotics.Qbotics.platform().exchangeEnergy(batteries, DRAIN_SLOT, this, false, PER_TICK);
+        }
+        powerNeighbours();
+    }
+
+    /**
+     * A placed battery: every tick it gives what it holds to each machine touching one of
+     * its faces, as much as the machine takes (up to {@link #PER_TICK} a face). Qbotics' own
+     * blocks are left alone: other Energy Interfaces (two would only pass charge back and
+     * forth), Qbots and tunnelled buses get energy when a program or a cable moves it.
+     */
+    private void powerNeighbours() {
+        if (energy <= 0 || !(level instanceof net.minecraft.server.level.ServerLevel server)) {
+            return;
+        }
+        for (net.minecraft.core.Direction side : net.minecraft.core.Direction.values()) {
+            BlockPos there = worldPosition.relative(side);
+            if (!server.isLoaded(there)) {
+                continue;
+            }
+            net.minecraft.world.level.block.entity.BlockEntity neighbour = server.getBlockEntity(there);
+            if (neighbour == null || neighbour.getClass().getPackageName().startsWith("qbotics")) {
+                continue;
+            }
+            EnergyPort machine = qbotics.Qbotics.platform().energyPort(server, there, side.getOpposite());
+            if (machine != null) {
+                EnergyPort.move(this, machine, PER_TICK);
+                if (energy <= 0) {
+                    return;
+                }
+            }
         }
     }
 
