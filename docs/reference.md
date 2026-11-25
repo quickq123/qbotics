@@ -608,6 +608,11 @@ C C C
 
 A USB is the three together, in any order: an Item, a Fluid and an Energy Serial Bus.
 
+**Changing a bus's kind.** A bus of one kind and the part of another, anywhere in the grid,
+make a bus of that other kind: any bus with a **dropper** gives an Item Serial Bus, with a
+**bucket** a Fluid Serial Bus, with a **block of redstone** an Energy Serial Bus. The part is
+used up, and the new bus has no name. A USB can't be changed back.
+
 **Placing.** Right-click the block it should work on, with the plate in hand: it goes on the
 cable in front of that face (a cable is taken from your inventory if there is none). Sneak and
 right-click it with an empty hand to take it off.

@@ -1038,6 +1038,21 @@ public final class QboticsGameTests {
                 && energyStore.is(QboticsContent.ENERGY_INTERFACE_BLOCK.get().asItem())
                 && usb.getHoverName().getString().equals("Universal Serial Bus (USB)") && bus.getHoverName().getString().equals("Item Serial Bus"),
                 "recipes gave " + bus + ", " + fluidBusItem + ", " + energyBusItem + ", " + usb + ", " + energyStore);
+        // A bus of one kind and another kind's part make a bus of that kind: all six ways.
+        List<ItemStack> buses = List.of(bus, fluidBusItem, energyBusItem);
+        List<ItemStack> parts = List.of(new ItemStack(Blocks.DROPPER), new ItemStack(Items.BUCKET), new ItemStack(Blocks.REDSTONE_BLOCK));
+        for (int from = 0; from < 3; from++) {
+            for (int to = 0; to < 3; to++) {
+                ItemStack made = craft(helper, buses.get(from).copyWithCount(1), parts.get(to), none, none, none, none, none, none, none);
+                if (from == to) {
+                    helper.assertTrue(made.isEmpty(), "a bus with its own part makes nothing, gave " + made);
+                } else {
+                    helper.assertTrue(made.getCount() == 1 && made.is(buses.get(to).getItem()),
+                            buses.get(from) + " with " + parts.get(to) + " should make " + buses.get(to) + ", gave " + made);
+                }
+            }
+        }
+        helper.assertTrue(craft(helper, usb, parts.get(1), none, none, none, none, none, none, none).isEmpty(), "a USB doesn't change kind");
 
         // And from Python.
         for (String line : List.of(

@@ -1753,6 +1753,11 @@ for prefix, right in (("", "minecraft:dropper"), ("fluid_", "minecraft:bucket"),
     write_json("data/qbotics/recipe/%sbus.json" % prefix, shaped(
         ["CCC", "HCR", "CCC"], {"C": "qbotics:cable", "H": "minecraft:hopper", "R": right}, "qbotics:%sbus" % prefix))
 write_json("data/qbotics/recipe/usb.json", shapeless(["qbotics:bus", "qbotics:fluid_bus", "qbotics:energy_bus"], "qbotics:usb"))
+# A bus of one kind becomes another with that kind's part: either of the other two buses, and
+# a dropper, a bucket or a block of redstone.
+for prefix, right in (("", "minecraft:dropper"), ("fluid_", "minecraft:bucket"), ("energy_", "minecraft:redstone_block")):
+    others = ["qbotics:%sbus" % other for other in ("", "fluid_", "energy_") if other != prefix]
+    write_json("data/qbotics/recipe/%sbus_converted.json" % prefix, shapeless([others, right], "qbotics:%sbus" % prefix))
 # The world plates, the same way: an observer for the pin that watches, a dispenser for the
 # placer, and for the breaker a diamond pickaxe, to match what it can break.
 for name, heart in (("pin", "minecraft:observer"), ("placer", "minecraft:dispenser"), ("breaker", "minecraft:diamond_pickaxe"),
